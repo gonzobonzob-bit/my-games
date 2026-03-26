@@ -1,0 +1,25 @@
+{
+  "name": "Paws & Contempt",
+  "short_name": "Paws & Contempt",
+  "description": "A fantasy cat café management game",
+  "start_url": "./cat-cafe-v4b.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0a0618",
+  "theme_color": "#0a0618",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"]
+}
