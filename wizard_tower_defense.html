@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Wizard's Last Stand</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0608;font-family:'Crimson Pro',serif;color:#e8d8b0;user-select:none;touch-action:none}
+canvas{display:block}
+#loading{position:fixed;inset:0;background:radial-gradient(ellipse at center,#120a18,#050308);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999}
+#loading h1{font-family:'Cinzel',serif;font-size:clamp(1.5rem,6vw,3rem);color:#c8a84a;letter-spacing:.2em;text-shadow:0 0 30px rgba(200,168,74,.4);animation:pulse 2s infinite;text-align:center}
+#loading p{color:#806860;letter-spacing:.3em;margin-top:1rem;font-size:.85rem}
+#lbar{width:240px;height:3px;background:#2a1a10;margin-top:1.5rem;border-radius:2px;overflow:hidden}
+#lfill{height:100%;background:linear-gradient(90deg,#c8a84a,#ffd700);width:0%;border-radius:2px;transition:width .1s}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+#menu{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(100,30,150,.12),transparent 60%),#050308;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:100}
+#menu h1{font-family:'Cinzel',serif;font-size:clamp(1.6rem,5vw,3rem);color:#c8a84a;letter-spacing:.15em;text-align:center}
+#menu p{color:#806860;letter-spacing:.2em;font-size:.85rem;margin-bottom:16px;text-align:center}
+.mbtn{padding:12px 32px;border:1px solid rgba(200,168,74,.35);background:rgba(200,168,74,.07);color:#c8a84a;font-family:'Cinzel',serif;font-size:.85rem;letter-spacing:.12em;cursor:pointer;border-radius:3px;transition:all .2s;pointer-events:all}
+.mbtn:hover,.mbtn.primary{background:#c8a84a;color:#0a0608}
+.mbtn:active{transform:scale(.97)}
+#ui{position:fixed;inset:0;pointer-events:none}
+#topbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:7px 12px;background:linear-gradient(180deg,rgba(5,3,8,.92) 0%,transparent 100%);height:44px}
+.hs{font-size:.85rem;color:#c8a84a;display:flex;align-items:center;gap:4px}
+.hs label{color:#605040;font-size:.72rem;letter-spacing:.1em}
+#wave-label{font-family:'Cinzel',serif;font-size:.8rem;color:#a08870;flex:1;text-align:center}
+#pause-btn{padding:3px 9px;border:1px solid rgba(200,168,74,.25);background:rgba(200,168,74,.06);color:#806060;font-size:.72rem;cursor:pointer;border-radius:3px;font-family:'Cinzel',serif;pointer-events:all}
+#side-panel{position:absolute;right:0;top:44px;bottom:50px;width:120px;background:rgba(5,3,8,.88);border-left:1px solid rgba(200,168,74,.1);display:flex;flex-direction:column;pointer-events:all;overflow-y:auto}
+.tower-btn{display:flex;flex-direction:column;align-items:center;padding:7px 3px;border-bottom:1px solid rgba(200,168,74,.06);cursor:pointer;transition:all .2s}
+.tower-btn:hover,.tower-btn.selected{background:rgba(200,168,74,.1)}
+.tb-icon{font-size:1.3rem;margin-bottom:2px}
+.tb-name{font-size:.6rem;color:#9a8870;letter-spacing:.05em;text-align:center}
+.tb-cost{font-family:'Cinzel',serif;font-size:.65rem;color:#c8a84a;margin-top:1px}
+.tb-cost.cant{color:#a04040}
+#info-box{position:absolute;bottom:0;left:0;right:120px;background:rgba(5,3,8,.82);border-top:1px solid rgba(200,168,74,.1);padding:5px 10px;display:flex;align-items:center;gap:14px;height:50px}
+.ib-stat{font-size:.78rem;color:#806050}
+.ib-stat span{color:#e8d0a0}
+#wave-btn{padding:5px 12px;border:1px solid rgba(200,168,74,.4);background:rgba(200,168,74,.1);color:#c8a84a;font-family:'Cinzel',serif;font-size:.78rem;cursor:pointer;border-radius:3px;pointer-events:all;transition:all .2s;margin-left:auto}
+#wave-btn:hover{background:#c8a84a;color:#0a0608}
+#gameover{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:14px}
+#gameover h2{font-family:'Cinzel',serif;font-size:clamp(1.8rem,5vw,3rem);letter-spacing:.2em}
+#gameover p{color:#806060;letter-spacing:.1em}
+#gameover button{padding:12px 26px;border:1px solid #c8a84a;background:rgba(200,168,74,.1);color:#c8a84a;font-family:'Cinzel',serif;font-size:.85rem;cursor:pointer;border-radius:3px;pointer-events:all;transition:all .2s}
+#gameover button:hover{background:#c8a84a;color:#000}
+.go-win{color:#c8a84a}.go-lose{color:#c03030}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading"><h1>WIZARD'S<br>LAST STAND</h1><p>PREPARING THE BATTLEFIELD...</p><div id="lbar"><div id="lfill"></div></div></div>
+<div id="menu" style="display:none"><h1>WIZARD'S<br>LAST STAND</h1><p>DEFEND THE CRYSTAL SPIRE</p><button class="mbtn primary" onclick="startGame()">▶ BEGIN DEFENSE</button><button class="mbtn" style="margin-top:4px" onclick="startGame()">ENDLESS MODE</button></div>
+<div id="ui">
+  <div id="topbar" style="display:none">
+    <div class="hs"><label>GOLD</label><span id="h-gold">200</span></div>
+    <div class="hs"><label>SCORE</label><span id="h-score">0</span></div>
+    <div id="wave-label">Wave 0</div>
+    <div class="hs"><label>♥</label><span id="h-lives">20</span></div>
+    <button id="pause-btn" onclick="togglePause()">❚❚</button>
+  </div>
+  <div id="side-panel" style="display:none"></div>
+  <div id="info-box" style="display:none">
+    <div class="ib-stat">Wave: <span id="ib-wave">0/12</span></div>
+    <div class="ib-stat">Kills: <span id="ib-kills">0</span></div>
+    <button id="wave-btn" onclick="nextWave()">▶ Send Wave</button>
+  </div>
+  <div id="gameover"><h2 id="go-title">VICTORY</h2><p id="go-stats"></p><button onclick="location.reload()">PLAY AGAIN</button></div>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,CELL;
+const COLS=14,ROWS=10;
+function resize(){
+  const pw=window.innerWidth-120,ph=window.innerHeight-44-50;
+  CELL=Math.floor(Math.min(pw/COLS,ph/ROWS));
+  W=canvas.width=COLS*CELL;H=canvas.height=ROWS*CELL+94;
+  canvas.style.top='44px';canvas.style.position='absolute';
+}
+window.addEventListener('resize',resize);resize();
+
+const TOWERS=[
+  {id:'arrow',name:'Archer',icon:'🏹',cost:60,dmg:22,range:3,rate:1.0,col:'#a0c040',splash:0,slow:0},
+  {id:'mage', name:'Mage',  icon:'🔮',cost:100,dmg:55,range:2.5,rate:1.8,col:'#9040e0',splash:.5,slow:0},
+  {id:'ice',  name:'Frost', icon:'❄️',cost:80,dmg:18,range:2.5,rate:1.2,col:'#40c0e0',splash:0,slow:.5},
+  {id:'fire', name:'Flame', icon:'🔥',cost:120,dmg:75,range:2,rate:2.0,col:'#e04020',splash:.8,slow:0},
+  {id:'gold', name:'Mint',  icon:'💰',cost:150,dmg:0,range:0,rate:5,col:'#c8a84a',splash:0,slow:0},
+  {id:'bolt', name:'Tesla', icon:'⚡',cost:180,dmg:110,range:3.5,rate:2.5,col:'#f0e030',splash:0,slow:0},
+  {id:'stone',name:'Golem', icon:'🪨',cost:200,dmg:140,range:1.5,rate:2.5,col:'#808060',splash:0,slow:0},
+  {id:'holy', name:'Light', icon:'✨',cost:250,dmg:180,range:3,rate:3.0,col:'#f8f0c0',splash:.8,slow:0},
+  {id:'void', name:'Abyss', icon:'🌑',cost:350,dmg:280,range:3.5,rate:3.5,col:'#5020a0',splash:1.2,slow:.3},
+  {id:'dragon',name:'Dragon',icon:'🐉',cost:500,dmg:380,range:4,rate:4.0,col:'#e06020',splash:1.5,slow:0},
+];
+
+const ENEMIES=[
+  {id:'goblin',icon:'👺',hp:60,spd:90,reward:8,armor:0},
+  {id:'orc',   icon:'👹',hp:150,spd:60,reward:15,armor:5},
+  {id:'wolf',  icon:'🐺',hp:80,spd:140,reward:12,armor:0},
+  {id:'troll', icon:'🧟',hp:300,spd:45,reward:25,armor:10},
+  {id:'knight',icon:'🛡️',hp:250,spd:65,reward:22,armor:20},
+  {id:'drake', icon:'🐲',hp:500,spd:50,reward:40,armor:15},
+  {id:'ghost', icon:'👻',hp:120,spd:110,reward:18,armor:0},
+  {id:'demon', icon:'😈',hp:800,spd:55,reward:60,armor:25},
+  {id:'ogre',  icon:'💪',hp:1200,spd:40,reward:80,armor:30},
+  {id:'lich',  icon:'💀',hp:400,spd:75,reward:50,armor:0},
+  {id:'vampire',icon:'🧛',hp:600,spd:85,reward:55,armor:10},
+  {id:'titan', icon:'👾',hp:2000,spd:35,reward:150,armor:40},
+  {id:'boss1', icon:'🐉',hp:3000,spd:40,reward:200,armor:35,boss:true},
+  {id:'boss2', icon:'🧟',hp:4000,spd:45,reward:250,armor:40,boss:true},
+  {id:'boss3', icon:'👿',hp:6000,spd:50,reward:350,armor:45,boss:true},
+];
+
+const WAVE_DEFS=[
+  [{type:'goblin',count:8,iv:.6}],
+  [{type:'goblin',count:10,iv:.5},{type:'orc',count:3,iv:1.2}],
+  [{type:'orc',count:8,iv:.8},{type:'wolf',count:5,iv:.5}],
+  [{type:'troll',count:5,iv:1},{type:'goblin',count:12,iv:.4}],
+  [{type:'boss1',count:1,iv:5},{type:'orc',count:10,iv:.7}],
+  [{type:'knight',count:6,iv:.9},{type:'drake',count:4,iv:1.2}],
+  [{type:'ghost',count:12,iv:.5},{type:'demon',count:3,iv:1.5}],
+  [{type:'ogre',count:4,iv:1.5},{type:'lich',count:5,iv:1}],
+  [{type:'boss2',count:1,iv:5},{type:'vampire',count:8,iv:.7}],
+  [{type:'titan',count:3,iv:2},{type:'demon',count:6,iv:.9}],
+  [{type:'demon',count:5,iv:1},{type:'titan',count:4,iv:1.5}],
+  [{type:'boss3',count:1,iv:5},{type:'titan',count:5,iv:1}],
+];
+
+let G={gold:200,score:0,lives:20,wave:0,kills:0,paused:false,running:false,waveActive:false};
+let towers=[],enemies=[],projectiles=[],particles=[],floatTexts=[];
+let path=[],grid=[];
+let placingType=null;
+let lastTime=0,t2=0;
+let waveQ=[],waveTimer=0;
+
+function buildPath(){
+  path=[];
+  const wps=[{r:3,c:0},{r:3,c:3},{r:7,c:3},{r:7,c:6},{r:2,c:6},{r:2,c:10},{r:6,c:10},{r:6,c:13}];
+  for(let i=0;i<wps.length-1;i++){
+    const a=wps[i],b=wps[i+1];
+    if(a.r===b.r){const s=b.c>a.c?1:-1;for(let c=a.c;c!==b.c;c+=s)path.push({r:a.r,c});}
+    else{const s=b.r>a.r?1:-1;for(let r=a.r;r!==b.r;r+=s)path.push({r,c:a.c});}
+  }
+  path.push(wps[wps.length-1]);
+}
+
+function initGrid(){grid=[];for(let r=0;r<ROWS;r++){grid[r]=[];for(let c=0;c<COLS;c++)grid[r][c]=0;}buildPath();}
+function cellXY(r,c){return{x:c*CELL+CELL/2,y:r*CELL+CELL/2};}
+function isPath(r,c){return path.some(p=>p.r===r&&p.c===c);}
+function isOccupied(r,c){return r<0||r>=ROWS||c<0||c>=COLS||isPath(r,c)||towers.some(t=>t.r===r&&t.c===c);}
+
+function dist(a,b){const dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
+
+function drawScene(){
+  ctx.clearRect(0,0,W,H);
+  // Background
+  ctx.fillStyle='#0f1208';ctx.fillRect(0,0,W,H);
+  // Grid cells
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const ip=isPath(r,c);
+    ctx.fillStyle=ip?'#3a2510':'#141a0a';
+    ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+    if(!ip){ctx.strokeStyle='rgba(200,168,74,.04)';ctx.lineWidth=.5;ctx.strokeRect(c*CELL,r*CELL,CELL,CELL);}
+  }
+  // Path detail
+  path.forEach(p=>{
+    const x=p.c*CELL,y=p.r*CELL;
+    ctx.fillStyle='rgba(200,100,20,.06)';ctx.fillRect(x+2,y+2,CELL-4,CELL-4);
+  });
+  // Start/end
+  const s=cellXY(path[0].r,path[0].c),e=cellXY(path[path.length-1].r,path[path.length-1].c);
+  ctx.font=CELL*.55+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('🚪',s.x,s.y);ctx.fillText('🏰',e.x,e.y);
+
+  // Towers
+  towers.forEach(tw=>{
+    const {x,y}=cellXY(tw.r,tw.c);
+    const def=TOWERS.find(t=>t.id===tw.type);
+    ctx.fillStyle='rgba(20,12,6,.7)';ctx.beginPath();ctx.arc(x,y,CELL*.42,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=def.col+'88';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,CELL*.4,0,Math.PI*2);ctx.stroke();
+    ctx.font=CELL*.45+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(def.icon,x,y);
+    for(let i=0;i<tw.level;i++){ctx.fillStyle=def.col;ctx.beginPath();ctx.arc(x-4+i*5,y+CELL*.36,2.5,0,Math.PI*2);ctx.fill();}
+  });
+
+  // Enemies
+  enemies.forEach(e=>{
+    if(e.dead)return;
+    const def=ENEMIES.find(d=>d.id===e.type);
+    const sz=e.boss?CELL*.6:CELL*.4;
+    ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(e.x,e.y+sz*.5,sz*.5,sz*.2,0,0,Math.PI*2);ctx.fill();
+    if(e.slowTimer>0){ctx.fillStyle='rgba(60,200,240,.15)';ctx.beginPath();ctx.arc(e.x,e.y,sz,0,Math.PI*2);ctx.fill();}
+    ctx.font=sz*1.6+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(def.icon,e.x,e.y);
+    const bw=sz*2.4;
+    ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(e.x-bw/2,e.y-sz-10,bw,4);
+    ctx.fillStyle=e.boss?'#ff8000':'#40c040';ctx.fillRect(e.x-bw/2,e.y-sz-10,bw*(e.hp/e.maxHp),4);
+  });
+
+  // Projectiles
+  projectiles.forEach(p=>{
+    ctx.fillStyle=p.col;ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(p.x,p.y,p.r||3,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=.2;ctx.beginPath();ctx.arc(p.x,p.y,(p.r||3)+5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  });
+
+  // Particles
+  particles.forEach(p=>{ctx.fillStyle=p.col;ctx.globalAlpha=p.life;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;});
+
+  // Float texts
+  floatTexts.forEach(ft=>{ctx.globalAlpha=ft.life;ctx.fillStyle=ft.col||'#ffd700';ctx.font=`bold ${ft.sz||12}px Cinzel,serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ft.text,ft.x,ft.y);ctx.globalAlpha=1;});
+}
+
+function spawnP(x,y,col,n=6){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*110,vy:(Math.random()-.5)*110,col,r:2+Math.random()*3,life:1});}
+function floatT(text,x,y,col='#ffd700',sz=12){floatTexts.push({text,x,y,col,sz,life:1,vy:-24});}
+
+function update(dt){
+  t2+=dt;
+  // Wave queue
+  if(waveQ.length>0){waveTimer-=dt;if(waveTimer<=0){
+    const sp=waveQ.shift();
+    const sc=cellXY(path[0].r,path[0].c);
+    const def=ENEMIES.find(d=>d.id===sp.type);
+    const hp=def.hp*(1+G.wave*.08);
+    enemies.push({type:sp.type,x:sc.x,y:sc.y,hp,maxHp:hp,spd:def.spd*(1+G.wave*.03),armor:def.armor,reward:def.reward,pathIdx:0,boss:def.boss||false,dead:false,slowTimer:0});
+    waveTimer=waveQ[0]?.iv||1;
+  }}
+  if(waveQ.length===0&&enemies.every(e=>e.dead)){if(G.waveActive){G.waveActive=false;G.gold+=50;floatT('+50 Gold!',W/2,H/2,'#ffd700',16);updateHUD();}}
+
+  // Move enemies
+  enemies.forEach(e=>{
+    if(e.dead)return;
+    if(e.pathIdx>=path.length){G.lives=Math.max(0,G.lives-1);e.dead=true;updateHUD();if(G.lives<=0)endGame(false);return;}
+    const tgt=cellXY(path[e.pathIdx].r,path[e.pathIdx].c);
+    const dx=tgt.x-e.x,dy=tgt.y-e.y,d=Math.sqrt(dx*dx+dy*dy);
+    const spd=e.slowTimer>0?e.spd*.5:e.spd;
+    if(d<3){e.pathIdx++;return;}
+    e.x+=dx/d*spd*dt;e.y+=dy/d*spd*dt;
+    if(e.slowTimer>0)e.slowTimer-=dt;
+  });
+
+  // Tower attack
+  towers.forEach(tw=>{
+    tw.atkTimer-=dt;if(tw.atkTimer>0)return;
+    const def=TOWERS.find(t=>t.id===tw.type);
+    if(def.id==='gold'){tw.atkTimer=1/def.rate;G.gold+=5*(1+tw.level*.5);floatT('+5💰',cellXY(tw.r,tw.c).x,cellXY(tw.r,tw.c).y-20,'#ffd700',11);updateHUD();return;}
+    const range=def.range*CELL;
+    const {x,y}=cellXY(tw.r,tw.c);
+    let best=null,bd=range;
+    enemies.filter(e=>!e.dead).forEach(e=>{const d=dist({x,y},e);if(d<bd){bd=d;best=e;}});
+    if(!best)return;
+    tw.atkTimer=1/def.rate;
+    const dmg=def.dmg*(1+tw.level*.4);
+    if(def.id==='bolt'){
+      const others=enemies.filter(e=>!e.dead&&e!==best&&dist(best,e)<110).slice(0,2);
+      [best,...others].forEach((e,i)=>projectiles.push({x,y,tx:e,spd:650,dmg:dmg*(i===0?1:.5),splash:0,slow:0,col:def.col,r:4}));
+    } else {
+      projectiles.push({x,y,tx:best,spd:420+tw.level*50,dmg,splash:def.splash*CELL,slow:def.slow,col:def.col,r:3+(def.splash>.5?2:0)});
+    }
+  });
+
+  // Move projectiles
+  projectiles=projectiles.filter(p=>{
+    const dx=p.tx.x-p.x,dy=p.tx.y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<10){
+      const hits=p.splash>0?enemies.filter(e=>!e.dead&&dist(p.tx,e)<=p.splash):[p.tx];
+      hits.forEach(e=>{
+        const eff=Math.max(1,p.dmg-e.armor);e.hp-=eff;spawnP(e.x,e.y,p.col,3);
+        if(p.slow>0)e.slowTimer=2;
+        if(e.hp<=0&&!e.dead){e.dead=true;G.gold+=e.reward;G.score+=e.reward*10;G.kills++;floatT(`+${e.reward}`,e.x,e.y-20,'#ffd700');spawnP(e.x,e.y,'#ffd700',8);updateHUD();}
+      });
+      return false;
+    }
+    p.x+=dx/d*p.spd*dt;p.y+=dy/d*p.spd*dt;return true;
+  });
+
+  particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt*1.8;p.vx*=.9;p.vy*=.9;});
+  particles=particles.filter(p=>p.life>0);
+  floatTexts.forEach(ft=>{ft.y+=ft.vy*dt;ft.life-=dt*1.2;});
+  floatTexts=floatTexts.filter(ft=>ft.life>0);
+  enemies=enemies.filter(e=>!e.dead||e.pathIdx<path.length);
+}
+
+function loop(ts){
+  const dt=Math.min((ts-lastTime)/1000,.05);lastTime=ts;
+  if(!G.paused&&G.running)update(dt);
+  drawScene();
+  requestAnimationFrame(loop);
+}
+
+function nextWave(){
+  if(G.waveActive)return;
+  if(G.wave>=12){endGame(true);return;}
+  G.wave++;G.waveActive=true;
+  document.getElementById('ib-wave').textContent=`${G.wave}/12`;
+  document.getElementById('wave-label').textContent=`Wave ${G.wave} of 12`;
+  const wd=WAVE_DEFS[G.wave-1];
+  waveQ=[];wd.forEach(g=>{for(let i=0;i<g.count;i++)waveQ.push({type:g.type,iv:g.iv});});
+  waveTimer=0;
+}
+
+function renderSide(){
+  const sp=document.getElementById('side-panel');
+  sp.innerHTML='<div style="padding:7px 3px;text-align:center;font-family:\'Cinzel\',serif;font-size:.6rem;color:#605040;letter-spacing:.1em;border-bottom:1px solid rgba(200,168,74,.07)">TOWERS</div>';
+  TOWERS.forEach(def=>{
+    const btn=document.createElement('div');
+    btn.className='tower-btn'+(placingType===def.id?' selected':'');
+    btn.dataset.id=def.id;
+    const can=G.gold>=def.cost;
+    btn.innerHTML=`<div class="tb-icon">${def.icon}</div><div class="tb-name">${def.name}</div><div class="tb-cost ${can?'':'cant'}">💰${def.cost}</div>`;
+    btn.onclick=()=>{placingType=def.id;renderSide();};
+    sp.appendChild(btn);
+  });
+}
+
+function updateHUD(){
+  document.getElementById('h-gold').textContent=G.gold;
+  document.getElementById('h-score').textContent=G.score.toLocaleString();
+  document.getElementById('h-lives').textContent=G.lives;
+  document.getElementById('ib-kills').textContent=G.kills;
+  renderSide();
+}
+
+canvas.addEventListener('click',e=>{
+  if(!G.running||!placingType)return;
+  const c=Math.floor(e.clientX/CELL),r=Math.floor(e.clientY/CELL);
+  if(isOccupied(r,c)){floatT('Blocked!',e.clientX,e.clientY,'#e04040',12);return;}
+  const def=TOWERS.find(t=>t.id===placingType);
+  if(G.gold<def.cost){floatT('Need more gold!',e.clientX,e.clientY,'#e04040',12);return;}
+  G.gold-=def.cost;towers.push({type:placingType,r,c,level:1,atkTimer:0});updateHUD();
+});
+
+let pressTO=null;
+canvas.addEventListener('touchstart',e=>{const touch=e.changedTouches[0];const c=Math.floor(touch.clientX/CELL),r=Math.floor(touch.clientY/CELL);
+  pressTO=setTimeout(()=>{const tw=towers.find(t=>t.r===r&&t.c===c);if(tw){const def=TOWERS.find(d=>d.id===tw.type);const ref=Math.floor(def.cost*.6*(tw.level));G.gold+=ref;towers=towers.filter(t=>t!==tw);floatT(`+${ref}💰`,touch.clientX,touch.clientY,'#c8a84a',13);updateHUD();}},500);},{passive:true});
+canvas.addEventListener('touchend',()=>clearTimeout(pressTO),{passive:true});
+
+function togglePause(){G.paused=!G.paused;document.getElementById('pause-btn').textContent=G.paused?'▶':'❚❚';}
+
+function endGame(won){G.running=false;document.getElementById('gameover').style.display='flex';document.getElementById('go-title').textContent=won?'VICTORY!':'DEFEATED';document.getElementById('go-title').className=won?'go-win':'go-lose';document.getElementById('go-stats').textContent=`Wave ${G.wave}/12 · Kills: ${G.kills} · Score: ${G.score.toLocaleString()}`;}
+
+function startGame(){
+  document.getElementById('menu').style.display='none';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('side-panel').style.display='flex';
+  document.getElementById('info-box').style.display='flex';
+  G={gold:200,score:0,lives:20,wave:0,kills:0,paused:false,running:true,waveActive:false};
+  towers=[];enemies=[];projectiles=[];particles=[];floatTexts=[];waveQ=[];
+  initGrid();updateHUD();renderSide();
+  requestAnimationFrame(loop);
+}
+
+let pct=0;const ldi=setInterval(()=>{pct+=Math.random()*18+5;if(pct>=100){pct=100;clearInterval(ldi);setTimeout(()=>{document.getElementById('loading').style.opacity=0;setTimeout(()=>{document.getElementById('loading').style.display='none';document.getElementById('menu').style.display='flex';},400);},200);}document.getElementById('lfill').style.width=pct+'%';},80);
+</script>
+</body>
+</html>

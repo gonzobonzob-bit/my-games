@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Empire Café World</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080c;--bg2:#0d1018;--panel:#111620;
+  --gold:#c8a84a;--gold2:#e8c86a;--teal:#00c9a7;
+  --text:#c8d8e8;--muted:#6080a0;
+  --border:rgba(200,168,74,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border)}
+
+.screen{position:fixed;inset:0;display:none;flex-direction:column;z-index:1;background:var(--bg)}
+.screen.active{display:flex}
+
+/* MENU */
+#scr-menu{align-items:center;justify-content:center;gap:10px;
+  background:radial-gradient(ellipse 70% 50% at 50% 30%,rgba(0,201,167,0.06) 0%,transparent 70%),var(--bg)}
+.ecw-title{font-family:'Playfair Display',serif;font-size:clamp(28px,9vw,52px);color:var(--gold);text-align:center;letter-spacing:2px}
+.ecw-sub{font-size:12px;letter-spacing:4px;color:var(--muted);text-align:center;margin-bottom:24px;text-transform:uppercase}
+.ecw-btn{display:block;width:220px;padding:13px;border:1px solid var(--border);background:rgba(200,168,74,0.06);color:var(--gold);font-family:'Playfair Display',serif;font-size:14px;letter-spacing:1px;text-align:center;cursor:pointer;transition:all .2s;border-radius:3px;margin:5px auto}
+.ecw-btn:hover{background:rgba(200,168,74,0.18)}
+.ecw-btn.primary{background:var(--gold);color:#06080c;font-weight:700}
+.ecw-btn.primary:hover{background:var(--gold2)}
+
+/* GAME */
+#hdr{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:6px 10px;gap:10px;flex-shrink:0}
+.hdr-brand{font-family:'Playfair Display',serif;font-size:13px;color:var(--gold);letter-spacing:1px}
+.hdr-s{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.hdr-s span{color:var(--gold2)}
+.hdr-btn{padding:4px 9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;cursor:pointer;border-radius:3px}
+
+/* CAFE VIEW */
+#cafe-view{flex:1;position:relative;overflow:hidden;background:var(--bg);cursor:grab}
+#cafe-view:active{cursor:grabbing}
+#cafe-canvas{display:block}
+
+/* BOTTOM PANEL */
+#bot-panel{background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0}
+#bot-tabs{display:flex}
+.bot-tab{flex:1;padding:8px 2px;text-align:center;cursor:pointer;font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;border-top:2px solid transparent;transition:all .2s}
+.bot-tab.active{color:var(--gold);border-top-color:var(--gold);background:rgba(200,168,74,0.04)}
+#bot-content{height:170px;overflow-y:auto;padding:10px}
+.bot-panel{display:none}
+.bot-panel.active{display:block}
+
+/* SHOP ITEMS */
+.shop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.shop-item{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:all .2s}
+.shop-item:active{border-color:var(--gold);background:rgba(200,168,74,0.08)}
+.si-icon{font-size:24px;margin-bottom:4px}
+.si-name{font-size:10px;color:var(--gold);font-family:'Playfair Display',serif;letter-spacing:1px;margin-bottom:2px}
+.si-cost{font-family:'DM Mono',monospace;font-size:10px;color:var(--gold2)}
+.si-cost.cant{color:#e85252}
+
+/* STAFF LIST */
+.staff-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+.sr-icon{font-size:20px}
+.sr-info{flex:1}
+.sr-name{font-size:12px;color:var(--text)}
+.sr-role{font-size:10px;color:var(--muted)}
+.sr-btn{padding:4px 8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;cursor:pointer;border-radius:3px}
+
+/* UPGRADES */
+.upg-row{display:flex;align-items:center;gap:10px;padding:8px;background:var(--panel);border:1px solid var(--border);border-radius:5px;margin-bottom:6px;cursor:pointer;transition:all .2s}
+.upg-row:active{border-color:var(--teal)}
+.upg-row.bought{opacity:.5;cursor:default}
+.ur-icon{font-size:22px}
+.ur-info{flex:1}
+.ur-name{font-size:12px;color:var(--teal);font-family:'Playfair Display',serif}
+.ur-desc{font-size:10px;color:var(--muted);margin-top:2px}
+.ur-cost{font-family:'DM Mono',monospace;font-size:11px;color:var(--gold2)}
+.ur-cost.cant{color:#e85252}
+
+.notify{position:fixed;top:54px;right:10px;background:var(--panel);border:1px solid var(--gold);color:var(--gold2);font-size:11px;padding:8px 12px;border-radius:4px;z-index:999;transform:translateX(120%);transition:transform .25s;max-width:190px}
+.notify.show{transform:translateX(0)}
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div class="screen active" id="scr-menu">
+  <div class="ecw-title">Empire<br>Café World</div>
+  <div class="ecw-sub">Isometric Café Builder</div>
+  <button class="ecw-btn primary" onclick="newGame()">☕ New Café</button>
+  <button class="ecw-btn" onclick="loadGame()">↺ Continue</button>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="scr-game">
+  <div id="hdr">
+    <div class="hdr-brand">☕ Empire Café</div>
+    <div class="hdr-s">$<span id="h-cash">0</span></div>
+    <div class="hdr-s">⭐<span id="h-rep">0</span></div>
+    <div class="hdr-s">Day <span id="h-day">1</span></div>
+    <button class="hdr-btn" onclick="showScreen('scr-menu')">☰</button>
+  </div>
+  <div id="cafe-view">
+    <canvas id="cafe-canvas"></canvas>
+  </div>
+  <div id="bot-panel">
+    <div id="bot-tabs">
+      <div class="bot-tab active" data-bp="bp-shop" onclick="switchBotTab(this)">🛍️ Shop</div>
+      <div class="bot-tab" data-bp="bp-staff" onclick="switchBotTab(this)">👥 Staff</div>
+      <div class="bot-tab" data-bp="bp-upg" onclick="switchBotTab(this)">⬆️ Upgrades</div>
+      <div class="bot-tab" data-bp="bp-stats" onclick="switchBotTab(this)">📊 Stats</div>
+    </div>
+    <div id="bot-content">
+      <div class="bot-panel active" id="bp-shop">
+        <div class="shop-grid" id="shop-grid"></div>
+      </div>
+      <div class="bot-panel" id="bp-staff">
+        <div id="staff-hire"></div>
+      </div>
+      <div class="bot-panel" id="bp-upg">
+        <div id="upg-list"></div>
+      </div>
+      <div class="bot-panel" id="bp-stats">
+        <div id="stats-box"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notify" id="notify"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  EMPIRE CAFÉ WORLD — 3D Isometric Builder + Idle
+// ══════════════════════════════════════════════════════
+
+let G = {
+  cash: 300, totalEarned: 0, reputation: 10,
+  day: 1, level: 1, xp: 0, xpNext: 100,
+  furniture: [], staff: [], boughtUpgrades: [],
+  customers: [], incomeBonus: 0, staffDiscount: 0
+};
+
+const ISO_TILE = 32;
+const GRID_W = 10, GRID_H = 10;
+
+const FURNITURE = [
+  { id:'table2', name:'Small Table',   icon:'🪑', cost:50,  income:2,  desc:'Seats 2 customers', color:'#6B4423' },
+  { id:'table4', name:'Round Table',   icon:'🍽️', cost:120, income:5,  desc:'Seats 4 customers', color:'#8B5E3C' },
+  { id:'counter',name:'Coffee Counter',icon:'☕', cost:200, income:8,  desc:'Barista station',   color:'#3D2B1F' },
+  { id:'plant',  name:'Plant',         icon:'🌿', cost:30,  income:0.5,desc:'+Rep +Ambiance',    color:'#2D5A27' },
+  { id:'sofa',   name:'Lounge Sofa',   icon:'🛋️', cost:150, income:4,  desc:'VIP seating',      color:'#8B3A3A' },
+  { id:'display',name:'Pastry Display',icon:'🥐', cost:180, income:7,  desc:'Sells baked goods', color:'#C8860A' },
+  { id:'bar',    name:'Bar Counter',   icon:'🍷', cost:300, income:12, desc:'Evening drinks',    color:'#1a3048' },
+  { id:'piano',  name:'Baby Grand',    icon:'🎹', cost:500, income:3,  desc:'+20 Rep, ambiance', color:'#111' },
+  { id:'stage',  name:'Performance Stage',icon:'🎤',cost:400,income:5, desc:'Live entertainment',color:'#2a1a48' },
+];
+
+const STAFF_TYPES = [
+  { id:'barista', name:'Barista',    icon:'☕', role:'Bar',    wage:50, bonus:0.15 },
+  { id:'waiter',  name:'Waiter',     icon:'🤵', role:'Floor',  wage:40, bonus:0.1  },
+  { id:'chef',    name:'Chef',       icon:'👨‍🍳',role:'Kitchen',wage:80, bonus:0.25 },
+  { id:'manager', name:'Manager',    icon:'👔', role:'Mgmt',   wage:120,bonus:0.4  },
+];
+
+const UPGRADES = [
+  { id:'u1',name:'Signature Blend',   icon:'☕',desc:'+25% income',cost:200, bought:false, effect:()=>G.incomeBonus+=.25 },
+  { id:'u2',name:'Interior Redesign', icon:'🎨',desc:'+20 reputation',cost:150,bought:false,effect:()=>G.reputation+=20 },
+  { id:'u3',name:'Loyalty Program',   icon:'🏆',desc:'+30% income',cost:300, bought:false, effect:()=>G.incomeBonus+=.3 },
+  { id:'u4',name:'Premium Beans',     icon:'🫘',desc:'+50% income',cost:500, bought:false, effect:()=>G.incomeBonus+=.5 },
+  { id:'u5',name:'Live Music',        icon:'🎵',desc:'+30 rep',cost:400,     bought:false, effect:()=>G.reputation+=30 },
+  { id:'u6',name:'Extended Hours',    icon:'🌙',desc:'+40% income',cost:600, bought:false, effect:()=>G.incomeBonus+=.4 },
+];
+
+// ── ISOMETRIC CANVAS ──────────────────────────────────
+const view = document.getElementById('cafe-view');
+const canvas = document.getElementById('cafe-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, camX = 0, camY = 0;
+let dragging = false, dragStart = null;
+let selectedFurn = null;
+let t = 0;
+
+function resize() {
+  W = canvas.width = view.offsetWidth;
+  H = canvas.height = view.offsetHeight;
+  camX = W/2; camY = 60;
+}
+
+// Convert grid to isometric screen coords
+function toISO(gx, gy) {
+  return {
+    x: (gx - gy) * ISO_TILE + camX,
+    y: (gx + gy) * ISO_TILE * 0.5 + camY
+  };
+}
+
+function drawFloorTile(gx, gy, highlight) {
+  const p = toISO(gx, gy);
+  const tw = ISO_TILE * 2, th = ISO_TILE;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x + tw, p.y + th/2);
+  ctx.lineTo(p.x + tw, p.y + th/2 + 4);
+  ctx.lineTo(p.x, p.y + 4);
+  ctx.closePath();
+  ctx.fillStyle = highlight ? 'rgba(200,168,74,0.3)' : 'rgba(255,255,255,0.03)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x + tw, p.y + th/2);
+  ctx.lineTo(p.x, p.y + th);
+  ctx.lineTo(p.x - tw, p.y + th/2);
+  ctx.closePath();
+  ctx.fillStyle = highlight ? 'rgba(200,168,74,0.2)' : 'rgba(200,200,200,0.04)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(200,168,74,0.1)';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+}
+
+function drawFurniture(f) {
+  const p = toISO(f.gx, f.gy);
+  const info = FURNITURE.find(i => i.id === f.type);
+  if (!info) return;
+  const h = 22 + (f.type === 'piano' ? 16 : 0);
+  const tw = ISO_TILE * 1.6, th = ISO_TILE * 0.8;
+
+  // Box sides
+  ctx.fillStyle = info.color + 'cc';
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y - h);
+  ctx.lineTo(p.x + tw, p.y + th/2 - h);
+  ctx.lineTo(p.x + tw, p.y + th/2);
+  ctx.lineTo(p.x, p.y);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = info.color + '88';
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y - h);
+  ctx.lineTo(p.x, p.y);
+  ctx.lineTo(p.x - tw, p.y + th/2);
+  ctx.lineTo(p.x - tw, p.y + th/2 - h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Top face
+  ctx.fillStyle = info.color + 'ff';
+  ctx.beginPath();
+  ctx.moveTo(p.x - tw, p.y + th/2 - h);
+  ctx.lineTo(p.x, p.y - h);
+  ctx.lineTo(p.x + tw, p.y + th/2 - h);
+  ctx.lineTo(p.x, p.y + th - h);
+  ctx.closePath();
+  ctx.fill();
+
+  // Icon on top
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(info.icon, p.x, p.y - h - 2);
+}
+
+function drawCustomer(c) {
+  const p = toISO(c.x, c.y);
+  const bob = Math.sin(t * 3 + c.phase) * 2;
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(c.icon, p.x, p.y + bob);
+  // Thought bubble if ordering
+  if (c.state === 'ordering') {
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.arc(p.x + 10, p.y - 20, 10, 0, Math.PI*2); ctx.fill();
+    ctx.font = '10px serif'; ctx.fillStyle = '#333';
+    ctx.fillText('☕', p.x + 10, p.y - 17);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  t += 0.016;
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#06080c'); bg.addColorStop(1, '#0a0e14');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Floor tiles
+  for (let gy = 0; gy < GRID_H; gy++) {
+    for (let gx = 0; gx < GRID_W; gx++) {
+      drawFloorTile(gx, gy, false);
+    }
+  }
+
+  // Walls
+  const wallCol = '#1a2030';
+  // Left wall
+  const tl = toISO(0, 0), bl = toISO(0, GRID_H);
+  ctx.fillStyle = wallCol;
+  ctx.fillRect(tl.x - 4, tl.y - 60, 4, bl.y - tl.y + 60);
+  // Back walls (top edges)
+  ctx.strokeStyle = '#2a3040'; ctx.lineWidth = 1;
+  for (let gx = 0; gx < GRID_W; gx++) {
+    const p1 = toISO(gx, 0), p2 = toISO(gx+1, 0);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y - 60); ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x, p2.y - 60); ctx.stroke();
+  }
+
+  // Sort furniture by grid position (painter's algorithm)
+  const sorted = [...G.furniture].sort((a, b) => (a.gx + a.gy) - (b.gx + b.gy));
+  sorted.forEach(f => drawFurniture(f));
+
+  // Customers
+  G.customers.forEach(c => drawCustomer(c));
+
+  requestAnimationFrame(draw);
+}
+
+// ── CUSTOMER AI ───────────────────────────────────────
+const CUSTOMER_ICONS = ['👩','👨','🧑','👴','👵','🧕','🧔','👱'];
+
+function spawnCustomer() {
+  if (G.customers.length >= 12 || G.furniture.length === 0) return;
+  const seats = G.furniture.filter(f => ['table2','table4','sofa'].includes(f.type));
+  if (seats.length === 0) return;
+  const seat = seats[Math.floor(Math.random() * seats.length)];
+  G.customers.push({
+    x: seat.gx + (Math.random() - 0.5) * 0.5,
+    y: seat.gy + (Math.random() - 0.5) * 0.5,
+    icon: CUSTOMER_ICONS[Math.floor(Math.random() * CUSTOMER_ICONS.length)],
+    state: 'ordering', orderTimer: 3 + Math.random() * 4,
+    phase: Math.random() * Math.PI * 2
+  });
+}
+
+// ── GAME TICK ─────────────────────────────────────────
+let tickTimer = 0;
+
+function gameTick() {
+  tickTimer++;
+  t += 0.016;
+
+  // Spawn customers
+  if (tickTimer % 50 === 0 && Math.random() < 0.4) spawnCustomer();
+
+  // Customer ordering
+  G.customers.forEach(c => {
+    if (c.state === 'ordering') {
+      c.orderTimer -= 0.1;
+      if (c.orderTimer <= 0) { c.state = 'eating'; c.eatTimer = 5 + Math.random() * 8; }
+    } else if (c.state === 'eating') {
+      c.eatTimer -= 0.1;
+      if (c.eatTimer <= 0) c.state = 'leaving';
+    }
+  });
+  G.customers = G.customers.filter(c => c.state !== 'leaving');
+
+  // Income tick (every 2s)
+  if (tickTimer % 20 === 0) {
+    const baseIncome = G.furniture.reduce((s, f) => {
+      const info = FURNITURE.find(i => i.id === f.type);
+      return s + (info ? info.income : 0);
+    }, 0);
+    const staffBonus = G.staff.reduce((s, st) => s + STAFF_TYPES.find(t=>t.id===st.type)?.bonus || 0, 0);
+    const repMult = 1 + G.reputation / 100;
+    const income = baseIncome * (1 + G.incomeBonus) * (1 + staffBonus) * repMult * (G.customers.length * 0.05 + 1);
+    G.cash += income;
+    G.totalEarned += income;
+    G.xp += income * 0.1;
+    if (G.xp >= G.xpNext) { G.xp -= G.xpNext; G.level++; G.xpNext = Math.floor(G.xpNext * 1.5); notify('☕ Café leveled up!'); }
+  }
+
+  // Day tick
+  if (tickTimer % 600 === 0) {
+    G.day++;
+    G.reputation = Math.max(10, G.reputation - 1);
+    saveGame();
+  }
+
+  updateHUD();
+  setTimeout(gameTick, 100);
+}
+
+function updateHUD() {
+  document.getElementById('h-cash').textContent = Math.floor(G.cash).toLocaleString();
+  document.getElementById('h-rep').textContent = Math.floor(G.reputation);
+  document.getElementById('h-day').textContent = G.day;
+}
+
+// ── SHOP ──────────────────────────────────────────────
+function renderShop() {
+  const grid = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+  FURNITURE.forEach(f => {
+    const can = G.cash >= f.cost;
+    const div = document.createElement('div');
+    div.className = 'shop-item';
+    div.innerHTML = `<div class="si-icon">${f.icon}</div><div class="si-name">${f.name}</div><div class="si-cost ${can?'':'cant'}">$${f.cost}</div>`;
+    div.onclick = () => placeFurniture(f);
+    grid.appendChild(div);
+  });
+}
+
+function placeFurniture(fInfo) {
+  if (G.cash < fInfo.cost) { notify('Not enough cash!'); return; }
+  // Find empty tile
+  const occupied = new Set(G.furniture.map(f => `${f.gx},${f.gy}`));
+  for (let gy = 1; gy < GRID_H - 1; gy++) {
+    for (let gx = 1; gx < GRID_W - 1; gx++) {
+      if (!occupied.has(`${gx},${gy}`)) {
+        G.cash -= fInfo.cost;
+        G.furniture.push({ type: fInfo.id, gx, gy });
+        G.reputation += fInfo.id === 'piano' ? 20 : 1;
+        notify(`${fInfo.icon} ${fInfo.name} placed!`);
+        renderShop();
+        updateHUD();
+        return;
+      }
+    }
+  }
+  notify('No space! Remove furniture first.');
+}
+
+// ── STAFF ─────────────────────────────────────────────
+function renderStaff() {
+  const el = document.getElementById('staff-hire');
+  el.innerHTML = '';
+  if (G.staff.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:4px">No staff yet.</div>';
+  } else {
+    G.staff.forEach((s, i) => {
+      const type = STAFF_TYPES.find(t => t.id === s.type);
+      const div = document.createElement('div');
+      div.className = 'staff-row';
+      div.innerHTML = `<div class="sr-icon">${type.icon}</div><div class="sr-info"><div class="sr-name">${s.name}</div><div class="sr-role">${type.role} · +${Math.floor(type.bonus*100)}%</div></div><button class="sr-btn" onclick="fireStaff(${i})">Fire</button>`;
+      el.appendChild(div);
+    });
+  }
+  // Hire buttons
+  const hr = document.createElement('div');
+  hr.style.cssText = 'font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:6px';
+  hr.textContent = 'Hire';
+  el.appendChild(hr);
+  STAFF_TYPES.forEach(type => {
+    const cost = type.wage * 5;
+    const div = document.createElement('div');
+    div.className = 'staff-row';
+    div.style.cursor = 'pointer';
+    div.innerHTML = `<div class="sr-icon">${type.icon}</div><div class="sr-info"><div class="sr-name">${type.name}</div><div class="sr-role">${type.role} · +${Math.floor(type.bonus*100)}% income</div></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:${G.cash>=cost?'var(--gold2)':'#e85252'}">$${cost}</div>`;
+    div.onclick = () => hireStaff(type);
+    el.appendChild(div);
+  });
+}
+
+const STAFF_NAMES = ['Alex','Sam','Jordan','Casey','Morgan','Riley','Taylor','Jamie','Quinn','Drew'];
+let staffNameIdx = 0;
+
+function hireStaff(type) {
+  const cost = type.wage * 5;
+  if (G.cash < cost) { notify('Not enough cash!'); return; }
+  G.cash -= cost;
+  G.staff.push({ type: type.id, name: STAFF_NAMES[staffNameIdx++ % STAFF_NAMES.length] });
+  notify(`${type.icon} ${type.name} hired!`);
+  renderStaff(); updateHUD();
+}
+
+function fireStaff(i) {
+  G.staff.splice(i, 1);
+  renderStaff(); notify('Staff member let go.');
+}
+
+// ── UPGRADES ──────────────────────────────────────────
+function renderUpgrades() {
+  const list = document.getElementById('upg-list');
+  list.innerHTML = '';
+  UPGRADES.forEach(u => {
+    const can = G.cash >= u.cost;
+    const div = document.createElement('div');
+    div.className = 'upg-row' + (u.bought ? ' bought' : '');
+    div.innerHTML = `<div class="ur-icon">${u.icon}</div><div class="ur-info"><div class="ur-name">${u.name}</div><div class="ur-desc">${u.desc}</div></div><div class="ur-cost ${u.bought||can?'':'cant'}">${u.bought?'✓':'$'+u.cost}</div>`;
+    if (!u.bought) div.onclick = () => buyUpgrade(u);
+    list.appendChild(div);
+  });
+}
+
+function buyUpgrade(u) {
+  if (G.cash < u.cost) { notify('Not enough cash!'); return; }
+  G.cash -= u.cost; u.bought = true; u.effect();
+  notify(`✓ ${u.name}!`);
+  renderUpgrades(); updateHUD();
+}
+
+// ── STATS ─────────────────────────────────────────────
+function renderStats() {
+  const el = document.getElementById('stats-box');
+  const baseIncome = G.furniture.reduce((s, f) => {
+    const info = FURNITURE.find(i => i.id === f.type);
+    return s + (info ? info.income : 0);
+  }, 0);
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+      <div style="color:var(--muted)">Level <span style="color:var(--gold2)">${G.level}</span></div>
+      <div style="color:var(--muted)">Day <span style="color:var(--gold2)">${G.day}</span></div>
+      <div style="color:var(--muted)">Furniture <span style="color:var(--gold2)">${G.furniture.length}</span></div>
+      <div style="color:var(--muted)">Staff <span style="color:var(--gold2)">${G.staff.length}</span></div>
+      <div style="color:var(--muted)">Base/tick <span style="color:var(--gold2)">$${baseIncome.toFixed(1)}</span></div>
+      <div style="color:var(--muted)">Customers <span style="color:var(--gold2)">${G.customers.length}</span></div>
+      <div style="color:var(--muted)">Total Earned <span style="color:var(--gold2)">$${Math.floor(G.totalEarned).toLocaleString()}</span></div>
+      <div style="color:var(--muted)">Reputation <span style="color:var(--gold2)">${Math.floor(G.reputation)}</span></div>
+    </div>`;
+}
+
+// ── SAVE / LOAD ───────────────────────────────────────
+function saveGame() {
+  localStorage.setItem('ecw_save', JSON.stringify({ G, upg: UPGRADES.map(u => u.bought), sni: staffNameIdx }));
+}
+
+function newGame() {
+  G = { cash:300,totalEarned:0,reputation:10,day:1,level:1,xp:0,xpNext:100,furniture:[],staff:[],boughtUpgrades:[],customers:[],incomeBonus:0,staffDiscount:0 };
+  staffNameIdx = 0;
+  startGame();
+}
+
+function loadGame() {
+  try {
+    const d = JSON.parse(localStorage.getItem('ecw_save'));
+    if (!d) { alert('No save found.'); return; }
+    G = d.G;
+    d.upg.forEach((b, i) => { if (UPGRADES[i]) { UPGRADES[i].bought = b; if (b) UPGRADES[i].effect(); } });
+    staffNameIdx = d.sni || 0;
+    startGame();
+  } catch(e) { alert('No save found.'); }
+}
+
+function startGame() {
+  showScreen('scr-game');
+  resize();
+  window.addEventListener('resize', resize);
+  renderShop(); renderStaff(); renderUpgrades(); renderStats();
+  updateHUD();
+  draw();
+  gameTick();
+}
+
+// ── NAVIGATION ────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchBotTab(el) {
+  document.querySelectorAll('.bot-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.bot-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(el.dataset.bp).classList.add('active');
+  if (el.dataset.bp === 'bp-shop') renderShop();
+  if (el.dataset.bp === 'bp-staff') renderStaff();
+  if (el.dataset.bp === 'bp-upg') renderUpgrades();
+  if (el.dataset.bp === 'bp-stats') renderStats();
+}
+
+let notifyTO;
+function notify(msg) {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(notifyTO);
+  notifyTO = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>EPOCH: The Eternal Forge</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#c9a84c;--gold-b:#f0c96a;--gold-d:#7a5f28;
+  --ember:#e8512a;--ember-b:#ff7a4a;
+  --soul:#7b52e8;--soul-b:#a47fff;
+  --teal:#00c9a7;--teal-b:#00e8c0;
+  --bg:#0a0603;--panel:#120a04;--panel2:#1a1008;
+  --border:rgba(201,168,76,0.18);--border-b:rgba(201,168,76,0.45);
+  --text:#e8d8b8;--ash:#c4b49a;--ash-d:#7a6a54;
+  --ok:#4caf7a;--bad:#e85252;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;overflow:hidden}
+body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:'Crimson Pro',serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* SCREENS */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;z-index:10}
+.screen.active{display:flex}
+
+/* MENU */
+#scr-menu{background:radial-gradient(ellipse 80% 60% at 50% 30%,rgba(201,168,76,0.08) 0%,transparent 70%),var(--bg);align-items:center;justify-content:center;gap:0}
+.menu-logo-wrap{text-align:center;margin-bottom:32px}
+.menu-title{font-family:'Cinzel',serif;font-size:clamp(28px,8vw,52px);font-weight:900;color:var(--gold);letter-spacing:4px;text-shadow:0 0 40px rgba(201,168,76,0.4)}
+.menu-sub{font-family:'Cinzel',serif;font-size:clamp(10px,3vw,14px);letter-spacing:6px;color:var(--ash-d);text-transform:uppercase;margin-top:6px}
+.menu-btn{display:block;width:220px;padding:14px 28px;margin:8px auto;border:1px solid var(--border-b);background:rgba(201,168,76,0.08);color:var(--gold);font-family:'Cinzel',serif;font-size:14px;letter-spacing:2px;text-align:center;cursor:pointer;transition:all .2s;border-radius:3px}
+.menu-btn:hover{background:rgba(201,168,76,0.18);border-color:var(--gold)}
+.menu-btn.primary{background:var(--gold);color:#0a0603;border-color:var(--gold);font-weight:700}
+.menu-btn.primary:hover{background:var(--gold-b)}
+
+/* GAME SCREEN */
+#scr-game{background:var(--bg)}
+#top-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
+#top-bar .menu-ico{font-size:18px;cursor:pointer;padding:4px 8px;border:1px solid var(--border);border-radius:3px;background:rgba(201,168,76,0.06)}
+#res-box{flex:1;display:flex;gap:16px;align-items:center}
+.res-stat{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ash)}
+.res-stat span{color:var(--gold-b);font-size:12px}
+#save-btn{padding:5px 12px;border:1px solid var(--border);background:rgba(201,168,76,0.06);color:var(--ash);font-size:11px;cursor:pointer;border-radius:3px;font-family:'JetBrains Mono',monospace}
+#save-btn:active{background:rgba(201,168,76,0.2)}
+
+/* BOTTOM NAV */
+#bot-nav{display:flex;background:var(--panel);border-top:1px solid var(--border);flex-shrink:0}
+.nav-tab{flex:1;padding:10px 4px;text-align:center;cursor:pointer;border-top:2px solid transparent;transition:all .2s;font-family:'Cinzel',serif;font-size:9px;letter-spacing:1px;color:var(--ash-d)}
+.nav-tab.active{border-top-color:var(--gold);color:var(--gold);background:rgba(201,168,76,0.06)}
+.nav-tab-icon{font-size:16px;display:block;margin-bottom:2px}
+
+/* PANELS */
+#panels{flex:1;overflow:hidden;position:relative}
+.panel{display:none;height:100%;overflow-y:auto;padding:12px}
+.panel.active{display:block}
+
+/* FORGE PANEL */
+#forge-click-area{display:flex;flex-direction:column;align-items:center;padding:20px 12px 12px}
+#forge-btn{width:clamp(120px,40vw,160px);height:clamp(120px,40vw,160px);border-radius:50%;border:3px solid var(--gold-d);background:radial-gradient(circle at 35% 35%,#5a3010,#2a1005);cursor:pointer;position:relative;transition:transform .08s,box-shadow .08s;box-shadow:0 0 30px rgba(232,81,42,0.3),0 0 60px rgba(232,81,42,0.1);margin:16px auto}
+#forge-btn:active{transform:scale(.93);box-shadow:0 0 15px rgba(232,81,42,0.5)}
+#forge-btn::after{content:'⚒️';font-size:clamp(48px,14vw,64px);position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.forge-ess-display{font-family:'JetBrains Mono',monospace;font-size:clamp(20px,6vw,28px);color:var(--gold-b);text-align:center;margin-bottom:4px}
+.forge-per-sec{font-size:12px;color:var(--ash-d);text-align:center;margin-bottom:16px}
+.epoch-bar-wrap{width:100%;max-width:360px;margin:0 auto 8px}
+.epoch-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px;color:var(--ash-d);text-align:center;margin-bottom:4px}
+.epoch-bar{height:6px;background:rgba(201,168,76,0.12);border-radius:3px;overflow:hidden}
+.epoch-fill{height:100%;background:linear-gradient(90deg,var(--soul),var(--gold),var(--ember));transition:width .5s}
+.story-box{max-width:360px;margin:12px auto 0;padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--ash);line-height:1.6;font-style:italic;text-align:center}
+
+/* BUILDINGS */
+.bldg-list{display:flex;flex-direction:column;gap:8px}
+.bldg-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.bldg-card:active,.bldg-card.buyable:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+.bldg-card.locked{opacity:.4;cursor:not-allowed}
+.bldg-icon{font-size:28px;flex-shrink:0}
+.bldg-info{flex:1;min-width:0}
+.bldg-name{font-family:'Cinzel',serif;font-size:12px;color:var(--gold);letter-spacing:1px}
+.bldg-desc{font-size:11px;color:var(--ash-d);margin-top:1px}
+.bldg-owned{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ash);margin-top:3px}
+.bldg-cost{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold-b);font-weight:600;flex-shrink:0;text-align:right}
+.bldg-cost.cant{color:var(--bad)}
+
+/* UPGRADES */
+.upg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.upg-card{padding:10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.upg-card.bought{opacity:.5;cursor:default;border-style:dashed}
+.upg-card:not(.bought):active{border-color:var(--teal)}
+.upg-icon{font-size:22px;margin-bottom:4px}
+.upg-name{font-family:'Cinzel',serif;font-size:10px;color:var(--teal);letter-spacing:1px;margin-bottom:3px}
+.upg-desc{font-size:11px;color:var(--ash-d);line-height:1.4}
+.upg-cost{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold-b);margin-top:6px}
+.upg-cost.cant{color:var(--bad)}
+
+/* DUNGEON */
+#dungeon-panel{display:flex;flex-direction:column;gap:10px}
+.dungeon-floor{font-family:'Cinzel',serif;font-size:13px;color:var(--ash-d);text-align:center;letter-spacing:2px}
+.dungeon-floor span{color:var(--gold-b)}
+.enemy-box{padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:6px;text-align:center}
+.enemy-name{font-family:'Cinzel',serif;font-size:16px;color:var(--ember-b);margin-bottom:8px}
+.enemy-hp-wrap{height:12px;background:rgba(232,81,42,0.15);border-radius:6px;overflow:hidden;margin-bottom:4px}
+.enemy-hp-fill{height:100%;background:linear-gradient(90deg,var(--ember),#ff4a2a);transition:width .3s;border-radius:6px}
+.enemy-hp-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ash-d)}
+.combat-log{height:80px;overflow-y:auto;padding:8px;background:var(--panel);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--ash-d);line-height:1.8}
+.combat-log .hit{color:var(--gold)}
+.combat-log .kill{color:var(--ok)}
+.combat-log .boss{color:var(--ember-b)}
+.dps-row{display:flex;justify-content:space-between;padding:8px 12px;background:var(--panel);border:1px solid var(--border);border-radius:4px}
+.dps-row span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ash-d)}
+.dps-row strong{color:var(--gold-b)}
+
+/* RUNES */
+.rune-slots{display:flex;gap:10px;justify-content:center;margin-bottom:16px}
+.rune-slot{width:56px;height:56px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:all .2s;background:rgba(0,0,0,0.3)}
+.rune-slot.filled{border-style:solid;border-color:var(--soul);background:rgba(123,82,232,0.15)}
+.rune-slot:active{border-color:var(--soul-b)}
+.rune-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rune-card{padding:10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.rune-card.attuned{border-color:var(--soul);background:rgba(123,82,232,0.1)}
+.rune-card:active{border-color:var(--soul-b)}
+.rune-icon{font-size:22px;margin-bottom:4px}
+.rune-name{font-family:'Cinzel',serif;font-size:10px;color:var(--soul-b);letter-spacing:1px}
+.rune-bonus{font-size:11px;color:var(--ash-d);margin-top:3px}
+
+/* PRESTIGE */
+.prestige-box{padding:16px;background:var(--panel);border:1px solid var(--soul);border-radius:8px;text-align:center;margin-bottom:16px}
+.prestige-title{font-family:'Cinzel',serif;font-size:16px;color:var(--soul-b);letter-spacing:2px;margin-bottom:8px}
+.prestige-desc{font-size:13px;color:var(--ash);margin-bottom:12px;line-height:1.5}
+.prestige-btn{padding:12px 28px;background:linear-gradient(135deg,var(--soul),#5030b0);color:#fff;border:none;border-radius:4px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:2px;cursor:pointer;transition:all .2s}
+.prestige-btn:hover{filter:brightness(1.2)}
+.prestige-perk-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.perk-card{padding:10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.perk-card.bought{border-color:var(--soul);background:rgba(123,82,232,0.1);cursor:default}
+.perk-card:not(.bought):active{border-color:var(--soul-b)}
+.perk-icon{font-size:20px;margin-bottom:4px}
+.perk-name{font-family:'Cinzel',serif;font-size:10px;color:var(--soul-b);letter-spacing:1px}
+.perk-desc{font-size:11px;color:var(--ash-d);margin-top:3px;line-height:1.4}
+.perk-cost{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold-b);margin-top:5px}
+
+.section-hdr{font-family:'Cinzel',serif;font-size:11px;letter-spacing:3px;color:var(--ash-d);text-transform:uppercase;padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div class="screen active" id="scr-menu">
+  <div class="menu-logo-wrap">
+    <div class="menu-title">EPOCH</div>
+    <div class="menu-sub">The Eternal Forge</div>
+  </div>
+  <button class="menu-btn primary" onclick="startGame()">⚒ Forge Essence</button>
+  <button class="menu-btn" onclick="loadGame()">↺ Continue</button>
+  <button class="menu-btn" onclick="showScreen('scr-prestige-menu')">✦ Prestige ✦</button>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="scr-game">
+  <div id="top-bar">
+    <span class="menu-ico" onclick="showScreen('scr-menu')">☰</span>
+    <div id="res-box">
+      <div class="res-stat">Essence: <span id="ess-disp">0</span></div>
+      <div class="res-stat">/ sec: <span id="ess-ps">0</span></div>
+      <div class="res-stat">Souls: <span id="soul-disp">0</span></div>
+    </div>
+    <button id="save-btn" onclick="saveGame()">💾</button>
+  </div>
+  <div id="panels">
+    <!-- FORGE TAB -->
+    <div class="panel active" id="pan-forge">
+      <div id="forge-click-area">
+        <div class="forge-ess-display" id="forge-big">0</div>
+        <div class="forge-per-sec" id="forge-ps-label">0 essence / sec</div>
+        <div id="forge-btn" onclick="clickForge()"></div>
+        <div class="epoch-bar-wrap">
+          <div class="epoch-label" id="epoch-label">THE EMBER AGE</div>
+          <div class="epoch-bar"><div class="epoch-fill" id="epoch-fill" style="width:0%"></div></div>
+        </div>
+        <div class="story-box" id="story-box">The forge lies cold. Strike the anvil and awaken the eternal flame...</div>
+      </div>
+    </div>
+    <!-- BUILDINGS TAB -->
+    <div class="panel" id="pan-build">
+      <div class="section-hdr">Forge Structures</div>
+      <div class="bldg-list" id="bldg-list"></div>
+    </div>
+    <!-- UPGRADES TAB -->
+    <div class="panel" id="pan-upg">
+      <div class="section-hdr">Forge Upgrades</div>
+      <div class="upg-grid" id="upg-grid"></div>
+    </div>
+    <!-- DUNGEON TAB -->
+    <div class="panel" id="pan-dun">
+      <div id="dungeon-panel">
+        <div class="dungeon-floor">Floor <span id="floor-num">1</span> — <span id="zone-name">The Ashlands</span></div>
+        <div class="enemy-box">
+          <div class="enemy-name" id="enemy-name">Ember Wraith</div>
+          <div class="enemy-hp-wrap"><div class="enemy-hp-fill" id="enemy-hp-fill" style="width:100%"></div></div>
+          <div class="enemy-hp-label" id="enemy-hp-label">100 / 100</div>
+        </div>
+        <div class="dps-row">
+          <span>Your DPS: <strong id="dps-val">0</strong></span>
+          <span>Kills: <strong id="kill-count">0</strong></span>
+          <span>Floor: <strong id="floor-disp">1</strong></span>
+        </div>
+        <div class="combat-log" id="combat-log"><div>Combat begins...</div></div>
+      </div>
+    </div>
+    <!-- RUNES TAB -->
+    <div class="panel" id="pan-rune">
+      <div class="section-hdr">Rune Attunement</div>
+      <div class="rune-slots">
+        <div class="rune-slot" id="slot-0" onclick="unequipRune(0)">—</div>
+        <div class="rune-slot" id="slot-1" onclick="unequipRune(1)">—</div>
+        <div class="rune-slot" id="slot-2" onclick="unequipRune(2)">—</div>
+      </div>
+      <div class="section-hdr">Available Runes</div>
+      <div class="rune-grid" id="rune-grid"></div>
+    </div>
+    <!-- PRESTIGE TAB -->
+    <div class="panel" id="pan-pres">
+      <div class="prestige-box">
+        <div class="prestige-title">✦ REBIRTH ✦</div>
+        <div class="prestige-desc">Reset your forge and earn <strong id="pres-earn">0</strong> Soul Echoes.<br>Each soul permanently multiplies all production.</div>
+        <button class="prestige-btn" onclick="doPrestige()">Transcend</button>
+      </div>
+      <div class="section-hdr">Soul Perks (<span id="soul-perk-disp">0</span> available)</div>
+      <div class="prestige-perk-grid" id="perk-grid"></div>
+    </div>
+  </div>
+  <div id="bot-nav">
+    <div class="nav-tab active" data-tab="pan-forge" onclick="switchTab(this)"><span class="nav-tab-icon">⚒️</span>Forge</div>
+    <div class="nav-tab" data-tab="pan-build" onclick="switchTab(this)"><span class="nav-tab-icon">🏗️</span>Build</div>
+    <div class="nav-tab" data-tab="pan-upg" onclick="switchTab(this)"><span class="nav-tab-icon">⬆️</span>Upgrades</div>
+    <div class="nav-tab" data-tab="pan-dun" onclick="switchTab(this)"><span class="nav-tab-icon">⚔️</span>Dungeon</div>
+    <div class="nav-tab" data-tab="pan-rune" onclick="switchTab(this)"><span class="nav-tab-icon">🔮</span>Runes</div>
+    <div class="nav-tab" data-tab="pan-pres" onclick="switchTab(this)"><span class="nav-tab-icon">✦</span>Prestige</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  EPOCH: THE ETERNAL FORGE — Full Idle Game
+// ══════════════════════════════════════════════════════
+
+// ── GAME STATE ────────────────────────────────────────
+let G = {
+  ess: 0, totalEss: 0, perClick: 1, perSec: 0.2,
+  souls: 0, totalSouls: 0,
+  clicks: 0, totalClicks: 0,
+  epoch: 0, // 0-4
+  dungeonFloor: 1, dungeonKills: 0,
+  runeSlots: [null, null, null],
+  boughtPerks: [],
+  runBase: 0 // essence earned before prestige
+};
+
+// ── BUILDINGS ─────────────────────────────────────────
+const BLDGS = [
+  { id:'bellows', name:'Ember Bellows', icon:'💨', desc:'Breathes life into the forge embers', baseCost:10, basePS:0.5, owned:0, unlock:0 },
+  { id:'anvil',   name:'Iron Anvil',   icon:'⚒️', desc:'Rhythmic hammering produces raw essence', baseCost:80, basePS:2, owned:0, unlock:5 },
+  { id:'crucible',name:'Alchemic Crucible',icon:'⚗️',desc:'Transmutes base metals into pure essence',baseCost:500,basePS:8,owned:0,unlock:25},
+  { id:'runestone',name:'Runic Stone', icon:'🔮',desc:'Ancient runes hum with stored essence',baseCost:3000,basePS:25,owned:0,unlock:100},
+  { id:'conduit',  name:'Soul Conduit',icon:'🌀',desc:'Channels essence from the spirit realm',baseCost:15000,basePS:80,owned:0,unlock:500},
+  { id:'vortex',   name:'Void Vortex', icon:'🌌',desc:'Opens a tear to raw primordial essence',baseCost:100000,basePS:300,owned:0,unlock:2000},
+  { id:'nexus',    name:'Arcane Nexus',icon:'💠',desc:'Central hub of all forge energies',baseCost:750000,basePS:1200,owned:0,unlock:10000},
+  { id:'colossus', name:'Forge Colossus',icon:'🏛️',desc:'A titan-sized forge that reshapes reality',baseCost:5e6,basePS:5000,owned:0,unlock:50000},
+];
+
+// ── UPGRADES ──────────────────────────────────────────
+const UPGRADES = [
+  { id:'u1', name:'Iron Grip',     icon:'🖐️', desc:'+1 per click',      cost:50,     bought:false, effect:()=>{ G.perClick+=1; }, unlock:5 },
+  { id:'u2', name:'Forge Bellows x2',icon:'💨',desc:'Bellows produce 2×',cost:200,    bought:false, effect:()=>{ BLDGS[0].basePS*=2; }, unlock:10 },
+  { id:'u3', name:'Steel Fingers', icon:'🤜',  desc:'+5 per click',      cost:500,    bought:false, effect:()=>{ G.perClick+=5; }, unlock:25 },
+  { id:'u4', name:'Anvil Rhythm',  icon:'⚒️',  desc:'Anvils produce 2×', cost:2000,   bought:false, effect:()=>{ BLDGS[1].basePS*=2; }, unlock:50 },
+  { id:'u5', name:'Essence Surge', icon:'⚡',  desc:'+20 per click',      cost:8000,   bought:false, effect:()=>{ G.perClick+=20; }, unlock:200 },
+  { id:'u6', name:'Alchemic Boost',icon:'⚗️',  desc:'Crucibles 3×',       cost:25000,  bought:false, effect:()=>{ BLDGS[2].basePS*=3; }, unlock:500 },
+  { id:'u7', name:'Rune Resonance',icon:'🔮',  desc:'Runestones 2×',      cost:100000, bought:false, effect:()=>{ BLDGS[3].basePS*=2; }, unlock:2000 },
+  { id:'u8', name:'Void Tap',      icon:'🌌',  desc:'+200 per click',     cost:500000, bought:false, effect:()=>{ G.perClick+=200; }, unlock:10000 },
+  { id:'u9', name:'Soul Infusion', icon:'✦',   desc:'All buildings 1.5×', cost:2e6,    bought:false, effect:()=>{ BLDGS.forEach(b=>b.basePS*=1.5); }, unlock:50000 },
+  { id:'u10',name:'Forge Mastery', icon:'🏛️',  desc:'+1000 per click',    cost:10e6,   bought:false, effect:()=>{ G.perClick+=1000; }, unlock:250000 },
+];
+
+// ── RUNES ─────────────────────────────────────────────
+const RUNES = [
+  { id:'fire',   name:'Fire Rune',   icon:'🔥', desc:'+50% essence/sec',   bonus:()=>{ G.perSec*=1.5; } },
+  { id:'earth',  name:'Earth Rune',  icon:'🪨', desc:'+100% click power',  bonus:()=>{ G.perClick*=2; } },
+  { id:'storm',  name:'Storm Rune',  icon:'⚡', desc:'+25% all production',bonus:()=>{ G.perSec*=1.25; G.perClick*=1.25; } },
+  { id:'void',   name:'Void Rune',   icon:'🌑', desc:'+200% dungeon DPS',  bonus:()=>{ /* applied in dungeon */ } },
+  { id:'soul',   name:'Soul Rune',   icon:'💜', desc:'+50% soul earnings', bonus:()=>{ /* on prestige */ } },
+  { id:'ice',    name:'Ice Rune',    icon:'❄️', desc:'+75% click power',   bonus:()=>{ G.perClick*=1.75; } },
+];
+
+// ── PRESTIGE PERKS ────────────────────────────────────
+const PERKS = [
+  { id:'p1', name:'Headstart',    icon:'⚡', desc:'Start with 50 essence', cost:1, effect:()=>{ G.ess+=50; } },
+  { id:'p2', name:'Auto-Click',   icon:'🤖', desc:'+5/sec automatic clicks', cost:2, effect:()=>{} },
+  { id:'p3', name:'Soul Trader',  icon:'💎', desc:'+50% soul gain next rebirth', cost:3, effect:()=>{} },
+  { id:'p4', name:'Forge Memory', icon:'🧠', desc:'Keep 10% of buildings on rebirth', cost:5, effect:()=>{} },
+  { id:'p5', name:'Void Walker',  icon:'🌌', desc:'Dungeon gives 2× essence', cost:4, effect:()=>{} },
+  { id:'p6', name:'Rune Keeper',  icon:'🔮', desc:'Keep all rune slots on rebirth', cost:6, effect:()=>{} },
+  { id:'p7', name:'Ember Heart',  icon:'❤️‍🔥', desc:'+200% click power permanently', cost:8, effect:()=>{ G.perClick*=3; } },
+  { id:'p8', name:'Soul Nexus',   icon:'✦',  desc:'Soul multiplier is 3× stronger', cost:10, effect:()=>{} },
+];
+
+// ── DUNGEON DATA ───────────────────────────────────────
+const ZONES = ['The Ashlands','Crystal Wastes','Void Rift','Shadow Realm','The Eternal Dark'];
+const ENEMIES = [
+  ['Ember Wraith','Cinder Beast','Ash Golem'],
+  ['Crystal Spider','Shard Elemental','Glass Drake'],
+  ['Void Shade','Null Spirit','Abyss Walker'],
+  ['Shadow Fiend','Dark Specter','Night Terror'],
+  ['Eternal Warden','Soul Devourer','Void Titan'],
+];
+
+// ── EPOCHS ────────────────────────────────────────────
+const EPOCHS = [
+  { name:'THE EMBER AGE',   threshold:0,      story:'The forge lies cold. Strike the anvil and awaken the eternal flame...' },
+  { name:'THE IRON EPOCH',  threshold:1000,   story:'Iron flows freely now. The forge hums with purpose. Something stirs deeper...' },
+  { name:'THE SOUL AGE',    threshold:50000,  story:'Essence binds with soul energy. Reality flickers at the forge\'s edge.' },
+  { name:'THE VOID EPOCH',  threshold:2e6,    story:'The void tears open. You forge reality itself. What lies beyond the flame?' },
+  { name:'THE ETERNAL AGE', threshold:100e6,  story:'Eternity is yours. The forge is now. Was always. Will always be. Forge on.' },
+];
+
+// ── DUNGEON STATE ─────────────────────────────────────
+let dungeon = { enemyHP: 100, enemyMaxHP: 100, name: 'Ember Wraith', timer: 0 };
+
+function getDPS() {
+  const voidMult = G.runeSlots.includes('void') ? 3 : 1;
+  const voidPerk = G.boughtPerks.includes('p5') ? 2 : 1;
+  return Math.max(1, Math.floor(G.perSec * 0.5 + G.perClick * 0.2)) * voidMult * voidPerk;
+}
+
+function newEnemy() {
+  const zone = Math.min(4, Math.floor((G.dungeonFloor - 1) / 10));
+  const isBoss = G.dungeonFloor % 5 === 0;
+  const enames = ENEMIES[zone];
+  dungeon.name = isBoss ? '👑 ' + enames[2] : enames[Math.floor(Math.random() * 2)];
+  dungeon.enemyMaxHP = Math.floor(50 * Math.pow(1.18, G.dungeonFloor - 1)) * (isBoss ? 5 : 1);
+  dungeon.enemyHP = dungeon.enemyMaxHP;
+  document.getElementById('enemy-name').textContent = dungeon.name;
+}
+
+function combatLog(msg, cls = '') {
+  const el = document.getElementById('combat-log');
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  while (el.children.length > 20) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── CORE CALCULATIONS ─────────────────────────────────
+function calcPerSec() {
+  let ps = 0.2;
+  BLDGS.forEach(b => { ps += b.basePS * b.owned; });
+  // soul multiplier
+  const soulMult = G.totalSouls > 0 ? (1 + G.totalSouls * 0.1 * (G.boughtPerks.includes('p8') ? 3 : 1)) : 1;
+  ps *= soulMult;
+  // rune bonuses applied fresh each tick via multipliers stored
+  return ps;
+}
+
+function calcPerClick() {
+  return G.perClick;
+}
+
+function bldgCost(b) {
+  return Math.floor(b.baseCost * Math.pow(1.15, b.owned));
+}
+
+// ── UI RENDERERS ──────────────────────────────────────
+function renderBldgs() {
+  const list = document.getElementById('bldg-list');
+  list.innerHTML = '';
+  BLDGS.forEach(b => {
+    const cost = bldgCost(b);
+    const canBuy = G.ess >= cost;
+    const locked = G.totalEss < b.unlock && b.owned === 0;
+    const div = document.createElement('div');
+    div.className = 'bldg-card' + (locked ? ' locked' : '') + (canBuy && !locked ? ' buyable' : '');
+    div.innerHTML = `
+      <div class="bldg-icon">${b.icon}</div>
+      <div class="bldg-info">
+        <div class="bldg-name">${b.name}</div>
+        <div class="bldg-desc">${b.desc}</div>
+        <div class="bldg-owned">Owned: ${b.owned} · +${fmt(b.basePS * b.owned)}/s</div>
+      </div>
+      <div class="bldg-cost ${canBuy ? '' : 'cant'}">${fmtCost(cost)}</div>`;
+    if (!locked) div.onclick = () => buyBldg(b);
+    list.appendChild(div);
+  });
+}
+
+function renderUpgrades() {
+  const grid = document.getElementById('upg-grid');
+  grid.innerHTML = '';
+  UPGRADES.forEach(u => {
+    if (G.totalClicks < u.unlock && !u.bought) return;
+    const canBuy = G.ess >= u.cost;
+    const div = document.createElement('div');
+    div.className = 'upg-card' + (u.bought ? ' bought' : '');
+    div.innerHTML = `<div class="upg-icon">${u.icon}</div><div class="upg-name">${u.name}</div><div class="upg-desc">${u.desc}</div>${u.bought ? '<div style="color:var(--ok);font-size:11px;margin-top:5px">✓ Applied</div>' : `<div class="upg-cost ${canBuy?'':'cant'}">${fmtCost(u.cost)}</div>`}`;
+    if (!u.bought) div.onclick = () => buyUpgrade(u);
+    grid.appendChild(div);
+  });
+}
+
+function renderRunes() {
+  // slots
+  for (let i = 0; i < 3; i++) {
+    const slot = document.getElementById('slot-' + i);
+    const r = G.runeSlots[i] ? RUNES.find(r => r.id === G.runeSlots[i]) : null;
+    slot.textContent = r ? r.icon : '—';
+    slot.className = 'rune-slot' + (r ? ' filled' : '');
+    slot.title = r ? r.name : 'Empty';
+  }
+  // rune list
+  const grid = document.getElementById('rune-grid');
+  grid.innerHTML = '';
+  RUNES.forEach(r => {
+    const attuned = G.runeSlots.includes(r.id);
+    const div = document.createElement('div');
+    div.className = 'rune-card' + (attuned ? ' attuned' : '');
+    div.innerHTML = `<div class="rune-icon">${r.icon}</div><div class="rune-name">${r.name}</div><div class="rune-bonus">${r.desc}</div><div style="font-size:10px;color:${attuned?'var(--ok)':'var(--ash-d)'};margin-top:5px">${attuned ? '✓ Attuned' : 'Tap to attune'}</div>`;
+    if (!attuned) div.onclick = () => equipRune(r.id);
+    grid.appendChild(div);
+  });
+}
+
+function renderPerks() {
+  const grid = document.getElementById('perk-grid');
+  grid.innerHTML = '';
+  PERKS.forEach(p => {
+    const bought = G.boughtPerks.includes(p.id);
+    const canBuy = G.souls >= p.cost;
+    const div = document.createElement('div');
+    div.className = 'perk-card' + (bought ? ' bought' : '');
+    div.innerHTML = `<div class="perk-icon">${p.icon}</div><div class="perk-name">${p.name}</div><div class="perk-desc">${p.desc}</div>${bought ? '<div style="color:var(--ok);font-size:10px;margin-top:4px">✓ Active</div>' : `<div class="perk-cost">${p.cost} 🔮 Souls</div>`}`;
+    if (!bought) div.onclick = () => buyPerk(p);
+    grid.appendChild(div);
+  });
+}
+
+function renderDungeon() {
+  const pct = Math.max(0, dungeon.enemyHP / dungeon.enemyMaxHP * 100);
+  document.getElementById('enemy-hp-fill').style.width = pct + '%';
+  document.getElementById('enemy-hp-label').textContent = fmt(dungeon.enemyHP) + ' / ' + fmt(dungeon.enemyMaxHP);
+  document.getElementById('floor-num').textContent = G.dungeonFloor;
+  document.getElementById('floor-disp').textContent = G.dungeonFloor;
+  const zone = Math.min(4, Math.floor((G.dungeonFloor - 1) / 10));
+  document.getElementById('zone-name').textContent = ZONES[zone];
+  document.getElementById('dps-val').textContent = fmt(getDPS());
+  document.getElementById('kill-count').textContent = G.dungeonKills;
+}
+
+// ── ACTIONS ───────────────────────────────────────────
+function clickForge() {
+  const gain = calcPerClick();
+  G.ess += gain;
+  G.totalEss += gain;
+  G.clicks++;
+  G.totalClicks++;
+  updateHUD();
+}
+
+function buyBldg(b) {
+  const cost = bldgCost(b);
+  if (G.ess < cost) return;
+  G.ess -= cost;
+  b.owned++;
+  recalcPS();
+  renderBldgs();
+  updateHUD();
+}
+
+function buyUpgrade(u) {
+  if (G.ess < u.cost || u.bought) return;
+  G.ess -= u.cost;
+  u.bought = true;
+  u.effect();
+  recalcPS();
+  renderUpgrades();
+  updateHUD();
+}
+
+function equipRune(id) {
+  const emptyIdx = G.runeSlots.indexOf(null);
+  if (emptyIdx === -1) { alert('All 3 rune slots are full! Tap a slot to remove a rune.'); return; }
+  if (G.runeSlots.includes(id)) return;
+  G.runeSlots[emptyIdx] = id;
+  recalcPS();
+  renderRunes();
+}
+
+function unequipRune(i) {
+  if (!G.runeSlots[i]) return;
+  G.runeSlots[i] = null;
+  recalcPS();
+  renderRunes();
+}
+
+function buyPerk(p) {
+  if (G.souls < p.cost || G.boughtPerks.includes(p.id)) return;
+  G.souls -= p.cost;
+  G.boughtPerks.push(p.id);
+  p.effect();
+  renderPerks();
+  updateHUD();
+}
+
+function doPrestige() {
+  const soulsEarned = Math.max(1, Math.floor(Math.sqrt(G.totalEss / 1000)));
+  if (!confirm(`Transcend and earn ${soulsEarned} Soul Echoes? All progress resets except perks and souls.`)) return;
+  G.souls += soulsEarned;
+  G.totalSouls += soulsEarned;
+  G.ess = 0; G.totalEss = 0; G.perClick = 1; G.clicks = 0;
+  BLDGS.forEach(b => {
+    if (G.boughtPerks.includes('p4')) b.owned = Math.floor(b.owned * 0.1);
+    else b.owned = 0;
+  });
+  UPGRADES.forEach(u => { u.bought = false; });
+  if (!G.boughtPerks.includes('p6')) G.runeSlots = [null, null, null];
+  G.perSec = 0.2; G.epoch = 0;
+  // reapply headstart
+  if (G.boughtPerks.includes('p1')) G.ess += 50;
+  // reapply bought perk effects
+  G.boughtPerks.forEach(pid => {
+    const p = PERKS.find(p => p.id === pid);
+    if (p) p.effect();
+  });
+  recalcPS();
+  renderAll();
+  updateHUD();
+  showScreen('scr-game');
+}
+
+function recalcPS() {
+  G.perSec = calcPerSec();
+  // apply rune bonuses to a temp multiplier
+  G.runeSlots.forEach(rid => {
+    if (!rid) return;
+    const r = RUNES.find(r => r.id === rid);
+    if (r && r.id !== 'void' && r.id !== 'soul') r.bonus();
+  });
+}
+
+// ── GAME LOOP ─────────────────────────────────────────
+let lastTick = Date.now();
+let autoClickTimer = 0;
+
+function gameTick() {
+  const now = Date.now();
+  const dt = Math.min((now - lastTick) / 1000, 0.5);
+  lastTick = now;
+
+  // essence income
+  const ps = calcPerSec();
+  const income = ps * dt;
+  G.ess += income;
+  G.totalEss += income;
+
+  // auto-click perk
+  if (G.boughtPerks.includes('p2')) {
+    autoClickTimer += dt;
+    if (autoClickTimer >= 0.2) {
+      autoClickTimer = 0;
+      G.ess += calcPerClick() * 5 * dt;
+      G.totalEss += calcPerClick() * 5 * dt;
+    }
+  }
+
+  // dungeon combat
+  dungeon.timer += dt;
+  if (dungeon.timer >= 1) {
+    dungeon.timer = 0;
+    const dps = getDPS();
+    dungeon.enemyHP -= dps;
+    if (document.getElementById('pan-dun').classList.contains('active')) {
+      combatLog(`Hit for ${fmt(dps)}`, 'hit');
+    }
+    if (dungeon.enemyHP <= 0) {
+      // drop
+      const drop = Math.floor(G.dungeonFloor * 10 * (G.boughtPerks.includes('p5') ? 2 : 1));
+      G.ess += drop;
+      G.totalEss += drop;
+      G.dungeonKills++;
+      const isBoss = G.dungeonFloor % 5 === 0;
+      combatLog(isBoss ? `★ BOSS SLAIN! +${fmt(drop)} essence` : `Killed! +${fmt(drop)} essence`, isBoss ? 'boss' : 'kill');
+      G.dungeonFloor++;
+      newEnemy();
+    }
+    renderDungeon();
+  }
+
+  // epoch check
+  checkEpoch();
+  updateHUD();
+  setTimeout(gameTick, 100);
+}
+
+function checkEpoch() {
+  for (let i = EPOCHS.length - 1; i >= 0; i--) {
+    if (G.totalEss >= EPOCHS[i].threshold) {
+      if (G.epoch !== i) {
+        G.epoch = i;
+        document.getElementById('epoch-label').textContent = EPOCHS[i].name;
+        document.getElementById('story-box').textContent = EPOCHS[i].story;
+      }
+      const next = EPOCHS[i + 1];
+      if (next) {
+        const pct = Math.min(100, (G.totalEss - EPOCHS[i].threshold) / (next.threshold - EPOCHS[i].threshold) * 100);
+        document.getElementById('epoch-fill').style.width = pct + '%';
+      } else {
+        document.getElementById('epoch-fill').style.width = '100%';
+      }
+      break;
+    }
+  }
+}
+
+function updateHUD() {
+  const ps = calcPerSec();
+  document.getElementById('ess-disp').textContent = fmt(G.ess);
+  document.getElementById('ess-ps').textContent = fmt(ps);
+  document.getElementById('soul-disp').textContent = fmt(G.souls);
+  document.getElementById('forge-big').textContent = fmt(G.ess);
+  document.getElementById('forge-ps-label').textContent = fmt(ps) + ' essence / sec';
+  // prestige tab
+  const soulsEarned = Math.max(1, Math.floor(Math.sqrt(G.totalEss / 1000)));
+  document.getElementById('pres-earn').textContent = soulsEarned;
+  document.getElementById('soul-perk-disp').textContent = G.souls;
+}
+
+// ── SAVE / LOAD ───────────────────────────────────────
+function saveGame() {
+  const data = {
+    G,
+    bldgs: BLDGS.map(b => b.owned),
+    upgrades: UPGRADES.map(u => u.bought),
+  };
+  localStorage.setItem('epoch_save', JSON.stringify(data));
+  document.getElementById('save-btn').textContent = '✓ Saved';
+  setTimeout(() => document.getElementById('save-btn').textContent = '💾', 1500);
+}
+
+function loadGame() {
+  try {
+    const data = JSON.parse(localStorage.getItem('epoch_save'));
+    if (!data) { alert('No save found.'); return; }
+    Object.assign(G, data.G);
+    data.bldgs.forEach((owned, i) => { if (BLDGS[i]) BLDGS[i].owned = owned; });
+    data.upgrades.forEach((bought, i) => { if (UPGRADES[i]) { UPGRADES[i].bought = bought; if (bought) UPGRADES[i].effect(); } });
+    G.boughtPerks.forEach(pid => { const p = PERKS.find(p => p.id === pid); if (p) p.effect(); });
+    recalcPS();
+    startGame();
+  } catch(e) { alert('Could not load save.'); }
+}
+
+// Auto-save every 60s
+setInterval(saveGame, 60000);
+
+// ── NAVIGATION ────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchTab(el) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(el.dataset.tab).classList.add('active');
+}
+
+function renderAll() {
+  renderBldgs();
+  renderUpgrades();
+  renderRunes();
+  renderPerks();
+  newEnemy();
+  renderDungeon();
+  updateHUD();
+}
+
+function startGame() {
+  showScreen('scr-game');
+  renderAll();
+}
+
+// ── FORMAT HELPERS ────────────────────────────────────
+function fmt(n) {
+  n = Math.floor(n);
+  if (n >= 1e15) return (n/1e15).toFixed(2) + 'Q';
+  if (n >= 1e12) return (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9)  return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6)  return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3)  return (n/1e3).toFixed(2) + 'K';
+  return n.toString();
+}
+function fmtCost(n) { return fmt(n) + ' ⚗'; }
+
+gameTick();
+</script>
+</body>
+</html>

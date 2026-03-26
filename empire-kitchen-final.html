@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Empire Kitchen</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0a0806;--ink2:#13100b;--ink3:#1c1810;
+  --parch:#f0e8d0;--parch2:#e8dcc0;
+  --gold:#c8a84a;--gold2:#e8c86a;--gold3:#a88828;
+  --crimson:#9a2020;--sage:#2a6040;--slate:#2a3848;--amber:#c87820;
+  --text:#e8dfc8;--text2:#b8a888;--text3:#787060;
+  --border:rgba(200,168,74,0.18);--border2:rgba(200,168,74,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{background:var(--ink);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* SCREENS */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;z-index:10;background:var(--ink)}
+.screen.active{display:flex}
+
+/* MENU */
+#scr-menu{align-items:center;justify-content:center;gap:0;
+  background:radial-gradient(ellipse 80% 50% at 50% 20%,rgba(200,168,74,0.07) 0%,transparent 70%),var(--ink)}
+.m-title{font-family:'Playfair Display',serif;font-size:clamp(32px,10vw,56px);color:var(--gold);letter-spacing:2px;text-align:center;margin-bottom:6px}
+.m-sub{font-size:12px;letter-spacing:4px;color:var(--text3);text-align:center;margin-bottom:36px;text-transform:uppercase}
+.m-btn{display:block;width:220px;padding:14px 28px;margin:7px auto;border:1px solid var(--border);background:rgba(200,168,74,0.07);color:var(--gold);font-family:'Playfair Display',serif;font-size:15px;letter-spacing:1px;text-align:center;cursor:pointer;border-radius:3px;transition:all .2s}
+.m-btn:hover,.m-btn:active{background:rgba(200,168,74,0.18);border-color:var(--gold2)}
+.m-btn.primary{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:700}
+.m-btn.primary:hover{background:var(--gold2)}
+
+/* GAME HEADER */
+#hdr{background:var(--ink2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:8px 12px;gap:10px;flex-shrink:0}
+.hdr-brand{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);flex:1}
+.hdr-stat{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)}
+.hdr-stat span{color:var(--gold2)}
+#menu-btn{padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;border-radius:3px;font-size:11px}
+
+/* TABS */
+#tabs{display:flex;background:var(--ink2);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:9px 4px;text-align:center;cursor:pointer;font-size:9px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(200,168,74,0.05)}
+
+/* PANELS */
+#content{flex:1;overflow:hidden;position:relative}
+.panel{display:none;height:100%;overflow-y:auto;padding:12px;flex-direction:column;gap:10px}
+.panel.active{display:flex}
+
+/* SECTION HEADER */
+.sh{font-family:'Playfair Display',serif;font-size:11px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:2px}
+
+/* EMPIRE OVERVIEW */
+.empire-card{background:var(--ink2);border:1px solid var(--border);border-radius:6px;padding:12px}
+.ec-name{font-family:'Playfair Display',serif;font-size:15px;color:var(--gold);margin-bottom:4px}
+.ec-type{font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.ec-row{display:flex;justify-content:space-between;margin-bottom:4px}
+.ec-label{font-size:12px;color:var(--text2)}
+.ec-val{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold2)}
+.ec-bar-wrap{height:5px;background:rgba(200,168,74,0.1);border-radius:3px;overflow:hidden;margin:6px 0}
+.ec-bar{height:100%;background:var(--gold);border-radius:3px;transition:width .5s}
+.ec-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ec-btn{padding:6px 12px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;border-radius:3px;transition:all .2s}
+.ec-btn:active{background:rgba(200,168,74,0.12);color:var(--gold)}
+.ec-btn.danger{border-color:rgba(154,32,32,0.4);color:#c05050}
+.ec-btn.danger:active{background:rgba(154,32,32,0.15)}
+
+/* STAFF */
+.staff-card{background:var(--ink2);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;align-items:center;gap:10px}
+.staff-icon{font-size:24px;flex-shrink:0}
+.staff-info{flex:1}
+.staff-name{font-family:'Playfair Display',serif;font-size:13px;color:var(--text)}
+.staff-role{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.staff-wage{font-family:'DM Mono',monospace;font-size:11px;color:var(--gold2)}
+.staff-fire{padding:5px 10px;border:1px solid rgba(154,32,32,0.4);background:transparent;color:#c05050;font-size:10px;cursor:pointer;border-radius:3px}
+
+/* MARKET / UPGRADE CARDS */
+.market-card{background:var(--ink2);border:1px solid var(--border);border-radius:6px;padding:12px;cursor:pointer;transition:all .2s}
+.market-card:active,.market-card:hover{border-color:var(--gold);background:rgba(200,168,74,0.06)}
+.mc-icon{font-size:26px;margin-bottom:6px}
+.mc-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);margin-bottom:3px}
+.mc-desc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px}
+.mc-cost{font-family:'DM Mono',monospace;font-size:13px;color:var(--gold2)}
+.mc-cost.cant{color:#c05050}
+
+.market-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* BUY RESTAURANT */
+.rest-type-card{background:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:all .2s}
+.rest-type-card:active{border-color:var(--gold);background:rgba(200,168,74,0.08)}
+.rtc-icon{font-size:32px;margin-bottom:8px}
+.rtc-name{font-family:'Playfair Display',serif;font-size:15px;color:var(--gold);margin-bottom:4px}
+.rtc-desc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px}
+.rtc-stats{font-size:11px;color:var(--text3)}
+.rtc-cost{font-family:'DM Mono',monospace;font-size:14px;color:var(--gold2);margin-top:8px}
+
+/* EVENTS */
+.event-card{background:rgba(42,96,64,0.15);border:1px solid rgba(42,96,64,0.4);border-radius:6px;padding:12px}
+.ev-title{font-family:'Playfair Display',serif;font-size:14px;color:#4caf7a;margin-bottom:4px}
+.ev-desc{font-size:12px;color:var(--text2);margin-bottom:10px}
+.ev-btn{padding:8px 16px;background:rgba(42,96,64,0.3);border:1px solid rgba(42,96,64,0.5);color:#4caf7a;font-size:12px;cursor:pointer;border-radius:3px;transition:all .2s}
+.ev-btn:active{background:rgba(42,96,64,0.5)}
+
+.notify{position:fixed;top:70px;right:12px;background:var(--ink3);border:1px solid var(--gold);border-radius:6px;padding:10px 14px;font-size:13px;color:var(--gold2);z-index:999;transform:translateX(120%);transition:transform .3s;max-width:220px}
+.notify.show{transform:translateX(0)}
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div class="screen active" id="scr-menu">
+  <div class="m-title">Empire Kitchen</div>
+  <div class="m-sub">Restaurant Tycoon</div>
+  <button class="m-btn primary" onclick="newGame()">🍽️ New Empire</button>
+  <button class="m-btn" onclick="continueGame()">↺ Continue</button>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="scr-game">
+  <div id="hdr">
+    <div class="hdr-brand">🍽️ Empire Kitchen</div>
+    <div class="hdr-stat">$<span id="hdr-cash">0</span></div>
+    <div class="hdr-stat">⭐<span id="hdr-rep">0</span></div>
+    <button id="menu-btn" onclick="showScreen('scr-menu')">☰ Menu</button>
+  </div>
+  <div id="tabs">
+    <div class="tab active" data-panel="pan-empire" onclick="switchTab(this)">Empire</div>
+    <div class="tab" data-panel="pan-staff" onclick="switchTab(this)">Staff</div>
+    <div class="tab" data-panel="pan-upgrade" onclick="switchTab(this)">Upgrades</div>
+    <div class="tab" data-panel="pan-buy" onclick="switchTab(this)">Expand</div>
+    <div class="tab" data-panel="pan-events" onclick="switchTab(this)">Events</div>
+  </div>
+  <div id="content">
+    <!-- EMPIRE -->
+    <div class="panel active" id="pan-empire">
+      <div class="sh">Your Restaurants</div>
+      <div id="rest-list"></div>
+      <div style="text-align:center;padding:16px;color:var(--text3);font-size:12px" id="no-rests" style="display:none">No restaurants yet. Go to Expand to open your first!</div>
+    </div>
+    <!-- STAFF -->
+    <div class="panel" id="pan-staff">
+      <div class="sh">Your Staff</div>
+      <div id="staff-list"></div>
+      <div class="sh" style="margin-top:8px">Hire Staff</div>
+      <div id="hire-list"></div>
+    </div>
+    <!-- UPGRADES -->
+    <div class="panel" id="pan-upgrade">
+      <div class="sh">Menu Upgrades</div>
+      <div id="upg-list"></div>
+    </div>
+    <!-- BUY RESTAURANT -->
+    <div class="panel" id="pan-buy">
+      <div class="sh">Open New Location</div>
+      <div id="rest-types"></div>
+    </div>
+    <!-- EVENTS -->
+    <div class="panel" id="pan-events">
+      <div class="sh">Active Events</div>
+      <div id="events-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notify" id="notify"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  EMPIRE KITCHEN — Restaurant Tycoon
+// ══════════════════════════════════════════════════════
+
+let G = {
+  cash: 500, reputation: 0, day: 1,
+  restaurants: [], staff: [], boughtUpgrades: [],
+  activeEvents: []
+};
+
+const REST_TYPES = [
+  { id:'bistro',   name:'Casual Bistro',    icon:'☕', desc:'Cozy neighborhood spot. Steady customers, reliable income.', cost:200,  baseMult:1,   rep:5,  maxStaff:4 },
+  { id:'fast',     name:'Fast Food',         icon:'🍔', desc:'High volume, low margin. Speed is everything.', cost:150,  baseMult:0.8, rep:2,  maxStaff:5 },
+  { id:'fine',     name:'Fine Dining',       icon:'🥂', desc:'Premium prices, demanding clientele. High risk, high reward.', cost:800,  baseMult:2.5, rep:20, maxStaff:6 },
+  { id:'rooftop',  name:'Rooftop Bar',       icon:'🌆', desc:'Trendy views and cocktails. Peak during evenings and weekends.', cost:600,  baseMult:1.8, rep:15, maxStaff:4 },
+  { id:'truck',    name:'Food Truck',        icon:'🚚', desc:'Mobile and flexible. Lower overhead, multiple locations.', cost:100,  baseMult:0.6, rep:8,  maxStaff:2 },
+  { id:'speakeasy',name:'Speakeasy Bar',     icon:'🥃', desc:'Hidden gem. Premium drinks, late night hours, loyal regulars.', cost:1200, baseMult:3,   rep:25, maxStaff:5 },
+];
+
+const STAFF_TYPES = [
+  { id:'chef',    name:'Head Chef',     icon:'👨‍🍳', role:'Kitchen', wage:80,  incomeBoost:0.3 },
+  { id:'waiter',  name:'Waiter',        icon:'🤵', role:'Front',   wage:40,  incomeBoost:0.15 },
+  { id:'manager', name:'Manager',       icon:'👔', role:'Management', wage:120, incomeBoost:0.5 },
+  { id:'barista', name:'Barista',       icon:'☕', role:'Bar',     wage:50,  incomeBoost:0.2 },
+  { id:'host',    name:'Host',          icon:'🙋', role:'Front',   wage:35,  incomeBoost:0.1 },
+  { id:'cleaner', name:'Cleaning Staff',icon:'🧹', role:'Support', wage:30,  repBoost:2 },
+];
+
+const UPGRADES = [
+  { id:'menu1', name:'Seasonal Menu',   icon:'🌿', desc:'+20% income all locations', cost:300,  effect:()=>{ G.incomeBonus=(G.incomeBonus||0)+0.2; } },
+  { id:'decor1',name:'Interior Redesign',icon:'🎨',desc:'+15 reputation', cost:200,  effect:()=>{ G.reputation+=15; } },
+  { id:'tech1', name:'POS System',      icon:'💻', desc:'-20% staff cost', cost:400,  effect:()=>{ G.staffDiscount=(G.staffDiscount||0)+0.2; } },
+  { id:'menu2', name:'Signature Dish',  icon:'⭐', desc:'+40% income, +10 rep', cost:600,  effect:()=>{ G.incomeBonus=(G.incomeBonus||0)+0.4; G.reputation+=10; } },
+  { id:'mkt1',  name:'Social Media',    icon:'📱', desc:'+30 reputation', cost:500,  effect:()=>{ G.reputation+=30; } },
+  { id:'kit1',  name:'Kitchen Expansion',icon:'🍳',desc:'+50% income all locations', cost:800,  effect:()=>{ G.incomeBonus=(G.incomeBonus||0)+0.5; } },
+  { id:'vip1',  name:'VIP Lounge',      icon:'💎', desc:'+2× fine dining & speakeasy income', cost:1500, effect:()=>{ G.vipBonus=2; } },
+  { id:'del1',  name:'Delivery Service',icon:'🛵', desc:'+25% income (delivery orders)', cost:700,  effect:()=>{ G.incomeBonus=(G.incomeBonus||0)+0.25; } },
+];
+
+const EVENT_POOL = [
+  { id:'trivia',  name:'Trivia Night',   icon:'🧠', desc:'Host a weekly trivia night. +30% reputation this week.', repBoost:30, incBoost:0.15, duration:3 },
+  { id:'movie',   name:'Movie Night',    icon:'🎬', desc:'Outdoor film screening. +20% customers, higher tips.', repBoost:15, incBoost:0.3, duration:2 },
+  { id:'speed',   name:'Speed Dating',   icon:'💕', desc:'Partnered with a dating app. Packed house tonight!', repBoost:20, incBoost:0.5, duration:1 },
+  { id:'food_fest',name:'Food Festival', icon:'🎪', desc:'Local festival partnership. Double foot traffic!', repBoost:25, incBoost:1.0, duration:2 },
+  { id:'celeb',   name:'Celebrity Visit',icon:'⭐', desc:'A local influencer dropped by. Social media buzz!', repBoost:50, incBoost:0.2, duration:1 },
+  { id:'happy',   name:'Happy Hour',     icon:'🍹', desc:'Extended happy hour special. Regulars love it.', repBoost:10, incBoost:0.4, duration:5 },
+];
+
+let staffIdCounter = 1;
+let restIdCounter = 1;
+
+function calcIncome() {
+  let total = 0;
+  const repMult = 1 + G.reputation / 100;
+  const incBonus = 1 + (G.incomeBonus || 0);
+  const staffBonus = G.staff.reduce((s, st) => s + (STAFF_TYPES.find(t=>t.id===st.type)?.incomeBoost||0), 0);
+  const eventBonus = G.activeEvents.reduce((s, e) => s + (e.incBoost||0), 0);
+
+  G.restaurants.forEach(r => {
+    const type = REST_TYPES.find(t => t.id === r.type);
+    const vip = (r.type === 'fine' || r.type === 'speakeasy') ? (G.vipBonus || 1) : 1;
+    const base = type.baseMult * 20 * (1 + r.level * 0.3);
+    total += base * repMult * incBonus * (1 + staffBonus) * (1 + eventBonus) * vip;
+  });
+  return total;
+}
+
+function calcWages() {
+  return G.staff.reduce((s, st) => {
+    const type = STAFF_TYPES.find(t => t.id === st.type);
+    return s + type.wage * (1 - (G.staffDiscount || 0));
+  }, 0);
+}
+
+// ── RENDER FUNCTIONS ───────────────────────────────────
+function renderEmpire() {
+  const list = document.getElementById('rest-list');
+  list.innerHTML = '';
+  if (G.restaurants.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">No restaurants yet.<br>Visit Expand to open your first!</div>';
+    return;
+  }
+  G.restaurants.forEach(r => {
+    const type = REST_TYPES.find(t => t.id === r.type);
+    const income = type.baseMult * 20 * (1 + r.level * 0.3);
+    const upgCost = Math.floor(300 * Math.pow(1.5, r.level));
+    const div = document.createElement('div');
+    div.className = 'empire-card';
+    div.innerHTML = `
+      <div class="ec-type">${type.icon} ${type.name.toUpperCase()}</div>
+      <div class="ec-name">${r.name}</div>
+      <div class="ec-row"><span class="ec-label">Level</span><span class="ec-val">${r.level}</span></div>
+      <div class="ec-row"><span class="ec-label">Base Income</span><span class="ec-val">$${income.toFixed(0)}/tick</span></div>
+      <div class="ec-row"><span class="ec-label">Customers</span><span class="ec-val">${Math.floor(20 + r.level * 5 + G.reputation / 5)}</span></div>
+      <div class="ec-bar-wrap"><div class="ec-bar" style="width:${Math.min(100,(r.xp/r.xpNext)*100)}%"></div></div>
+      <div class="ec-row"><span class="ec-label">XP to level</span><span class="ec-val">${r.xp}/${r.xpNext}</span></div>
+      <div class="ec-btns">
+        <button class="ec-btn" onclick="upgradeRest(${r.id})">⬆ Upgrade ($${upgCost})</button>
+        <button class="ec-btn" onclick="runPromo(${r.id})">📣 Promo ($50)</button>
+        <button class="ec-btn danger" onclick="sellRest(${r.id})">🏷 Sell</button>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function renderStaff() {
+  const list = document.getElementById('staff-list');
+  list.innerHTML = '';
+  if (G.staff.length === 0) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px">No staff hired yet.</div>';
+  } else {
+    G.staff.forEach(s => {
+      const type = STAFF_TYPES.find(t => t.id === s.type);
+      const div = document.createElement('div');
+      div.className = 'staff-card';
+      div.innerHTML = `<div class="staff-icon">${type.icon}</div><div class="staff-info"><div class="staff-name">${s.name}</div><div class="staff-role">${type.role} · ${type.name}</div><div class="staff-wage">$${Math.floor(type.wage * (1 - (G.staffDiscount||0)))}/day</div></div><button class="staff-fire" onclick="fireStaff(${s.id})">Fire</button>`;
+      list.appendChild(div);
+    });
+  }
+
+  const hire = document.getElementById('hire-list');
+  hire.innerHTML = '';
+  STAFF_TYPES.forEach(type => {
+    const wage = Math.floor(type.wage * (1 - (G.staffDiscount||0)));
+    const div = document.createElement('div');
+    div.className = 'market-card';
+    div.innerHTML = `<div class="mc-icon">${type.icon}</div><div class="mc-name">${type.name}</div><div class="mc-desc">${type.role} · +${Math.floor(type.incomeBoost*100)}% income${type.repBoost?` · +${type.repBoost} rep`:''}</div><div class="mc-cost ${G.cash>=wage*5?'':'cant'}">Hire: $${wage*5} + $${wage}/day</div>`;
+    div.onclick = () => hireStaff(type);
+    hire.appendChild(div);
+  });
+}
+
+function renderUpgrades() {
+  const list = document.getElementById('upg-list');
+  list.innerHTML = '';
+  UPGRADES.forEach(u => {
+    const bought = G.boughtUpgrades.includes(u.id);
+    const div = document.createElement('div');
+    div.className = 'market-card';
+    div.style.opacity = bought ? '0.5' : '1';
+    div.style.cursor = bought ? 'default' : 'pointer';
+    div.innerHTML = `<div class="mc-icon">${u.icon}</div><div class="mc-name">${u.name}</div><div class="mc-desc">${u.desc}</div><div class="mc-cost ${bought?'':''}${!bought&&G.cash<u.cost?'cant':''}">${bought ? '✓ Purchased' : '$' + u.cost}</div>`;
+    if (!bought) div.onclick = () => buyUpgrade(u);
+    list.appendChild(div);
+  });
+}
+
+function renderRestTypes() {
+  const list = document.getElementById('rest-types');
+  list.innerHTML = '';
+  REST_TYPES.forEach(type => {
+    const div = document.createElement('div');
+    div.className = 'rest-type-card';
+    div.style.marginBottom = '8px';
+    div.innerHTML = `<div class="rtc-icon">${type.icon}</div><div class="rtc-name">${type.name}</div><div class="rtc-desc">${type.desc}</div><div class="rtc-stats">Base income mult: ×${type.baseMult} · Max staff: ${type.maxStaff} · +${type.rep} rep</div><div class="rtc-cost ${G.cash>=type.cost?'':'mc-cost cant'}">Open: $${type.cost}</div>`;
+    div.onclick = () => openRestaurant(type);
+    list.appendChild(div);
+  });
+}
+
+function renderEvents() {
+  const list = document.getElementById('events-list');
+  list.innerHTML = '';
+  if (G.activeEvents.length > 0) {
+    G.activeEvents.forEach(ev => {
+      const div = document.createElement('div');
+      div.className = 'event-card';
+      div.innerHTML = `<div class="ev-title">${ev.icon} ${ev.name} — ${ev.daysLeft} days left</div><div class="ev-desc">+${Math.floor(ev.incBoost*100)}% income · +${ev.repBoost} rep on start</div>`;
+      list.appendChild(div);
+    });
+  }
+
+  // Available events
+  const avail = EVENT_POOL.filter(e => !G.activeEvents.find(a => a.id === e.id));
+  if (avail.length > 0) {
+    const h = document.createElement('div');
+    h.className = 'sh'; h.style.marginTop = '12px';
+    h.textContent = 'Available Events';
+    list.appendChild(h);
+    avail.forEach(ev => {
+      const cost = 100;
+      const div = document.createElement('div');
+      div.className = 'event-card';
+      div.style.cursor = 'pointer';
+      div.innerHTML = `<div class="ev-title">${ev.icon} ${ev.name}</div><div class="ev-desc">${ev.desc}<br>+${Math.floor(ev.incBoost*100)}% income for ${ev.duration} days · $${cost}</div><button class="ev-btn">Host Event</button>`;
+      div.querySelector('button').onclick = () => hostEvent(ev);
+      list.appendChild(div);
+    });
+  }
+}
+
+// ── ACTIONS ───────────────────────────────────────────
+const NAMES = ['The Golden Fork','La Maison','Corner Table','The Ember Room','Blue Plate','The Quarter','Nightfall','Copper & Oak','Salt & Stone','The Hearth'];
+let nameIdx = 0;
+
+function openRestaurant(type) {
+  if (G.cash < type.cost) { notify('Not enough cash!'); return; }
+  G.cash -= type.cost;
+  G.reputation += type.rep;
+  G.restaurants.push({ id: restIdCounter++, type: type.id, name: NAMES[nameIdx++ % NAMES.length], level: 1, xp: 0, xpNext: 100 });
+  notify(`${type.icon} ${type.name} opened!`);
+  renderEmpire();
+  renderRestTypes();
+  updateHUD();
+}
+
+function upgradeRest(id) {
+  const r = G.restaurants.find(r => r.id === id);
+  if (!r) return;
+  const cost = Math.floor(300 * Math.pow(1.5, r.level));
+  if (G.cash < cost) { notify('Not enough cash!'); return; }
+  G.cash -= cost;
+  r.level++;
+  r.xpNext = Math.floor(r.xpNext * 1.5);
+  G.reputation += 5;
+  notify('⬆ Restaurant upgraded!');
+  renderEmpire();
+  updateHUD();
+}
+
+function runPromo(id) {
+  if (G.cash < 50) { notify('Need $50 for promo!'); return; }
+  G.cash -= 50;
+  G.reputation += 5;
+  const r = G.restaurants.find(r => r.id === id);
+  if (r) { r.xp += 20; if (r.xp >= r.xpNext) { r.xp -= r.xpNext; r.level++; r.xpNext = Math.floor(r.xpNext * 1.5); notify('Level up!'); } }
+  notify('📣 Promo ran! +5 rep');
+  renderEmpire();
+  updateHUD();
+}
+
+function sellRest(id) {
+  const idx = G.restaurants.findIndex(r => r.id === id);
+  if (idx === -1) return;
+  const r = G.restaurants[idx];
+  const type = REST_TYPES.find(t => t.id === r.type);
+  const price = Math.floor(type.cost * 0.5 * r.level);
+  if (!confirm(`Sell for $${price}?`)) return;
+  G.cash += price;
+  G.restaurants.splice(idx, 1);
+  renderEmpire();
+  updateHUD();
+}
+
+function hireStaff(type) {
+  const cost = Math.floor(type.wage * (1 - (G.staffDiscount||0))) * 5;
+  if (G.cash < cost) { notify('Not enough cash!'); return; }
+  G.cash -= cost;
+  const names = ['Alex','Sam','Jordan','Casey','Morgan','Riley','Taylor','Jamie'];
+  G.staff.push({ id: staffIdCounter++, type: type.id, name: names[Math.floor(Math.random()*names.length)] });
+  notify(`${type.icon} ${type.name} hired!`);
+  renderStaff();
+  updateHUD();
+}
+
+function fireStaff(id) {
+  const idx = G.staff.findIndex(s => s.id === id);
+  if (idx === -1) return;
+  G.staff.splice(idx, 1);
+  renderStaff();
+  notify('Staff member let go.');
+  updateHUD();
+}
+
+function buyUpgrade(u) {
+  if (G.cash < u.cost || G.boughtUpgrades.includes(u.id)) { notify('Not enough cash!'); return; }
+  G.cash -= u.cost;
+  G.boughtUpgrades.push(u.id);
+  u.effect();
+  notify(`✓ ${u.name} purchased!`);
+  renderUpgrades();
+  updateHUD();
+}
+
+function hostEvent(ev) {
+  if (G.cash < 100) { notify('Need $100 to host event!'); return; }
+  G.cash -= 100;
+  G.reputation += ev.repBoost;
+  G.activeEvents.push({ ...ev, daysLeft: ev.duration });
+  notify(`${ev.icon} ${ev.name} started!`);
+  renderEvents();
+  updateHUD();
+}
+
+// ── GAME LOOP ─────────────────────────────────────────
+let tickTimer = 0;
+
+function gameTick() {
+  const income = calcIncome();
+  const wages = calcWages() / 10; // per tick not per day
+  const net = income - wages;
+  G.cash = Math.max(0, G.cash + net);
+
+  // XP for restaurants
+  G.restaurants.forEach(r => {
+    r.xp++;
+    if (r.xp >= r.xpNext) { r.xp -= r.xpNext; r.level++; r.xpNext = Math.floor(r.xpNext * 1.5); G.reputation += 3; notify('⬆ Restaurant leveled up!'); }
+  });
+
+  tickTimer++;
+  if (tickTimer % 50 === 0) {
+    // Day tick
+    G.day++;
+    G.activeEvents.forEach(ev => ev.daysLeft--);
+    G.activeEvents = G.activeEvents.filter(ev => ev.daysLeft > 0);
+    // Passive rep decay
+    G.reputation = Math.max(0, G.reputation - 0.5);
+    // Auto-save
+    saveGame();
+    if (document.getElementById('pan-events').classList.contains('active')) renderEvents();
+    // Random event suggestion
+    if (G.day % 7 === 0 && G.restaurants.length > 0 && Math.random() < 0.4) {
+      const ev = EVENT_POOL[Math.floor(Math.random() * EVENT_POOL.length)];
+      notify(`${ev.icon} Demand: ${ev.name}!`);
+    }
+  }
+
+  if (document.getElementById('pan-empire').classList.contains('active') && tickTimer % 10 === 0) renderEmpire();
+  updateHUD();
+  setTimeout(gameTick, 200);
+}
+
+function updateHUD() {
+  document.getElementById('hdr-cash').textContent = Math.floor(G.cash).toLocaleString();
+  document.getElementById('hdr-rep').textContent = Math.floor(G.reputation);
+}
+
+// ── SAVE / LOAD ───────────────────────────────────────
+function saveGame() {
+  localStorage.setItem('empire_save', JSON.stringify({ G, staffIdCounter, restIdCounter, nameIdx }));
+}
+
+function newGame() {
+  G = { cash:500, reputation:0, day:1, restaurants:[], staff:[], boughtUpgrades:[], activeEvents:[] };
+  staffIdCounter = 1; restIdCounter = 1; nameIdx = 0;
+  startGame();
+}
+
+function continueGame() {
+  try {
+    const d = JSON.parse(localStorage.getItem('empire_save'));
+    if (!d) { alert('No save found.'); return; }
+    G = d.G; staffIdCounter = d.staffIdCounter; restIdCounter = d.restIdCounter; nameIdx = d.nameIdx;
+    startGame();
+  } catch(e) { alert('No save found.'); }
+}
+
+function startGame() {
+  showScreen('scr-game');
+  renderEmpire(); renderStaff(); renderUpgrades(); renderRestTypes(); renderEvents();
+  updateHUD();
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(el.dataset.panel).classList.add('active');
+  if (el.dataset.panel === 'pan-empire') renderEmpire();
+  if (el.dataset.panel === 'pan-staff') renderStaff();
+  if (el.dataset.panel === 'pan-upgrade') renderUpgrades();
+  if (el.dataset.panel === 'pan-buy') renderRestTypes();
+  if (el.dataset.panel === 'pan-events') renderEvents();
+}
+
+let notifyTO;
+function notify(msg) {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(notifyTO);
+  notifyTO = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+gameTick();
+</script>
+</body>
+</html>

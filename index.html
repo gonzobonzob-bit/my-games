@@ -2,509 +2,121 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#080612">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Gonzo's Game Arcade</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Gonzo Games | Browser Game Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #080612;
-  --bg2: #0e0a20;
-  --card: #12102a;
-  --card2: #1a1640;
-  --border: #2d2460;
-  --border2: rgba(192,132,252,0.18);
-  --glow: #c084fc;
-  --glow2: #f0abfc;
-  --gold: #fbbf24;
-  --rose: #fb7185;
-  --teal: #34d399;
-  --text: #e9d5ff;
-  --muted: #6b5e8a;
-  --white: #f5f0ff;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { min-height: 100%; background: var(--bg); color: var(--text); font-family: 'Nunito', sans-serif; overscroll-behavior: none; }
-
-/* ── CANVAS BG ── */
-#bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-
-/* ── LAYOUT ── */
-.wrap { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 14px 40px; }
-
-/* ── HEADER ── */
-header {
-  text-align: center;
-  padding: 48px 0 28px;
-  position: relative;
-}
-.header-glow {
-  position: absolute;
-  top: 20px; left: 50%; transform: translateX(-50%);
-  width: 260px; height: 120px;
-  background: radial-gradient(ellipse, rgba(192,132,252,0.15) 0%, transparent 70%);
-  pointer-events: none;
-}
-.arcade-icon {
-  font-size: 3.5rem;
-  display: block;
-  margin-bottom: 10px;
-  animation: iconFloat 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 20px rgba(192,132,252,0.5));
-}
-@keyframes iconFloat {
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-.arcade-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.9rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, #c084fc 0%, #f0abfc 40%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: 1px;
-  line-height: 1.1;
-  margin-bottom: 6px;
-}
-.arcade-sub {
-  font-size: 0.7rem;
-  color: var(--muted);
-  font-style: italic;
-  letter-spacing: 0.5px;
-}
-.game-count {
-  display: inline-block;
-  margin-top: 12px;
-  background: rgba(192,132,252,0.1);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  padding: 4px 14px;
-  font-size: 0.65rem;
-  color: var(--glow2);
-  letter-spacing: 0.5px;
-}
-
-/* ── FILTER TABS ── */
-.filter-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 18px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  -webkit-overflow-scrolling: touch;
-}
-.filter-row::-webkit-scrollbar { display: none; }
-.ftab {
-  flex-shrink: 0;
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.68rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.ftab.active {
-  background: rgba(192,132,252,0.15);
-  border-color: var(--glow);
-  color: var(--glow2);
-}
-.ftab:active { transform: scale(0.96); }
-
-/* ── FEATURED CARD ── */
-.featured {
-  background: linear-gradient(135deg, #1e1250 0%, #2a1060 50%, #1a1840 100%);
-  border: 1px solid rgba(192,132,252,0.35);
-  border-radius: 20px;
-  padding: 20px;
-  margin-bottom: 16px;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 8px 32px rgba(192,132,252,0.12);
-  text-decoration: none;
-  display: block;
-}
-.featured:active { transform: scale(0.985); }
-.featured::before {
-  content: '';
-  position: absolute;
-  top: -40px; right: -40px;
-  width: 160px; height: 160px;
-  background: radial-gradient(circle, rgba(192,132,252,0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-.featured-badge {
-  display: inline-block;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #1a0f00;
-  font-size: 0.55rem;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  letter-spacing: 0.5px;
-  font-family: 'Nunito', sans-serif;
-}
-.featured-emoji { font-size: 3rem; display: block; margin-bottom: 8px; filter: drop-shadow(0 0 12px rgba(192,132,252,0.4)); }
-.featured-name {
-  font-family: 'Cinzel', serif;
-  font-size: 1.2rem;
-  color: var(--white);
-  margin-bottom: 4px;
-}
-.featured-desc { font-size: 0.72rem; color: var(--muted); font-style: italic; line-height: 1.5; margin-bottom: 14px; }
-.featured-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-.tag {
-  font-size: 0.58rem;
-  padding: 2px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border2);
-  color: var(--glow2);
-  background: rgba(192,132,252,0.08);
-}
-.play-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  color: #fff;
-  border: none;
-  padding: 10px 22px;
-  border-radius: 12px;
-  font-family: 'Cinzel', serif;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(168,85,247,0.35);
-  transition: all 0.2s;
-  text-decoration: none;
-}
-.play-btn:active { transform: scale(0.96); }
-
-/* ── GAME GRID ── */
-.section-title {
-  font-family: 'Cinzel', serif;
-  font-size: 0.78rem;
-  color: var(--glow2);
-  margin-bottom: 10px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--border2);
-  letter-spacing: 0.5px;
-}
-
-.games-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.game-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 12px;
-  cursor: pointer;
-  text-decoration: none;
-  display: block;
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
-}
-.game-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(192,132,252,0.06), transparent 65%);
-  pointer-events: none;
-}
-.game-card:active { transform: scale(0.96); border-color: var(--glow); }
-.game-card.coming-soon { opacity: 0.45; cursor: default; }
-.game-card.coming-soon:active { transform: none; border-color: var(--border); }
-
-.gc-emoji { font-size: 2.2rem; display: block; margin-bottom: 6px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
-.gc-name { font-family: 'Cinzel', serif; font-size: 0.74rem; color: var(--white); line-height: 1.2; margin-bottom: 3px; }
-.gc-genre { font-size: 0.58rem; color: var(--muted); font-style: italic; margin-bottom: 8px; line-height: 1.3; }
-.gc-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
-.gc-tag { font-size: 0.5rem; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.05); color: var(--muted); }
-.gc-play {
-  display: block;
-  text-align: center;
-  background: rgba(192,132,252,0.12);
-  border: 1px solid var(--border2);
-  border-radius: 8px;
-  padding: 5px;
-  font-size: 0.62rem;
-  color: var(--glow2);
-  font-family: 'Cinzel', serif;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-.game-card:not(.coming-soon):active .gc-play { background: rgba(192,132,252,0.25); }
-.gc-soon { display: block; text-align: center; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 5px; font-size: 0.58rem; color: var(--muted); font-style: italic; }
-.gc-new { position: absolute; top: 8px; right: 8px; background: linear-gradient(135deg,#34d399,#059669); color:#fff; font-size:0.48rem; font-weight:800; padding:1px 5px; border-radius:5px; font-family:'Nunito',sans-serif; }
-
-/* ── FOOTER ── */
-footer {
-  text-align: center;
-  padding: 20px 0 10px;
-  border-top: 1px solid var(--border);
-}
-.footer-emoji { font-size: 1.5rem; margin-bottom: 6px; display: block; }
-.footer-text { font-size: 0.62rem; color: var(--muted); font-style: italic; line-height: 1.6; }
-.footer-link { color: var(--glow2); text-decoration: none; }
-
-/* ── STARS CANVAS ── */
-@keyframes twinkle { 0%{opacity:0.1;} 100%{opacity:0.8;} }
+:root{--bg:#060508;--bg2:#0c0a10;--orange:#ff5c14;--orange2:#ff7a40;--gold:#c8a84a;--text:#d8d0e8;--muted:#7060a0;--border:rgba(200,168,74,0.12);--card:#0e0c14;}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative;overflow:hidden;padding:40px 20px}
+#hero-canvas{position:absolute;inset:0;z-index:0}
+.hero-content{position:relative;z-index:1}
+.hero-eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:6px;color:var(--orange);text-transform:uppercase;margin-bottom:16px}
+.hero-title{font-family:'Bebas Neue',display;font-size:clamp(52px,15vw,130px);color:#fff;line-height:.9;letter-spacing:2px;margin-bottom:16px}
+.hero-title span{color:var(--orange)}
+.hero-sub{font-size:clamp(13px,2vw,17px);color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:40px}
+.hero-cta{display:inline-block;padding:14px 36px;background:var(--orange);color:#fff;font-family:'Bebas Neue',display;font-size:20px;letter-spacing:3px;text-decoration:none;border-radius:3px;transition:all .2s}
+.hero-cta:hover{background:var(--orange2);transform:translateY(-2px)}
+.scroll-hint{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;animation:bob 2s infinite}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+#games{padding:80px 20px;max-width:1200px;margin:0 auto}
+.section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:5px;color:var(--orange);text-transform:uppercase;margin-bottom:12px}
+.section-title{font-family:'Bebas Neue',display;font-size:clamp(36px,6vw,64px);color:#fff;margin-bottom:48px;letter-spacing:1px}
+.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.game-card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:all .3s;cursor:pointer;text-decoration:none;color:inherit;display:block}
+.game-card:hover{border-color:var(--orange);transform:translateY(-4px);box-shadow:0 20px 60px rgba(255,92,20,.1)}
+.card-thumb{height:160px;position:relative;overflow:hidden;background:#080610}
+.card-thumb canvas{width:100%;height:100%;display:block}
+.card-badge{position:absolute;top:10px;right:10px;padding:3px 8px;border-radius:2px;font-size:9px;letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace}
+.badge-new{background:var(--orange);color:#fff}
+.badge-hot{background:var(--gold);color:#000}
+.badge-dev{background:rgba(100,80,200,.8);color:#fff}
+.card-body{padding:16px}
+.card-genre{font-size:9px;letter-spacing:3px;color:var(--orange);text-transform:uppercase;margin-bottom:6px}
+.card-title{font-family:'Bebas Neue',display;font-size:26px;color:#fff;letter-spacing:1px;margin-bottom:6px}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:14px}
+.card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-play{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:var(--orange);color:#fff;font-family:'Bebas Neue',display;font-size:14px;letter-spacing:2px;border-radius:3px;text-decoration:none;transition:all .2s;flex-shrink:0}
+.card-play:hover{background:var(--orange2)}
+.card-tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{padding:2px 6px;background:rgba(200,168,74,.08);border:1px solid rgba(200,168,74,.12);border-radius:2px;font-size:8px;color:var(--gold);letter-spacing:1px;text-transform:uppercase}
+footer{padding:60px 20px 40px;text-align:center;border-top:1px solid var(--border);margin-top:40px}
+footer p{color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .6s,transform .6s}
+.reveal.visible{opacity:1;transform:none}
 </style>
 </head>
 <body>
-
-<canvas id="bg"></canvas>
-
-<div class="wrap">
-  <header>
-    <div class="header-glow"></div>
-    <span class="arcade-icon">🎮</span>
-    <div class="arcade-title">Gonzo's<br>Game Arcade</div>
-    <div class="arcade-sub">"Built with cats, coffee, and questionable decisions."</div>
-    <div class="game-count" id="gameCount">✨ Loading games...</div>
-  </header>
-
-  <!-- FILTER TABS -->
-  <div class="filter-row">
-    <button class="ftab active" onclick="filter('all',this)">All Games</button>
-    <button class="ftab" onclick="filter('management',this)">🏪 Management</button>
-    <button class="ftab" onclick="filter('strategy',this)">⚔️ Strategy</button>
-    <button class="ftab" onclick="filter('idle',this)">⚡ Idle</button>
-    <button class="ftab" onclick="filter('adventure',this)">🗺️ Adventure</button>
+<section id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-content">
+    <div class="hero-eyebrow">Browser Game Portfolio</div>
+    <div class="hero-title">GONZO<br><span>GAMES</span></div>
+    <div class="hero-sub">8 Playable Games &middot; Built in HTML5 &middot; No Install Needed</div>
+    <a href="#games" class="hero-cta">PLAY NOW</a>
   </div>
-
-  <!-- FEATURED -->
-  <div id="featuredSection">
-    <div class="section-title">⭐ Featured Game</div>
-    <a class="featured" href="cat-cafe-v4b.html" id="featuredCard">
-      <div class="featured-badge">✨ LATEST RELEASE</div>
-      <span class="featured-emoji">🐾</span>
-      <div class="featured-name">Paws &amp; Contempt</div>
-      <div class="featured-desc">"A fantasy cat café where bunnies serve the drinks, foxes charm the customers, and cats knock everything over. Run the most chaotic café in the enchanted realm."</div>
-      <div class="featured-tags">
-        <span class="tag">Management</span>
-        <span class="tag">Fantasy</span>
-        <span class="tag">Cats</span>
-        <span class="tag">Idle</span>
-      </div>
-      <span class="play-btn">▶ Play Now</span>
-    </a>
-  </div>
-
-  <!-- GAME GRID -->
-  <div class="section-title" style="margin-top:4px;">🎮 All Games</div>
-  <div class="games-grid" id="gameGrid"></div>
-
-  <footer>
-    <span class="footer-emoji">🐾</span>
-    <div class="footer-text">
-      Made with Claude &amp; questionable cat supervision.<br>
-      <a class="footer-link" href="https://github.com/gonzobonzob-bit/my-games" target="_blank">github.com/gonzobonzob-bit/my-games</a>
-    </div>
-  </footer>
-</div>
-
+  <div class="scroll-hint">&#8595; SCROLL</div>
+</section>
+<section id="games">
+  <div class="section-label">The Collection</div>
+  <div class="section-title">ALL GAMES</div>
+  <div class="games-grid" id="game-grid"></div>
+</section>
+<footer><p>Gonzo Games &copy; 2025 &middot; Built with HTML5 &middot; Hosted on GitHub Pages</p></footer>
 <script>
-// ── GAME LIBRARY ──
-// TO ADD A NEW GAME: copy one of the objects below and fill in the details.
-// Set "file" to the HTML filename you uploaded to GitHub.
-// Set "coming" to true if the file isn't uploaded yet.
-const GAMES = [
-  {
-    emoji: '🐾',
-    name: 'Paws & Contempt',
-    genre: 'Fantasy Cat Café Manager',
-    desc: 'Run an enchanted café with cats, bunnies & foxes.',
-    tags: ['management','idle'],
-    file: 'cat-cafe-v4b.html',
-    isNew: true,
-    coming: false,
-  },
-  {
-    emoji: '🧙',
-    name: "Wizard's Last Stand",
-    genre: 'Isometric Tower Defense',
-    desc: '10 tower types, 17 enemies, 12 bosses, full particle system.',
-    tags: ['strategy'],
-    file: 'wizard.html',
-    coming: true,
-  },
-  {
-    emoji: '☕',
-    name: 'Empire Café World',
-    genre: '3D Isometric Café Tycoon',
-    desc: 'Drag-to-move furniture, customer AI, staff management.',
-    tags: ['management','idle'],
-    file: 'empire-kitchen.html',
-    coming: true,
-  },
-  {
-    emoji: '⚔️',
-    name: 'EPOCH: The Eternal Forge',
-    genre: 'Idle RPG',
-    desc: 'Prestige system, dungeon combat, rune attuning.',
-    tags: ['idle','adventure'],
-    file: 'epoch.html',
-    coming: true,
-  },
-  {
-    emoji: '🤖',
-    name: 'NEON DYNASTY',
-    genre: 'Cyberpunk Corporation Tycoon',
-    desc: 'Build a corp empire with a live AI Oracle.',
-    tags: ['management','strategy'],
-    file: 'neon-dynasty.html',
-    coming: true,
-  },
-  {
-    emoji: '🛸',
-    name: 'Galactic Tycoon',
-    genre: 'Space Empire Strategy',
-    desc: 'Turn-based space empire. Built entirely in Excel.',
-    tags: ['strategy'],
-    file: 'galactic-tycoon.html',
-    coming: true,
-  },
-  {
-    emoji: '🏙️',
-    name: 'Rift Legends',
-    genre: 'Mobile MOBA',
-    desc: 'Mobile-optimized controls, realistic terrain rendering.',
-    tags: ['strategy','adventure'],
-    file: 'rift-legends.html',
-    coming: true,
-  },
-  {
-    emoji: '📁',
-    name: 'X-Files PWA',
-    genre: 'Investigation RPG',
-    desc: 'Mulder\'s basement, 8 agents, 11 real cases, conspiracy board.',
-    tags: ['adventure'],
-    file: 'xfiles.html',
-    coming: true,
-  },
+const GAMES=[
+  {title:"TERMINUS",genre:"Tower Defense",file:"terminus.html",desc:"1871 industrial railroad America. Defend the line against the unknown. In active development.",tags:["Strategy","Historical","Indie"],badge:"dev",badgeText:"IN DEV",
+   thumb:(c,w,h)=>{c.fillStyle='#0a0604';c.fillRect(0,0,w,h);for(let i=0;i<35;i++){c.fillStyle=`rgba(255,${80+Math.random()*60},20,${Math.random()*.3})`;c.beginPath();c.arc(Math.random()*w,Math.random()*h,1+Math.random()*2,0,Math.PI*2);c.fill();}c.strokeStyle='rgba(255,120,30,.12)';c.lineWidth=3;for(let i=0;i<3;i++){c.beginPath();c.moveTo(0,h*.4+i*22);c.lineTo(w,h*.4+i*22);c.stroke();}c.font='52px serif';c.textAlign='center';c.textBaseline='middle';c.fillText('🚂',w/2,h/2);}},
+  {title:"WIZARD'S LAST STAND",genre:"Tower Defense",file:"wizard_tower_defense.html",desc:"10 tower types, 17 enemy types, 12 brutal waves. Place your defenses and hold the Crystal Spire.",tags:["Strategy","Fantasy","Wave"],badge:"hot",badgeText:"HOT",
+   thumb:(c,w,h)=>{c.fillStyle='#0a0612';c.fillRect(0,0,w,h);const icons=['🏹','🔮','❄️','🔥','⚡'];icons.forEach((ic,i)=>{c.font='22px serif';c.textAlign='center';c.textBaseline='middle';c.fillText(ic,w*.12+i*(w*.19),h/2+10);});c.font='40px serif';c.fillText('🏰',w/2,h*.22);c.strokeStyle='rgba(200,168,74,.15)';c.lineWidth=1;c.strokeRect(4,4,w-8,h-8);}},
+  {title:"EPOCH",genre:"Idle Game",file:"epoch-mobile.html",desc:"The Eternal Forge. Click to forge essence, build structures, explore dungeons, attune runes, and transcend reality.",tags:["Idle","Clicker","Prestige"],badge:"new",badgeText:"NEW",
+   thumb:(c,w,h)=>{c.fillStyle='#080400';c.fillRect(0,0,w,h);const rg=c.createRadialGradient(w/2,h/2,0,w/2,h/2,h*.6);rg.addColorStop(0,'rgba(232,81,42,.18)');rg.addColorStop(1,'transparent');c.fillStyle=rg;c.fillRect(0,0,w,h);c.font='56px serif';c.textAlign='center';c.textBaseline='middle';c.fillText('⚒️',w/2,h/2);for(let i=0;i<8;i++){const a=i/8*Math.PI*2;c.fillStyle='rgba(232,81,42,.4)';c.beginPath();c.arc(w/2+Math.cos(a)*h*.32,h/2+Math.sin(a)*h*.18,3,0,Math.PI*2);c.fill();}}},
+  {title:"EMPIRE KITCHEN",genre:"Restaurant Tycoon",file:"empire-kitchen-final.html",desc:"Build a restaurant empire from bistro to speakeasy. Hire staff, upgrade menus, and host city-wide events.",tags:["Tycoon","Management","Idle"],
+   thumb:(c,w,h)=>{c.fillStyle='#080608';c.fillRect(0,0,w,h);const r=['☕','🍔','🥂','🌆','🚚','🥃'];r.forEach((ic,i)=>{const x=(i%3)*(w/3)+w/6,y=Math.floor(i/3)*(h/2)+h/4;c.font='28px serif';c.textAlign='center';c.textBaseline='middle';c.fillText(ic,x,y);});c.strokeStyle='rgba(200,168,74,.18)';c.lineWidth=1;c.strokeRect(4,4,w-8,h-8);}},
+  {title:"NEON DYNASTY",genre:"Corp Tycoon",file:"neon-dynasty.html",desc:"2087. Build a cyberpunk corp from street hack cell to omnidyne elite. Consult the live AI Oracle.",tags:["Tycoon","Cyberpunk","AI"],badge:"new",badgeText:"AI",
+   thumb:(c,w,h)=>{c.fillStyle='#03010a';c.fillRect(0,0,w,h);for(let i=0;i<h;i+=4){c.fillStyle=`rgba(0,229,255,${.008+Math.random()*.008})`;c.fillRect(0,i,w,2);}c.fillStyle='rgba(0,229,255,.85)';c.font='bold 22px monospace';c.textAlign='center';c.textBaseline='middle';c.fillText('NEON',w/2,h*.34);c.fillStyle='rgba(255,45,120,.85)';c.fillText('DYNASTY',w/2,h*.62);c.strokeStyle='rgba(0,229,255,.2)';c.lineWidth=1;c.strokeRect(4,4,w-8,h-8);}},
+  {title:"X-FILES",genre:"Investigation RPG",file:"xfiles-pwa.html",desc:"8 agents, 11 real X-Files cases, a conspiracy corkboard. The truth is out there. Investigate it.",tags:["RPG","Mystery","TV"],badge:"hot",badgeText:"HOT",
+   thumb:(c,w,h)=>{c.fillStyle='#080a06';c.fillRect(0,0,w,h);c.fillStyle='rgba(139,26,26,.12)';c.beginPath();c.arc(w/2,h/2,h*.4,0,Math.PI*2);c.fill();c.fillStyle='rgba(139,26,26,.9)';c.font='bold '+h*.55+'px serif';c.textAlign='center';c.textBaseline='middle';c.fillText('X',w/2,h*.48);c.fillStyle='rgba(200,190,160,.4)';c.font='9px serif';c.fillText('THE TRUTH IS OUT THERE',w/2,h*.84);}},
+  {title:"RIFT LEGENDS",genre:"MOBA",file:"rift-legends.html",desc:"Full MOBA with tower lanes, minion waves, 4 abilities, and mobile joystick controls. Destroy the enemy nexus.",tags:["MOBA","Action","Mobile"],
+   thumb:(c,w,h)=>{c.fillStyle='#0a0a0f';c.fillRect(0,0,w,h);c.fillStyle='rgba(58,136,255,.12)';c.fillRect(0,0,w/2,h);c.fillStyle='rgba(255,58,58,.12)';c.fillRect(w/2,0,w/2,h);c.strokeStyle='rgba(200,168,74,.25)';c.lineWidth=1;c.setLineDash([4,4]);c.beginPath();c.moveTo(w/2,0);c.lineTo(w/2,h);c.stroke();c.setLineDash([]);c.font='28px serif';c.textAlign='center';c.textBaseline='middle';c.fillText('🏛️',w*.25,h/2);c.fillText('🔴',w*.75,h/2);c.fillText('⚡',w/2,h/2);}},
+  {title:"EMPIRE CAFE WORLD",genre:"3D Builder + Idle",file:"empire-cafe-world.html",desc:"Isometric 3D café builder with customer AI, staff management, furniture placement, and idle income.",tags:["Builder","3D","Idle"],
+   thumb:(c,w,h)=>{c.fillStyle='#06080c';c.fillRect(0,0,w,h);const IS=22;for(let r2=0;r2<4;r2++)for(let cc=0;cc<5;cc++){const x=(cc-r2)*IS+w/2,y=(cc+r2)*IS*.5+20;c.fillStyle=`rgba(200,190,160,${.04+Math.random()*.02})`;c.beginPath();c.moveTo(x,y);c.lineTo(x+IS,y+IS*.5);c.lineTo(x,y+IS);c.lineTo(x-IS,y+IS*.5);c.closePath();c.fill();c.strokeStyle='rgba(200,168,74,.07)';c.lineWidth=.5;c.stroke();}const f=['☕','🪑','🌿','🎹'];f.forEach((fi,i)=>{c.font='16px serif';c.textAlign='center';c.textBaseline='middle';c.fillText(fi,w*.15+i*(w*.23),h*.65);});}},
 ];
 
-let activeFilter = 'all';
+const grid=document.getElementById('game-grid');
+GAMES.forEach(g=>{
+  const card=document.createElement('a');
+  card.className='game-card reveal';card.href=g.file;
+  const thumbDiv=document.createElement('div');thumbDiv.className='card-thumb';
+  const cv=document.createElement('canvas');cv.width=560;cv.height=320;
+  g.thumb(cv.getContext('2d'),560,320);
+  thumbDiv.appendChild(cv);
+  if(g.badge){const b=document.createElement('div');b.className='card-badge badge-'+g.badge;b.textContent=g.badgeText;thumbDiv.appendChild(b);}
+  const body=document.createElement('div');body.className='card-body';
+  const tags=g.tags.map(t=>'<span class="tag">'+t+'</span>').join('');
+  body.innerHTML='<div class="card-genre">'+g.genre+'</div><div class="card-title">'+g.title+'</div><div class="card-desc">'+g.desc+'</div><div class="card-footer"><span class="card-play">&#9654; PLAY</span><div class="card-tags">'+tags+'</div></div>';
+  card.appendChild(thumbDiv);card.appendChild(body);grid.appendChild(card);
+});
 
-function filter(tag, btn) {
-  activeFilter = tag;
-  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderGrid();
-  // Show/hide featured
-  const featured = document.getElementById('featuredSection');
-  featured.style.display = tag === 'all' ? 'block' : 'none';
-}
+// Hero canvas
+const hc=document.getElementById('hero-canvas'),hctx=hc.getContext('2d');
+let hW,hH,pts=[],ht=0;
+function rH(){hW=hc.width=window.innerWidth;hH=hc.height=window.innerHeight;}
+window.addEventListener('resize',rH);rH();
+for(let i=0;i<60;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:1+Math.random()*2,c:Math.random()<.3?'rgba(255,92,20,':'rgba(200,168,74,'});
+(function heroLoop(){ht+=.016;hctx.fillStyle='rgba(6,5,8,.15)';hctx.fillRect(0,0,hW,hH);
+  hctx.strokeStyle='rgba(200,168,74,.03)';hctx.lineWidth=1;
+  for(let x=0;x<hW;x+=80){hctx.beginPath();hctx.moveTo(x,0);hctx.lineTo(x,hH);hctx.stroke();}
+  for(let y=0;y<hH;y+=80){hctx.beginPath();hctx.moveTo(0,y);hctx.lineTo(hW,y);hctx.stroke();}
+  pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=hW;if(p.x>hW)p.x=0;if(p.y<0)p.y=hH;if(p.y>hH)p.y=0;
+    hctx.fillStyle=p.c+(.25+Math.sin(ht+p.x*.01)*.12)+')';hctx.beginPath();hctx.arc(p.x,p.y,p.r,0,Math.PI*2);hctx.fill();});
+  requestAnimationFrame(heroLoop);})();
 
-function renderGrid() {
-  const grid = document.getElementById('gameGrid');
-  const filtered = activeFilter === 'all'
-    ? GAMES
-    : GAMES.filter(g => g.tags.includes(activeFilter));
-
-  grid.innerHTML = filtered.map(g => {
-    const cls = g.coming ? 'game-card coming-soon' : 'game-card';
-    const action = g.coming
-      ? `<span class="gc-soon">🔒 Coming Soon</span>`
-      : `<span class="gc-play">▶ Play</span>`;
-    const href = g.coming ? '#' : g.file;
-    const onclick = g.coming ? 'return false;' : '';
-    return `<a class="${cls}" href="${href}" ${g.coming?'onclick="return false;"':''}>
-      ${g.isNew ? '<div class="gc-new">NEW</div>' : ''}
-      <span class="gc-emoji">${g.emoji}</span>
-      <div class="gc-name">${g.name}</div>
-      <div class="gc-genre">${g.genre}</div>
-      <div class="gc-tags">${g.tags.map(t=>`<span class="gc-tag">${t}</span>`).join('')}</div>
-      ${action}
-    </a>`;
-  }).join('');
-
-  const total = GAMES.filter(g=>!g.coming).length;
-  const coming = GAMES.filter(g=>g.coming).length;
-  document.getElementById('gameCount').textContent = `✨ ${total} playable · ${coming} coming soon`;
-}
-
-// ── STAR CANVAS ──
-const canvas = document.getElementById('bg');
-const ctx = canvas.getContext('2d');
-let stars = [];
-let W, H;
-
-function initCanvas() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  stars = [];
-  for (let i = 0; i < 120; i++) {
-    stars.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      r: Math.random() * 1.4 + 0.3,
-      twinkle: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.02 + 0.008,
-    });
-  }
-}
-
-function drawBg() {
-  // Gradient bg
-  const grad = ctx.createRadialGradient(W*0.5, H*0.2, 0, W*0.5, H*0.5, Math.max(W,H)*0.8);
-  grad.addColorStop(0, '#110830');
-  grad.addColorStop(0.5, '#0a0618');
-  grad.addColorStop(1, '#060410');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  // Aurora
-  const now = Date.now() * 0.0004;
-  [
-    { y: H*0.08, color: 'rgba(124,58,237,0.06)', w: W*1.2 },
-    { y: H*0.14, color: 'rgba(56,189,248,0.04)', w: W*1.0 },
-    { y: H*0.20, color: 'rgba(192,132,252,0.05)', w: W*0.9 },
-  ].forEach(a => {
-    const g2 = ctx.createLinearGradient(0, 0, W, 0);
-    g2.addColorStop(0, 'transparent');
-    g2.addColorStop(0.3 + Math.sin(now)*0.1, a.color);
-    g2.addColorStop(0.7 + Math.cos(now)*0.1, a.color);
-    g2.addColorStop(1, 'transparent');
-    ctx.fillStyle = g2;
-    ctx.beginPath();
-    ctx.ellipse(W/2, a.y, a.w/2, 35, 0, 0, Math.PI*2);
-    ctx.fill();
-  });
-
-  // Stars
-  stars.forEach(s => {
-    s.twinkle += s.speed;
-    const alpha = 0.15 + 0.65 * Math.abs(Math.sin(s.twinkle));
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(220,200,255,${alpha})`;
-    ctx.fill();
-  });
-
-  requestAnimationFrame(drawBg);
-}
-
-window.addEventListener('resize', initCanvas);
-initCanvas();
-drawBg();
-renderGrid();
+const ro=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible');});},{threshold:.1});
+document.querySelectorAll('.reveal').forEach((el,i)=>{ro.observe(el);setTimeout(()=>el.classList.add('visible'),i*80+100);});
 </script>
 </body>
 </html>
