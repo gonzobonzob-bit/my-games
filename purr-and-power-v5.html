@@ -1,0 +1,3055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Purr & Power Co.</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sun:#F59E0B;--sun2:#FDE68A;--green:#22C55E;--orange:#F97316;
+  --red:#EF4444;--blue:#3B82F6;--sky:#38BDF8;--purple:#8B5CF6;
+  --bg:#0F172A;--bg2:#1E293B;--panel:#1A2744;--panel2:#243158;
+  --border:#334155;--text:#F1F5F9;--muted:#94A3B8;--card:#162035;
+  --ep-sand:#C4A882;--ep-sky1:#2563EB;--ep-sky2:#60A5FA;
+  --silfab:#0A0A0A;--smr:#1a1a1a;--se-white:#F8FAFC;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
+
+/* ══ SPLASH ══ */
+#splash{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0F172A,#1E293B 50%,#0F2040);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;}
+.sp-sun{font-size:72px;filter:drop-shadow(0 0 28px rgba(245,158,11,0.7));animation:spFloat 2s ease-in-out infinite;margin-bottom:12px;}
+@keyframes spFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.sp-title{font-family:'Fredoka One',cursive;font-size:42px;color:var(--sun);line-height:1;margin-bottom:4px;}
+.sp-sub{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;}
+.sp-eq{display:flex;gap:10px;justify-content:center;margin-bottom:16px;padding:8px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;}
+.sp-eq-item{font-size:9px;color:var(--muted);text-align:center;}
+.sp-eq-item strong{display:block;color:var(--text);font-size:10px;margin-bottom:1px;}
+.sp-cats{font-size:26px;margin-bottom:14px;}
+.sp-desc{font-size:12px;color:var(--muted);line-height:1.7;max-width:280px;margin-bottom:26px;}
+.sp-btn{background:linear-gradient(135deg,var(--sun),var(--orange));color:#0F172A;border:none;border-radius:18px;padding:14px 44px;font-family:'Fredoka One',cursive;font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,0.4);transition:transform 0.15s;}
+.sp-btn:active{transform:scale(0.96);}
+
+/* ══ APP ══ */
+#app{display:none;flex-direction:column;width:100%;height:100%;}
+#app.show{display:flex;}
+
+/* TOPBAR */
+#topbar{background:var(--bg);border-bottom:2px solid var(--border);padding:6px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:100;}
+.tb-left{display:flex;align-items:center;gap:8px;}
+.tb-logo{font-family:'Fredoka One',cursive;font-size:14px;color:var(--sun);line-height:1;}
+.tb-logo span{display:block;font-size:7px;color:var(--muted);letter-spacing:2px;font-family:'Nunito',sans-serif;}
+.tb-menu-btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:14px;cursor:pointer;color:var(--muted);}
+.currencies{display:flex;gap:4px;}
+.cur{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:3px 7px 3px 5px;display:flex;align-items:center;gap:3px;font-size:10px;font-weight:800;font-family:'Fredoka One',cursive;}
+.cur.m{border-color:rgba(34,197,94,0.4);color:var(--green);}
+.cur.c{border-color:rgba(245,158,11,0.4);color:var(--sun);}
+.cur.p{border-color:rgba(249,115,22,0.4);color:var(--orange);}
+
+#game-area{flex:1;overflow:hidden;position:relative;}
+.layer{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
+.layer.active{display:flex;}
+
+/* ══════════════════════════
+   LAYER 1 — OFFICE
+══════════════════════════ */
+#layer-office{background:#EDE8E0;}
+.off-ceiling{height:10px;background:linear-gradient(180deg,#BEB0A0,#CEC0B0);border-bottom:2px solid #AEA090;flex-shrink:0;}
+.off-info-bar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:4px 10px;display:flex;align-items:center;gap:8px;}
+.morale-wrap{display:flex;align-items:center;gap:5px;flex:1;}
+.morale-lbl{font-size:9px;color:var(--muted);white-space:nowrap;}
+.morale-track{flex:1;height:6px;background:var(--card);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+.morale-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--sun),var(--green));transition:width 0.5s;}
+.morale-val{font-family:'Fredoka One',cursive;font-size:11px;color:var(--sun);min-width:32px;text-align:right;}
+.income-badge{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:2px 8px;font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);white-space:nowrap;}
+.net-badge{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:2px 7px;font-family:'Fredoka One',cursive;font-size:10px;color:#FCA5A5;white-space:nowrap;}
+
+/* OFFICE FLOOR */
+.office-main{flex:1;position:relative;overflow:hidden;background:
+  repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.025) 40px),
+  repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.025) 40px),#EDE8E0;}
+
+/* DEPARTMENT ZONES */
+.dept-zone{position:absolute;border:1px dashed rgba(0,0,0,0.12);border-radius:6px;padding:2px;}
+.dept-zone-lbl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;opacity:0.55;margin-bottom:0;position:absolute;top:-8px;left:4px;padding:0 3px;border-radius:3px;}
+
+.off-win{position:absolute;top:6px;width:46px;height:40px;border:2px solid #B8A898;border-radius:3px;overflow:hidden;background:linear-gradient(160deg,#BAE6FD,#7DD3FC);}
+.off-win::before,.off-win::after{content:'';position:absolute;background:rgba(255,255,255,0.3);}
+.off-win::before{top:0;left:50%;width:2px;height:100%;}
+.off-win::after{top:50%;left:0;width:100%;height:2px;}
+.off-floor{position:absolute;bottom:0;left:0;right:0;height:8px;background:linear-gradient(180deg,#C0B0A0,#B0A090);}
+.wall-poster{position:absolute;top:16px;background:white;border:1px solid #C8B8A8;border-radius:2px;padding:2px 4px;font-size:6px;color:#666;text-align:center;}
+.filing-cabinet{position:absolute;background:#8B9BB4;border:1px solid #6B7B94;border-radius:2px;display:flex;flex-direction:column;gap:1px;padding:2px;}
+.fc-drawer{height:10px;background:#A0B0C4;border:1px solid #6B7B94;border-radius:1px;display:flex;align-items:center;justify-content:center;}
+.fc-handle{width:12px;height:3px;background:#64748B;border-radius:1px;}
+.printer{position:absolute;background:#475569;border:1px solid #334155;border-radius:3px;padding:3px;}
+
+/* PIPELINE BOARD */
+.pipeline-board{position:absolute;background:white;border:2px solid #C8B8A8;border-radius:4px;padding:4px;cursor:pointer;}
+.pb-title{font-size:7px;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;text-align:center;border-bottom:1px solid #E5E7EB;padding-bottom:2px;}
+.pb-stages{display:flex;gap:2px;}
+.pb-stage{flex:1;background:#F3F4F6;border-radius:2px;padding:2px;min-width:28px;}
+.pb-stage-lbl{font-size:5px;color:#6B7280;text-align:center;margin-bottom:2px;font-weight:700;}
+.pb-card{background:#FEF3C7;border:1px solid #F59E0B;border-radius:2px;padding:1px 2px;font-size:5px;color:#374151;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+.pb-card:active{transform:scale(0.95);}
+.pb-card.hot{background:#DCFCE7;border-color:#22C55E;}
+.pb-card.cold{background:#F1F5F9;border-color:#94A3B8;}
+.pb-card.star{background:#FEF3C7;border-color:#F59E0B;}
+.pb-card.star::before{content:'🌟';font-size:4px;}
+
+/* DESK STATIONS */
+.desk-stn{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.1s;}
+.desk-stn:active{transform:scale(0.93);}
+.stn-badge{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 5px;margin-top:2px;text-align:center;min-width:66px;}
+.stn-role{font-size:6px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
+.stn-rate{font-family:'Fredoka One',cursive;font-size:10px;color:var(--green);}
+.stn-lvl{position:absolute;top:-7px;right:-7px;background:var(--blue);color:white;font-size:7px;font-weight:800;padding:1px 4px;border-radius:5px;font-family:'Fredoka One',cursive;}
+.trophy-float{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:16px;animation:trophyBob 1s ease-in-out infinite;}
+@keyframes trophyBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}
+
+/* CATS */
+.cat-spr{position:absolute;z-index:20;width:28px;height:24px;cursor:pointer;transition:left 4s ease-in-out,top 4s ease-in-out;}
+.cat-spr:active{transform:scale(1.2);}
+
+/* OFFICE BOTTOM */
+.off-bottom{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:6px 8px;display:flex;gap:6px;}
+.hbtn{flex:1;border:none;border-radius:10px;padding:7px 3px;color:white;cursor:pointer;transition:transform 0.1s;text-align:center;}
+.hbtn:active{transform:scale(0.95);}
+.hbtn:disabled{opacity:0.5;cursor:default;}
+.hbtn .hi{font-size:18px;display:block;}
+.hbtn .hl{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin:1px 0;}
+.hbtn .hc{font-family:'Fredoka One',cursive;font-size:10px;color:var(--sun2);display:block;}
+.hbtn .hc.red{color:#FCA5A5;}
+.bb{background:linear-gradient(135deg,#1E40AF,#3B82F6);}
+.bo{background:linear-gradient(135deg,#C2410C,#F97316);}
+.bp{background:linear-gradient(135deg,#4C1D95,#8B5CF6);}
+.bg-gray{background:linear-gradient(135deg,#374151,#4B5563);}
+
+/* ══════════════════════════
+   LAYER 2 — MAP (TOP-DOWN)
+══════════════════════════ */
+#layer-map{overflow:hidden;position:relative;flex-direction:column;}
+#map-main-wrap{flex:1;position:relative;overflow:hidden;background:#E8DFD0;}
+#map-svg{display:block;width:100%;height:100%;}
+#map-main{position:absolute;inset:0;pointer-events:none;}
+#map-main .job-card{pointer-events:all;}
+
+/* KPI STRIP */
+.kpi-strip{position:relative;background:rgba(15,23,42,0.95);border-bottom:1px solid var(--border);padding:4px 8px;display:flex;gap:5px;overflow-x:auto;flex-shrink:0;}
+.kpi-strip::-webkit-scrollbar{display:none;}
+.kpi-item{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:3px 8px;text-align:center;}
+.kpi-lbl{font-size:6px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.kpi-val{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);}
+
+/* PIPELINE PANELS */
+.pipeline-panel{position:absolute;background:rgba(15,23,42,0.92);border:1px solid var(--border);border-radius:10px;padding:6px 8px;backdrop-filter:blur(4px);z-index:10;}
+.pp-title{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
+.pp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.pp-row{display:flex;align-items:center;gap:4px;margin-bottom:3px;font-size:9px;color:var(--text);}
+.pp-status{font-size:7px;padding:1px 4px;border-radius:4px;font-weight:700;flex-shrink:0;}
+.pp-status.lead{background:rgba(245,158,11,0.2);color:var(--sun);}
+.pp-status.quote{background:rgba(59,130,246,0.2);color:var(--blue);}
+.pp-status.close{background:rgba(34,197,94,0.2);color:var(--green);}
+.pp-status.sched{background:rgba(139,92,246,0.2);color:#A78BFA;}
+.pp-status.route{background:rgba(249,115,22,0.2);color:var(--orange);}
+.pp-status.wip{background:rgba(245,158,11,0.2);color:var(--sun);}
+.pp-status.done{background:rgba(34,197,94,0.2);color:var(--green);}
+.pp-name{font-size:8px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72px;}
+
+/* JOB CARDS — float above SVG map */
+.job-card{position:absolute;background:rgba(15,23,42,0.94);border:2px solid var(--border);border-radius:8px;padding:5px 6px;width:82px;cursor:pointer;transition:transform 0.1s;text-align:center;z-index:5;backdrop-filter:blur(2px);}
+.job-card:active{transform:scale(0.93);}
+.job-card.ready{border-color:var(--green);box-shadow:0 0 10px rgba(34,197,94,0.4);}
+.job-card.angry{border-color:var(--red);animation:angPulse 0.8s ease-in-out infinite;}
+@keyframes angPulse{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 12px rgba(239,68,68,0.6)}}
+.jc-icon{font-size:20px;display:block;margin-bottom:1px;}
+.jc-name{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.jc-earn{font-family:'Fredoka One',cursive;font-size:12px;color:var(--green);}
+.jc-lvl{position:absolute;top:-6px;right:-6px;background:var(--blue);color:white;font-size:7px;font-weight:800;padding:1px 4px;border-radius:5px;font-family:'Fredoka One',cursive;}
+.jc-stage{font-size:6px;color:var(--sky);margin-top:1px;}
+
+.map-lock{position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50;}
+.map-lock.gone{display:none;}
+.lock-ico{font-size:44px;}
+.lock-title{font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center;}
+.lock-sub{font-size:11px;color:var(--muted);text-align:center;}
+
+/* WEATHER ALERT */
+.weather-alert{position:absolute;bottom:0;left:0;right:0;background:rgba(249,115,22,0.92);padding:4px 10px;z-index:15;display:none;text-align:center;font-size:10px;font-weight:700;color:white;}
+
+/* ══════════════════════════
+   LAYER 3 — JOB SITE
+══════════════════════════ */
+#layer-site{overflow:hidden;}
+.site-sky{height:110px;flex-shrink:0;position:relative;background:linear-gradient(180deg,#1E3A8A,#2563EB,#60A5FA);overflow:hidden;}
+.site-sky-sun{position:absolute;top:8px;right:14px;font-size:40px;filter:drop-shadow(0 0 22px rgba(245,158,11,0.8));}
+.heat-shimmer{position:absolute;bottom:0;left:0;right:0;height:18px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.07));animation:shimmer 2s ease-in-out infinite;}
+@keyframes shimmer{0%,100%{opacity:0.5}50%{opacity:1}}
+.site-cloud{position:absolute;font-size:16px;opacity:0.6;animation:cDrift linear infinite;}
+.site-scene{flex:1;position:relative;overflow:hidden;}
+.site-ground{position:absolute;bottom:0;left:0;right:0;height:32%;background:linear-gradient(180deg,#C4A882,#B8956A);}
+.site-grass{position:absolute;bottom:32%;left:0;right:0;height:5px;background:#8B9B6B;}
+.house-container{position:absolute;bottom:32%;}
+.crew-member{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:25;}
+.crew-char{font-size:18px;animation:crewWork 1.8s ease-in-out infinite;}
+@keyframes crewWork{0%,100%{transform:translateY(0) scaleX(1)}50%{transform:translateY(-4px) scaleX(-1)}}
+.crew-label{font-size:6px;color:white;background:rgba(0,0,0,0.65);padding:1px 3px;border-radius:3px;white-space:nowrap;margin-top:1px;}
+.ground-crew{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:25;}
+.gc-char{font-size:18px;}
+.gc-label{font-size:6px;color:white;background:rgba(0,0,0,0.65);padding:1px 3px;border-radius:3px;white-space:nowrap;}
+.company-van{position:absolute;z-index:10;font-size:24px;filter:drop-shadow(1px 2px 4px rgba(0,0,0,0.3));}
+.se-inverter{position:absolute;z-index:15;}
+.se-inv-box{background:var(--se-white);border:1px solid #94A3B8;border-radius:4px;padding:4px;box-shadow:2px 2px 6px rgba(0,0,0,0.2);}
+.se-inv-logo{font-size:5px;font-weight:900;color:#1E40AF;text-align:center;font-family:'Fredoka One',cursive;}
+.se-inv-model{font-size:4px;color:#64748B;text-align:center;margin-bottom:2px;}
+.se-inv-display{width:100%;height:12px;background:#0F172A;border-radius:2px;margin:2px 0;display:flex;align-items:center;justify-content:center;gap:2px;}
+.se-inv-led{width:5px;height:5px;border-radius:50%;background:#22C55E;box-shadow:0 0 4px #22C55E;animation:ledBlink 2s ease-in-out infinite;}
+@keyframes ledBlink{0%,100%{opacity:1}50%{opacity:0.3}}
+.se-inv-text{font-size:5px;color:#22C55E;font-family:monospace;}
+.se-safety{width:100%;height:7px;background:#334155;border-radius:1px;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:4px;color:#64748B;}
+.conduit{position:absolute;background:#475569;border-radius:1px;z-index:8;}
+.install-progress{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:8px 10px;}
+.ip-stage-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);margin-bottom:3px;}
+.ip-stages{display:flex;gap:2px;margin-bottom:5px;overflow-x:auto;}
+.ip-stages::-webkit-scrollbar{display:none;}
+.ip-stage-chip{flex-shrink:0;font-size:6px;padding:2px 4px;border-radius:4px;border:1px solid var(--border);color:var(--muted);}
+.ip-stage-chip.done{background:rgba(34,197,94,0.15);border-color:var(--green);color:var(--green);}
+.ip-stage-chip.active{background:rgba(245,158,11,0.15);border-color:var(--sun);color:var(--sun);}
+.ip-prog-track{width:100%;height:11px;background:var(--card);border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:3px;}
+.ip-prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--sky));border-radius:6px;transition:width 0.4s ease;}
+.ip-labels{font-size:10px;color:var(--muted);display:flex;justify-content:space-between;}
+.site-bottom{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:5px 8px;display:flex;gap:6px;}
+.site-lock{position:absolute;inset:0;background:rgba(0,0,0,0.78);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50;}
+.site-lock.gone{display:none;}
+
+/* ══ BREAK ROOM ══ */
+#layer-break{background:var(--bg2);overflow-y:auto;}
+.break-room-content{padding:10px;}
+.br-header{font-family:'Fredoka One',cursive;font-size:16px;color:var(--sun);margin-bottom:8px;text-align:center;}
+.break-room-visual{border-radius:12px;margin-bottom:10px;overflow:hidden;border:2px solid #5C4A2A;background:#1A1208;}
+#br-svg{display:block;width:100%;height:auto;}
+.br-staff-walkin{display:none;}/* handled in SVG */
+.br-upgrade-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.br-upg-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:transform 0.1s;}
+.br-upg-card:active{transform:scale(0.97);}
+.br-upg-card.can{border-color:var(--green);}
+.br-upg-card.owned{opacity:0.5;border-color:var(--green);cursor:default;}
+.br-upg-ico{font-size:26px;flex-shrink:0;}
+.br-upg-info{flex:1;}
+.br-upg-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text);}
+.br-upg-bonus{font-size:10px;color:var(--muted);}
+.br-upg-cost{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);flex-shrink:0;}
+.br-upg-cost.no{color:var(--red);}
+
+/* ══ UPGRADES ══ */
+#layer-upgrades{background:var(--bg);overflow-y:auto;}
+.upg-panel{padding:10px 10px 32px;}
+.upg-sec{font-family:'Fredoka One',cursive;font-size:15px;color:var(--sun);margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.upg-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:transform 0.1s,border-color 0.2s;}
+.upg-card:active{transform:scale(0.97);}
+.upg-card.can{border-color:var(--green);}
+.upg-card.maxed{opacity:0.5;cursor:default;}
+.upg-ico{font-size:28px;flex-shrink:0;}
+.upg-inf{flex:1;}
+.upg-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text);}
+.upg-desc{font-size:10px;color:var(--muted);margin-top:1px;}
+.upg-right{text-align:right;flex-shrink:0;}
+.upg-cost{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);}
+.upg-cost.no{color:var(--red);}
+.upg-lv{font-size:9px;color:var(--muted);margin-top:1px;}
+.cat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:transform 0.1s;}
+.cat-card:active{transform:scale(0.97);}
+.cc-ico{font-size:24px;}
+.cc-inf{flex:1;}
+.cc-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--orange);}
+.cc-bonus{font-size:10px;color:var(--muted);}
+.cc-right{text-align:right;}
+.cc-owned{font-family:'Fredoka One',cursive;font-size:12px;color:var(--sun);}
+.cc-cost{font-size:10px;color:var(--muted);}
+
+/* OFFICE LEVEL BADGE */
+.office-level-badge{position:absolute;top:4px;right:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:2px 6px;font-size:9px;font-weight:800;color:var(--sun);z-index:30;}
+
+/* ══ BOTTOM NAV ══ */
+#bottom-nav{flex-shrink:0;background:var(--bg);border-top:2px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom,0);}
+.nav-tab{flex:1;padding:7px 3px 9px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border:none;background:none;transition:background 0.15s;position:relative;}
+.nav-tab.active{background:rgba(245,158,11,0.08);}
+.nav-icon{font-size:20px;transition:transform 0.15s;}
+.nav-tab.active .nav-icon{transform:translateY(-2px);}
+.nav-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);}
+.nav-tab.active .nav-lbl{color:var(--sun);}
+.nav-badge{position:absolute;top:5px;right:8px;width:7px;height:7px;background:var(--red);border-radius:50%;display:none;animation:bPulse 1s ease-in-out infinite;}
+.nav-badge.on{display:block;}
+@keyframes bPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
+.nav-lock{font-size:8px;color:var(--border);}
+
+/* ══ POPUPS ══ */
+.float-txt{position:fixed;z-index:500;font-family:'Fredoka One',cursive;font-size:13px;pointer-events:none;animation:fUp 1.1s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,0.5);}
+@keyframes fUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-55px)}}
+
+.angry-pop{position:fixed;z-index:400;background:var(--panel);border:2px solid var(--red);border-radius:14px;padding:12px 13px;max-width:290px;left:50%;transform:translateX(-50%);top:62px;box-shadow:0 8px 32px rgba(239,68,68,0.3);animation:pIn 0.3s ease;}
+.angry-pop.gone{display:none;}
+@keyframes pIn{from{opacity:0;transform:translateX(-50%) scale(0.82)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.ap-title{font-family:'Fredoka One',cursive;font-size:14px;color:var(--red);display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.ap-msg{font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;}
+.ap-timer-track{width:100%;height:5px;background:var(--card);border-radius:3px;overflow:hidden;margin-bottom:3px;}
+.ap-timer-fill{height:100%;background:var(--red);border-radius:3px;transition:width 0.5s linear;}
+.ap-timer-lbl{font-size:9px;color:var(--muted);margin-bottom:8px;}
+.ap-btns{display:flex;gap:6px;}
+.ap-btn{flex:1;padding:7px;border:none;border-radius:8px;font-family:'Fredoka One',cursive;font-size:13px;cursor:pointer;transition:transform 0.1s;}
+.ap-btn:active{transform:scale(0.95);}
+.ap-ok{background:var(--green);color:white;}
+.ap-no{background:var(--border);color:var(--muted);}
+
+.objection-pop{position:fixed;z-index:410;background:var(--panel);border:2px solid var(--sun);border-radius:14px;padding:12px 13px;max-width:290px;left:50%;transform:translateX(-50%);top:62px;box-shadow:0 8px 32px rgba(245,158,11,0.3);animation:pIn 0.3s ease;}
+.objection-pop.gone{display:none;}
+.obj-title{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);margin-bottom:4px;}
+.obj-msg{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.obj-btns{display:flex;gap:6px;}
+.obj-btn{flex:1;padding:7px;border:none;border-radius:8px;font-family:'Fredoka One',cursive;font-size:12px;cursor:pointer;}
+.obj-save{background:var(--sun);color:var(--bg);}
+.obj-lose{background:var(--border);color:var(--muted);}
+
+.contract-ov{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:16px;z-index:400;}
+.contract-ov.gone{display:none;}
+.cp-card{background:var(--panel);border:2px solid var(--sun);border-radius:18px;padding:18px;width:100%;max-width:300px;animation:pIn 0.3s ease;}
+.cp-badge{display:inline-block;background:var(--sun);color:var(--bg);font-size:8px;font-weight:800;padding:2px 7px;border-radius:5px;margin-bottom:7px;letter-spacing:1px;}
+.cp-type{font-size:9px;color:var(--muted);margin-bottom:3px;}
+.cp-title{font-family:'Fredoka One',cursive;font-size:18px;color:var(--text);margin-bottom:2px;}
+.cp-client{font-size:10px;color:var(--muted);margin-bottom:6px;}
+.cp-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.cp-costs{background:var(--card);border-radius:8px;padding:6px 8px;margin-bottom:8px;font-size:10px;color:var(--muted);line-height:1.7;}
+.cp-costs strong{color:var(--red);}
+.cp-quality{display:inline-block;font-size:9px;padding:2px 7px;border-radius:8px;margin-bottom:10px;font-weight:700;}
+.cp-quality.hot{background:rgba(34,197,94,0.2);color:var(--green);border:1px solid var(--green);}
+.cp-quality.warm{background:rgba(245,158,11,0.2);color:var(--sun);border:1px solid var(--sun);}
+.cp-quality.cold{background:rgba(148,163,184,0.2);color:var(--muted);border:1px solid var(--border);}
+.cp-details{display:flex;gap:6px;margin-bottom:12px;}
+.cp-detail{flex:1;background:var(--card);border-radius:8px;padding:5px 6px;text-align:center;}
+.cp-detail-lbl{font-size:7px;color:var(--muted);text-transform:uppercase;}
+.cp-detail-val{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);}
+.cp-btns{display:flex;gap:7px;}
+.cp-btn{flex:1;padding:9px;border:none;border-radius:10px;font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;transition:transform 0.1s;}
+.cp-btn:active{transform:scale(0.95);}
+.cp-yes{background:var(--green);color:white;}
+.cp-no{background:var(--border);color:var(--muted);}
+
+.ms-ov{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:600;}
+.ms-ov.gone{display:none;}
+.ms-card{background:linear-gradient(135deg,#1E3A5F,#1E40AF);border:2px solid var(--sun);border-radius:18px;padding:24px 20px;text-align:center;max-width:280px;width:100%;animation:pIn 0.4s ease;}
+.ms-ico{font-size:48px;margin-bottom:8px;}
+.ms-title{font-family:'Fredoka One',cursive;font-size:20px;color:var(--sun);margin-bottom:5px;}
+.ms-desc{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;}
+.ms-btn{background:var(--sun);color:var(--bg);border:none;border-radius:12px;padding:10px 28px;font-family:'Fredoka One',cursive;font-size:17px;cursor:pointer;}
+
+/* WEEKLY LEADERBOARD */
+.leaderboard-ov{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:650;}
+.leaderboard-ov.gone{display:none;}
+.lb-card{background:linear-gradient(135deg,#1E293B,#243158);border:2px solid var(--sun);border-radius:18px;padding:20px;max-width:290px;width:100%;animation:pIn 0.4s ease;}
+.lb-title{font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center;margin-bottom:12px;}
+.lb-row{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:8px;padding:8px 10px;margin-bottom:6px;}
+.lb-trophy{font-size:20px;}
+.lb-info{flex:1;}
+.lb-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text);}
+.lb-role{font-size:10px;color:var(--muted);}
+.lb-score{font-family:'Fredoka One',cursive;font-size:14px;color:var(--green);}
+.lb-btn{background:var(--sun);color:var(--bg);border:none;border-radius:10px;padding:9px 24px;font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;width:100%;margin-top:10px;}
+
+/* PAYROLL ALERT */
+.payroll-pop{position:fixed;z-index:420;background:var(--panel);border:2px solid var(--orange);border-radius:14px;padding:12px 14px;max-width:280px;left:50%;transform:translateX(-50%);bottom:80px;box-shadow:0 8px 32px rgba(249,115,22,0.3);animation:pIn 0.3s ease;}
+.payroll-pop.gone{display:none;}
+.pl-title{font-family:'Fredoka One',cursive;font-size:13px;color:var(--orange);margin-bottom:5px;}
+.pl-msg{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.pl-btn{width:100%;background:var(--orange);color:white;border:none;border-radius:8px;padding:8px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;}
+
+/* MAIN MENU OVERLAY */
+.menu-ov{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:800;}
+.menu-ov.gone{display:none;}
+.menu-card{background:var(--panel);border:2px solid var(--border);border-radius:18px;padding:22px;max-width:280px;width:100%;}
+.menu-title{font-family:'Fredoka One',cursive;font-size:20px;color:var(--sun);text-align:center;margin-bottom:16px;}
+.menu-btn{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px;font-family:'Fredoka One',cursive;font-size:15px;color:var(--text);cursor:pointer;margin-bottom:8px;text-align:left;transition:border-color 0.2s;}
+.menu-btn:hover{border-color:var(--sun);}
+.menu-btn:active{transform:scale(0.97);}
+.menu-close{width:100%;background:var(--border);border:none;border-radius:10px;padding:10px;font-family:'Fredoka One',cursive;font-size:14px;color:var(--muted);cursor:pointer;margin-top:4px;}
+
+/* EXPANSION POPUP */
+.expansion-ov{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:700;}
+.expansion-ov.gone{display:none;}
+.exp-card{background:linear-gradient(135deg,#0F2040,#1E3A8A);border:3px solid var(--sun);border-radius:20px;padding:24px;max-width:290px;width:100%;text-align:center;animation:pIn 0.5s ease;}
+.exp-ico{font-size:56px;margin-bottom:8px;}
+.exp-title{font-family:'Fredoka One',cursive;font-size:22px;color:var(--sun);margin-bottom:6px;}
+.exp-desc{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
+.exp-btn{background:linear-gradient(135deg,var(--sun),var(--orange));color:var(--bg);border:none;border-radius:14px;padding:13px 30px;font-family:'Fredoka One',cursive;font-size:18px;cursor:pointer;}
+
+/* MONTHLY BONUS */
+.bonus-anim{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:900;font-family:'Fredoka One',cursive;font-size:36px;color:var(--sun);text-shadow:0 0 30px rgba(245,158,11,0.8);animation:bonusPop 2.5s ease forwards;pointer-events:none;}
+@keyframes bonusPop{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.8)translateY(-40px)}}
+
+/* ── NOTIFICATION BAR (replaces stacking toasts + payroll popup) ── */
+#notif-bar{position:fixed;z-index:700;bottom:72px;left:0;right:0;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.notif-pill{background:rgba(26,39,68,0.96);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;white-space:nowrap;color:var(--text);pointer-events:none;animation:nIn 2.2s ease forwards;backdrop-filter:blur(6px);max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
+.notif-pill.urgent{border-color:var(--orange);color:#FDBA74;}
+.notif-pill.good{border-color:rgba(34,197,94,0.5);color:var(--green);}
+.notif-pill.bad{border-color:rgba(239,68,68,0.5);color:#FCA5A5;}
+@keyframes nIn{0%{opacity:0;transform:translateY(6px)}12%{opacity:1;transform:translateY(0)}75%{opacity:1}100%{opacity:0;transform:translateY(-4px)}}
+/* Payroll summary — now goes through notif bar, popup removed */
+.toast{display:none;}/* legacy — redirected to notif-bar */
+
+/* PRESTIGE */
+.prestige-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:200;background:linear-gradient(135deg,#1E3A8A,#7C3AED);border:2px solid var(--sun);border-radius:14px;padding:14px 20px;text-align:center;animation:pIn 0.4s ease;display:none;}
+.prestige-banner.show{display:block;}
+.pres-title{font-family:'Fredoka One',cursive;font-size:16px;color:var(--sun);margin-bottom:4px;}
+.pres-btn{background:var(--sun);color:var(--bg);border:none;border-radius:10px;padding:8px 20px;font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="sp-sun">☀️</div>
+  <div class="sp-title">Purr & Power Co.</div>
+  <div class="sp-sub">Solar · Cats · El Paso, TX</div>
+  <div class="sp-eq">
+    <div class="sp-eq-item"><strong>Silfab Prime</strong>All-Black Panels</div>
+    <div class="sp-eq-item"><strong>Sunmodo SMR</strong>Black Rails</div>
+    <div class="sp-eq-item"><strong>SolarEdge</strong>HD-Wave + P400</div>
+  </div>
+  <div class="sp-cats">🐱 🐱 🐱</div>
+  <div class="sp-desc">Run El Paso's most cat-friendly solar company. Build your sales pipeline, dispatch crews, close contracts — keep the cats purring.</div>
+  <button class="sp-btn" onclick="startGame()">🏢 Open For Business</button>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="topbar">
+    <div class="tb-left">
+      <button class="tb-menu-btn" onclick="openMenu()">☰</button>
+      <div class="tb-logo">Purr & Power Co.<span id="tb-subtitle">SOLAR · EL PASO, TX</span></div>
+    </div>
+    <div class="currencies">
+      <div class="cur m">💵<span id="cur-money">$0</span></div>
+      <div class="cur c">⭐<span id="cur-credits">0</span></div>
+      <div class="cur p">🐾<span id="cur-purr">0</span></div>
+    </div>
+  </div>
+
+  <div id="game-area">
+
+    <!-- OFFICE -->
+    <div class="layer active" id="layer-office">
+      <div class="off-ceiling"></div>
+      <div class="off-info-bar">
+        <div class="morale-wrap">
+          <div class="morale-lbl">🐱 Morale</div>
+          <div class="morale-track"><div class="morale-fill" id="morale-fill" style="width:40%"></div></div>
+          <div class="morale-val" id="morale-val">40%</div>
+        </div>
+        <div class="income-badge" id="income-display">+$0/s</div>
+        <div class="net-badge" id="net-display">-$0/wk</div>
+      </div>
+      <div class="office-main" id="office-main">
+        <!-- Office level badge -->
+        <div class="office-level-badge" id="office-level-badge">🏢 Lv1 — 6 Desks</div>
+        <!-- windows -->
+        <div class="off-win" style="left:30px"></div>
+        <div class="off-win" style="left:90px"></div>
+        <div class="off-win" style="left:150px"></div>
+        <div class="off-win" style="right:90px"></div>
+        <div class="off-win" style="right:30px"></div>
+        <!-- wall posters -->
+        <div class="wall-poster" style="left:220px;width:46px;">☀️ kWh<br>Production<br>Chart</div>
+        <div class="wall-poster" style="right:140px;width:44px;">Purr &<br>Power Co.</div>
+        <!-- filing cabinet -->
+        <div class="filing-cabinet" id="filing-cabinet" style="display:none">
+          <div class="fc-drawer"><div class="fc-handle"></div></div>
+          <div class="fc-drawer"><div class="fc-handle"></div></div>
+          <div class="fc-drawer"><div class="fc-handle"></div></div>
+        </div>
+        <!-- printer -->
+        <div class="printer" id="printer-el" style="display:none;font-size:12px;">🖨️</div>
+        <!-- floor strip -->
+        <div class="off-floor"></div>
+        <!-- department zones, break room, pipeline, desks, cats injected by JS -->
+      </div>
+      <div class="off-bottom">
+        <button class="hbtn bb" id="hire-btn" onclick="hireEmployee()">
+          <span class="hi">👔</span>
+          <span class="hl" id="hire-role-lbl">Solar Rep</span>
+          <span class="hc" id="hire-cost-lbl">$900/wk</span>
+        </button>
+        <button class="hbtn bo" onclick="adoptCat()">
+          <span class="hi">🐱</span><span class="hl">Adopt Cat</span>
+          <span class="hc" id="cat-cost-lbl">$80</span>
+        </button>
+        <button class="hbtn bp" onclick="switchLayer('upgrades')">
+          <span class="hi">⬆️</span><span class="hl">Upgrades</span>
+          <span class="hc">→</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAP — Top-down MapQuest style -->
+    <div class="layer" id="layer-map">
+      <!-- KPI strip -->
+      <div class="kpi-strip" style="position:relative;top:auto;left:auto;right:auto;flex-shrink:0;">
+        <div class="kpi-item"><div class="kpi-lbl">Today Rev</div><div class="kpi-val" id="kpi-rev">$0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Contracts</div><div class="kpi-val" id="kpi-contracts">0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">WIP</div><div class="kpi-val" id="kpi-wip">0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Staff</div><div class="kpi-val" id="kpi-staff">1</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Leads</div><div class="kpi-val" id="kpi-leads">0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Net/Wk</div><div class="kpi-val" id="kpi-net" style="color:var(--red)">-$0</div></div>
+      </div>
+      <!-- Top-down map canvas -->
+      <div style="flex:1;position:relative;overflow:hidden;" id="map-main-wrap">
+        <svg id="map-svg" width="100%" height="100%" style="position:absolute;inset:0;display:block;" xmlns="http://www.w3.org/2000/svg">
+          <!-- Base terrain — El Paso desert block fill -->
+          <rect width="100%" height="100%" fill="#E8DFD0"/>
+          <!-- City blocks will be injected by JS -->
+          <g id="map-blocks"></g>
+          <!-- Roads injected by JS -->
+          <g id="map-roads"></g>
+          <!-- Buildings / lots injected by JS -->
+          <g id="map-buildings"></g>
+          <!-- Labels injected by JS -->
+          <g id="map-labels"></g>
+          <!-- Trucks / reps injected by JS -->
+          <g id="map-vehicles"></g>
+          <!-- Job site markers injected by JS -->
+          <g id="map-markers"></g>
+        </svg>
+        <!-- Pipeline overlays -->
+        <div class="pipeline-panel" style="left:4px;top:4px;width:116px;" id="sales-pipeline">
+          <div class="pp-title"><div class="pp-dot" style="background:#F59E0B"></div>SALES PIPELINE</div>
+          <div id="sales-rows"></div>
+        </div>
+        <div class="pipeline-panel" style="right:4px;top:4px;width:116px;" id="install-pipeline">
+          <div class="pp-title"><div class="pp-dot" style="background:#22C55E"></div>INSTALL PIPELINE</div>
+          <div id="install-rows"></div>
+        </div>
+        <!-- Weather alert bar -->
+        <div class="weather-alert" id="weather-alert" style="position:absolute;bottom:0;left:0;right:0;top:auto;">🌡️ EP HEAT ADVISORY: 106°F — Crews hydrating!</div>
+        <!-- Job card HTML overlays injected by JS -->
+        <div id="map-main"></div>
+        <!-- Lock overlay -->
+        <div class="map-lock" id="map-lock">
+          <div class="lock-ico">🗺️</div>
+          <div class="lock-title">Neighborhood Map</div>
+          <div class="lock-sub">Complete 5 contracts to unlock</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOB SITE -->
+    <div class="layer" id="layer-site">
+      <div class="site-sky">
+        <div class="site-sky-sun">☀️</div>
+        <div class="heat-shimmer"></div>
+        <div class="site-cloud" style="top:12px;animation-duration:28s;animation-delay:-8s">☁️</div>
+        <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;height:50px" viewBox="0 0 400 50" preserveAspectRatio="none">
+          <polygon points="0,50 50,18 90,30 130,8 170,22 210,4 250,18 290,10 330,26 370,14 400,20 400,50" fill="#6B7B94" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="site-scene" id="site-scene">
+        <div class="site-ground"></div>
+        <div class="site-grass"></div>
+        <div style="position:absolute;bottom:32%;left:8px;font-size:20px;z-index:5">🌵</div>
+        <div style="position:absolute;bottom:33%;right:12px;font-size:14px;z-index:5">🌵</div>
+        <div class="site-lock" id="site-lock">
+          <div class="lock-ico">🏗️</div>
+          <div class="lock-title" style="font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center">Job Site View</div>
+          <div class="lock-sub" style="font-size:11px;color:var(--muted);text-align:center">Earn $50,000 total to unlock</div>
+        </div>
+      </div>
+      <div class="install-progress">
+        <div class="ip-stage-name" id="ip-stage-name">Awaiting Job Assignment</div>
+        <div class="ip-stages" id="ip-stages"></div>
+        <div class="ip-prog-track"><div class="ip-prog-fill" id="ip-prog-fill" style="width:0%"></div></div>
+        <div class="ip-labels"><span id="ip-pct">0%</span><span id="ip-earn">+$0 on complete</span></div>
+      </div>
+      <div class="site-bottom">
+        <button class="hbtn" style="background:linear-gradient(135deg,#065F46,#22C55E)" onclick="upgradeSite()">
+          <span class="hi">🔧</span><span class="hl">Upgrade Site</span>
+          <span class="hc" id="site-upg-lbl">$1,000</span>
+        </button>
+        <button class="hbtn" style="background:linear-gradient(135deg,#1E40AF,#3B82F6)" onclick="sendWorker()">
+          <span class="hi">👷</span><span class="hl">Send Worker</span>
+          <span class="hc" id="site-wkr-lbl">$500</span>
+        </button>
+        <button class="hbtn bp" onclick="switchLayer('upgrades')">
+          <span class="hi">⬆️</span><span class="hl">Upgrades</span><span class="hc">→</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- BREAK ROOM -->
+    <div class="layer" id="layer-break">
+      <div class="break-room-content">
+        <div class="br-header">☕ Break Room</div>
+        <div class="break-room-visual" id="break-room-visual">
+          <svg id="br-svg" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- Back wall -->
+            <rect x="0" y="0" width="400" height="200" fill="#F0E6D3"/>
+            <!-- Wall paint — two-tone -->
+            <rect x="0" y="0" width="400" height="130" fill="#E8DCC8"/>
+            <!-- Chair rail -->
+            <rect x="0" y="128" width="400" height="4" fill="#C8A878"/>
+            <!-- Baseboard -->
+            <rect x="0" y="188" width="400" height="4" fill="#C8A878"/>
+            <!-- Floor boards -->
+            <rect x="0" y="170" width="400" height="30" fill="#8B6347"/>
+            <line x1="0" y1="175" x2="400" y2="175" stroke="#7A5538" stroke-width="0.8"/>
+            <line x1="0" y1="182" x2="400" y2="182" stroke="#7A5538" stroke-width="0.8"/>
+            <line x1="80" y1="170" x2="80" y2="200" stroke="#7A5538" stroke-width="0.6"/>
+            <line x1="160" y1="170" x2="160" y2="200" stroke="#7A5538" stroke-width="0.6"/>
+            <line x1="240" y1="170" x2="240" y2="200" stroke="#7A5538" stroke-width="0.6"/>
+            <line x1="320" y1="170" x2="320" y2="200" stroke="#7A5538" stroke-width="0.6"/>
+            <!-- Ceiling -->
+            <rect x="0" y="0" width="400" height="14" fill="#D4C4A0"/>
+            <rect x="0" y="12" width="400" height="3" fill="#C8B890"/>
+            <!-- Light fixture -->
+            <rect x="185" y="0" width="30" height="8" rx="2" fill="#D4C4A0" stroke="#BEB090" stroke-width="1"/>
+            <rect x="190" y="8" width="20" height="12" rx="2" fill="#FFFDE7" stroke="#F0D060" stroke-width="1"/>
+            <ellipse cx="200" cy="20" rx="18" ry="6" fill="rgba(255,253,200,0.4)"/>
+            <!-- Wall art / poster -->
+            <rect x="30" y="20" width="50" height="40" rx="2" fill="white" stroke="#C8B890" stroke-width="1.5"/>
+            <rect x="33" y="23" width="44" height="34" fill="#E8F4FD"/>
+            <text x="55" y="45" text-anchor="middle" font-size="18" fill="#F59E0B">☀️</text>
+            <!-- Purr & Power sign -->
+            <rect x="160" y="18" width="80" height="22" rx="3" fill="#0F172A" stroke="#F59E0B" stroke-width="1.5"/>
+            <text x="200" y="33" text-anchor="middle" font-size="8" fill="#F59E0B" font-family="sans-serif" font-weight="bold">PURR &amp; POWER CO.</text>
+            <!-- Window -->
+            <rect x="300" y="20" width="70" height="55" rx="2" fill="#BAE6FD" stroke="#94A3B8" stroke-width="2"/>
+            <line x1="335" y1="20" x2="335" y2="75" stroke="#94A3B8" stroke-width="1.5"/>
+            <line x1="300" y1="47" x2="370" y2="47" stroke="#94A3B8" stroke-width="1.5"/>
+            <!-- Window sky -->
+            <rect x="302" y="22" width="32" height="24" rx="1" fill="#7DD3FC"/>
+            <rect x="337" y="22" width="31" height="24" rx="1" fill="#93C5FD"/>
+            <rect x="302" y="49" width="32" height="24" rx="1" fill="#BAE6FD"/>
+            <rect x="337" y="49" width="31" height="24" rx="1" fill="#BAE6FD"/>
+            <ellipse cx="318" cy="32" rx="10" ry="5" fill="white" opacity="0.7"/>
+            <!-- Window sill -->
+            <rect x="298" y="74" width="74" height="5" rx="1" fill="#C8A878"/>
+            <!-- ══ FURNITURE (injected by renderBreakRoom) ══ -->
+            <g id="br-furniture"></g>
+            <!-- ══ STAFF WALKER (animated) ══ -->
+            <g id="br-walker" transform="translate(20,140)">
+              <!-- Person side view -->
+              <circle cx="10" cy="8" r="7" fill="#FBBF24"/>
+              <rect x="4" y="15" width="12" height="18" rx="3" fill="#3B82F6"/>
+              <rect x="1" y="17" width="5" height="12" rx="2" fill="#3B82F6"/>
+              <rect x="10" y="17" width="5" height="12" rx="2" fill="#3B82F6"/>
+              <rect x="4" y="32" width="5" height="10" rx="2" fill="#1E40AF"/>
+              <rect x="11" y="32" width="5" height="10" rx="2" fill="#1E40AF"/>
+            </g>
+            <!-- ══ SLEEPING CAT ══ -->
+            <g id="br-cat" transform="translate(358,155)">
+              <ellipse cx="14" cy="10" rx="14" ry="8" fill="#E07A30"/>
+              <ellipse cx="14" cy="8" rx="8" ry="7" fill="#E07A30"/>
+              <polygon points="8,3 5,0 11,2" fill="#E07A30"/>
+              <polygon points="20,3 23,0 17,2" fill="#E07A30"/>
+              <line x1="6" y1="8" x2="12" y2="9" stroke="#C96020" stroke-width="0.7"/>
+              <line x1="6" y1="10" x2="12" y2="10" stroke="#C96020" stroke-width="0.7"/>
+              <text x="14" y="10" text-anchor="middle" font-size="6" fill="#7A3010">z z</text>
+            </g>
+          </svg>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;text-align:center;">Upgrade the break room to boost morale and staff happiness.</div>
+        <div class="br-upgrade-list" id="br-upgrade-list"></div>
+      </div>
+    </div>
+
+    <!-- UPGRADES -->
+    <div class="layer" id="layer-upgrades">
+      <div class="upg-panel">
+        <div class="upg-sec">🏢 Office Upgrades</div>
+        <div id="upg-office"></div>
+        <div class="upg-sec">🐱 Cat Roster</div>
+        <div id="upg-cats"></div>
+        <div class="upg-sec">👔 Hire Managers</div>
+        <div id="upg-managers"></div>
+        <div class="upg-sec">🏢 Expand Office</div>
+        <div id="upg-expansion"></div>
+        <div style="height:24px"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="bottom-nav">
+    <button class="nav-tab active" id="nav-office" onclick="switchLayer('office')">
+      <span class="nav-icon">🏢</span><span class="nav-lbl">Office</span>
+      <div class="nav-badge" id="badge-office"></div>
+    </button>
+    <button class="nav-tab" id="nav-map" onclick="switchLayer('map')">
+      <span class="nav-icon">🗺️</span><span class="nav-lbl">Map</span>
+      <div class="nav-badge" id="badge-map"></div>
+      <div class="nav-lock" id="nav-map-lock">🔒</div>
+    </button>
+    <button class="nav-tab" id="nav-site" onclick="switchLayer('site')">
+      <span class="nav-icon">🏗️</span><span class="nav-lbl">Job Site</span>
+      <div class="nav-badge" id="badge-site"></div>
+      <div class="nav-lock" id="nav-site-lock">🔒</div>
+    </button>
+    <button class="nav-tab" id="nav-break" onclick="switchLayer('break')">
+      <span class="nav-icon">☕</span><span class="nav-lbl">Break Room</span>
+      <div class="nav-badge" id="badge-break"></div>
+    </button>
+    <button class="nav-tab" id="nav-upgrades" onclick="switchLayer('upgrades')">
+      <span class="nav-icon">⬆️</span><span class="nav-lbl">Upgrades</span>
+      <div class="nav-badge" id="badge-upgrades"></div>
+    </button>
+  </div>
+</div>
+
+<!-- POPUPS -->
+<div class="angry-pop gone" id="angry-pop">
+  <div class="ap-title">😡 <span id="ap-title-txt">Angry Customer!</span></div>
+  <div class="ap-msg" id="ap-msg"></div>
+  <div class="ap-timer-track"><div class="ap-timer-fill" id="ap-timer-fill" style="width:100%"></div></div>
+  <div class="ap-timer-lbl" id="ap-timer-lbl">30s to resolve</div>
+  <div class="ap-btns">
+    <button class="ap-btn ap-ok" onclick="resolveAngry()">😊 Calm Down</button>
+    <button class="ap-btn ap-no" onclick="dismissAngry(false)">✗ Ignore</button>
+  </div>
+</div>
+
+<div class="objection-pop gone" id="objection-pop">
+  <div class="obj-title">⚠️ <span id="obj-title-txt">Lead Objection!</span></div>
+  <div class="obj-msg" id="obj-msg"></div>
+  <div class="obj-btns">
+    <button class="obj-btn obj-save" onclick="handleObjection(true)">💪 Handle It</button>
+    <button class="obj-btn obj-lose" onclick="handleObjection(false)">✗ Lose the Lead</button>
+  </div>
+</div>
+
+<div class="contract-ov gone" id="contract-ov">
+  <div class="cp-card">
+    <div class="cp-badge">📋 NEW CONTRACT</div>
+    <div class="cp-type" id="cp-type"></div>
+    <div class="cp-title" id="cp-title"></div>
+    <div class="cp-client" id="cp-client"></div>
+    <div class="cp-desc" id="cp-desc"></div>
+    <div class="cp-quality" id="cp-quality"></div>
+    <div class="cp-costs" id="cp-costs"></div>
+    <div class="cp-details">
+      <div class="cp-detail"><div class="cp-detail-lbl">Reward</div><div class="cp-detail-val" id="cp-reward">$0</div></div>
+      <div class="cp-detail"><div class="cp-detail-lbl">Panels</div><div class="cp-detail-val" id="cp-panels">0</div></div>
+      <div class="cp-detail"><div class="cp-detail-lbl">Net Profit</div><div class="cp-detail-val" id="cp-days" style="color:var(--green)">$0</div></div>
+    </div>
+    <div class="cp-btns">
+      <button class="cp-btn cp-yes" onclick="acceptContract()">✓ Accept</button>
+      <button class="cp-btn cp-no" onclick="declineContract()">✗ Pass</button>
+    </div>
+  </div>
+</div>
+
+<div class="ms-ov gone" id="ms-ov">
+  <div class="ms-card">
+    <div class="ms-ico" id="ms-ico">🏆</div>
+    <div class="ms-title" id="ms-title">Milestone!</div>
+    <div class="ms-desc" id="ms-desc"></div>
+    <button class="ms-btn" onclick="closeMilestone()">Awesome! 🎉</button>
+  </div>
+</div>
+
+<div class="leaderboard-ov gone" id="lb-ov">
+  <div class="lb-card">
+    <div class="lb-title">🏆 Weekly Leaderboard</div>
+    <div id="lb-rows"></div>
+    <button class="lb-btn" onclick="closeLb()">Close 🎉</button>
+  </div>
+</div>
+
+<!-- NOTIFICATION BAR -->
+<div id="notif-bar"></div>
+
+<div class="menu-ov gone" id="menu-ov">
+  <div class="menu-card">
+    <div class="menu-title">☰ Purr & Power Co.</div>
+    <button class="menu-btn" onclick="manualSave()">💾 Save Game</button>
+    <button class="menu-btn" onclick="loadGame()">📂 Load Game</button>
+    <button class="menu-btn" onclick="returnToMenu()">🏠 Return to Main Menu</button>
+    <button class="menu-btn" onclick="showWeeklyLeaderboard();closeMenu()">🏆 Weekly Leaderboard</button>
+    <button class="menu-btn" onclick="showPrestige()">🌟 Go Regional (Prestige)</button>
+    <button class="menu-btn" onclick="showCredits()">📜 Credits</button>
+    <button class="menu-close" onclick="closeMenu()">✕ Close</button>
+  </div>
+</div>
+
+<div class="expansion-ov gone" id="expansion-ov">
+  <div class="exp-card">
+    <div class="exp-ico" id="exp-ico">🎉</div>
+    <div class="exp-title" id="exp-title">Expansion Unlocked!</div>
+    <div class="exp-desc" id="exp-desc"></div>
+    <button class="exp-btn" onclick="closeExpansion()">Let's Go! ☀️</button>
+  </div>
+</div>
+
+<style>
+@keyframes sleepBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes laddervatorMove{0%{transform:translateY(0)}50%{transform:translateY(-22px)}100%{transform:translateY(0)}}
+</style>
+
+<script>
+// ════════════════════════════════
+// GAME STATE
+// ════════════════════════════════
+const G={
+  money:0,totalMoney:0,todayRevenue:0,credits:0,purrPoints:0,
+  staff:0,cats:2,catCost:80,catBreeds:[],
+  income:0,morale:40,incomeMultiplier:1,
+  contracts:0,pendingContract:null,wipCount:0,
+  leads:[],hotLeads:0,
+  mapUnlocked:false,siteUnlocked:false,
+  siteLevel:1,siteWorkers:1,siteProgress:0,siteUpgCost:1000,siteWorkerCost:500,
+  siteStageIdx:0,currentJob:null,
+  upgrades:{},managers:{},milestones:[],
+  angryActive:false,objectionActive:false,
+  officeLevel:1, // 1=6desks, 2=10desks, 3=16desks
+  brUpgrades:{}, // break room upgrade IDs owned
+  weeklyPayroll:0,weekTimer:0,monthTimer:0,
+  topEarner:null,prestige:0,prestigeMultiplier:1,
+  secondLocation:false,weeklyRevenue:0,
+  timestamp:Date.now(),
+};
+
+// ── STAFF ROSTER (sequential hire order) ──
+const HIRE_SEQUENCE=[
+  // Office Lv1
+  {role:'Solar Rep',      icon:'☀️', col:'#FCA5A5', dept:'sales',   payroll:900,  desc:'Generates leads & calls prospects',           maxLevel:1},
+  {role:'Project Coord',  icon:'📋', col:'#FDE68A', dept:'ops',     payroll:1100, desc:'Manages job timeline start to finish',         maxLevel:1},
+  {role:'Permit Coord',   icon:'📄', col:'#C4B5FD', dept:'ops',     payroll:950,  desc:'Submits to AHJ, tracks approvals',             maxLevel:1},
+  {role:'Install Lead',   icon:'🔨', col:'#86EFAC', dept:'field',   payroll:1000, desc:'Runs the field installation crew',             maxLevel:1},
+  {role:'Electrician',    icon:'⚡', col:'#FED7AA', dept:'field',   payroll:1100, desc:'Required for AC hookup on every job',          maxLevel:1},
+  {role:'Sales Consultant',icon:'📞',col:'#6EE7B7', dept:'sales',   payroll:900,  desc:'Runs appointments & closes deals',             maxLevel:1},
+  // Office Lv2
+  {role:'Appt Setter',    icon:'📅', col:'#93C5FD', dept:'sales',   payroll:800,  desc:'Books site surveys & demos',                  maxLevel:2},
+  {role:'System Designer',icon:'📐', col:'#F9A8D4', dept:'tech',    payroll:1200, desc:'Designs array layout & proposals',             maxLevel:2},
+  {role:'Monitoring Tech',icon:'📡', col:'#A7F3D0', dept:'tech',    payroll:1050, desc:'Watches SolarEdge portal 24/7',                maxLevel:2},
+  {role:'Service Tech',   icon:'🔧', col:'#FDBA74', dept:'tech',    payroll:950,  desc:'Handles post-install service calls',           maxLevel:2},
+  // Office Lv3
+  {role:'2nd Solar Rep',  icon:'☀️', col:'#FCA5A5', dept:'sales',   payroll:900,  desc:'Double lead generation',                      maxLevel:3},
+  {role:'2nd Project Coord',icon:'📋',col:'#FDE68A',dept:'ops',     payroll:1100, desc:'Handle more jobs simultaneously',              maxLevel:3},
+  {role:'Warehouse',      icon:'📦', col:'#CBD5E1', dept:'ops',     payroll:850,  desc:'Manages panel & equipment inventory',          maxLevel:3},
+  {role:'Office Manager', icon:'🗂️', col:'#FBBF24', dept:'ops',     payroll:1000, desc:'Runs admin, reduces overhead costs',           maxLevel:3},
+  {role:'2nd Install Lead',icon:'🔨',col:'#86EFAC', dept:'field',   payroll:1000, desc:'Second crew dispatched simultaneously',        maxLevel:3},
+  {role:'VP Operations',  icon:'👔', col:'#C084FC', dept:'ops',     payroll:1500, desc:'Boosts all department output',                 maxLevel:3},
+];
+
+const DEPT_COLORS={
+  sales:'rgba(249,115,22,0.08)',
+  ops:'rgba(59,130,246,0.08)',
+  tech:'rgba(34,197,94,0.08)',
+  field:'rgba(245,158,11,0.08)',
+};
+const DEPT_LABEL_COLORS={
+  sales:'#F97316',ops:'#3B82F6',tech:'#22C55E',field:'#F59E0B'
+};
+const DEPT_NAMES={
+  sales:'Sales Dept',ops:'Operations',tech:'Technical',field:'Field Crew'
+};
+
+// Desk positions are computed dynamically inside buildOffice() based on zone geometry.
+// DESK_POS is populated after zones are laid out.
+let DESK_POS=[];
+
+const DESK_LIMIT={1:6,2:10,3:16};
+
+const INSTALL_STAGES=['Roof Inspection','Permits Pulled','L-Feet Install','SMR Rails','SE Optimizers','Silfab Panels','MC4 Wiring','Conduit Run','HD-Wave Inverter','AC Panel Hook-up','SetApp Commission','Grid Connected ✓'];
+
+// Equipment costs per install
+const EQUIP_COSTS={
+  panelCost:280,  // per panel
+  railSet:180,    // per set (1 set per 12 panels)
+  optCost:60,     // per panel (one optimizer per panel)
+  invCost:1800,   // per job
+};
+
+// Monthly overhead
+const MONTHLY_OVERHEAD={
+  rent:2400,insurance:800,fuel:600
+};
+
+const CONTRACTS=[
+  {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Silfab Prime panels, Sunmodo SMR rails, SolarEdge P400 optimizers.',reward:6800,panels:12,quality:'hot',jobIcon:'🏠'},
+  {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system. SMR Tilt at 10° fixed angle.',reward:22000,panels:50,quality:'warm',jobIcon:'🏢'},
+  {title:'School District',type:'🏫 School',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Silfab Commercial NTC + SolarEdge three-phase.',reward:74000,panels:120,quality:'warm',jobIcon:'🏫'},
+  {title:'Hotel Solar Array',type:'🏨 Hotel',client:'Sunland Park Hotel',desc:'30 panels for pool heating and common areas.',reward:17000,panels:30,quality:'hot',jobIcon:'🏨'},
+  {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'200 panels, three-phase SolarEdge. Win this and you\'re on the news.',reward:135000,panels:200,quality:'warm',jobIcon:'🏛️'},
+  {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens',desc:'Off-grid. Sunmodo SunTurf ground mount. 80 Silfab panels + SolarEdge battery.',reward:58000,panels:80,quality:'cold',jobIcon:'🌵'},
+  {title:'Car Dealership Canopy',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'60 bifacial panels on Sunmodo canopy racking over the lot.',reward:28000,panels:60,quality:'warm',jobIcon:'🚗'},
+  {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units, individual SolarEdge inverters per unit.',reward:85000,panels:180,quality:'cold',jobIcon:'🏢'},
+  {title:'Warehouse District',type:'🏭 Industrial',client:'EP Logistics Hub',desc:'5 warehouse rooftops, 500 Silfab panels. Sunmodo SMR commercial rails.',reward:210000,panels:500,quality:'cold',jobIcon:'🏭'},
+  {title:'Fort Bliss Housing',type:'🪖 Government',client:'Fort Bliss — El Paso',desc:'Military housing complex, 40 Silfab Prime arrays.',reward:40000,panels:160,quality:'warm',jobIcon:'🪖'},
+];
+
+const ANGRY=[
+  {title:'WHERE ARE MY PANELS?!',msg:'Mr. Herrera called 3 times. Silfab panels were due last Tuesday.'},
+  {title:'REFUND! NOW!',msg:'Mrs. Kim\'s SolarEdge inverter shows no output. She\'s calling her lawyer.'},
+  {title:'I\'M CALLING THE BBB!',msg:'4th reschedule. This customer is about to post on Google Reviews.'},
+  {title:'YOUR CAT BROKE MY ROOF!',msg:'A stray followed your crew and knocked off a shingle near the SMR L-foot.'},
+  {title:'OPTIMIZER OFFLINE!',msg:'Customer SolarEdge app shows 3 P400 panels offline. Need a service call.'},
+];
+
+const OBJECTIONS=[
+  {title:'Cost Objection',msg:'"$28,000 is too much. My neighbor said he paid less." — Garcia Family',save:'Offer financing — show 25yr ROI'},
+  {title:'Roof Concern',msg:'"My roof is 8 years old. Will the SMR L-feet void my roof warranty?" — Kim Residence',save:'Reassure — Sunmodo installs with proper flashing'},
+  {title:'HOA Pushback',msg:'"Our HOA says we need approval first. This could take months." — Sunrise Villas',save:'Offer to handle HOA paperwork for them'},
+  {title:'Utility Company Doubt',msg:'"El Paso Electric told me solar isn\'t worth it here." — Montoya Family',save:'Show EP sun hours data — 300+ sunny days/year'},
+  {title:'Competitor Quote',msg:'"SunRun quoted us $2,000 less. Why should we pick you?" — UTEP Faculty',save:'Highlight Silfab quality + SolarEdge monitoring'},
+];
+
+const LEAD_NAMES=['Garcia Family','Kim Residence','Montoya Prop.','UTEP Faculty','Torres LLC','Barela Ranch','Sunset Apt.','Fort Bliss Hsg','EP High','Costco EP','Valley View','Sun City Mall','Mesa Hills Dr.','Kern Place Res.','Del Norte Prop.','Ysleta ISD'];
+const INSTALL_JOBS=['Casa Herrera','Hotel Job','Ysleta School','Ranch Barela','AutoNation','Sunrise Villas','Fort Bliss'];
+const STAFF_NAMES=['Alex R.','Jordan M.','Sam T.','Casey L.','Riley N.','Dana P.','Quinn S.'];
+
+const CAT_BREEDS=[
+  {name:'Street Cat',icon:'🐱',bonus:'General morale +10%',cost:80,mult:1.1,mb:10},
+  {name:'Maine Coon',icon:'🦁',bonus:'Sales boost — income +20%',cost:500,mult:1.2,mb:15},
+  {name:'Siamese',icon:'😸',bonus:'Tech boost — income +15%',cost:400,mult:1.15,mb:12},
+  {name:'Black Cat',icon:'🐈‍⬛',bonus:'Contract values +25%',cost:800,mult:1.25,mb:20},
+  {name:'Director Whiskers',icon:'👔🐱',bonus:'Office auto-managed',cost:2000,mult:1.5,mb:30},
+  {name:'Calico',icon:'🌈',bonus:'All income +10%',cost:1200,mult:1.1,mb:18},
+];
+
+const UPGRADES_DATA=[
+  {id:'soft',name:'Lead Gen Software',desc:'Desks earn 2× faster',icon:'💻',cost:600,maxLv:3},
+  {id:'crm',name:'Solar CRM System',desc:'Contract values +30%',icon:'📊',cost:1200,maxLv:3},
+  {id:'fleet',name:'Upgraded Fleet',desc:'Map jobs pay 50% more',icon:'🚚',cost:1500,maxLv:2},
+  {id:'cert',name:'NABCEP Certification',desc:'All income +40%',icon:'🎓',cost:2000,maxLv:3},
+  {id:'nanoRack',name:'Sunmodo NanoRack',desc:'Site completes 30% faster',icon:'🔩',cost:2500,maxLv:1},
+  {id:'seapp',name:'SolarEdge SetApp Pro',desc:'Commission time halved',icon:'📱',cost:1800,maxLv:1},
+  {id:'truck2',name:'Second Truck',desc:'Map dispatch speed 2×',icon:'🚛',cost:3000,maxLv:1},
+];
+
+const MANAGERS_DATA=[
+  {id:'office',name:'Director Whiskers',desc:'Office fully automated — morale auto-maintained',icon:'👔🐱',cost:2000},
+  {id:'dispatch',name:'Dispatch Manager Dave',desc:'Map jobs auto-collect every 60s',icon:'🗺️👨',cost:3500},
+  {id:'foreman',name:'Site Foreman Rosa',desc:'Job site completes 2× faster',icon:'🏗️👩',cost:5000},
+];
+
+const BREAK_UPGRADES=[
+  {id:'br_table',name:'Folding Table + Vending Machine',icon:'🥤',bonus:'Morale drain -10%',cost:0,free:true,items:['🥤']},
+  {id:'br_couch',name:'Proper Couch + Coffee Machine',icon:'🛋️',bonus:'Morale +5 on adoption',cost:500,items:['🛋️','☕']},
+  {id:'br_fridge',name:'Mini Fridge + Snack Wall',icon:'🧊',bonus:'Income +5%',cost:800,items:['🛋️','☕','🧊','🍿']},
+  {id:'br_espresso',name:'Espresso Machine',icon:'☕',bonus:'Income +10%, morale drain slower',cost:1200,items:['🛋️','☕','🧊','🍿','☕☕']},
+  {id:'br_kegerator',name:'Kegerator 🍺',icon:'🍺',bonus:'BIG morale boost! Staff love it',cost:2000,items:['🛋️','☕','🧊','🍺']},
+  {id:'br_pingpong',name:'Ping Pong Table',icon:'🏓',bonus:'Morale max +5',cost:1500,items:['🛋️','☕','🧊','🍺','🏓']},
+  {id:'br_nappod',name:'Nap Pods',icon:'😴',bonus:'Staff never burn out',cost:3000,items:['🛋️','☕','🧊','🍺','🏓','🛏️']},
+  {id:'br_taco',name:'Taco Tuesday Cart',icon:'🌮',bonus:'Weekly morale event +20',cost:2500,items:['🛋️','☕','🧊','🍺','🏓','🛏️','🌮']},
+];
+
+const EXPANSION_DATA=[
+  {id:'lv2',name:'Upgrade to Office Lv2',icon:'🏗️',cost:100000,desc:'10 desks, real break room, solar panels on roof.',check:()=>G.totalMoney>=100000,newLevel:2},
+  {id:'lv3',name:'Upgrade to Office Lv3',icon:'🏢',cost:500000,desc:'Full HQ, 16 desks, conference room, company logo exterior.',check:()=>G.totalMoney>=500000,newLevel:3},
+  {id:'lv4',name:'Open Second Location — Las Cruces',icon:'🗺️',cost:1000000,desc:'Expand to Las Cruces, NM! New map, new neighborhood.',check:()=>G.totalMoney>=1000000,newLevel:4},
+];
+
+const MILESTONES=[
+  {id:'m1k',check:()=>G.totalMoney>=1000,icon:'💵',title:'First $1,000!',desc:'The Purr & Power empire begins.'},
+  {id:'m10k',check:()=>G.totalMoney>=10000,icon:'💰',title:'$10K Revenue!',desc:'You\'re a real company now.',credits:5},
+  {id:'m50k',check:()=>G.totalMoney>=50000,icon:'🏦',title:'$50K Revenue!',desc:'Job Site view unlocked!',credits:15},
+  {id:'m100k',check:()=>G.totalMoney>=100000,icon:'🌟',title:'$100K Company!',desc:'Office Lv2 available! You\'re EP\'s #1 solar installer.',credits:30},
+  {id:'m500k',check:()=>G.totalMoney>=500000,icon:'💎',title:'$500K Revenue!',desc:'Office Lv3 upgrade available!',credits:100},
+  {id:'m1m',check:()=>G.totalMoney>=1000000,icon:'🚀',title:'$1 MILLION!',desc:'Second location in Las Cruces unlocked!',credits:250},
+  {id:'c5',check:()=>G.contracts>=5,icon:'📋',title:'5 Contracts Closed!',desc:'Neighborhood Map unlocked!',credits:3},
+  {id:'c20',check:()=>G.contracts>=20,icon:'📁',title:'20 Contracts!',desc:'You\'re the talk of the city.',credits:10},
+  {id:'cats5',check:()=>G.cats>=5,icon:'🐱',title:'Cat Crew!',desc:'5 cats in the office!',purr:20},
+  {id:'staff5',check:()=>G.staff>=5,icon:'👔',title:'Full Team!',desc:'5 staff members hired.'},
+  {id:'staff10',check:()=>G.staff>=10,icon:'🏆',title:'10 Staff!',desc:'You\'ve built a real team!',credits:20},
+];
+
+const JOB_SITES=[
+  {name:'Casa Herrera',icon:'🏠',earn:80,stage:'Inspection',type:'Residential'},
+  {name:'Sunrise Apts',icon:'🏢',earn:200,stage:'Installing',type:'Commercial'},
+  {name:'EP High School',icon:'🏫',earn:280,stage:'Wiring',type:'School'},
+  {name:'Ranch Barela',icon:'🌵',earn:500,stage:'Permits',type:'Ground Mount'},
+];
+const JOB_POS=[{x:120,y:72},{x:230,y:72},{x:120,y:160},{x:230,y:160}];
+
+const WEATHER_EVENTS=['🌡️ EP HEAT ADVISORY: 106°F — Crews hydrating! Income +10%','💨 WIND ADVISORY: Gusts 45mph — Panels secured! Slight delay','🌪️ DUST STORM WARNING: El Paso brownout! Morale -5','☀️ PERFECT SOLAR DAY: 300+ sun hours! Income +15% bonus'];
+
+let jobCardEls=[];let jobReady=[];
+let siteBuilt=false;
+let desks=[];let catEls=[];
+let catCornerEl=null;
+
+// ════════════════════════════════
+// LAYER SWITCHING
+// ════════════════════════════════
+let curLayer='office';
+function switchLayer(l){
+  if(l==='map'&&!G.mapUnlocked){showToast('🔒 Close 5 contracts first!');return;}
+  if(l==='site'&&!G.siteUnlocked){showToast('🔒 Earn $50,000 total first!');return;}
+  curLayer=l;
+  document.querySelectorAll('.layer').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById('layer-'+l).classList.add('active');
+  document.getElementById('nav-'+l).classList.add('active');
+  clearBadge(l);
+  if(l==='upgrades')renderUpgrades();
+  if(l==='map'){updatePipelines();renderNeighborhood();}
+  if(l==='site')updateSiteScene();
+  if(l==='break')renderBreakRoom();
+}
+
+// ════════════════════════════════
+// OFFICE BUILD
+// ════════════════════════════════
+function buildOffice(){
+  const floor=document.getElementById('office-main');
+  const w=floor.offsetWidth||320;
+  const h=floor.offsetHeight||300;
+
+  // Filing cabinet
+  const fc=document.getElementById('filing-cabinet');
+  fc.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:3px;position:absolute;right:8px;top:22px;width:24px;background:#8B9BB4;border:1px solid #6B7B94;border-radius:2px;`;
+
+  // Printer
+  const pr=document.getElementById('printer-el');
+  pr.style.cssText=`display:block;position:absolute;right:38px;top:20px;font-size:14px;`;
+
+  // ── Department zones (absolute positions in floor) ──
+  // Layout: Sales (top-left), Ops (bottom-left), Field (top-right), Tech (bottom-right)
+  // Pipeline board sits along the top wall so zones start below it (top:52)
+  const pipeH=44; // height reserved for pipeline board at top
+  const zoneGap=6;
+  const halfW=Math.floor((w-zoneGap*3)/2);
+  const halfH=Math.floor((h-pipeH-zoneGap*3)/2);
+  const col1x=zoneGap;
+  const col2x=col1x+halfW+zoneGap;
+  const row1y=pipeH+zoneGap;
+  const row2y=row1y+halfH+zoneGap;
+
+  const zoneDefs=[
+    {id:'dz-sales', col:'sales', x:col1x, y:row1y, w:halfW, h:halfH},
+    {id:'dz-ops',   col:'ops',   x:col1x, y:row2y, w:halfW, h:halfH},
+    {id:'dz-field', col:'field', x:col2x, y:row1y, w:halfW, h:halfH},
+    {id:'dz-tech',  col:'tech',  x:col2x, y:row2y, w:halfW, h:halfH},
+  ];
+
+  // Build desk slots inside each zone — 2 cols × up to 2 rows per zone (Lv1)
+  // Each desk card is ~72px wide, ~88px tall with label; padding 10px from zone edge
+  const deskW=72, deskH=90, deskPadX=10, deskPadY=18;
+  const deskCols=2;
+
+  // Map each HIRE_SEQUENCE role to its zone id
+  const roleZoneMap={
+    'sales':'dz-sales','ops':'dz-ops','field':'dz-field','tech':'dz-tech'
+  };
+  // Track how many desks have been placed per zone
+  const zoneSlotCount={};
+
+  // Pre-compute DESK_POS ordered by HIRE_SEQUENCE dept order
+  DESK_POS=[];
+  HIRE_SEQUENCE.forEach((role,i)=>{
+    const zoneId=roleZoneMap[role.dept]||'dz-ops';
+    const zoneDef=zoneDefs.find(z=>z.id===zoneId);
+    if(!zoneDef){DESK_POS.push({x:10+i*78,y:60});return;}
+    const slotIdx=zoneSlotCount[zoneId]||0;
+    zoneSlotCount[zoneId]=slotIdx+1;
+    const col=slotIdx%deskCols;
+    const row=Math.floor(slotIdx/deskCols);
+    const x=zoneDef.x+deskPadX+col*(deskW+8);
+    const y=zoneDef.y+deskPadY+row*(deskH+6);
+    DESK_POS.push({x,y});
+  });
+
+  // Render zone boxes
+  zoneDefs.forEach(z=>{
+    const el=document.createElement('div');
+    el.className='dept-zone';
+    el.id=z.id;
+    el.style.left=z.x+'px';
+    el.style.top=z.y+'px';
+    el.style.width=z.w+'px';
+    el.style.height=z.h+'px';
+    el.style.background=DEPT_COLORS[z.col];
+    const lbl=document.createElement('div');
+    lbl.className='dept-zone-lbl';
+    lbl.style.color=DEPT_LABEL_COLORS[z.col];
+    lbl.style.background='rgba(15,23,42,0.7)';
+    lbl.textContent=DEPT_NAMES[z.col];
+    el.appendChild(lbl);
+    floor.appendChild(el);
+  });
+
+  // Pipeline board — top wall, full-width minus filing cabinet area
+  const pb=document.createElement('div');
+  pb.className='pipeline-board';
+  pb.id='office-pipeline-board';
+  pb.style.cssText=`left:6px;top:6px;width:${w-70}px;z-index:10;`;
+  pb.onclick=()=>switchLayer('map');
+  pb.innerHTML=`<div class="pb-title">📊 Sales Pipeline — Tap to view Map</div><div class="pb-stages" id="pb-stages-inner"></div>`;
+  floor.appendChild(pb);
+  updateOfficePipelineBoard();
+
+  // Cat corner — bottom strip below both zone rows
+  catCornerEl=document.createElement('div');
+  catCornerEl.style.cssText=`position:absolute;bottom:12px;left:6px;right:6px;background:rgba(249,115,22,0.07);border:1px dashed rgba(249,115,22,0.25);border-radius:8px;padding:3px 10px;font-size:9px;color:#F97316;z-index:2;display:flex;align-items:center;gap:6px;`;
+  catCornerEl.innerHTML='<span style="font-size:12px">🌳</span> <span>🐾 Cat Corner — cats roam freely</span>';
+  floor.appendChild(catCornerEl);
+
+  // Floor
+  const fl=document.createElement('div');
+  fl.className='off-floor';
+  floor.appendChild(fl);
+
+  // Office level badge update
+  updateOfficeBadge();
+}
+
+function updateOfficeBadge(){
+  const b=document.getElementById('office-level-badge');
+  if(!b)return;
+  const names={1:'Lv1 Startup — 6 Desks',2:'Lv2 Office — 10 Desks',3:'Lv3 HQ — 16 Desks'};
+  b.textContent='🏢 '+names[G.officeLevel];
+}
+
+function updateOfficePipelineBoard(){
+  const inner=document.getElementById('pb-stages-inner');
+  if(!inner)return;
+  const stages=['Prospect','Survey','Proposal','Closing'];
+  const icons=['📋','🏠','📑','✍️'];
+  inner.innerHTML=stages.map((s,i)=>{
+    const leads=G.leads.filter(l=>l.stage===i);
+    return `<div class="pb-stage">
+      <div class="pb-stage-lbl">${icons[i]} ${s}</div>
+      ${leads.slice(0,2).map(l=>`<div class="pb-card ${l.quality}${l.referral?' star':''}">${l.name}</div>`).join('')}
+      ${leads.length===0?`<div style="font-size:5px;color:#9CA3AF;text-align:center">—</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════
+// HIRE STAFF — SEQUENTIAL
+// ════════════════════════════════
+function getNextHire(){
+  const maxDesks=DESK_LIMIT[G.officeLevel];
+  // desks.length = how many have actually been spawned = true sequence position
+  const nextIdx=desks.length;
+  if(nextIdx>=maxDesks) return null;
+  if(nextIdx>=HIRE_SEQUENCE.length) return null;
+  const next=HIRE_SEQUENCE[nextIdx];
+  // Block roles that require a higher office level
+  if(next.maxLevel>G.officeLevel) return null;
+  return {role:next,idx:nextIdx};
+}
+
+function hireEmployee(){
+  const hire=getNextHire();
+  if(!hire){
+    const maxDesks=DESK_LIMIT[G.officeLevel];
+    if(desks.length>=maxDesks) showToast('🏢 Upgrade Office to unlock more desks!');
+    else showToast('👔 No more roles available at this office level.');
+    return;
+  }
+  const next=hire.role;
+  const weeklyPay=next.payroll;
+  if(G.money<weeklyPay){showToast('💸 Need '+fmt(weeklyPay)+' for first week payroll!');return;}
+  G.money-=weeklyPay;
+  G.staff++;
+  G.weeklyPayroll+=next.payroll;
+  spawnDesk();
+  showToast('👔 '+next.role+' hired! +'+fmt(next.payroll)+'/wk'
+,'good');
+  checkMilestones();
+  updateHireButton();
+  updateUI();
+}
+
+function updateHireButton(){
+  const roleLbl=document.getElementById('hire-role-lbl');
+  const costLbl=document.getElementById('hire-cost-lbl');
+  const hire=getNextHire();
+  if(!hire){
+    const maxDesks=DESK_LIMIT[G.officeLevel];
+    if(desks.length>=maxDesks){
+      roleLbl.textContent='Upgrade Office';
+      costLbl.textContent='More Desks';
+      costLbl.className='hc';
+    } else {
+      roleLbl.textContent='Max Roles';
+      costLbl.textContent='—';
+      costLbl.className='hc';
+    }
+    return;
+  }
+  const next=hire.role;
+  roleLbl.textContent=next.role;
+  costLbl.textContent=fmt(next.payroll)+'/wk';
+  costLbl.className='hc'+(G.money<next.payroll?' red':'');
+}
+
+// ════════════════════════════════
+// PAYROLL & EXPENSES
+// ════════════════════════════════
+function calcWeeklyPayroll(){
+  let total=G.weeklyPayroll;
+  // Cat food
+  total+=G.cats*50;
+  return total;
+}
+
+function calcMonthlyOverhead(){
+  const om=G.upgrades.offmgr?1:1; // office mgr reduces overhead
+  const mgrBonus=G.managers.office?0.8:1;
+  return Math.floor((MONTHLY_OVERHEAD.rent+MONTHLY_OVERHEAD.insurance+MONTHLY_OVERHEAD.fuel)*mgrBonus);
+}
+
+function tickPayroll(){
+  // Weekly tick (every 7 game-minutes = 420 ticks at 100ms = ~42s)
+  G.weekTimer++;
+  if(G.weekTimer>=420){
+    G.weekTimer=0;
+    const payroll=calcWeeklyPayroll();
+    if(payroll>0){
+      if(G.money>=payroll){
+        G.money-=payroll;
+        showToast('💼 Payroll: -'+fmt(payroll)+' | Payroll week complete','urgent');
+      } else {
+        // Can't afford payroll — morale crash and potentially lose staff
+        G.morale=Math.max(5,G.morale-30);
+        showToast('💸 CAN\'T MAKE PAYROLL! Morale crashed!'
+,'bad');
+        if(desks.length>1){
+          const quitIdx=desks.length-1;
+          G.staff=Math.max(1,G.staff-1);
+          G.weeklyPayroll-=HIRE_SEQUENCE[quitIdx]?.payroll||900;
+          desks[desks.length-1]?.el?.remove();
+          desks.pop();
+          showToast('😡 Staff quit! Can\'t make payroll!'
+,'bad');
+          updateHireButton();
+        }
+      }
+    }
+    // Weekly reset — just show a quiet pill, leaderboard accessible from menu
+    showToast('📅 New week! Check leaderboard in ☰ menu','good');
+    G.weeklyRevenue=0;
+
+    // Monthly bonus check
+    G.monthTimer++;
+    if(G.monthTimer>=4){
+      G.monthTimer=0;
+      const overhead=calcMonthlyOverhead();
+      G.money=Math.max(0,G.money-overhead);
+      showToast('🏢 Monthly overhead: -'+fmt(overhead));
+      const bonus=Math.floor(G.totalMoney*0.01);
+      if(bonus>500){
+        G.money+=bonus;
+        G.totalMoney+=bonus;
+        showBonusAnim('+'+fmt(bonus)+' MONTHLY BONUS! 🎉');
+      }
+    }
+  }
+}
+
+function showBonusAnim(txt){
+  const el=document.createElement('div');
+  el.className='bonus-anim';
+  el.textContent=txt;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2500);
+}
+
+// ════════════════════════════════
+// WEEKLY LEADERBOARD
+// ════════════════════════════════
+function showWeeklyLeaderboard(){
+  const categories=[
+    {label:'Top Sales Rep',emoji:'☀️',score:fmt(G.todayRevenue*0.3+G.leads.length*100)},
+    {label:'Top Installer',emoji:'🔨',score:G.wipCount+' jobs'},
+    {label:'Top Permit Coord',emoji:'📄',score:G.contracts+' permits'},
+  ];
+  const rows=document.getElementById('lb-rows');
+  const trophies=['🥇','🥈','🥉'];
+  if(rows){
+    rows.innerHTML=categories.map((c,i)=>`
+      <div class="lb-row">
+        <div class="lb-trophy">${trophies[i]}</div>
+        <div class="lb-info"><div class="lb-name">${c.emoji} ${c.label}</div><div class="lb-role">${STAFF_NAMES[i%STAFF_NAMES.length]}</div></div>
+        <div class="lb-score">${c.score}</div>
+      </div>`).join('');
+  }
+  document.getElementById('lb-ov').classList.remove('gone');
+  // Award top earner desk trophy
+  if(desks.length>0){
+    desks.forEach(d=>d.el.querySelector('.trophy-float')?.remove());
+    const topDesk=desks[0];
+    const tr=document.createElement('div');
+    tr.className='trophy-float';
+    tr.textContent='🏆';
+    topDesk.el.appendChild(tr);
+    G.topEarner=0;
+    setTimeout(()=>tr.remove(),10000);
+  }
+}
+function closeLb(){document.getElementById('lb-ov').classList.add('gone');}
+
+// ════════════════════════════════
+// DESKS — SEQUENTIAL SPAWNING
+// ════════════════════════════════
+function spawnDesk(){
+  const floor=document.getElementById('office-main');
+  const idx=desks.length;
+  if(idx>=DESK_POS.length)return;
+  const pos=DESK_POS[idx];
+  const roleData=HIRE_SEQUENCE[idx];
+  if(!roleData)return;
+
+  const el=document.createElement('div');
+  el.className='desk-stn';
+  el.style.left=pos.x+'px';
+  el.style.top=pos.y+'px';
+  el.onclick=()=>tapDesk(el,idx);
+
+  // Dept accent color
+  const dCol=DEPT_LABEL_COLORS[roleData.dept]||'#94A3B8';
+
+  el.innerHTML=`<div style="position:relative;width:66px;">
+    <div class="stn-lvl" id="dlvl-${idx}" style="background:${dCol}">Lv1</div>
+    <svg width="66" height="54" viewBox="0 0 66 54">
+      <rect x="1" y="12" width="64" height="28" rx="3" fill="#C49A6C" stroke="#8B6347" stroke-width="1.5"/>
+      <rect x="3" y="14" width="60" height="5" rx="2" fill="rgba(255,255,255,0.15)"/>
+      <rect x="10" y="16" width="26" height="18" rx="2" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+      <rect x="11" y="17" width="24" height="16" rx="1" fill="#1E293B"/>
+      <text x="23" y="27" text-anchor="middle" font-size="9" fill="${roleData.col}">${roleData.icon}</text>
+      <rect x="42" y="18" width="14" height="10" rx="2" fill="#334155"/>
+      <text x="49" y="26" text-anchor="middle" font-size="7">📱</text>
+      <rect x="5" y="40" width="8" height="12" rx="1" fill="#8B6347"/>
+      <rect x="53" y="40" width="8" height="12" rx="1" fill="#8B6347"/>
+      <circle cx="33" cy="9" r="8" fill="${roleData.col}" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
+      <text x="33" y="13" text-anchor="middle" font-size="8">${roleData.icon}</text>
+      <circle id="bdot-${idx}" cx="60" cy="6" r="3" fill="#F59E0B" opacity="0"/>
+    </svg>
+  </div>
+  <div class="stn-badge" style="border-color:${dCol}22;">
+    <div class="stn-role">${roleData.role}</div>
+    <div class="stn-rate" id="drate-${idx}">+$8/s</div>
+  </div>`;
+  floor.appendChild(el);
+  desks.push({el,level:1,role:roleData.role,idx,dept:roleData.dept});
+  scheduleBreak(idx);
+  scheduleAnimation(idx,roleData);
+}
+
+function scheduleAnimation(idx,roleData){
+  // Staff-specific animations
+  const anim=()=>{
+    if(Math.random()<0.3){
+      // Walk to another desk (sales reps)
+      if(roleData.dept==='sales'&&desks.length>1){
+        const otherDesk=desks[Math.floor(Math.random()*desks.length)];
+        // show floating interaction
+        const el=desks[idx]?.el;
+        if(el) spawnFlt(el,'📞 Calling!','#93C5FD');
+      }
+    }
+    // Monitoring tech reacts to alerts
+    if(roleData.role==='Monitoring Tech'&&Math.random()<0.2){
+      const el=desks[idx]?.el;
+      if(el) spawnFlt(el,'⚡ Alert!','#F59E0B');
+    }
+  };
+  setInterval(anim,30000+Math.random()*30000);
+}
+
+function scheduleBreak(idx){
+  const d=desks[idx];if(!d)return;
+  setTimeout(()=>{
+    if(!d)return;
+    const dot=document.getElementById('bdot-'+idx);
+    if(dot){dot.style.opacity='1';}
+    if(G.leads.length>0){
+      const lead=G.leads[Math.floor(Math.random()*G.leads.length)];
+      if(lead.stage<6)lead.stage++;
+      updateOfficePipelineBoard();
+    }
+    setTimeout(()=>{
+      if(dot)dot.style.opacity='0';
+      scheduleBreak(idx);
+    },10000);
+  },25000+Math.random()*45000);
+}
+
+function tapDesk(el,idx){
+  const softBonus=G.upgrades.soft?Math.pow(2,G.upgrades.soft):1;
+  const bonus=Math.floor(14*softBonus*G.incomeMultiplier*(1+G.morale/200));
+  G.money+=bonus;G.totalMoney+=bonus;G.todayRevenue+=bonus;G.weeklyRevenue+=bonus;
+  spawnFlt(el,'+'+fmt(bonus),'#22C55E');
+  if(G.leads.length>0&&Math.random()<0.3){
+    const lead=G.leads[Math.floor(Math.random()*G.leads.length)];
+    if(lead.stage<6){lead.stage++;updateOfficePipelineBoard();}
+  }
+  checkMilestones();updateUI();
+}
+
+// ════════════════════════════════
+// CATS
+// ════════════════════════════════
+const CAT_PAL=[
+  {b:'#E07A30',e:'#C96020'},{b:'#9CA3AF',e:'#6B7280'},
+  {b:'#2D2D2D',e:'#111'},{b:'#F5DEB3',e:'#E8C878'},
+  {b:'#92400E',e:'#78350F'},{b:'#D8B4FE',e:'#A855F7'},
+];
+const CAT_SAY=['purr~','😸','zzz~','meow!','*knocks pen off desk*','*sits on keyboard*','mrrrow','🐾 purr...','Meow!'];
+
+function spawnCat(){
+  const floor=document.getElementById('office-main');
+  const w=floor.offsetWidth||320;
+  const h=floor.offsetHeight||300;
+  const pal=CAT_PAL[catEls.length%CAT_PAL.length];
+  const cat=document.createElement('div');
+  cat.className='cat-spr';
+  cat.style.left=(10+Math.random()*(w-50))+'px';
+  cat.style.top=(40+Math.random()*(h-80))+'px';
+  cat.innerHTML=`<svg width="28" height="24" viewBox="0 0 28 24">
+    <ellipse cx="14" cy="17" rx="9" ry="6" fill="${pal.b}"/>
+    <ellipse cx="14" cy="9" rx="7" ry="6" fill="${pal.b}"/>
+    <polygon points="8,4 5,0 11,3" fill="${pal.b}"/>
+    <polygon points="20,4 23,0 17,3" fill="${pal.b}"/>
+    <polygon points="8,4 6,1.5 10,3" fill="#FFB6C1" opacity="0.7"/>
+    <polygon points="20,4 22,1.5 18,3" fill="#FFB6C1" opacity="0.7"/>
+    <ellipse cx="10" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
+    <ellipse cx="18" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
+    <circle cx="10.5" cy="8.5" r="0.6" fill="white"/>
+    <circle cx="18.5" cy="8.5" r="0.6" fill="white"/>
+    <polygon points="14,12 12.5,13.5 15.5,13.5" fill="#F472B6"/>
+    <line x1="6" y1="11" x2="12" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="6" y1="13" x2="12" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="22" y1="11" x2="16" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="22" y1="13" x2="16" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <path d="M 23 18 Q 28 14 26 10" stroke="${pal.e}" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>`;
+  cat.onclick=()=>petCat(cat);
+  floor.appendChild(cat);
+  catEls.push(cat);
+  moveCat(cat,floor);
+}
+
+function moveCat(cat,floor){
+  setInterval(()=>{
+    if(!cat.parentNode)return;
+    const w=floor.offsetWidth||320;
+    const h=floor.offsetHeight||300;
+    cat.style.left=(10+Math.random()*(w-50))+'px';
+    cat.style.top=(40+Math.random()*(h-80))+'px';
+  },3500+Math.random()*3000);
+}
+
+function petCat(cat){
+  G.morale=Math.min(100,G.morale+8);G.purrPoints+=2;
+  const e=CAT_SAY[Math.floor(Math.random()*CAT_SAY.length)];
+  const r=cat.getBoundingClientRect();
+  spawnFltXY(r.left+14,r.top,e,'#F97316');
+  checkMilestones();updateUI();
+}
+
+function adoptCat(){
+  if(G.money<G.catCost){showToast('💸 Need '+fmt(G.catCost));return;}
+  G.money-=G.catCost;G.cats++;
+  G.catCost=Math.floor(G.catCost*1.4);
+  G.morale=Math.min(100,G.morale+15);
+  G.weeklyPayroll+=50; // cat food
+  spawnCat();
+  showToast('🐱 Cat adopted! Morale up! +$50/wk cat food'
+,'good');
+  checkMilestones();updateUI();updateHireButton();
+}
+
+// ════════════════════════════════
+// SALES PIPELINE
+// ════════════════════════════════
+const PIPE_STAGES=['Prospect','Contacted','Survey','Proposal','Follow-up','Negotiating','Signed'];
+
+function addLead(isReferral){
+  if(G.leads.length>=14)return;
+  const name=LEAD_NAMES[Math.floor(Math.random()*LEAD_NAMES.length)];
+  const quality=isReferral?'hot':(['hot','warm','cold'][Math.floor(Math.random()*3)]);
+  G.leads.push({name,stage:0,quality,age:0,referral:!!isReferral});
+  G.hotLeads=G.leads.filter(l=>l.quality==='hot').length;
+  updateOfficePipelineBoard();
+  updateUI();
+}
+
+function tickLeads(){
+  G.leads.forEach(l=>{
+    l.age++;
+    if(l.quality==='cold'&&l.age>300&&Math.random()<0.002){
+      G.leads=G.leads.filter(x=>x!==l);
+      showToast('❄️ Cold lead '+l.name+' went quiet.'
+,'bad');
+    }
+  });
+  const signed=G.leads.filter(l=>l.stage>=6);
+  if(signed.length>0&&Math.random()<0.008){
+    const lead=signed[0];
+    G.leads=G.leads.filter(l=>l!==lead);
+    setTimeout(triggerContract,2000);
+  }
+  updateOfficePipelineBoard();
+}
+
+// ════════════════════════════════
+// CONTRACT — WITH REAL COSTS
+// ════════════════════════════════
+function calcEquipCost(panels){
+  const railSets=Math.ceil(panels/12);
+  return panels*EQUIP_COSTS.panelCost + railSets*EQUIP_COSTS.railSet + panels*EQUIP_COSTS.optCost + EQUIP_COSTS.invCost;
+}
+
+function triggerContract(){
+  if(G.pendingContract)return;
+  if(!document.getElementById('contract-ov').classList.contains('gone'))return;
+  const c=CONTRACTS[Math.floor(Math.random()*CONTRACTS.length)];
+  const crmBonus=G.upgrades.crm?Math.pow(1.3,G.upgrades.crm):1;
+  const catBonus=G.catBreeds.includes('Black Cat')?1.25:1;
+  const reward=Math.floor(c.reward*crmBonus*catBonus*G.prestigeMultiplier);
+  const equipCost=calcEquipCost(c.panels);
+  const netProfit=reward-equipCost;
+  G.pendingContract={...c,reward,equipCost,netProfit};
+  document.getElementById('cp-type').textContent=c.type;
+  document.getElementById('cp-title').textContent=c.title;
+  document.getElementById('cp-client').textContent='📍 '+c.client;
+  document.getElementById('cp-desc').textContent=c.desc;
+  document.getElementById('cp-quality').textContent=c.quality==='hot'?'🔥 HOT LEAD':c.quality==='warm'?'🌤️ WARM LEAD':'❄️ COLD LEAD';
+  document.getElementById('cp-quality').className='cp-quality '+c.quality;
+  document.getElementById('cp-costs').innerHTML=`<strong>Equipment costs:</strong> ${c.panels} panels @ $280 | ${Math.ceil(c.panels/12)} SMR sets @ $180 | ${c.panels} optimizers @ $60 | 1 HD-Wave inverter @ $1,800<br>Total materials: <strong style="color:var(--red)">-${fmt(equipCost)}</strong>`;
+  document.getElementById('cp-reward').textContent=fmt(reward);
+  document.getElementById('cp-panels').textContent=c.panels;
+  document.getElementById('cp-days').textContent=fmt(netProfit);
+  document.getElementById('contract-ov').classList.remove('gone');
+  setBadge('office');
+}
+
+function acceptContract(){
+  document.getElementById('contract-ov').classList.add('gone');
+  const c=G.pendingContract;G.pendingContract=null;
+  if(!c)return;
+  // Deduct equipment costs
+  if(G.money>=c.equipCost){
+    G.money-=c.equipCost;
+    showToast('⚙️ Materials ordered: -'+fmt(c.equipCost));
+  } else {
+    showToast('⚠️ Can\'t cover materials! Partial deduction.');
+    G.money=Math.max(0,G.money-c.equipCost);
+  }
+  G.wipCount++;
+  G.contracts++;
+  installJobs.push(c.title);
+  // Pay out the reward after a delay
+  const delay=3000+G.wipCount*500;
+  setTimeout(()=>{
+    const fleetBonus=G.upgrades.fleet?Math.pow(1.5,G.upgrades.fleet):1;
+    const moraleBonus=1+G.morale/200;
+    const finalPay=Math.floor(c.reward*fleetBonus*moraleBonus);
+    G.money+=finalPay;G.totalMoney+=finalPay;G.todayRevenue+=finalPay;G.weeklyRevenue+=finalPay;
+    G.wipCount=Math.max(0,G.wipCount-1);
+    // Referral lead from satisfied customer
+    if(Math.random()<0.3) addLead(true);
+    spawnFltXY(window.innerWidth/2,200,'+'+fmt(finalPay)+' Contract Done! ✅','#22C55E');
+    checkMilestones();checkUnlocks();updateUI();
+  },delay);
+  checkMilestones();checkUnlocks();updateUI();updatePipelines();
+}
+
+function declineContract(){
+  document.getElementById('contract-ov').classList.add('gone');
+  G.pendingContract=null;
+}
+
+// ════════════════════════════════
+// MAP — NEIGHBORHOOD
+// ════════════════════════════════
+let neighborhoodBuilt=false;
+let installJobs=['Casa Herrera','Hotel Job','EP School'];
+
+// ════════════════════════════════
+// MAP — TOP-DOWN SVG (MapQuest style)
+// ════════════════════════════════
+function renderNeighborhood(){
+  if(neighborhoodBuilt)return;
+  // Use rAF so the layer is actually painted before we measure
+  requestAnimationFrame(()=>{
+    const wrap=document.getElementById('map-main-wrap');
+    const W=wrap?wrap.offsetWidth:0;
+    if(W<10){
+      // Still not visible — retry after paint
+      setTimeout(()=>{neighborhoodBuilt=false;renderNeighborhood();},150);
+      return;
+    }
+    if(neighborhoodBuilt)return;
+    neighborhoodBuilt=true;
+    buildTopDownMap();
+  });
+}
+
+function buildTopDownMap(){
+  const svg=document.getElementById('map-svg');
+  const wrap=document.getElementById('map-main-wrap');
+  const W=wrap.offsetWidth||360;
+  const H=wrap.offsetHeight||420;
+
+  // ── ROAD NETWORK (MapQuest style) ──
+  // Major arterials
+  const roads=[
+    // Horizontals
+    {x1:0,y1:H*0.18,x2:W,y2:H*0.18,w:18,type:'major'},   // Montana Ave
+    {x1:0,y1:H*0.42,x2:W,y2:H*0.42,w:18,type:'major'},   // Mesa Hills Dr
+    {x1:0,y1:H*0.68,x2:W,y2:H*0.68,w:18,type:'major'},   // Doniphan Dr
+    // Minor cross streets
+    {x1:0,y1:H*0.30,x2:W,y2:H*0.30,w:10,type:'minor'},
+    {x1:0,y1:H*0.56,x2:W,y2:H*0.56,w:10,type:'minor'},
+    {x1:0,y1:H*0.82,x2:W,y2:H*0.82,w:10,type:'minor'},
+    // Verticals
+    {x1:W*0.22,y1:0,x2:W*0.22,y2:H,w:18,type:'major'},   // Sun City Blvd
+    {x1:W*0.60,y1:0,x2:W*0.60,y2:H,w:18,type:'major'},   // Resler Dr
+    // Minor verticals
+    {x1:W*0.40,y1:0,x2:W*0.40,y2:H,w:10,type:'minor'},
+    {x1:W*0.78,y1:0,x2:W*0.78,y2:H,w:10,type:'minor'},
+  ];
+
+  const roadsG=document.getElementById('map-roads');
+  roads.forEach(r=>{
+    // Shadow
+    const sh=document.createElementNS('http://www.w3.org/2000/svg','line');
+    sh.setAttribute('x1',r.x1);sh.setAttribute('y1',r.y1+1.5);
+    sh.setAttribute('x2',r.x2);sh.setAttribute('y2',r.y2+1.5);
+    sh.setAttribute('stroke','rgba(0,0,0,0.15)');sh.setAttribute('stroke-width',r.w+2);
+    roadsG.appendChild(sh);
+    // Road fill
+    const road=document.createElementNS('http://www.w3.org/2000/svg','line');
+    road.setAttribute('x1',r.x1);road.setAttribute('y1',r.y1);
+    road.setAttribute('x2',r.x2);road.setAttribute('y2',r.y2);
+    road.setAttribute('stroke',r.type==='major'?'#6B7280':'#9CA3AF');
+    road.setAttribute('stroke-width',r.w);
+    roadsG.appendChild(road);
+    // Center line (major only)
+    if(r.type==='major'){
+      const cl=document.createElementNS('http://www.w3.org/2000/svg','line');
+      cl.setAttribute('x1',r.x1);cl.setAttribute('y1',r.y1);
+      cl.setAttribute('x2',r.x2);cl.setAttribute('y2',r.y2);
+      cl.setAttribute('stroke','#FDE68A');cl.setAttribute('stroke-width','1.2');
+      cl.setAttribute('stroke-dasharray','14,10');cl.setAttribute('opacity','0.5');
+      roadsG.appendChild(cl);
+    }
+  });
+
+  // ── CITY BLOCKS (lots between roads) ──
+  // Define grid intersection points to fill city blocks
+  const vx=[0,W*0.22,W*0.40,W*0.60,W*0.78,W];
+  const hy=[0,H*0.18,H*0.30,H*0.42,H*0.56,H*0.68,H*0.82,H];
+  const roadW={major:9,minor:5};
+
+  const blockG=document.getElementById('map-blocks');
+  const buildG=document.getElementById('map-buildings');
+  const labelG=document.getElementById('map-labels');
+
+  // Block fill colors — El Paso residential / commercial
+  const blockColors=['#DAD0BE','#D4C9B5','#DCCFBC','#D8CCB8','#E0D5C2'];
+
+  for(let col=0;col<vx.length-1;col++){
+    for(let row=0;row<hy.length-1;row++){
+      const isVmajor=(col===0||col===1||col===3);
+      const isHmajor=(row===0||row===2||row===5);
+      const margin=9; // half road width for major
+      const x1=vx[col]+margin;
+      const y1=hy[row]+margin;
+      const x2=vx[col+1]-margin;
+      const y2=hy[row+1]-margin;
+      if(x2<=x1||y2<=y1)continue;
+      const bw=x2-x1, bh=y2-y1;
+
+      // Block background
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',x1);rect.setAttribute('y',y1);
+      rect.setAttribute('width',bw);rect.setAttribute('height',bh);
+      rect.setAttribute('fill',blockColors[(col+row)%blockColors.length]);
+      rect.setAttribute('rx','1');
+      blockG.appendChild(rect);
+
+      // Fill block with tiny top-down building footprints
+      _fillBlockBuildings(buildG,x1,y1,bw,bh,col,row);
+    }
+  }
+
+  // ── STREET LABELS ──
+  const streetLabels=[
+    {x:W*0.22+4,y:H*0.18-6,text:'Sun City Blvd',horiz:false},
+    {x:W*0.60+4,y:H*0.18-6,text:'Resler Dr',horiz:false},
+    {x:4,y:H*0.18-4,text:'Montana Ave',horiz:true},
+    {x:4,y:H*0.42-4,text:'Mesa Hills Dr',horiz:true},
+    {x:4,y:H*0.68-4,text:'Doniphan Dr',horiz:true},
+  ];
+  streetLabels.forEach(l=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',l.x);t.setAttribute('y',l.y);
+    t.setAttribute('font-size','7');t.setAttribute('font-weight','700');
+    t.setAttribute('fill','#374151');t.setAttribute('font-family','Nunito,sans-serif');
+    t.setAttribute('opacity','0.85');
+    if(!l.horiz){
+      t.setAttribute('transform',`rotate(-90,${l.x},${l.y})`);
+    }
+    t.textContent=l.text;
+    labelG.appendChild(t);
+  });
+
+  // ── SPECIAL LANDMARKS ──
+  // Office building (our HQ)
+  _drawLandmark(buildG,labelG,W*0.25,H*0.22,38,28,'#1E40AF','#3B82F6','HQ');
+  // Park / desert lot
+  _drawPark(buildG,W*0.44,H*0.46,W*0.16,H*0.10);
+  // Parking lot
+  _drawParking(buildG,W*0.62,H*0.72,W*0.14,H*0.08);
+}
+
+function _fillBlockBuildings(g,bx,by,bw,bh,col,row){
+  // Vary building density and type by block
+  const seed=(col*7+row*13);
+  const rand=(n)=>((seed*n*2654435769)>>>0)/4294967296;
+
+  // Residential: small footprint homes with tiny yards
+  // Commercial: larger flat rectangles
+  const isCommercial=(col===1&&row===2)||(col===3&&row===0)||(col===2&&row===4);
+  const footprintW=isCommercial?Math.floor(rand(3)*bw*0.4+bw*0.35):Math.floor(rand(3)*18+12);
+  const footprintH=isCommercial?Math.floor(rand(5)*bh*0.4+bh*0.3):Math.floor(rand(5)*14+10);
+  const cols=Math.max(1,Math.floor(bw/(footprintW+8)));
+  const rows2=Math.max(1,Math.floor(bh/(footprintH+8)));
+  const padX=(bw-(cols*(footprintW+8)))/2+4;
+  const padY=(bh-(rows2*(footprintH+8)))/2+4;
+
+  for(let c=0;c<cols;c++){
+    for(let r=0;r<rows2;r++){
+      const bldX=bx+padX+c*(footprintW+8);
+      const bldY=by+padY+r*(footprintH+8);
+      const hue=isCommercial?'#B0A898':'#C8B8A0';
+      const shadow=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      shadow.setAttribute('x',bldX+1.5);shadow.setAttribute('y',bldY+1.5);
+      shadow.setAttribute('width',footprintW);shadow.setAttribute('height',footprintH);
+      shadow.setAttribute('fill','rgba(0,0,0,0.12)');shadow.setAttribute('rx','1');
+      g.appendChild(shadow);
+      const bld=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      bld.setAttribute('x',bldX);bld.setAttribute('y',bldY);
+      bld.setAttribute('width',footprintW);bld.setAttribute('height',footprintH);
+      bld.setAttribute('fill',hue);bld.setAttribute('stroke','#9C8C7C');
+      bld.setAttribute('stroke-width','0.6');bld.setAttribute('rx','1');
+      g.appendChild(bld);
+      // Roof detail line
+      if(!isCommercial){
+        const ridge=document.createElementNS('http://www.w3.org/2000/svg','line');
+        ridge.setAttribute('x1',bldX+2);ridge.setAttribute('y1',bldY+footprintH/2);
+        ridge.setAttribute('x2',bldX+footprintW-2);ridge.setAttribute('y2',bldY+footprintH/2);
+        ridge.setAttribute('stroke','#A89880');ridge.setAttribute('stroke-width','1');ridge.setAttribute('opacity','0.5');
+        g.appendChild(ridge);
+      }
+    }
+  }
+}
+
+function _drawLandmark(g,lg,x,y,w,h,fill,stroke,label){
+  const sh=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  sh.setAttribute('x',x+2);sh.setAttribute('y',y+2);sh.setAttribute('width',w);sh.setAttribute('height',h);
+  sh.setAttribute('fill','rgba(0,0,0,0.2)');sh.setAttribute('rx','2');g.appendChild(sh);
+  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
+  r.setAttribute('fill',fill);r.setAttribute('stroke',stroke);r.setAttribute('stroke-width','1.5');r.setAttribute('rx','2');
+  g.appendChild(r);
+  const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',x+w/2);t.setAttribute('y',y+h/2+3);
+  t.setAttribute('text-anchor','middle');t.setAttribute('font-size','6');
+  t.setAttribute('font-weight','800');t.setAttribute('fill','white');t.setAttribute('font-family','Nunito,sans-serif');
+  t.textContent=label;lg.appendChild(t);
+}
+
+function _drawPark(g,x,y,w,h){
+  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
+  r.setAttribute('fill','#8FB878');r.setAttribute('stroke','#6A9A5A');r.setAttribute('stroke-width','0.8');r.setAttribute('rx','2');
+  g.appendChild(r);
+  // Little trees
+  [[x+w*0.25,y+h*0.3],[x+w*0.6,y+h*0.6],[x+w*0.8,y+h*0.25]].forEach(([tx,ty])=>{
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',tx);c.setAttribute('cy',ty);c.setAttribute('r','4');
+    c.setAttribute('fill','#4A8040');c.setAttribute('opacity','0.8');
+    g.appendChild(c);
+  });
+}
+
+function _drawParking(g,x,y,w,h){
+  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
+  r.setAttribute('fill','#9CA3AF');r.setAttribute('stroke','#6B7280');r.setAttribute('stroke-width','0.6');
+  g.appendChild(r);
+  // Parking stall lines
+  const stalls=Math.floor(w/8);
+  for(let i=1;i<stalls;i++){
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x+i*8);l.setAttribute('y1',y);l.setAttribute('x2',x+i*8);l.setAttribute('y2',y+h);
+    l.setAttribute('stroke','white');l.setAttribute('stroke-width','0.6');l.setAttribute('opacity','0.5');
+    g.appendChild(l);
+  }
+}
+
+function initMap(){
+  const wrap=document.getElementById('map-main-wrap');
+  const W=wrap.offsetWidth||360;
+  const H=wrap.offsetHeight||420;
+  const main=document.getElementById('map-main');
+  const vehicleG=document.getElementById('map-vehicles');
+
+  // Job site positions — placed on real city blocks
+  const jobPositions=[
+    {x:W*0.05,  y:H*0.22},  // top-left block
+    {x:W*0.44,  y:H*0.08},  // top-center block
+    {x:W*0.05,  y:H*0.46},  // mid-left block
+    {x:W*0.62,  y:H*0.46},  // mid-right block
+  ];
+
+  JOB_SITES.forEach((s,i)=>{
+    const pos=jobPositions[i]||{x:W*0.1+i*80,y:H*0.3};
+    // Drop pin on SVG map
+    const pin=document.createElementNS('http://www.w3.org/2000/svg','g');
+    pin.setAttribute('id','pin-'+i);
+    const shadow=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    shadow.setAttribute('cx',pos.x+32);shadow.setAttribute('cy',pos.y+52);
+    shadow.setAttribute('rx','10');shadow.setAttribute('ry','4');
+    shadow.setAttribute('fill','rgba(0,0,0,0.15)');
+    pin.appendChild(shadow);
+    document.getElementById('map-markers').appendChild(pin);
+
+    // Card overlay
+    const el=document.createElement('div');
+    el.className='job-card'+(i===0?' ready':'');
+    el.style.left=(pos.x)+'px';
+    el.style.top=(pos.y)+'px';
+    el.onclick=()=>collectJob(i);
+    el.innerHTML=`
+      <div class="jc-lvl" id="jlvl-${i}">Lv1</div>
+      <span class="jc-icon">${s.icon}</span>
+      <div class="jc-name">${s.name}</div>
+      <div class="jc-earn" id="jearn-${i}">+${fmt(s.earn)}/tap</div>
+      <div class="jc-stage" id="jstage-${i}">${s.stage}</div>`;
+    main.appendChild(el);
+    jobCardEls.push({el,level:1,earn:s.earn,site:s});
+    jobReady.push(i===0);
+  });
+
+  // Animated truck on SVG — top-down van shape
+  _spawnSVGTruck(vehicleG,W,H,'#1E40AF',false);
+  if(G.upgrades.truck2) _spawnSVGTruck(vehicleG,W,H,'#065F46',true);
+}
+
+function _spawnSVGTruck(g,W,H,color,second){
+  // Top-down van: rectangle with windshield
+  const truck=document.createElementNS('http://www.w3.org/2000/svg','g');
+  truck.setAttribute('id',second?'truck2-svg':'truck1-svg');
+
+  const body=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  body.setAttribute('width','18');body.setAttribute('height','30');body.setAttribute('rx','3');
+  body.setAttribute('fill',color);body.setAttribute('stroke','rgba(0,0,0,0.3)');body.setAttribute('stroke-width','1');
+  truck.appendChild(body);
+
+  // Windshield
+  const ws=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  ws.setAttribute('x','3');ws.setAttribute('y','2');ws.setAttribute('width','12');ws.setAttribute('height','7');
+  ws.setAttribute('rx','1');ws.setAttribute('fill','#BAE6FD');ws.setAttribute('opacity','0.8');
+  truck.appendChild(ws);
+
+  // Wheels
+  [[0,4],[15,4],[0,22],[15,22]].forEach(([wx,wy])=>{
+    const w=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    w.setAttribute('x',wx-2);w.setAttribute('y',wy);w.setAttribute('width','5');w.setAttribute('height','6');
+    w.setAttribute('rx','1');w.setAttribute('fill','#1F2937');
+    truck.appendChild(w);
+  });
+
+  // Shadow dot
+  const sd=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  sd.setAttribute('cx','9');sd.setAttribute('cy','32');sd.setAttribute('rx','8');sd.setAttribute('ry','3');
+  sd.setAttribute('fill','rgba(0,0,0,0.15)');
+  truck.appendChild(sd);
+
+  g.appendChild(truck);
+
+  // Animate truck along road paths
+  const startX=second?W*0.40:W*0.22;
+  const startY=second?H*0.42:H*0.18;
+  truck.setAttribute('transform',`translate(${startX},${startY})`);
+
+  const routes=second?[
+    {x:W*0.40,y:H*0.42},{x:W*0.60,y:H*0.42},{x:W*0.60,y:H*0.68},{x:W*0.40,y:H*0.68},
+  ]:[
+    {x:W*0.22,y:H*0.18},{x:W*0.60,y:H*0.18},{x:W*0.60,y:H*0.42},{x:W*0.22,y:H*0.42},
+  ];
+  let ri=0;
+  setInterval(()=>{
+    ri=(ri+1)%routes.length;
+    const {x,y}=routes[ri];
+    truck.style.transition='transform 2.8s linear';
+    truck.setAttribute('transform',`translate(${x},${y})`);
+    // Rotate to face direction of travel
+    const prev=routes[(ri-1+routes.length)%routes.length];
+    const dx=x-prev.x,dy=y-prev.y;
+    const angle=Math.atan2(dy,dx)*(180/Math.PI)+90;
+    truck.setAttribute('transform',`translate(${x},${y}) rotate(${angle},9,15)`);
+  },3000);
+}
+
+function animTruck(){}  // replaced by _spawnSVGTruck
+
+function spawnSecondTruck(){
+  const g=document.getElementById('map-vehicles');
+  const wrap=document.getElementById('map-main-wrap');
+  _spawnSVGTruck(g,wrap.offsetWidth||360,wrap.offsetHeight||420,'#065F46',true);
+}
+
+function collectJob(i){
+  if(!G.mapUnlocked)return;
+  if(!jobReady[i]){showToast('⏳ Job not ready yet');return;}
+  const site=jobCardEls[i];
+  const fleetBonus=G.upgrades.fleet?Math.pow(1.5,G.upgrades.fleet):1;
+  const pay=Math.floor(site.earn*site.level*fleetBonus*(1+G.morale/120));
+  G.money+=pay;G.totalMoney+=pay;G.todayRevenue+=pay;G.weeklyRevenue+=pay;
+  const r=site.el.getBoundingClientRect();
+  spawnFltXY(r.left+44,r.top,'+'+fmt(pay),'#22C55E');
+  site.el.classList.remove('ready');
+  jobReady[i]=false;
+  const cooldown=G.upgrades.truck2?12000:20000;
+  setTimeout(()=>{site.el.classList.add('ready');jobReady[i]=true;},cooldown);
+  checkMilestones();updateUI();updatePipelines();
+}
+
+function updatePipelines(){
+  const sr=document.getElementById('sales-rows');
+  if(!sr)return;
+  const statuses=['lead','quote','quote','close'];
+  const statusLabels=['Lead','Quoted','Survey','Closing'];
+  const displayLeads=G.leads.slice(0,4);
+  sr.innerHTML=displayLeads.map((l,i)=>`
+    <div class="pp-row">
+      <span class="pp-status ${statuses[Math.min(l.stage,3)]}">${statusLabels[Math.min(l.stage,3)]}</span>
+      <span class="pp-name">${l.referral?'🌟':''} ${l.name}</span>
+    </div>`).join('')||(G.leads.length===0?'<div style="font-size:8px;color:var(--muted);text-align:center;padding:4px">No active leads</div>':'');
+  const ir=document.getElementById('install-rows');
+  if(!ir)return;
+  const iStatuses=['sched','route','wip','done'];
+  const iLabels=['Sched','En Route','Working','Done'];
+  ir.innerHTML=installJobs.slice(0,4).map((n,i)=>`
+    <div class="pp-row">
+      <span class="pp-status ${iStatuses[i%4]}">${iLabels[i%4]}</span>
+      <span class="pp-name">${n}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════
+// JOB SITE
+// ════════════════════════════════
+function buildSiteScene(){
+  if(siteBuilt)return;siteBuilt=true;
+  const scene=document.getElementById('site-scene');
+  const w=scene.offsetWidth||360;
+  const h=scene.offsetHeight||260;
+
+  // One large SVG fills the entire scene
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('id','site-svg');
+  svg.setAttribute('width','100%');
+  svg.setAttribute('height','100%');
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.style.cssText='position:absolute;inset:0;z-index:5;';
+  scene.appendChild(svg);
+
+  // ── Ground & sky already handled by CSS divs, draw on top ──
+  const groundY=h*0.62; // where ground starts
+  const houseW=Math.min(260,w*0.52);
+  const houseH=100;
+  const roofH=80;
+  const cx=w/2;
+  const houseX=cx-houseW/2;
+  const houseTop=groundY-houseH-roofH;
+
+  // Helper to add SVG elements
+  const mkEl=(tag,attrs={},inner='')=>{
+    const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    if(inner)el.innerHTML=inner;
+    svg.appendChild(el);
+    return el;
+  };
+
+  // Cactus left
+  mkEl('text',{x:houseX-55,y:groundY,style:'font-size:32px;'},'🌵');
+  // Cactus right
+  mkEl('text',{x:houseX+houseW+30,y:groundY,style:'font-size:22px;'},'🌵');
+
+  // ── HOUSE WALLS (El Paso stucco) ──
+  // Shadow
+  mkEl('rect',{x:houseX+6,y:houseTop+roofH+4,width:houseW,height:houseH+4,rx:2,fill:'rgba(0,0,0,0.18)'});
+  // Walls
+  mkEl('rect',{x:houseX,y:houseTop+roofH,width:houseW,height:houseH,rx:2,fill:'#D4956A',stroke:'#B45309','stroke-width':2});
+  // Stucco texture lines
+  for(let i=0;i<4;i++){
+    mkEl('line',{x1:houseX,y1:houseTop+roofH+i*26,x2:houseX+houseW,y2:houseTop+roofH+i*26,stroke:'#C07840','stroke-width':0.5,opacity:0.4});
+  }
+  // Windows x3
+  const winW=32,winH=28,winY=houseTop+roofH+14;
+  const winXs=[houseX+22,houseX+houseW/2-winW/2,houseX+houseW-22-winW];
+  winXs.forEach(wx=>{
+    mkEl('rect',{x:wx,y:winY,width:winW,height:winH,rx:2,fill:'#BAE6FD',stroke:'#7C3AED','stroke-width':2});
+    mkEl('line',{x1:wx+winW/2,y1:winY,x2:wx+winW/2,y2:winY+winH,stroke:'#7C3AED','stroke-width':1});
+    mkEl('line',{x1:wx,y1:winY+winH/2,x2:wx+winW,y2:winY+winH/2,stroke:'#7C3AED','stroke-width':1});
+    // Reflection
+    mkEl('rect',{x:wx+2,y:winY+2,width:8,height:6,rx:1,fill:'white',opacity:0.4});
+  });
+  // Door
+  const doorW=32,doorH=52,doorX=cx-doorW/2,doorY=houseTop+roofH+houseH-doorH;
+  mkEl('rect',{x:doorX,y:doorY,width:doorW,height:doorH,rx:14,fill:'#7C3AED',stroke:'#5B21B6','stroke-width':2});
+  mkEl('circle',{cx:doorX+doorW-8,cy:doorY+doorH/2,r:3,fill:'#FDE68A'});
+  // Address numbers
+  mkEl('text',{x:cx,y:houseTop+roofH+12,'text-anchor':'middle','font-size':8,fill:'#92400E','font-family':'sans-serif','font-weight':'bold'},'12 Mesa Hills Dr');
+
+  // ── ROOF (pitched) ──
+  mkEl('polygon',{
+    points:`${cx},${houseTop} ${houseX-12},${houseTop+roofH} ${houseX+houseW+12},${houseTop+roofH}`,
+    fill:'#92400E',stroke:'#78350F','stroke-width':2
+  });
+  // Roof fascia
+  mkEl('line',{x1:houseX-12,y1:houseTop+roofH,x2:houseX+houseW+12,y2:houseTop+roofH,stroke:'#78350F','stroke-width':3});
+  // Chimney
+  mkEl('rect',{x:houseX+houseW*0.72,y:houseTop+10,width:18,height:roofH*0.5,rx:1,fill:'#B45309',stroke:'#92400E','stroke-width':1});
+
+  // ── SUNMODO SMR RAILS on roof ──
+  const roofSlope=(roofH)/(houseW/2);
+  const railOffsets=[roofH*0.38,roofH*0.60];
+  railOffsets.forEach(ro=>{
+    // Compute rail x extent at this y position on roof
+    const pct=(ro/roofH);
+    const railW=(houseW+24)*(1-pct*0.6);
+    const railXstart=cx-railW/2;
+    // Rail (slightly angled to follow roof pitch)
+    const yBase=houseTop+ro;
+    mkEl('line',{x1:railXstart,y1:yBase,x2:railXstart+railW,y2:yBase,stroke:'#1a1a1a','stroke-width':3,opacity:0.9});
+    mkEl('line',{x1:railXstart,y1:yBase+1,x2:railXstart+railW,y2:yBase+1,stroke:'#333','stroke-width':1,opacity:0.5});
+  });
+
+  // SMR label
+  mkEl('text',{x:houseX-8,y:houseTop+roofH*0.38-4,'font-size':7,fill:'#666','font-family':'sans-serif'},'SMR Rail');
+
+  // ── SILFAB PANELS (appear as progress fills) ──
+  const panelG=document.createElementNS('http://www.w3.org/2000/svg','g');
+  panelG.setAttribute('id','site-panel-group');
+  svg.appendChild(panelG);
+
+  // ── CONDUIT down wall ──
+  mkEl('rect',{x:houseX+houseW-14,y:houseTop+roofH,width:5,height:houseH-8,rx:1,fill:'#475569'});
+
+  // ── SOLAREDGE HD-WAVE INVERTER ──
+  const invX=houseX+houseW+8;
+  const invY=houseTop+roofH+20;
+  mkEl('rect',{x:invX,y:invY,width:50,height:62,rx:3,fill:'#F8FAFC',stroke:'#94A3B8','stroke-width':1.5});
+  mkEl('text',{x:invX+25,y:invY+10,'text-anchor':'middle','font-size':6,fill:'#1E40AF','font-family':'sans-serif','font-weight':'bold'},'SolarEdge');
+  mkEl('text',{x:invX+25,y:invY+18,'text-anchor':'middle','font-size':4.5,fill:'#64748B','font-family':'sans-serif'},'HD-Wave Inverter');
+  mkEl('rect',{x:invX+4,y:invY+21,width:42,height:14,rx:2,fill:'#0F172A'});
+  // LED
+  const led=mkEl('circle',{cx:invX+12,cy:invY+28,r:4,fill:'#22C55E'});
+  led.style.animation='ledBlink 2s ease-in-out infinite';
+  mkEl('text',{x:invX+32,y:invY+31,'text-anchor':'middle','font-size':5,fill:'#22C55E','font-family':'monospace'},'99%EFF');
+  mkEl('text',{x:invX+25,y:invY+42,'text-anchor':'middle','font-size':4,fill:'#64748B','font-family':'sans-serif'},'P400 Optimizers');
+  mkEl('rect',{x:invX+4,y:invY+46,width:42,height:8,rx:1,fill:'#334155'});
+  mkEl('text',{x:invX+25,y:invY+52,'text-anchor':'middle','font-size':4,fill:'#64748B','font-family':'sans-serif'},'SAFETY SW ▮');
+
+  // Wire from conduit to inverter
+  mkEl('path',{d:`M${houseX+houseW-12} ${houseTop+roofH+38} L${invX} ${invY+34}`,stroke:'#475569','stroke-width':2,fill:'none'});
+
+  // ── LADDER (left side of house) ──
+  const ladX=houseX-20;
+  const ladTop=houseTop+roofH-10;
+  const ladBot=groundY;
+  const ladH=ladBot-ladTop;
+  const rungs=Math.floor(ladH/14);
+  let ladSVG=`<line x1="${ladX+3}" y1="${ladTop}" x2="${ladX+3}" y2="${ladBot}" stroke="#94A3B8" stroke-width="2.5"/>
+    <line x1="${ladX+14}" y1="${ladTop}" x2="${ladX+14}" y2="${ladBot}" stroke="#94A3B8" stroke-width="2.5"/>`;
+  for(let r=0;r<rungs;r++){
+    ladSVG+=`<line x1="${ladX+3}" y1="${ladTop+r*14+7}" x2="${ladX+14}" y2="${ladTop+r*14+7}" stroke="#94A3B8" stroke-width="1.5"/>`;
+  }
+  const ladG=document.createElementNS('http://www.w3.org/2000/svg','g');
+  ladG.innerHTML=ladSVG;
+  svg.appendChild(ladG);
+
+  // Panel hoist box (animated)
+  const hoist=mkEl('rect',{x:ladX-2,y:ladTop+8,width:18,height:14,rx:2,fill:'#0A0A0A',stroke:'#333','stroke-width':1});
+  mkEl('text',{x:ladX+7,y:ladTop+18,'text-anchor':'middle','font-size':7,fill:'#22C55E','font-family':'sans-serif'},'▣');
+  hoist.style.animation='laddervatorMove 3s ease-in-out infinite';
+
+  // ── COMPANY VAN ──
+  const vanX=houseX-90;
+  const vanY=groundY-36;
+  // Van body
+  mkEl('rect',{x:vanX,y:vanY,width:72,height:34,rx:4,fill:'#1E3A8A',stroke:'#1E40AF','stroke-width':1.5});
+  // Cab
+  mkEl('rect',{x:vanX+46,y:vanY+4,width:22,height:26,rx:3,fill:'#2563EB'});
+  // Windshield
+  mkEl('rect',{x:vanX+50,y:vanY+7,width:14,height:14,rx:2,fill:'#BAE6FD',opacity:0.8});
+  // Side windows
+  mkEl('rect',{x:vanX+6,y:vanY+7,width:14,height:10,rx:1,fill:'#BAE6FD',opacity:0.6});
+  mkEl('rect',{x:vanX+24,y:vanY+7,width:14,height:10,rx:1,fill:'#BAE6FD',opacity:0.6});
+  // Logo on van
+  mkEl('text',{x:vanX+24,y:vanY+26,'text-anchor':'middle','font-size':6,fill:'#F59E0B','font-family':'sans-serif','font-weight':'bold'},'PURR & POWER');
+  // Wheels
+  mkEl('circle',{cx:vanX+16,cy:vanY+34,r:8,fill:'#1F2937',stroke:'#374151','stroke-width':1.5});
+  mkEl('circle',{cx:vanX+16,cy:vanY+34,r:4,fill:'#374151'});
+  mkEl('circle',{cx:vanX+56,cy:vanY+34,r:8,fill:'#1F2937',stroke:'#374151','stroke-width':1.5});
+  mkEl('circle',{cx:vanX+56,cy:vanY+34,r:4,fill:'#374151'});
+  // Headlight
+  mkEl('circle',{cx:vanX+70,cy:vanY+18,r:3,fill:'#FDE68A',opacity:0.8});
+
+  // ── SVG WORKERS (proper side-view figures) ──
+  const drawWorker=(x,y,hard_hat_col,vest_col,label,animDelay=0)=>{
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','site-worker');
+    g.style.animation=`crewBob 1.6s ease-in-out ${animDelay}s infinite`;
+    g.innerHTML=`
+      <!-- Hard hat -->
+      <ellipse cx="${x}" cy="${y-28}" rx="9" ry="5" fill="${hard_hat_col}"/>
+      <rect x="${x-9}" y="${y-27}" width="18" height="3" rx="1" fill="${hard_hat_col}"/>
+      <!-- Head -->
+      <circle cx="${x}" cy="${y-20}" r="7" fill="#FBBF24"/>
+      <!-- Safety vest over shirt -->
+      <rect x="${x-6}" y="${y-13}" width="12" height="16" rx="2" fill="${vest_col}"/>
+      <rect x="${x-4}" y="${y-13}" width="3" height="16" rx="1" fill="#F59E0B" opacity="0.9"/>
+      <rect x="${x+1}" y="${y-13}" width="3" height="16" rx="1" fill="#F59E0B" opacity="0.9"/>
+      <!-- Arms -->
+      <rect x="${x-11}" y="${y-13}" width="5" height="13" rx="2" fill="${vest_col}"/>
+      <rect x="${x+6}" y="${y-13}" width="5" height="13" rx="2" fill="${vest_col}"/>
+      <!-- Legs -->
+      <rect x="${x-5}" y="${y+3}" width="5" height="14" rx="2" fill="#374151"/>
+      <rect x="${x+0}" y="${y+3}" width="5" height="14" rx="2" fill="#374151"/>
+      <!-- Boots -->
+      <rect x="${x-6}" y="${y+15}" width="7" height="5" rx="1" fill="#1F2937"/>
+      <rect x="${x-1}" y="${y+15}" width="7" height="5" rx="1" fill="#1F2937"/>
+      <!-- Label -->
+      <rect x="${x-18}" y="${y+20}" width="36" height="10" rx="2" fill="rgba(0,0,0,0.65)"/>
+      <text x="${x}" y="${y+28}" text-anchor="middle" font-size="6" fill="white" font-family="sans-serif">${label}</text>
+    `;
+    svg.appendChild(g);
+  };
+
+  // Add crewBob keyframes
+  if(!document.getElementById('crewBob-style')){
+    const s=document.createElement('style');
+    s.id='crewBob-style';
+    s.textContent='@keyframes crewBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}';
+    document.head.appendChild(s);
+  }
+
+  // Roof workers
+  const roofWorkerY=houseTop+roofH-14;
+  drawWorker(houseX+40, roofWorkerY, '#F59E0B','#EF4444','Installer 1',0);
+  drawWorker(cx,        roofWorkerY, '#F59E0B','#EF4444','Installer 2',0.5);
+  drawWorker(houseX+houseW-40, roofWorkerY, '#F59E0B','#22C55E','Installer 3',1);
+
+  // Ground workers
+  drawWorker(houseX-45, groundY-22, '#94A3B8','#3B82F6','Electrician',0.3);
+  drawWorker(houseX+houseW+invX/4+20, groundY-22, '#F59E0B','#EF4444','Installer 4',0.8);
+
+  // Store svg ref for panel updates
+  scene._siteSvg=svg;
+  scene._siteGeom={houseX,houseTop,roofH,houseW,panelG,w,h};
+}
+
+function updateSiteScene(){
+  if(!G.siteUnlocked)return;
+  if(!siteBuilt){buildSiteScene();}
+  const stages=INSTALL_STAGES;
+  const stagesEl=document.getElementById('ip-stages');
+  if(stagesEl){
+    stagesEl.innerHTML=stages.map((s,i)=>`<div class="ip-stage-chip ${i<G.siteStageIdx?'done':i===G.siteStageIdx?'active':''}">${s}</div>`).join('');
+  }
+  const pct=Math.min(100,Math.floor(G.siteProgress));
+  const fill=document.getElementById('ip-prog-fill');
+  if(fill)fill.style.width=pct+'%';
+  const pctEl=document.getElementById('ip-pct');
+  if(pctEl)pctEl.textContent=pct+'%';
+  const earnEl=document.getElementById('ip-earn');
+  if(earnEl)earnEl.textContent='+'+fmt(G.siteLevel*1200)+' on complete';
+  const nameEl=document.getElementById('ip-stage-name');
+  if(nameEl)nameEl.textContent=G.currentJob?G.currentJob+' — '+stages[Math.min(G.siteStageIdx,stages.length-1)]:'Awaiting Job';
+  // Update Silfab panels on SVG roof
+  const scene=document.getElementById('site-scene');
+  const geom=scene?scene._siteGeom:null;
+  if(geom){
+    const {houseX,houseTop,roofH,houseW,panelG}=geom;
+    panelG.innerHTML='';
+    const panelCount=Math.min(Math.floor(G.siteProgress/8.5),12);
+    const pW=16,pH=11,gap=3;
+    const startX=houseX+24;
+    const row1Y=houseTop+roofH*0.28;
+    const row2Y=houseTop+roofH*0.52;
+    for(let i=0;i<panelCount;i++){
+      const row=Math.floor(i/6),col=i%6;
+      const px=startX+col*(pW+gap);
+      const py=(row===0?row1Y:row2Y);
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',px);rect.setAttribute('y',py);
+      rect.setAttribute('width',pW);rect.setAttribute('height',pH);
+      rect.setAttribute('rx','1');rect.setAttribute('fill','#0A0A0A');
+      rect.setAttribute('stroke','#1a3a1a');rect.setAttribute('stroke-width','0.5');
+      panelG.appendChild(rect);
+      // Cell lines
+      const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+      l.setAttribute('x1',px+pW/2);l.setAttribute('y1',py);
+      l.setAttribute('x2',px+pW/2);l.setAttribute('y2',py+pH);
+      l.setAttribute('stroke','#1a3a1a');l.setAttribute('stroke-width','0.4');
+      panelG.appendChild(l);
+    }
+  }
+}
+
+function tickSite(){
+  if(!G.siteUnlocked)return;
+  const foreman=G.managers.foreman?2:1;
+  const nanoRack=G.upgrades.nanoRack?1.3:1;
+  const seapp=G.upgrades.seapp?1.5:1;
+  const speed=G.siteWorkers*0.8*foreman*nanoRack*seapp;
+  G.siteProgress+=speed;
+  if(G.siteProgress>=100){
+    G.siteProgress=0;
+    G.siteStageIdx=(G.siteStageIdx+1)%INSTALL_STAGES.length;
+    if(G.siteStageIdx===0){
+      const pay=G.siteLevel*1200*(1+G.morale/100);
+      G.money+=pay;G.totalMoney+=pay;G.todayRevenue+=pay;G.weeklyRevenue+=pay;
+      G.contracts++;
+      addLead(Math.random()<0.25); // chance of referral
+      spawnFltXY(window.innerWidth/2,200,'+'+fmt(pay)+' ✅ Grid Connected!','#22C55E');
+      checkMilestones();checkUnlocks();updateUI();
+    }
+  }
+  if(curLayer==='site')updateSiteScene();
+}
+
+function upgradeSite(){
+  if(G.money<G.siteUpgCost){showToast('💸 Need '+fmt(G.siteUpgCost));return;}
+  G.money-=G.siteUpgCost;G.siteLevel++;
+  G.siteUpgCost=Math.floor(G.siteUpgCost*2);
+  showToast('🔧 Site upgraded to level '+G.siteLevel+'!'
+,'good');updateUI();
+}
+
+function sendWorker(){
+  if(G.money<G.siteWorkerCost){showToast('💸 Need '+fmt(G.siteWorkerCost));return;}
+  G.money-=G.siteWorkerCost;G.siteWorkers++;
+  G.siteWorkerCost=Math.floor(G.siteWorkerCost*1.5);
+  showToast('👷 Extra worker sent!'
+,'good');updateUI();
+}
+
+// ════════════════════════════════
+// BREAK ROOM
+// ════════════════════════════════
+
+// SVG furniture drawing functions — all side-view at y=170 floor line (SVG coords)
+function _brDrawVending(g,x){
+  // Vending machine
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <rect x="${x}" y="100" width="28" height="68" rx="2" fill="#374151" stroke="#1F2937" stroke-width="1"/>
+    <rect x="${x+2}" y="103" width="24" height="38" rx="1" fill="#0F172A"/>
+    <rect x="${x+4}" y="105" width="8" height="8" rx="1" fill="#EF4444"/>
+    <rect x="${x+15}" y="105" width="8" height="8" rx="1" fill="#3B82F6"/>
+    <rect x="${x+4}" y="116" width="8" height="8" rx="1" fill="#22C55E"/>
+    <rect x="${x+15}" y="116" width="8" height="8" rx="1" fill="#F59E0B"/>
+    <rect x="${x+4}" y="127" width="19" height="10" rx="1" fill="#1F2937"/>
+    <rect x="${x+8}" y="130" width="11" height="4" rx="1" fill="#374151"/>
+    <rect x="${x+2}" y="144" width="24" height="18" rx="1" fill="#1F2937"/>
+    <rect x="${x+5}" y="147" width="18" height="12" rx="1" fill="#374151"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawFoldingTable(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <rect x="${x}" y="135" width="55" height="5" rx="1" fill="#C49A6C" stroke="#8B6347" stroke-width="0.8"/>
+    <rect x="${x+3}" y="140" width="4" height="28" rx="1" fill="#8B6347"/>
+    <rect x="${x+48}" y="140" width="4" height="28" rx="1" fill="#8B6347"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawCouch(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <!-- Base -->
+    <rect x="${x}" y="148" width="72" height="20" rx="4" fill="#1E40AF" stroke="#1E3A8A" stroke-width="1"/>
+    <!-- Seat cushions -->
+    <rect x="${x+2}" y="143" width="32" height="12" rx="3" fill="#2563EB" stroke="#1E40AF" stroke-width="0.8"/>
+    <rect x="${x+38}" y="143" width="32" height="12" rx="3" fill="#2563EB" stroke="#1E40AF" stroke-width="0.8"/>
+    <!-- Back rest -->
+    <rect x="${x}" y="118" width="72" height="28" rx="4" fill="#1E40AF" stroke="#1E3A8A" stroke-width="1"/>
+    <!-- Back cushions -->
+    <rect x="${x+3}" y="121" width="30" height="22" rx="3" fill="#2563EB"/>
+    <rect x="${x+39}" y="121" width="30" height="22" rx="3" fill="#2563EB"/>
+    <!-- Armrests -->
+    <rect x="${x}" y="130" width="8" height="25" rx="3" fill="#1E3A8A"/>
+    <rect x="${x+64}" y="130" width="8" height="25" rx="3" fill="#1E3A8A"/>
+    <!-- Legs -->
+    <rect x="${x+4}" y="168" width="5" height="5" rx="1" fill="#1E3A8A"/>
+    <rect x="${x+63}" y="168" width="5" height="5" rx="1" fill="#1E3A8A"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawCoffeeMachine(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <rect x="${x}" y="120" width="22" height="48" rx="2" fill="#1F2937" stroke="#111" stroke-width="1"/>
+    <rect x="${x+3}" y="123" width="16" height="20" rx="2" fill="#374151"/>
+    <circle cx="${x+11}" cy="133" r="6" fill="#0F172A" stroke="#6B7280" stroke-width="1"/>
+    <circle cx="${x+11}" cy="133" r="3" fill="#1F2937"/>
+    <rect x="${x+4}" y="146" width="14" height="6" rx="2" fill="#4B5563"/>
+    <rect x="${x+7}" y="152" width="8" height="4" rx="1" fill="#9CA3AF"/>
+    <rect x="${x+8}" y="156" width="6" height="8" rx="1" fill="#374151" stroke="#4B5563" stroke-width="0.5"/>
+    <ellipse cx="${x+11}" cy="156" rx="5" ry="2" fill="#6B7280"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawFridge(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <rect x="${x}" y="105" width="30" height="63" rx="2" fill="#E5E7EB" stroke="#D1D5DB" stroke-width="1"/>
+    <line x1="${x}" y1="138" x2="${x+30}" y2="138" stroke="#D1D5DB" stroke-width="1.5"/>
+    <rect x="${x+12}" y="118" width="4" height="16" rx="2" fill="#9CA3AF"/>
+    <rect x="${x+12}" y="148" width="4" height="10" rx="2" fill="#9CA3AF"/>
+    <rect x="${x+2}" y="108" width="4" height="4" rx="1" fill="#BAE6FD" opacity="0.6"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawEspresso(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <rect x="${x}" y="125" width="26" height="43" rx="3" fill="#111827" stroke="#0F172A" stroke-width="1"/>
+    <circle cx="${x+13}" cy="135" r="7" fill="#1F2937" stroke="#374151" stroke-width="1"/>
+    <circle cx="${x+13}" cy="135" r="4" fill="#374151"/>
+    <circle cx="${x+13}" cy="135" r="1.5" fill="#6B7280"/>
+    <rect x="${x+3}" y="145" width="8" height="3" rx="1" fill="#374151"/>
+    <rect x="${x+15}" y="145" width="8" height="3" rx="1" fill="#374151"/>
+    <rect x="${x+7}" y="148" width="4" height="8" rx="1" fill="#6B7280"/>
+    <rect x="${x+15}" y="148" width="4" height="8" rx="1" fill="#6B7280"/>
+    <rect x="${x+2}" y="158" width="22" height="4" rx="1" fill="#1F2937"/>
+    <!-- Steam lines -->
+    <path d="M${x+10} 123 Q${x+8} 118 ${x+10} 113" stroke="#9CA3AF" stroke-width="1" fill="none" opacity="0.6"/>
+    <path d="M${x+16} 123 Q${x+14} 118 ${x+16} 113" stroke="#9CA3AF" stroke-width="1" fill="none" opacity="0.6"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawKegerator(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <rect x="${x}" y="110" width="32" height="58" rx="3" fill="#374151" stroke="#1F2937" stroke-width="1"/>
+    <rect x="${x+2}" y="112" width="28" height="42" rx="2" fill="#4B5563"/>
+    <rect x="${x+10}" y="118" width="12" height="30" rx="6" fill="#6B7280" stroke="#4B5563" stroke-width="1"/>
+    <circle cx="${x+16}" cy="118" r="4" fill="#9CA3AF"/>
+    <rect x="${x+14}" y="108" width="4" height="14" rx="2" fill="#D1D5DB"/>
+    <circle cx="${x+16}" cy="107" r="3" fill="#F59E0B"/>
+    <rect x="${x+2}" y="156" width="28" height="8" rx="1" fill="#1F2937"/>
+    <text x="${x+16}" y="163" text-anchor="middle" font-size="5" fill="#9CA3AF" font-family="sans-serif">COLD BREW</text>
+    <rect x="${x+4}" y="164" width="7" height="4" rx="1" fill="#374151"/>
+    <rect x="${x+21}" y="164" width="7" height="4" rx="1" fill="#374151"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawPingPong(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <!-- Table top -->
+    <rect x="${x}" y="140" width="80" height="4" rx="1" fill="#1E40AF" stroke="#1E3A8A" stroke-width="0.8"/>
+    <!-- Net -->
+    <rect x="${x+37}" y="130" width="2" height="12" rx="0.5" fill="#9CA3AF"/>
+    <line x1="${x}" y1="131" x2="${x+80}" y2="131" stroke="#9CA3AF" stroke-width="0.8" stroke-dasharray="3,2"/>
+    <!-- Legs -->
+    <rect x="${x+3}" y="144" width="4" height="20" rx="1" fill="#1E3A8A"/>
+    <rect x="${x+73}" y="144" width="4" height="20" rx="1" fill="#1E3A8A"/>
+    <rect x="${x+28}" y="144" width="4" height="16" rx="1" fill="#1E3A8A"/>
+    <rect x="${x+48}" y="144" width="4" height="16" rx="1" fill="#1E3A8A"/>
+    <!-- Paddles on table -->
+    <ellipse cx="${x+15}" cy="139" rx="5" ry="6" fill="#EF4444" stroke="#B91C1C" stroke-width="0.8"/>
+    <rect x="${x+14}" y="139" width="2" height="8" rx="1" fill="#92400E"/>
+    <ellipse cx="${x+65}" cy="139" rx="5" ry="6" fill="#3B82F6" stroke="#1D4ED8" stroke-width="0.8"/>
+    <rect x="${x+64}" y="139" width="2" height="8" rx="1" fill="#92400E"/>
+    <!-- Ball -->
+    <circle cx="${x+40}" cy="126" r="3" fill="white" stroke="#E5E7EB" stroke-width="0.5"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawNapPod(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <!-- Pod shell -->
+    <ellipse cx="${x+22}" cy="152" rx="22" ry="18" fill="#1F2937" stroke="#374151" stroke-width="1.5"/>
+    <ellipse cx="${x+22}" cy="152" rx="19" ry="15" fill="#0F172A"/>
+    <!-- Interior -->
+    <ellipse cx="${x+22}" cy="155" rx="14" ry="10" fill="#1A2744"/>
+    <!-- Pillow -->
+    <rect x="${x+6}" y="148" width="14" height="8" rx="4" fill="#F1F5F9" opacity="0.9"/>
+    <!-- Person sleeping -->
+    <circle cx="${x+14}" cy="150" r="4" fill="#FBBF24" opacity="0.8"/>
+    <!-- Glowing display -->
+    <rect x="${x+30}" y="147" width="8" height="5" rx="1" fill="#22C55E" opacity="0.7"/>
+    <text x="${x+34}" y="151" text-anchor="middle" font-size="3.5" fill="#0F172A" font-family="monospace">ZZZ</text>
+    <!-- Stand -->
+    <rect x="${x+12}" y="168" width="20" height="5" rx="2" fill="#374151"/>
+    <rect x="${x+18}" y="173" width="8" height="3" rx="1" fill="#4B5563"/>
+  `;
+  g.appendChild(el);
+}
+function _brDrawTacoCart(g,x){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','g');
+  el.innerHTML=`
+    <!-- Cart body -->
+    <rect x="${x}" y="125" width="50" height="40" rx="3" fill="#F59E0B" stroke="#D97706" stroke-width="1.5"/>
+    <!-- Top canopy -->
+    <rect x="${x-4}" y="115" width="58" height="12" rx="2" fill="#EF4444" stroke="#B91C1C" stroke-width="1"/>
+    <line x1="${x-4}" y1="121" x2="${x+54}" y2="121" stroke="#B91C1C" stroke-width="0.8" stroke-dasharray="4,3"/>
+    <!-- Sign -->
+    <text x="${x+25}" y="125" text-anchor="middle" font-size="7" fill="white" font-family="sans-serif" font-weight="bold">TACO</text>
+    <text x="${x+25}" y="133" text-anchor="middle" font-size="6" fill="white" font-family="sans-serif">TUESDAY</text>
+    <!-- Counter surface -->
+    <rect x="${x+2}" y="142" width="46" height="5" rx="1" fill="#D97706"/>
+    <!-- Taco display -->
+    <text x="${x+12}" y="156" font-size="12">🌮</text>
+    <text x="${x+28}" y="156" font-size="12">🌮</text>
+    <!-- Wheels -->
+    <circle cx="${x+10}" cy="167" r="7" fill="#374151" stroke="#1F2937" stroke-width="1.5"/>
+    <circle cx="${x+10}" cy="167" r="3" fill="#4B5563"/>
+    <circle cx="${x+40}" cy="167" r="7" fill="#374151" stroke="#1F2937" stroke-width="1.5"/>
+    <circle cx="${x+40}" cy="167" r="3" fill="#4B5563"/>
+    <!-- Handle -->
+    <rect x="${x+48}" y="128" width="4" height="30" rx="2" fill="#D97706"/>
+  `;
+  g.appendChild(el);
+}
+
+function renderBreakRoom(){
+  const upgradeList=document.getElementById('br-upgrade-list');
+  if(!upgradeList)return;
+
+  // Determine which upgrades are owned
+  const owned={};
+  BREAK_UPGRADES.forEach(u=>{owned[u.id]=!!G.brUpgrades[u.id]||u.free;});
+
+  // Redraw furniture SVG group
+  const furnitureG=document.getElementById('br-furniture');
+  if(furnitureG){
+    furnitureG.innerHTML='';
+    // Always: vending machine + folding table
+    _brDrawVending(furnitureG,8);
+    _brDrawFoldingTable(furnitureG,42);
+    if(owned.br_couch)  _brDrawCouch(furnitureG,105);
+    if(owned.br_couch)  _brDrawCoffeeMachine(furnitureG,185);
+    if(owned.br_fridge) _brDrawFridge(furnitureG,215);
+    if(owned.br_espresso) _brDrawEspresso(furnitureG,250);
+    if(owned.br_kegerator) _brDrawKegerator(furnitureG,285);
+    if(owned.br_pingpong)  _brDrawPingPong(furnitureG,100);
+    if(owned.br_nappod)    _brDrawNapPod(furnitureG,325);
+    if(owned.br_taco)      _brDrawTacoCart(furnitureG,340);
+  }
+
+  // Animate staff walker
+  const walker=document.getElementById('br-walker');
+  if(walker&&!walker._animated){
+    walker._animated=true;
+    let pos=20;let dir=1;
+    setInterval(()=>{
+      pos+=dir*1.2;
+      if(pos>340)dir=-1;
+      if(pos<20)dir=1;
+      walker.setAttribute('transform',`translate(${pos},140) scale(${dir<0?-1:1},1) translate(${dir<0?-20:0},0)`);
+    },50);
+  }
+
+  // Render upgrade list
+  upgradeList.innerHTML='<div class="upg-sec">🛋️ Break Room Upgrades</div>'+BREAK_UPGRADES.map(u=>{
+    const isOwned=!!G.brUpgrades[u.id]||u.free;
+    const can=!isOwned&&G.money>=u.cost;
+    const costTxt=u.free?'Free':fmt(u.cost);
+    return `<div class="br-upg-card ${isOwned?'owned':can?'can':''}" onclick="${isOwned||u.free?'':` buyBreakUpgrade('${u.id}')`}">
+      <div class="br-upg-ico">${u.icon}</div>
+      <div class="br-upg-info">
+        <div class="br-upg-name">${u.name}</div>
+        <div class="br-upg-bonus">${u.bonus}</div>
+      </div>
+      <div class="br-upg-cost ${can?'':'no'}">${isOwned?'✓ Owned':costTxt}</div>
+    </div>`;
+  }).join('');
+}
+
+function buyBreakUpgrade(id){
+  const u=BREAK_UPGRADES.find(x=>x.id===id);
+  if(!u||G.brUpgrades[id])return;
+  if(G.money<u.cost){showToast('💸 Need '+fmt(u.cost));return;}
+  G.money-=u.cost;
+  G.brUpgrades[id]=true;
+  // Apply effects
+  if(id==='br_espresso'){G.incomeMultiplier*=1.1;}
+  if(id==='br_kegerator'){G.morale=Math.min(100,G.morale+20);}
+  if(id==='br_fridge'){G.incomeMultiplier*=1.05;}
+  showToast(u.icon+' '+u.name+' added to Break Room!'
+,'good');
+  renderBreakRoom();updateUI();
+}
+
+// ════════════════════════════════
+// ANGRY CUSTOMERS
+// ════════════════════════════════
+let angryTimer=0;let angryInterval=null;
+
+function triggerAngry(){
+  if(G.angryActive||G.objectionActive)return;
+  if(!document.getElementById('contract-ov').classList.contains('gone'))return;
+  G.angryActive=true;
+  const a=ANGRY[Math.floor(Math.random()*ANGRY.length)];
+  document.getElementById('ap-title-txt').textContent=a.title;
+  document.getElementById('ap-msg').textContent=a.msg;
+  document.getElementById('angry-pop').classList.remove('gone');
+  setBadge('office');
+  angryTimer=30;
+  const fill=document.getElementById('ap-timer-fill');
+  const lbl=document.getElementById('ap-timer-lbl');
+  angryInterval=setInterval(()=>{
+    angryTimer--;
+    if(fill)fill.style.width=(angryTimer/30*100)+'%';
+    if(lbl)lbl.textContent=angryTimer+'s to resolve';
+    if(angryTimer<=0){
+      clearInterval(angryInterval);
+      dismissAngry(false);
+    }
+  },1000);
+}
+
+function resolveAngry(){
+  clearInterval(angryInterval);
+  document.getElementById('angry-pop').classList.add('gone');
+  G.angryActive=false;
+  G.morale=Math.min(100,G.morale+6);
+  G.purrPoints+=3;
+  addLead(true); // happy customer = referral
+  showToast('😊 Customer calmed! Referral lead added! 🌟'
+,'good');
+  updateUI();
+}
+
+function dismissAngry(auto){
+  clearInterval(angryInterval);
+  document.getElementById('angry-pop').classList.add('gone');
+  G.angryActive=false;
+  G.morale=Math.max(0,G.morale-15);
+  if(auto)showToast('⏰ Customer left furious! -15 morale'
+,'bad');
+  else showToast('😤 Customer ignored. -15 morale.'
+,'bad');
+  updateUI();
+}
+
+// ════════════════════════════════
+// OBJECTIONS
+// ════════════════════════════════
+function triggerObjection(){
+  if(G.objectionActive||G.angryActive)return;
+  if(!document.getElementById('contract-ov').classList.contains('gone'))return;
+  if(G.leads.length===0)return;
+  G.objectionActive=true;
+  const obj=OBJECTIONS[Math.floor(Math.random()*OBJECTIONS.length)];
+  document.getElementById('obj-title-txt').textContent=obj.title;
+  document.getElementById('obj-msg').textContent=obj.msg+'\n\n💡 Response: '+obj.save;
+  document.getElementById('objection-pop').classList.remove('gone');
+  setBadge('office');
+}
+
+function handleObjection(save){
+  document.getElementById('objection-pop').classList.add('gone');
+  G.objectionActive=false;
+  if(save){
+    G.morale=Math.min(100,G.morale+5);
+    if(G.leads.length>0){G.leads[0].stage=Math.min(6,G.leads[0].stage+2);}
+    showToast('💪 Objection handled! Lead advanced!'
+,'good');
+    updateOfficePipelineBoard();
+  } else {
+    if(G.leads.length>0)G.leads.shift();
+    showToast('❌ Lost the lead.'
+,'bad');
+    updateOfficePipelineBoard();
+  }
+  updateUI();
+}
+
+// ════════════════════════════════
+// UPGRADES
+// ════════════════════════════════
+function renderUpgrades(){
+  document.getElementById('upg-office').innerHTML=UPGRADES_DATA.map(u=>{
+    const lv=G.upgrades[u.id]||0;
+    const maxed=lv>=u.maxLv;
+    const cost=Math.floor(u.cost*Math.pow(1.9,lv));
+    const can=G.money>=cost&&!maxed;
+    return `<div class="upg-card ${can?'can':''} ${maxed?'maxed':''}" onclick="buyUpgrade('${u.id}')">
+      <div class="upg-ico">${u.icon}</div>
+      <div class="upg-inf"><div class="upg-name">${u.name}</div><div class="upg-desc">${u.desc}</div></div>
+      <div class="upg-right">
+        <div class="upg-cost ${can?'':'no'}">${maxed?'MAX':fmt(cost)}</div>
+        <div class="upg-lv">Lv ${lv}/${u.maxLv}</div>
+      </div></div>`;
+  }).join('');
+
+  document.getElementById('upg-cats').innerHTML=CAT_BREEDS.map(c=>{
+    const owned=G.catBreeds.filter(b=>b===c.name).length;
+    const can=G.money>=c.cost;
+    return `<div class="cat-card" onclick="buyCatBreed('${c.name}')">
+      <div class="cc-ico">${c.icon}</div>
+      <div class="cc-inf"><div class="cc-name">${c.name}</div><div class="cc-bonus">${c.bonus}</div></div>
+      <div class="cc-right"><div class="cc-owned">Owned: ${owned}</div><div class="cc-cost ${can?'':'no'}">${fmt(c.cost)}</div></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('upg-managers').innerHTML=MANAGERS_DATA.map(m=>{
+    const owned=!!G.managers[m.id];
+    const can=G.money>=m.cost&&!owned;
+    return `<div class="upg-card ${can?'can':''} ${owned?'maxed':''}" onclick="buyManager('${m.id}')">
+      <div class="upg-ico">${m.icon}</div>
+      <div class="upg-inf"><div class="upg-name">${m.name}</div><div class="upg-desc">${m.desc}</div></div>
+      <div class="upg-right"><div class="upg-cost ${can?'':'no'}">${owned?'HIRED':fmt(m.cost)}</div></div>
+    </div>`;
+  }).join('');
+
+  // Expansion options
+  document.getElementById('upg-expansion').innerHTML=EXPANSION_DATA.map(e=>{
+    const unlocked=e.check();
+    const already=G.officeLevel>=e.newLevel;
+    const can=!already&&unlocked&&G.money>=e.cost;
+    return `<div class="upg-card ${can?'can':''} ${already?'maxed':''}" onclick="buyExpansion('${e.id}')">
+      <div class="upg-ico">${e.icon}</div>
+      <div class="upg-inf"><div class="upg-name">${e.name}</div><div class="upg-desc">${e.desc}</div></div>
+      <div class="upg-right"><div class="upg-cost ${can?'':'no'}">${already?'DONE':unlocked?fmt(e.cost):'🔒 '+fmt(e.cost)}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function buyUpgrade(id){
+  const u=UPGRADES_DATA.find(x=>x.id===id);if(!u)return;
+  const lv=G.upgrades[id]||0;
+  if(lv>=u.maxLv){showToast('✅ Already maxed!');return;}
+  const cost=Math.floor(u.cost*Math.pow(1.9,lv));
+  if(G.money<cost){showToast('💸 Need '+fmt(cost));return;}
+  G.money-=cost;G.upgrades[id]=lv+1;
+  if(id==='cert')G.incomeMultiplier*=1.4;
+  if(id==='truck2'){spawnSecondTruck();}
+  showToast('⬆️ '+u.name+' upgraded!'
+,'good');
+  renderUpgrades();updateUI();
+}
+
+function buyCatBreed(name){
+  const breed=CAT_BREEDS.find(c=>c.name===name);if(!breed)return;
+  if(G.money<breed.cost){showToast('💸 Need '+fmt(breed.cost));return;}
+  G.money-=breed.cost;G.catBreeds.push(name);G.cats++;
+  G.morale=Math.min(100,G.morale+breed.mb);
+  G.incomeMultiplier*=breed.mult;
+  G.weeklyPayroll+=50;
+  spawnCat();showToast(breed.icon+' '+breed.name+' joined the office!'
+,'good');
+  checkMilestones();renderUpgrades();updateUI();
+}
+
+function buyManager(id){
+  const m=MANAGERS_DATA.find(x=>x.id===id);if(!m)return;
+  if(G.managers[id]){showToast('✅ Already hired!');return;}
+  if(G.money<m.cost){showToast('💸 Need '+fmt(m.cost));return;}
+  G.money-=m.cost;G.managers[id]=true;
+  showToast(m.icon+' '+m.name+' hired!'
+,'good');
+  renderUpgrades();updateUI();
+}
+
+function buyExpansion(id){
+  const e=EXPANSION_DATA.find(x=>x.id===id);if(!e)return;
+  if(G.officeLevel>=e.newLevel){showToast('✅ Already done!');return;}
+  if(!e.check()){showToast('🔒 Revenue requirement not met.');return;}
+  if(G.money<e.cost){showToast('💸 Need '+fmt(e.cost)+' to expand!');return;}
+  G.money-=e.cost;
+  G.officeLevel=e.newLevel;
+  updateOfficeBadge();
+  updateHireButton();
+  showToast('🎉 '+e.name+' complete!'
+,'good');
+  document.getElementById('exp-ico').textContent=e.icon;
+  document.getElementById('exp-title').textContent=e.name;
+  document.getElementById('exp-desc').textContent=e.desc;
+  document.getElementById('expansion-ov').classList.remove('gone');
+  renderUpgrades();updateUI();
+}
+
+function closeExpansion(){
+  document.getElementById('expansion-ov').classList.add('gone');
+}
+
+// ════════════════════════════════
+// MILESTONES & UNLOCKS
+// ════════════════════════════════
+let msQueue=[];let msShowing=false;
+
+function checkMilestones(){
+  MILESTONES.forEach(m=>{
+    if(G.milestones.includes(m.id))return;
+    if(m.check()){
+      G.milestones.push(m.id);
+      if(m.credits)G.credits+=m.credits;
+      if(m.purr)G.purrPoints+=m.purr;
+      msQueue.push(m);
+    }
+  });
+  if(!msShowing&&msQueue.length>0)showNextMs();
+}
+
+function showNextMs(){
+  if(!msQueue.length){msShowing=false;return;}
+  msShowing=true;
+  const m=msQueue.shift();
+  document.getElementById('ms-ico').textContent=m.icon;
+  document.getElementById('ms-title').textContent=m.title;
+  document.getElementById('ms-desc').textContent=m.desc+(m.credits?' (+'+m.credits+' Credits!)':'')+(m.purr?' (+'+m.purr+' Purr Points!)':'');
+  document.getElementById('ms-ov').classList.remove('gone');
+}
+
+function closeMilestone(){
+  document.getElementById('ms-ov').classList.add('gone');
+  msShowing=false;checkUnlocks();
+  setTimeout(()=>{if(msQueue.length>0)showNextMs();},400);
+}
+
+function checkUnlocks(){
+  if(G.contracts>=5&&!G.mapUnlocked){
+    G.mapUnlocked=true;
+    document.getElementById('map-lock').classList.add('gone');
+    document.getElementById('nav-map-lock').style.display='none';
+    showToast('🗺️ Neighborhood Map UNLOCKED!'
+,'good');setBadge('map');
+    initJobPayTimers();
+  }
+  if(G.totalMoney>=50000&&!G.siteUnlocked){
+    G.siteUnlocked=true;
+    document.getElementById('site-lock').classList.add('gone');
+    document.getElementById('nav-site-lock').style.display='none';
+    G.currentJob='Residential — Mesa Hills';
+    showToast('🏗️ Job Site View UNLOCKED!'
+,'good');setBadge('site');
+    buildSiteScene();
+  }
+}
+
+function initJobPayTimers(){
+  jobCardEls.forEach((_,i)=>{
+    setTimeout(()=>{jobReady[i]=true;jobCardEls[i].el.classList.add('ready');},5000+i*8000);
+  });
+}
+
+// ════════════════════════════════
+// MENU
+// ════════════════════════════════
+function openMenu(){document.getElementById('menu-ov').classList.remove('gone');}
+function closeMenu(){document.getElementById('menu-ov').classList.add('gone');}
+function manualSave(){save();showToast('💾 Game saved!'
+,'good');closeMenu();}
+function loadGame(){load();showToast('📂 Game loaded!'
+,'good');closeMenu();}
+function returnToMenu(){
+  closeMenu();
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('splash').style.display='flex';
+}
+function showCredits(){
+  closeMenu();
+  showToast('☀️ Purr & Power Co. v5 | Built for Gonzo | Silfab+SolarEdge+Sunmodo');
+}
+function showPrestige(){
+  closeMenu();
+  if(G.totalMoney<1000000){showToast('🔒 Need $1M total revenue to Go Regional!');return;}
+  if(confirm('Go Regional resets money & contracts but gives a permanent multiplier. Are you sure?')){
+    G.prestige++;
+    G.prestigeMultiplier*=1.5;
+    G.money=0;G.contracts=0;G.totalMoney=0;G.todayRevenue=0;
+    G.staff=1;G.weeklyPayroll=900;G.leads=[];
+    desks.forEach(d=>d.el.remove());desks=[];
+    spawnDesk(); // re-spawn first desk
+    showToast('🌟 REGIONAL EXPANSION! Prestige x'+G.prestige+' — +50% permanent!'
+,'good');
+    updateUI();
+  }
+}
+
+// ════════════════════════════════
+// INCOME ENGINE
+// ════════════════════════════════
+function recalcIncome(){
+  const moraleBonus=1+(G.morale/100)*0.6;
+  const catBonus=1+(G.cats*0.05);
+  const softBonus=G.upgrades.soft?Math.pow(2,G.upgrades.soft):1;
+  const offMgr=G.managers.office?1.3:1;
+  const vpBonus=G.staff>=16?1.2:1; // VP Operations perk
+  const brBonus=G.brUpgrades.br_fridge?1.05:1;
+  const brBonus2=G.brUpgrades.br_espresso?1.1:1;
+  G.income=Math.floor(G.staff*10*G.incomeMultiplier*moraleBonus*catBonus*softBonus*offMgr*vpBonus*brBonus*brBonus2*G.prestigeMultiplier);
+}
+
+function gameTick(){
+  recalcIncome();
+  G.money+=G.income/10;G.totalMoney+=G.income/10;G.todayRevenue+=G.income/10;G.weeklyRevenue+=G.income/10;
+
+  // Morale drain
+  const espresso=(G.brUpgrades.br_espresso)?0.005:0;
+  const napPods=(G.brUpgrades.br_nappod)?0.004:0;
+  const keg=(G.brUpgrades.br_kegerator)?0.003:0;
+  const drain=Math.max(0.008,0.035-espresso-napPods-keg);
+  if(G.managers.office)G.morale=Math.min(100,G.morale+0.05);
+  else G.morale=Math.max(5,G.morale-drain);
+
+  // Payroll tick
+  tickPayroll();
+
+  checkMilestones();updateUI();
+}
+
+// ════════════════════════════════
+// WEATHER EVENTS
+// ════════════════════════════════
+function triggerWeather(){
+  const event=WEATHER_EVENTS[Math.floor(Math.random()*WEATHER_EVENTS.length)];
+  const al=document.getElementById('weather-alert');
+  if(al){
+    al.textContent=event;
+    al.style.display='block';
+    setTimeout(()=>al.style.display='none',8000);
+  }
+  if(event.includes('+10%'))G.incomeMultiplier*=1.1;
+  if(event.includes('+15%'))G.incomeMultiplier*=1.15;
+  if(event.includes('Morale -5'))G.morale=Math.max(5,G.morale-5);
+}
+
+// ════════════════════════════════
+// UI
+// ════════════════════════════════
+function fmt(n){
+  if(n>=1e9)return '$'+(n/1e9).toFixed(1)+'B';
+  if(n>=1e6)return '$'+(n/1e6).toFixed(1)+'M';
+  if(n>=1000)return '$'+(n/1000).toFixed(1)+'K';
+  return '$'+Math.floor(n);
+}
+
+function updateUI(){
+  document.getElementById('cur-money').textContent=fmt(G.money);
+  document.getElementById('cur-credits').textContent=G.credits;
+  document.getElementById('cur-purr').textContent=G.purrPoints;
+  const m=Math.floor(G.morale);
+  document.getElementById('morale-fill').style.width=m+'%';
+  document.getElementById('morale-val').textContent=m+'%';
+  document.getElementById('income-display').textContent='+'+fmt(G.income)+'/s';
+  const weeklyNet=G.income*604.8-calcWeeklyPayroll(); // 604.8s per week game time
+  const netEl=document.getElementById('net-display');
+  if(netEl){netEl.textContent=(weeklyNet>=0?'+':'')+fmt(weeklyNet)+'/wk';}
+
+  // Hire button
+  updateHireButton();
+  const cat_cost_lbl=document.getElementById('cat-cost-lbl');
+  if(cat_cost_lbl){cat_cost_lbl.textContent=fmt(G.catCost);cat_cost_lbl.className='hc'+(G.money<G.catCost?' red':'');}
+
+  desks.forEach((d,i)=>{
+    const r=document.getElementById('drate-'+i);
+    if(r){const rate=Math.floor(10*(G.upgrades.soft?Math.pow(2,G.upgrades.soft):1)*G.incomeMultiplier*(1+G.morale/200));r.textContent='+'+fmt(rate)+'/s';}
+  });
+
+  // KPIs
+  const kr=document.getElementById('kpi-rev');if(kr)kr.textContent=fmt(G.todayRevenue);
+  const kc=document.getElementById('kpi-contracts');if(kc)kc.textContent=G.contracts;
+  const kw=document.getElementById('kpi-wip');if(kw)kw.textContent=G.wipCount;
+  const ks=document.getElementById('kpi-staff');if(ks)ks.textContent=G.staff;
+  const kl=document.getElementById('kpi-leads');if(kl)kl.textContent=G.leads.length;
+  const kat=document.getElementById('kpi-cats');if(kat)kat.textContent=G.cats;
+  const kn=document.getElementById('kpi-net');if(kn)kn.textContent=weeklyNet>=0?'+'+fmt(weeklyNet):fmt(weeklyNet);
+
+  // Site UI labels
+  const sul=document.getElementById('site-upg-lbl');if(sul)sul.textContent=fmt(G.siteUpgCost);
+  const swl=document.getElementById('site-wkr-lbl');if(swl)swl.textContent=fmt(G.siteWorkerCost);
+  save();
+}
+
+// ── NOTIFICATION BAR — queued, non-blocking ──
+const _notifQueue=[];let _notifActive=0;const NOTIF_MAX=2;
+function showToast(msg,type){
+  // type: 'good' | 'bad' | 'urgent' | '' (default)
+  _notifQueue.push({msg,type:type||''});
+  _drainNotifQueue();
+}
+function _drainNotifQueue(){
+  if(_notifActive>=NOTIF_MAX||_notifQueue.length===0)return;
+  const {msg,type}=_notifQueue.shift();
+  _notifActive++;
+  const bar=document.getElementById('notif-bar');
+  if(!bar){_notifActive--;return;}
+  const pill=document.createElement('div');
+  pill.className='notif-pill'+(type?' '+type:'');
+  pill.textContent=msg;
+  bar.appendChild(pill);
+  setTimeout(()=>{
+    pill.remove();
+    _notifActive--;
+    _drainNotifQueue();
+  },2200);
+}
+
+function spawnFlt(el,txt,col){const r=el.getBoundingClientRect();spawnFltXY(r.left+r.width/2,r.top,txt,col);}
+function spawnFltXY(x,y,txt,col){
+  const el=document.createElement('div');el.className='float-txt';
+  el.style.left=x+'px';el.style.top=y+'px';el.style.color=col||'#22C55E';
+  el.textContent=txt;document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1100);
+}
+function setBadge(tab){const el=document.getElementById('badge-'+tab);if(el)el.classList.add('on');}
+function clearBadge(tab){const el=document.getElementById('badge-'+tab);if(el)el.classList.remove('on');}
+function showToast(msg){
+  const ex=document.querySelector('.toast');if(ex)ex.remove();
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2400);
+}
+
+// ════════════════════════════════
+// SAVE / LOAD
+// ════════════════════════════════
+const SK='pnp_v5';
+function save(){
+  try{localStorage.setItem(SK,JSON.stringify({
+    money:G.money,totalMoney:G.totalMoney,todayRevenue:G.todayRevenue,
+    credits:G.credits,purrPoints:G.purrPoints,
+    staff:G.staff,cats:G.cats,catCost:G.catCost,catBreeds:G.catBreeds,
+    morale:G.morale,incomeMultiplier:G.incomeMultiplier,
+    contracts:G.contracts,wipCount:G.wipCount,leads:G.leads,
+    mapUnlocked:G.mapUnlocked,siteUnlocked:G.siteUnlocked,
+    siteLevel:G.siteLevel,siteWorkers:G.siteWorkers,siteUpgCost:G.siteUpgCost,
+    siteWorkerCost:G.siteWorkerCost,currentJob:G.currentJob,
+    siteProgress:G.siteProgress,siteStageIdx:G.siteStageIdx,
+    upgrades:G.upgrades,managers:G.managers,milestones:G.milestones,
+    officeLevel:G.officeLevel,brUpgrades:G.brUpgrades,weeklyPayroll:G.weeklyPayroll,
+    weekTimer:G.weekTimer,monthTimer:G.monthTimer,
+    prestige:G.prestige,prestigeMultiplier:G.prestigeMultiplier,
+    timestamp:Date.now()
+  }));}catch(e){}
+}
+
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SK));if(!d)return false;
+    Object.assign(G,d);
+    const elapsed=Math.min((Date.now()-(d.timestamp||Date.now()))/1000,28800); // up to 8 hrs
+    recalcIncome();
+    const off=G.income*elapsed*0.4;
+    if(off>10){G.money+=off;G.totalMoney+=off;setTimeout(()=>showToast('💤 Offline: +'+fmt(off)+' earned!'),1500);}
+    return true;
+  }catch(e){return false;}
+}
+
+// ════════════════════════════════
+// INIT
+// ════════════════════════════════
+function startGame(){
+  document.getElementById('splash').style.display='none';
+  document.getElementById('app').classList.add('show');
+  const hasSave=load();
+
+  // Build office FIRST (computes DESK_POS), then spawn desks inside callback
+  // so positions are always ready before any desk is placed
+  setTimeout(()=>{
+    buildOffice();
+    // Small extra delay to ensure DOM has rendered zone sizes
+    setTimeout(()=>{
+      // If no staff yet, start with Solar Rep free
+      if(G.staff===0){
+        G.staff=1;
+        G.weeklyPayroll=900;
+        updateOfficeBadge();
+      }
+      // Now spawn desks in correct order — desks.length drives the HIRE_SEQUENCE index
+      const staffToSpawn=Math.min(G.staff, HIRE_SEQUENCE.length, DESK_POS.length);
+      for(let i=0;i<staffToSpawn;i++) spawnDesk();
+      // Spawn cats
+      for(let i=0;i<G.cats;i++) spawnCat();
+      updateHireButton();
+      updateOfficeBadge();
+    },80);
+  },100);
+
+  // Seed initial leads
+  if(G.leads.length===0){
+    for(let i=0;i<3;i++)addLead();
+  }
+
+  initMap();
+
+  if(G.mapUnlocked){
+    document.getElementById('map-lock').classList.add('gone');
+    document.getElementById('nav-map-lock').style.display='none';
+    initJobPayTimers();
+  }
+  if(G.siteUnlocked){
+    document.getElementById('site-lock').classList.add('gone');
+    document.getElementById('nav-site-lock').style.display='none';
+    G.currentJob=G.currentJob||'Residential — Mesa Hills';
+    setTimeout(buildSiteScene,200);
+  }
+
+  // Auto-save every 30s
+  setInterval(save,30000);
+
+  // Main ticks
+  setInterval(gameTick,100);
+  setInterval(tickSite,500);
+  setInterval(tickLeads,2000);
+
+  // Lead generation (solar cycle is long)
+  setInterval(()=>{if(Math.random()<0.5)addLead();},45000);
+
+  // Contracts from signed leads
+  setInterval(()=>{if(Math.random()<0.5)triggerContract();},60000);
+
+  // Angry customers — less frequent, only fires if not already showing something
+  setInterval(()=>{if(G.staff>=2&&Math.random()<0.25&&!G.angryActive&&!G.objectionActive)triggerAngry();},90000);
+
+  // Objections — less frequent
+  setInterval(()=>{if(G.leads.length>0&&Math.random()<0.3&&!G.angryActive&&!G.objectionActive)triggerObjection();},120000);
+
+  // Auto dispatch manager
+  setInterval(()=>{if(G.managers.dispatch){jobCardEls.forEach((_,i)=>{if(jobReady[i])collectJob(i);});}},60000);
+
+  // Weather events — quiet pill only, infrequent
+  setInterval(()=>{if(Math.random()<0.25)triggerWeather();},180000);
+
+  // Taco Tuesday morale boost — quiet pill
+  setInterval(()=>{if(G.brUpgrades.br_taco){G.morale=Math.min(100,G.morale+20);showToast('🌮 Taco Tuesday! Morale +20!','good');}},604800);
+
+  // Leaderboard: accessible from ☰ menu only, no auto-popup
+
+  // First contract quickly
+  setTimeout(triggerContract,12000);
+  // First angry much later — let player settle in first
+  setTimeout(()=>{if(Math.random()<0.3)triggerAngry();},180000);
+
+  // Reset today revenue daily
+  setInterval(()=>{G.todayRevenue=0;},86400000);
+
+  updateUI();updateHireButton();
+  if(hasSave)showToast('☀️ Welcome back to Purr & Power Co.!'
+,'good');
+  else showToast('🐱 Welcome! Tap your Solar Rep to earn!'
+,'good');
+}
+</script>
+</body>
+</html>

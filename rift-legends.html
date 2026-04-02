@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Rift Legends</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05030f;--dark:#08050a;--border:#1a0f2a;--purple:#7c3aed;--gold:#d97706;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--text:#e2d9f3;--muted:#6b5e8a;}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
+canvas{display:block;touch-action:none;}
+#splash{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,#14082a,#030108);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:14px;padding:30px;text-align:center;}
+.sp-icon{font-size:72px;filter:drop-shadow(0 0 30px #7c3aedaa);animation:heroFloat 2s ease-in-out infinite;}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.sp-title{font-family:'Cinzel',serif;font-size:32px;font-weight:900;color:#a78bfa;letter-spacing:2px;text-shadow:0 0 30px #7c3aed88;}
+.sp-sub{font-size:11px;color:var(--muted);letter-spacing:3px;}
+.hero-select{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:10px 0;}
+.hero-card{background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:10px;padding:10px 14px;cursor:pointer;text-align:center;transition:all 0.2s;min-width:70px;}
+.hero-card.selected{background:rgba(124,58,237,0.3);border-color:#7c3aed;box-shadow:0 0 12px rgba(124,58,237,0.4);}
+.hero-icon{font-size:28px;display:block;margin-bottom:3px;}
+.hero-name{font-size:9px;font-weight:700;color:#c4b5fd;text-transform:uppercase;letter-spacing:0.5px;}
+.hero-stat{font-size:8px;color:var(--muted);margin-top:2px;}
+.sp-btn{background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:14px;padding:14px 40px;font-family:'Cinzel',serif;font-size:18px;color:white;cursor:pointer;box-shadow:0 6px 24px rgba(124,58,237,0.5);}
+#game-ui{position:fixed;inset:0;display:none;flex-direction:column;z-index:1;}
+#game-ui.show{display:flex;}
+#hud-top{background:rgba(5,3,15,0.95);border-bottom:1px solid var(--border);padding:5px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.hero-hud{display:flex;align-items:center;gap:8px;}
+.hud-icon{font-size:20px;}
+.hud-bars{display:flex;flex-direction:column;gap:2px;}
+.bar{height:5px;border-radius:3px;overflow:hidden;width:80px;background:rgba(255,255,255,0.1);}
+.bar-fill{height:100%;border-radius:3px;transition:width 0.3s;}
+.hp-fill{background:var(--green);}
+.mp-fill{background:var(--blue);}
+.hud-stat{font-size:9px;color:var(--muted);}
+.wave-info{text-align:center;}
+.wave-num{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);}
+.wave-sub{font-size:9px;color:var(--muted);}
+.gold-display{font-family:'Cinzel',serif;font-size:14px;color:var(--gold);}
+#canvas-wrap{flex:1;position:relative;overflow:hidden;}
+#game-canvas{width:100%;height:100%;}
+#hud-bottom{background:rgba(5,3,15,0.95);border-top:1px solid var(--border);padding:6px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.ability-btn{flex:1;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);border-radius:10px;padding:7px 4px;text-align:center;cursor:pointer;transition:all 0.15s;position:relative;}
+.ability-btn:active{transform:scale(0.93);}
+.ability-btn.cooldown{opacity:0.5;cursor:default;}
+.ab-icon{font-size:20px;display:block;}
+.ab-name{font-size:7px;font-weight:700;color:#a78bfa;display:block;margin-top:1px;text-transform:uppercase;letter-spacing:0.3px;}
+.ab-cd{font-size:7px;color:var(--muted);}
+.cd-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:14px;color:white;pointer-events:none;}
+.joystick-zone{position:absolute;bottom:15px;left:15px;width:90px;height:90px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);border-radius:50%;}
+.joystick-knob{position:absolute;width:36px;height:36px;background:rgba(124,58,237,0.6);border:2px solid #a78bfa;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
+#gameover{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:12px;}
+#gameover.show{display:flex;}
+.go-title{font-family:'Cinzel',serif;font-size:28px;color:var(--red);}
+.go-score{font-family:'Cinzel',serif;font-size:16px;color:var(--gold);}
+.go-btn{background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:12px;padding:12px 36px;font-family:'Cinzel',serif;font-size:16px;color:white;cursor:pointer;margin-top:6px;}
+.float-dmg{position:absolute;pointer-events:none;font-family:'Cinzel',serif;font-size:13px;font-weight:700;animation:floatDmg 0.8s ease-out forwards;}
+@keyframes floatDmg{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-50px)}}
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="sp-icon">⚔️</div>
+  <div class="sp-title">RIFT LEGENDS</div>
+  <div class="sp-sub">CHOOSE YOUR CHAMPION</div>
+  <div class="hero-select" id="hero-select"></div>
+  <button class="sp-btn" onclick="startBattle()">ENTER THE RIFT</button>
+</div>
+
+<div id="game-ui">
+  <div id="hud-top">
+    <div class="hero-hud">
+      <div class="hud-icon" id="hud-hero-icon">⚔️</div>
+      <div class="hud-bars">
+        <div class="bar"><div class="bar-fill hp-fill" id="hp-bar" style="width:100%"></div></div>
+        <div class="bar"><div class="bar-fill mp-fill" id="mp-bar" style="width:100%"></div></div>
+      </div>
+      <div class="hud-stat">LV<span id="hud-lv">1</span></div>
+    </div>
+    <div class="wave-info">
+      <div class="wave-num">WAVE <span id="wave-num">1</span></div>
+      <div class="wave-sub"><span id="enemies-left">0</span> enemies</div>
+    </div>
+    <div class="gold-display">⚡<span id="gold-display">0</span></div>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div class="joystick-zone" id="joystick-zone">
+      <div class="joystick-knob" id="joystick-knob"></div>
+    </div>
+  </div>
+  <div id="hud-bottom">
+    <div class="ability-btn" id="ab-0" onclick="useAbility(0)">
+      <span class="ab-icon" id="ab-icon-0">⚔️</span>
+      <span class="ab-name" id="ab-name-0">Strike</span>
+      <span class="ab-cd" id="ab-cd-0">Ready</span>
+    </div>
+    <div class="ability-btn" id="ab-1" onclick="useAbility(1)">
+      <span class="ab-icon" id="ab-icon-1">🌀</span>
+      <span class="ab-name" id="ab-name-1">Spin</span>
+      <span class="ab-cd" id="ab-cd-1">Ready</span>
+    </div>
+    <div class="ability-btn" id="ab-2" onclick="useAbility(2)">
+      <span class="ab-icon" id="ab-icon-2">💫</span>
+      <span class="ab-name" id="ab-name-2">Ultimate</span>
+      <span class="ab-cd" id="ab-cd-2">Ready</span>
+    </div>
+    <div class="ability-btn" id="ab-3" onclick="useAbility(3)" style="background:rgba(212,119,6,0.15);border-color:rgba(212,119,6,0.4);">
+      <span class="ab-icon">🏪</span>
+      <span class="ab-name" style="color:#fbbf24;">Shop</span>
+      <span class="ab-cd" id="gold-shop">0G</span>
+    </div>
+  </div>
+</div>
+
+<div id="gameover">
+  <div class="go-title" id="go-title">DEFEATED</div>
+  <div class="go-score" id="go-score"></div>
+  <button class="go-btn" onclick="restartGame()">PLAY AGAIN</button>
+  <button class="go-btn" style="background:transparent;border:1px solid #7c3aed;margin-top:4px;" onclick="goSplash()">Change Hero</button>
+</div>
+
+<script>
+const HEROES=[
+  {id:'warrior',name:'Warrior',icon:'⚔️',hp:1200,mp:400,atk:80,spd:2.5,color:'#ef4444',
+    abilities:[
+      {name:'Power Strike',icon:'⚔️',damage:120,range:60,cd:0,maxCd:0,mpCost:0,aoe:false},
+      {name:'Whirlwind',icon:'🌀',damage:80,range:80,cd:0,maxCd:3,mpCost:30,aoe:true},
+      {name:'BERSERKER',icon:'💢',damage:300,range:100,cd:0,maxCd:12,mpCost:80,aoe:true},
+    ]},
+  {id:'mage',name:'Mage',icon:'🔮',hp:700,mp:1000,atk:40,spd:2.2,color:'#8b5cf6',
+    abilities:[
+      {name:'Fireball',icon:'🔥',damage:150,range:180,cd:0,maxCd:1,mpCost:20,aoe:false},
+      {name:'Blizzard',icon:'❄️',damage:100,range:120,cd:0,maxCd:5,mpCost:50,aoe:true},
+      {name:'METEOR',icon:'☄️',damage:500,range:150,cd:0,maxCd:15,mpCost:150,aoe:true},
+    ]},
+  {id:'assassin',name:'Assassin',icon:'🗡️',hp:850,mp:600,atk:60,spd:3.5,color:'#10b981',
+    abilities:[
+      {name:'Quick Strike',icon:'🗡️',damage:200,range:50,cd:0,maxCd:0.5,mpCost:10,aoe:false},
+      {name:'Shadow Dash',icon:'💨',damage:150,range:200,cd:0,maxCd:4,mpCost:30,aoe:false},
+      {name:'DEATH MARK',icon:'💀',damage:800,range:80,cd:0,maxCd:20,mpCost:100,aoe:false},
+    ]},
+  {id:'ranger',name:'Ranger',icon:'🏹',hp:900,mp:700,atk:70,spd:2.8,color:'#f59e0b',
+    abilities:[
+      {name:'Arrow',icon:'🏹',damage:100,range:250,cd:0,maxCd:0.5,mpCost:5,aoe:false},
+      {name:'Rain of Arrows',icon:'🌧️',damage:60,range:200,cd:0,maxCd:6,mpCost:40,aoe:true},
+      {name:'SNIPER',icon:'🎯',damage:600,range:400,cd:0,maxCd:18,mpCost:120,aoe:false},
+    ]},
+];
+
+let heroData=null,player=null,enemies=[],projectiles=[],particles=[];
+let wave=1,gold=0,kills=0,frame=0;
+let canvas,ctx,W,H;
+let joystickActive=false,joyX=0,joyY=0;
+let abilities=[];
+
+function goSplash(){
+  document.getElementById('game-ui').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('splash').style.display='flex';
+}
+
+function initHeroSelect(){
+  const el=document.getElementById('hero-select');
+  el.innerHTML=HEROES.map((h,i)=>`
+    <div class="hero-card ${i===0?'selected':''}" id="hcard-${h.id}" onclick="selectHero('${h.id}')">
+      <span class="hero-icon">${h.icon}</span>
+      <span class="hero-name">${h.name}</span>
+      <span class="hero-stat">HP:${h.hp} | ATK:${h.atk}</span>
+    </div>`).join('');
+  heroData=HEROES[0];
+}
+
+function selectHero(id){
+  heroData=HEROES.find(h=>h.id===id);
+  document.querySelectorAll('.hero-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('hcard-'+id).classList.add('selected');
+}
+
+function startBattle(){
+  document.getElementById('splash').style.display='none';
+  document.getElementById('game-ui').classList.add('show');
+  initCanvas();
+  initPlayer();
+  abilities=heroData.abilities.map(a=>({...a,cd:0}));
+  spawnWave();
+  setupJoystick();
+  updateAbilityUI();
+  requestAnimationFrame(gameLoop);
+}
+
+function initCanvas(){
+  canvas=document.getElementById('game-canvas');
+  const wrap=document.getElementById('canvas-wrap');
+  W=canvas.width=wrap.offsetWidth;
+  H=canvas.height=wrap.offsetHeight;
+  ctx=canvas.getContext('2d');
+}
+
+function initPlayer(){
+  player={
+    x:W/2,y:H/2,
+    hp:heroData.hp,maxHp:heroData.hp,
+    mp:heroData.mp,maxMp:heroData.mp,
+    atk:heroData.atk,spd:heroData.spd,
+    lv:1,xp:0,xpMax:100,
+    icon:heroData.icon,color:heroData.color,
+    vx:0,vy:0,
+    invulnerable:0
+  };
+}
+
+const ENEMY_TYPES=[
+  {name:'Minion',icon:'👺',hp:80,atk:10,spd:1.2,xp:10,gold:5,color:'#dc2626',size:18},
+  {name:'Brute',icon:'🗿',hp:300,atk:25,spd:0.7,xp:30,gold:15,color:'#7c3aed',size:26},
+  {name:'Mage',icon:'🧙',hp:150,atk:20,spd:1.0,xp:20,gold:12,color:'#2563eb',size:20},
+  {name:'Boss',icon:'👹',hp:1000,atk:50,spd:0.8,xp:100,gold:50,color:'#d97706',size:36},
+];
+
+function spawnWave(){
+  enemies=[];
+  const count=5+wave*3;
+  for(let i=0;i<count;i++){
+    const isBoss=wave%5===0&&i===0;
+    const t=isBoss?ENEMY_TYPES[3]:ENEMY_TYPES[Math.floor(Math.random()*(wave>3?3:2))];
+    const side=Math.floor(Math.random()*4);
+    let ex,ey;
+    if(side===0){ex=Math.random()*W;ey=-30;}
+    else if(side===1){ex=W+30;ey=Math.random()*H;}
+    else if(side===2){ex=Math.random()*W;ey=H+30;}
+    else{ex=-30;ey=Math.random()*H;}
+    enemies.push({
+      x:ex,y:ey,
+      hp:t.hp*(1+wave*0.2),maxHp:t.hp*(1+wave*0.2),
+      atk:t.atk*(1+wave*0.1),spd:t.spd,
+      xp:t.xp,gold:t.gold,color:t.color,
+      icon:t.icon,size:t.size,
+      cooldown:0,id:Math.random()
+    });
+  }
+  document.getElementById('wave-num').textContent=wave;
+  document.getElementById('enemies-left').textContent=enemies.length;
+}
+
+function setupJoystick(){
+  const zone=document.getElementById('joystick-zone');
+  const knob=document.getElementById('joystick-knob');
+  const zRect=()=>zone.getBoundingClientRect();
+  function startJoy(e){
+    e.preventDefault();
+    joystickActive=true;
+    moveJoy(e);
+  }
+  function moveJoy(e){
+    if(!joystickActive)return;
+    e.preventDefault();
+    const r=zRect();
+    const cx=r.left+r.width/2,cy=r.top+r.height/2;
+    const touch=e.touches?e.touches[0]:e;
+    const dx=touch.clientX-cx,dy=touch.clientY-cy;
+    const dist=Math.min(35,Math.sqrt(dx*dx+dy*dy));
+    const ang=Math.atan2(dy,dx);
+    joyX=Math.cos(ang)*dist/35;
+    joyY=Math.sin(ang)*dist/35;
+    knob.style.transform=`translate(calc(-50% + ${Math.cos(ang)*dist}px), calc(-50% + ${Math.sin(ang)*dist}px))`;
+  }
+  function endJoy(){
+    joystickActive=false;joyX=0;joyY=0;
+    knob.style.transform='translate(-50%,-50%)';
+  }
+  zone.addEventListener('touchstart',startJoy,{passive:false});
+  zone.addEventListener('touchmove',moveJoy,{passive:false});
+  zone.addEventListener('touchend',endJoy);
+  zone.addEventListener('mousedown',startJoy);
+  document.addEventListener('mousemove',moveJoy);
+  document.addEventListener('mouseup',endJoy);
+}
+
+function useAbility(idx){
+  if(idx===3){openShop();return;}
+  if(!abilities[idx])return;
+  const a=abilities[idx];
+  if(a.cd>0){return;}
+  if(player.mp<a.mpCost){spawnDmgFloat(player.x,player.y,'No MP!','#60a5fa');return;}
+  player.mp-=a.mpCost;
+  a.cd=a.maxCd;
+  if(a.aoe){
+    // Hit all in range
+    enemies.forEach(e=>{
+      const dx=e.x-player.x,dy=e.y-player.y;
+      if(Math.sqrt(dx*dx+dy*dy)<a.range){
+        dealDamage(e,a.damage+player.atk);
+      }
+    });
+    spawnAoeEffect(player.x,player.y,a.range,a.icon==='❄️'?'#bfdbfe':a.icon==='☄️'?'#fca5a5':'#c4b5fd');
+  } else {
+    // Target nearest enemy
+    const near=nearestEnemy();
+    if(near){
+      const dx=near.x-player.x,dy=near.y-player.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<=a.range+50){dealDamage(near,a.damage+player.atk);}
+      else{
+        // Projectile
+        const spd=8,ang=Math.atan2(dy,dx);
+        projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg:a.damage+player.atk,owner:'player',col:player.color,r:6,target:near.id});
+      }
+    }
+  }
+  updateAbilityUI();
+}
+
+function openShop(){
+  const items=[
+    {name:'Health Potion',icon:'❤️',cost:30,effect:()=>player.hp=Math.min(player.maxHp,player.hp+200)},
+    {name:'Mana Crystal',icon:'💎',cost:25,effect:()=>player.mp=Math.min(player.maxMp,player.mp+150)},
+    {name:'Attack Boost',icon:'⚔️',cost:50,effect:()=>player.atk+=20},
+    {name:'Speed Boost',icon:'💨',cost:40,effect:()=>player.spd+=0.5},
+  ];
+  const msg=items.map((it,i)=>`${i+1}. ${it.icon} ${it.name} (${it.cost}G)`).join('\n');
+  const choice=prompt('SHOP (Gold: '+gold+'G)\n'+msg+'\nEnter 1-4:');
+  const idx=parseInt(choice)-1;
+  if(idx>=0&&idx<items.length){
+    if(gold>=items[idx].cost){gold-=items[idx].cost;items[idx].effect();spawnDmgFloat(player.x,player.y,items[idx].icon,'#fbbf24');}
+    else{spawnDmgFloat(player.x,player.y,'Need more gold!','#f59e0b');}
+  }
+}
+
+function dealDamage(enemy,dmg){
+  const actual=Math.floor(dmg*(0.8+Math.random()*0.4));
+  enemy.hp-=actual;
+  spawnDmgFloat(enemy.x,enemy.y-enemy.size,'-'+actual,'#fca5a5');
+  if(enemy.hp<=0)killEnemy(enemy);
+}
+
+function killEnemy(e){
+  enemies=enemies.filter(x=>x!==e);
+  gold+=e.gold;kills++;
+  player.xp+=e.xp;
+  if(player.xp>=player.xpMax){
+    player.lv++;player.xp-=player.xpMax;player.xpMax=Math.floor(player.xpMax*1.4);
+    player.atk+=10;player.maxHp+=50;player.hp=Math.min(player.maxHp,player.hp+50);
+    spawnDmgFloat(player.x,player.y,'LEVEL UP! ⬆️','#fbbf24');
+  }
+  for(let i=0;i<8;i++)particles.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:1,col:e.color,r:3});
+  if(enemies.length===0){setTimeout(()=>{wave++;spawnWave();},1500);}
+  document.getElementById('enemies-left').textContent=enemies.length;
+}
+
+function nearestEnemy(){
+  let best=null,bd=Infinity;
+  enemies.forEach(e=>{const d=Math.hypot(e.x-player.x,e.y-player.y);if(d<bd){bd=d;best=e;}});
+  return best;
+}
+
+function spawnDmgFloat(x,y,txt,col){
+  const el=document.createElement('div');el.className='float-dmg';
+  el.style.left=x+'px';el.style.top=y+'px';el.style.color=col||'white';
+  el.textContent=txt;
+  document.getElementById('canvas-wrap').appendChild(el);
+  setTimeout(()=>el.remove(),800);
+}
+
+function spawnAoeEffect(x,y,r,col){
+  particles.push({type:'aoe',x,y,r:0,maxR:r,life:1,col});
+}
+
+function updateAbilityUI(){
+  abilities.forEach((a,i)=>{
+    const btn=document.getElementById('ab-'+i);
+    const cd=document.getElementById('ab-cd-'+i);
+    if(!btn||!cd)return;
+    if(a.cd>0){btn.classList.add('cooldown');cd.textContent=a.cd.toFixed(1)+'s';}
+    else{btn.classList.remove('cooldown');cd.textContent=a.mpCost?a.mpCost+'mp':'Ready';}
+  });
+  document.getElementById('gold-shop').textContent=gold+'G';
+}
+
+let lastT=0;
+function gameLoop(t){
+  const dt=Math.min((t-lastT)/1000,0.05);lastT=t;
+  update(dt);render();
+  requestAnimationFrame(gameLoop);
+}
+
+function update(dt){
+  frame++;
+  // Move player
+  if(joystickActive){
+    player.x=Math.max(20,Math.min(W-20,player.x+joyX*player.spd*2.5));
+    player.y=Math.max(20,Math.min(H-20,player.y+joyY*player.spd*2.5));
+  }
+  // Auto-attack
+  if(frame%20===0){
+    const near=nearestEnemy();
+    if(near&&Math.hypot(near.x-player.x,near.y-player.y)<200){
+      const ang=Math.atan2(near.y-player.y,near.x-player.x);
+      projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*7,vy:Math.sin(ang)*7,dmg:player.atk,owner:'player',col:player.color,r:5,target:near.id});
+    }
+  }
+  // MP regen
+  player.mp=Math.min(player.maxMp,player.mp+dt*20);
+  // Cooldowns
+  abilities.forEach(a=>{if(a.cd>0)a.cd=Math.max(0,a.cd-dt);});
+  // Invulnerability
+  if(player.invulnerable>0)player.invulnerable-=dt;
+  // Enemy move & attack
+  enemies.forEach(e=>{
+    const dx=player.x-e.x,dy=player.y-e.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>e.size+20){
+      e.x+=dx/dist*e.spd*2;
+      e.y+=dy/dist*e.spd*2;
+    } else if(player.invulnerable<=0){
+      // Attack
+      e.cooldown=(e.cooldown||0)+dt;
+      if(e.cooldown>1){
+        e.cooldown=0;
+        player.hp-=e.atk;
+        player.invulnerable=0.3;
+        if(player.hp<=0)gameOver();
+      }
+    }
+  });
+  // Projectiles
+  projectiles=projectiles.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<-50||p.x>W+50||p.y<-50||p.y>H+50)return false;
+    if(p.owner==='player'){
+      for(let e of enemies){
+        if(Math.hypot(e.x-p.x,e.y-p.y)<e.size){
+          dealDamage(e,p.dmg);return false;
+        }
+      }
+    }
+    return true;
+  });
+  // Particles
+  particles=particles.filter(p=>{
+    if(p.type==='aoe'){p.r+=p.maxR*0.08;p.life-=0.05;return p.life>0;}
+    p.x+=p.vx;p.y+=p.vy;p.life-=0.04;p.r*=0.95;return p.life>0;
+  });
+  updateAbilityUI();
+  updateHUD();
+}
+
+function updateHUD(){
+  document.getElementById('hp-bar').style.width=(player.hp/player.maxHp*100)+'%';
+  document.getElementById('mp-bar').style.width=(player.mp/player.maxMp*100)+'%';
+  document.getElementById('hud-lv').textContent=player.lv;
+  document.getElementById('gold-display').textContent=gold;
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // Grid bg
+  ctx.strokeStyle='rgba(124,58,237,0.05)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){{ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}}
+  for(let y=0;y<H;y+=40){{ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}}
+  // Particles
+  particles.forEach(p=>{
+    if(p.type==='aoe'){
+      ctx.strokeStyle=p.col;ctx.lineWidth=2;ctx.globalAlpha=p.life;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=1;
+    } else {
+      ctx.fillStyle=p.col;ctx.globalAlpha=p.life;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  });
+  // Enemies
+  enemies.forEach(e=>{
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.beginPath();ctx.ellipse(e.x,e.y+e.size*0.8,e.size*0.7,e.size*0.2,0,0,Math.PI*2);ctx.fill();
+    // HP bar
+    ctx.fillStyle='#1f2937';ctx.fillRect(e.x-20,e.y-e.size-10,40,4);
+    ctx.fillStyle=e.color;ctx.fillRect(e.x-20,e.y-e.size-10,40*(e.hp/e.maxHp),4);
+    // Icon
+    ctx.font=e.size+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(e.icon,e.x,e.y);
+  });
+  // Projectiles
+  projectiles.forEach(p=>{
+    ctx.fillStyle=p.col;ctx.shadowColor=p.col;ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  });
+  // Player
+  if(player.invulnerable>0&&frame%4<2)return;
+  ctx.shadowColor=player.color;ctx.shadowBlur=15;
+  ctx.font='32px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(player.icon,player.x,player.y);
+  ctx.shadowBlur=0;
+}
+
+function gameOver(){
+  document.getElementById('gameover').classList.add('show');
+  document.getElementById('go-title').textContent=player.hp<=0?'DEFEATED':'VICTORY!';
+  document.getElementById('go-score').textContent=`Wave ${wave} | ${kills} kills | ${gold} gold | Level ${player.lv}`;
+}
+
+function restartGame(){
+  document.getElementById('gameover').classList.remove('show');
+  enemies=[];projectiles=[];particles=[];wave=1;gold=0;kills=0;frame=0;
+  abilities=heroData.abilities.map(a=>({...a,cd:0}));
+  initPlayer();spawnWave();
+}
+
+initHeroSelect();
+</script>
+</body>
+</html>

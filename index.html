@@ -2,507 +2,177 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#080612">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Gonzo's Game Arcade</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#04030e">
+<title>Gonzo's Game Vault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #080612;
-  --bg2: #0e0a20;
-  --card: #12102a;
-  --card2: #1a1640;
-  --border: #2d2460;
-  --border2: rgba(192,132,252,0.18);
-  --glow: #c084fc;
-  --glow2: #f0abfc;
-  --gold: #fbbf24;
-  --rose: #fb7185;
-  --teal: #34d399;
-  --text: #e9d5ff;
-  --muted: #6b5e8a;
-  --white: #f5f0ff;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { min-height: 100%; background: var(--bg); color: var(--text); font-family: 'Nunito', sans-serif; overscroll-behavior: none; }
-
-/* ── CANVAS BG ── */
-#bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-
-/* ── LAYOUT ── */
-.wrap { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 14px 40px; }
-
-/* ── HEADER ── */
-header {
-  text-align: center;
-  padding: 48px 0 28px;
-  position: relative;
-}
-.header-glow {
-  position: absolute;
-  top: 20px; left: 50%; transform: translateX(-50%);
-  width: 260px; height: 120px;
-  background: radial-gradient(ellipse, rgba(192,132,252,0.15) 0%, transparent 70%);
-  pointer-events: none;
-}
-.arcade-icon {
-  font-size: 3.5rem;
-  display: block;
-  margin-bottom: 10px;
-  animation: iconFloat 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 20px rgba(192,132,252,0.5));
-}
-@keyframes iconFloat {
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-.arcade-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.9rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, #c084fc 0%, #f0abfc 40%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: 1px;
-  line-height: 1.1;
-  margin-bottom: 6px;
-}
-.arcade-sub {
-  font-size: 0.7rem;
-  color: var(--muted);
-  font-style: italic;
-  letter-spacing: 0.5px;
-}
-.game-count {
-  display: inline-block;
-  margin-top: 12px;
-  background: rgba(192,132,252,0.1);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  padding: 4px 14px;
-  font-size: 0.65rem;
-  color: var(--glow2);
-  letter-spacing: 0.5px;
-}
-
-/* ── FILTER TABS ── */
-.filter-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 18px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  -webkit-overflow-scrolling: touch;
-}
-.filter-row::-webkit-scrollbar { display: none; }
-.ftab {
-  flex-shrink: 0;
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.68rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.ftab.active {
-  background: rgba(192,132,252,0.15);
-  border-color: var(--glow);
-  color: var(--glow2);
-}
-.ftab:active { transform: scale(0.96); }
-
-/* ── FEATURED CARD ── */
-.featured {
-  background: linear-gradient(135deg, #1e1250 0%, #2a1060 50%, #1a1840 100%);
-  border: 1px solid rgba(192,132,252,0.35);
-  border-radius: 20px;
-  padding: 20px;
-  margin-bottom: 16px;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 8px 32px rgba(192,132,252,0.12);
-  text-decoration: none;
-  display: block;
-}
-.featured:active { transform: scale(0.985); }
-.featured::before {
-  content: '';
-  position: absolute;
-  top: -40px; right: -40px;
-  width: 160px; height: 160px;
-  background: radial-gradient(circle, rgba(192,132,252,0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-.featured-badge {
-  display: inline-block;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #1a0f00;
-  font-size: 0.55rem;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  letter-spacing: 0.5px;
-  font-family: 'Nunito', sans-serif;
-}
-.featured-emoji { font-size: 3rem; display: block; margin-bottom: 8px; filter: drop-shadow(0 0 12px rgba(192,132,252,0.4)); }
-.featured-name {
-  font-family: 'Cinzel', serif;
-  font-size: 1.2rem;
-  color: var(--white);
-  margin-bottom: 4px;
-}
-.featured-desc { font-size: 0.72rem; color: var(--muted); font-style: italic; line-height: 1.5; margin-bottom: 14px; }
-.featured-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-.tag {
-  font-size: 0.58rem;
-  padding: 2px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border2);
-  color: var(--glow2);
-  background: rgba(192,132,252,0.08);
-}
-.play-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  color: #fff;
-  border: none;
-  padding: 10px 22px;
-  border-radius: 12px;
-  font-family: 'Cinzel', serif;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(168,85,247,0.35);
-  transition: all 0.2s;
-  text-decoration: none;
-}
-.play-btn:active { transform: scale(0.96); }
-
-/* ── GAME GRID ── */
-.section-title {
-  font-family: 'Cinzel', serif;
-  font-size: 0.78rem;
-  color: var(--glow2);
-  margin-bottom: 10px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--border2);
-  letter-spacing: 0.5px;
-}
-
-.games-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.game-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 12px;
-  cursor: pointer;
-  text-decoration: none;
-  display: block;
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
-}
-.game-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(192,132,252,0.06), transparent 65%);
-  pointer-events: none;
-}
-.game-card:active { transform: scale(0.96); border-color: var(--glow); }
-.game-card.coming-soon { opacity: 0.45; cursor: default; }
-.game-card.coming-soon:active { transform: none; border-color: var(--border); }
-
-.gc-emoji { font-size: 2.2rem; display: block; margin-bottom: 6px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
-.gc-name { font-family: 'Cinzel', serif; font-size: 0.74rem; color: var(--white); line-height: 1.2; margin-bottom: 3px; }
-.gc-genre { font-size: 0.58rem; color: var(--muted); font-style: italic; margin-bottom: 8px; line-height: 1.3; }
-.gc-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
-.gc-tag { font-size: 0.5rem; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.05); color: var(--muted); }
-.gc-play {
-  display: block;
-  text-align: center;
-  background: rgba(192,132,252,0.12);
-  border: 1px solid var(--border2);
-  border-radius: 8px;
-  padding: 5px;
-  font-size: 0.62rem;
-  color: var(--glow2);
-  font-family: 'Cinzel', serif;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-.game-card:not(.coming-soon):active .gc-play { background: rgba(192,132,252,0.25); }
-.gc-soon { display: block; text-align: center; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 5px; font-size: 0.58rem; color: var(--muted); font-style: italic; }
-.gc-new { position: absolute; top: 8px; right: 8px; background: linear-gradient(135deg,#34d399,#059669); color:#fff; font-size:0.48rem; font-weight:800; padding:1px 5px; border-radius:5px; font-family:'Nunito',sans-serif; }
-
-/* ── FOOTER ── */
-footer {
-  text-align: center;
-  padding: 20px 0 10px;
-  border-top: 1px solid var(--border);
-}
-.footer-emoji { font-size: 1.5rem; margin-bottom: 6px; display: block; }
-.footer-text { font-size: 0.62rem; color: var(--muted); font-style: italic; line-height: 1.6; }
-.footer-link { color: var(--glow2); text-decoration: none; }
+:root{--bg:#04030e;--bg2:#07050c;--panel:#0d0b18;--border:#1a1030;--purple:#7c3aed;--gold:#d97706;--text:#e2d9f3;--muted:#4a3d6a;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(124,58,237,0.08),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(234,88,12,0.06),transparent 50%);pointer-events:none;z-index:0;}
+header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;border-bottom:1px solid var(--border);}
+.vault-icon{font-size:52px;display:block;margin-bottom:10px;animation:vaultFloat 3s ease-in-out infinite;}
+@keyframes vaultFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.site-title{font-family:'Cinzel',serif;font-size:28px;font-weight:900;background:linear-gradient(135deg,#c4b5fd,#f0abfc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
+.site-sub{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;}
+.header-pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.hpill{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:10px;color:var(--muted);}
+.stats-bar{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);position:relative;z-index:1;}
+.stat{flex:1;padding:14px 0;text-align:center;border-right:1px solid var(--border);}
+.stat:last-child{border-right:none;}
+.stat-val{font-family:'Cinzel',serif;font-size:20px;color:var(--gold);display:block;}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px;}
+.filter-bar{display:flex;gap:7px;padding:14px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;justify-content:center;position:relative;z-index:1;}
+.filter-btn{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'Nunito',sans-serif;}
+.filter-btn.active{background:rgba(124,58,237,0.15);border-color:var(--purple);color:#c4b5fd;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:20px 16px;max-width:1100px;margin:0 auto;position:relative;z-index:1;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;text-decoration:none;color:var(--text);display:flex;flex-direction:column;transition:transform 0.15s,border-color 0.2s,box-shadow 0.2s;}
+.card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+.card-banner{height:88px;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative;flex-shrink:0;}
+.card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
+.badge-solar{background:rgba(245,158,11,0.25);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);}
+.badge-new{background:rgba(22,163,74,0.25);color:#4ade80;border:1px solid rgba(22,163,74,0.4);}
+.badge-ai{background:rgba(124,58,237,0.25);color:#c4b5fd;border:1px solid rgba(124,58,237,0.4);}
+.badge-idle{background:rgba(234,88,12,0.2);color:#fb923c;border:1px solid rgba(234,88,12,0.35);}
+.badge-td{background:rgba(37,99,235,0.2);color:#93c5fd;border:1px solid rgba(37,99,235,0.35);}
+.badge-moba{background:rgba(219,39,119,0.2);color:#f9a8d4;border:1px solid rgba(219,39,119,0.35);}
+.badge-rpg{background:rgba(13,148,136,0.2);color:#5eead4;border:1px solid rgba(13,148,136,0.35);}
+.badge-dev{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);}
+.card-body{padding:12px 14px;flex:1;}
+.card-genre{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;}
+.card-title{font-family:'Cinzel',serif;font-size:15px;color:var(--text);margin-bottom:4px;}
+.card-desc{font-size:11px;color:var(--muted);line-height:1.6;}
+.card-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.play-btn{background:linear-gradient(135deg,var(--purple),#a855f7);color:white;border:none;border-radius:9px;padding:6px 16px;font-family:'Cinzel',serif;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block;}
+.card-tech{font-size:9px;color:var(--muted);}
+.card[data-hidden]{display:none;}
+footer{text-align:center;padding:24px 20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);position:relative;z-index:1;}
+footer a{color:#a78bfa;text-decoration:none;}
 </style>
 </head>
 <body>
-
-<canvas id="bg"></canvas>
-
-<div class="wrap">
-  <header>
-    <div class="header-glow"></div>
-    <span class="arcade-icon">🎮</span>
-    <div class="arcade-title">Gonzo's<br>Game Arcade</div>
-    <div class="arcade-sub">"Built with cats, coffee, and questionable decisions."</div>
-    <div class="game-count" id="gameCount">✨ Loading games...</div>
-  </header>
-
-  <!-- FILTER TABS -->
-  <div class="filter-row">
-    <button class="ftab active" onclick="filter('all',this)">All Games</button>
-    <button class="ftab" onclick="filter('management',this)">🏪 Management</button>
-    <button class="ftab" onclick="filter('strategy',this)">⚔️ Strategy</button>
-    <button class="ftab" onclick="filter('idle',this)">⚡ Idle</button>
-    <button class="ftab" onclick="filter('adventure',this)">🗺️ Adventure</button>
+<header>
+  <span class="vault-icon">🕹️</span>
+  <div class="site-title">Gonzo's Game Vault</div>
+  <div class="site-sub">Browser Games · El Paso, TX</div>
+  <div class="header-pills">
+    <span class="hpill">Single-File HTML</span>
+    <span class="hpill">No Install</span>
+    <span class="hpill">Mobile Friendly</span>
+    <span class="hpill">100% Free</span>
   </div>
-
-  <!-- FEATURED -->
-  <div id="featuredSection">
-    <div class="section-title">⭐ Featured Game</div>
-    <a class="featured" href="purr-and-power.html" id="featuredCard">
-      <div class="featured-badge">🐱 NEWEST RELEASE</div>
-      <span class="featured-emoji">☀️</span>
-      <div class="featured-name">Purr & Power Co.</div>
-      <div class="featured-desc">"Run El Paso's most cat-friendly solar installation company. Hire installers, manage angry customers, close contracts — and keep the cats purring."</div>
-      <div class="featured-tags">
-        <span class="tag">Idle</span>
-        <span class="tag">Management</span>
-        <span class="tag">Cats</span>
-        <span class="tag">Solar</span>
-      </div>
-      <span class="play-btn">▶ Play Now</span>
-    </a>
-  </div>
-
-  <!-- GAME GRID -->
-  <div class="section-title" style="margin-top:4px;">🎮 All Games</div>
-  <div class="games-grid" id="gameGrid"></div>
-
-  <footer>
-    <span class="footer-emoji">🐾</span>
-    <div class="footer-text">
-      Made with Claude &amp; questionable cat supervision.<br>
-      <a class="footer-link" href="https://github.com/gonzobonzob-bit/my-games" target="_blank">github.com/gonzobonzob-bit/my-games</a>
-    </div>
-  </footer>
+</header>
+<div class="stats-bar">
+  <div class="stat"><span class="stat-val" id="s-total">8</span><span class="stat-lbl">Games</span></div>
+  <div class="stat"><span class="stat-val">🐱</span><span class="stat-lbl">Cats</span></div>
+  <div class="stat"><span class="stat-val">☀️</span><span class="stat-lbl">Solar</span></div>
+  <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Free</span></div>
 </div>
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterGames('all',this)">All Games</button>
+  <button class="filter-btn" onclick="filterGames('idle',this)">🎰 Idle / Tycoon</button>
+  <button class="filter-btn" onclick="filterGames('td',this)">🏰 Tower Defense</button>
+  <button class="filter-btn" onclick="filterGames('rpg',this)">🗡️ RPG</button>
+  <button class="filter-btn" onclick="filterGames('moba',this)">⚔️ MOBA</button>
+</div>
+<div class="grid" id="game-grid">
 
+  <a class="card" href="purr-and-power-v5.html" data-tags="idle solar">
+    <div class="card-banner" style="background:linear-gradient(135deg,#0f172a,#1e3a8a);">☀️🐱<span class="card-badge badge-solar">⭐ Featured</span></div>
+    <div class="card-body">
+      <div class="card-genre">☀️ Idle Tycoon</div>
+      <div class="card-title">Purr & Power Co.</div>
+      <div class="card-desc">Run El Paso's most cat-friendly solar company. Real payroll, real equipment costs (Silfab panels, SolarEdge inverters, Sunmodo SMR rails), 16 staff roles, break room, top-down map.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle · Solar · El Paso · v5</span></div>
+  </a>
+
+  <a class="card" href="cat-cafe-v4b.html" data-tags="idle">
+    <div class="card-banner" style="background:linear-gradient(135deg,#0a0618,#16134a);">🐱☕<span class="card-badge badge-idle">Idle</span></div>
+    <div class="card-body">
+      <div class="card-genre">🐱 Idle Tycoon</div>
+      <div class="card-title">Paws & Contempt</div>
+      <div class="card-desc">Build a cat café empire with witty sarcastic humor. 32 unique cat breeds, hire staff, upgrade your café, unlock prestige tiers. Day/night cycle, ambient sounds, 10 save slots.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle · Cat Café · PWA · v4b</span></div>
+  </a>
+
+  <a class="card" href="neon-dynasty.html" data-tags="idle">
+    <div class="card-banner" style="background:linear-gradient(135deg,#020412,#0d0836);">🏙️⚡<span class="card-badge badge-ai">AI Oracle</span></div>
+    <div class="card-body">
+      <div class="card-genre">🌆 Cyberpunk Tycoon</div>
+      <div class="card-title">NEON DYNASTY</div>
+      <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the live AI Oracle powered by Claude for real strategic advice.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Tycoon · AI Oracle · Cyberpunk</span></div>
+  </a>
+
+  <a class="card" href="epoch-mobile.html" data-tags="idle">
+    <div class="card-banner" style="background:linear-gradient(135deg,#1a0e00,#3d1f00);">⚒️🔥<span class="card-badge badge-idle">Idle</span></div>
+    <div class="card-body">
+      <div class="card-genre">⚒️ Idle Crafting</div>
+      <div class="card-title">EPOCH: The Eternal Forge</div>
+      <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes, prestige to loop through time. Each age makes you stronger.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle · Crafting · Prestige</span></div>
+  </a>
+
+  <a class="card" href="xfiles-pwa.html" data-tags="rpg idle">
+    <div class="card-banner" style="background:linear-gradient(135deg,#020c04,#071409);">👁️🛸<span class="card-badge badge-rpg">RPG</span></div>
+    <div class="card-body">
+      <div class="card-genre">🗡️ Idle RPG</div>
+      <div class="card-title">X-Files: The Truth Is Out There</div>
+      <div class="card-desc">Gather Evidence, recruit agents from Mulder to Scully, expose conspiracies from Black Oil to Majestic-12. CRT terminal aesthetic. The truth is out there.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle RPG · X-Files · Conspiracy</span></div>
+  </a>
+
+  <a class="card" href="wizard_tower_defense.html" data-tags="td">
+    <div class="card-banner" style="background:linear-gradient(135deg,#04030e,#14082a);">🧙‍♂️⚔️<span class="card-badge badge-td">Tower Defense</span></div>
+    <div class="card-body">
+      <div class="card-genre">🏰 Tower Defense</div>
+      <div class="card-title">Wizard's Last Stand</div>
+      <div class="card-desc">10 tower types — Archer, Pyromage, Frost, Storm, Venom, Cannon, Arcane, Shadow, Divine, Dragon. 12 escalating waves with bosses, fast enemies, and brutes. Protect the crystal.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Tower Defense · 10 Towers · 12 Waves</span></div>
+  </a>
+
+  <a class="card" href="rift-legends.html" data-tags="moba">
+    <div class="card-banner" style="background:linear-gradient(135deg,#05030f,#1a0630);">⚔️🌀<span class="card-badge badge-moba">MOBA</span></div>
+    <div class="card-body">
+      <div class="card-genre">⚔️ Action MOBA</div>
+      <div class="card-title">Rift Legends</div>
+      <div class="card-desc">Choose your champion — Warrior, Mage, Assassin, or Ranger. Mobile joystick controls, 3 abilities each, in-game shop, level up system. Wave-based combat.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">MOBA · 4 Champions · Joystick</span></div>
+  </a>
+
+  <div class="card" data-tags="td" style="opacity:0.55;cursor:default;">
+    <div class="card-banner" style="background:linear-gradient(135deg,#0a0a0a,#1a0a00);">🚂💀<span class="card-badge badge-dev">In Dev</span></div>
+    <div class="card-body">
+      <div class="card-genre">🏰 Tower Defense</div>
+      <div class="card-title">TERMINUS: The Truth Below</div>
+      <div class="card-desc">1871 paranormal railroad tower defense built in Godot 4. Photorealistic quality, supernatural enemies, Wild West setting. Coming soon to itch.io.</div>
+    </div>
+    <div class="card-footer"><span style="background:var(--panel);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:6px 16px;font-size:12px;">Coming Soon</span><span class="card-tech">Godot 4 · itch.io</span></div>
+  </div>
+
+</div>
+<footer>Built by Gonzo · El Paso, TX 🌵 · <a href="https://github.com/gonzobonzob-bit" target="_blank">GitHub</a> · All games free · No installs · No ads</footer>
 <script>
-const GAMES = [
-  {
-    emoji: '☀️',
-    name: 'Purr & Power Co.',
-    genre: 'Solar Idle Tycoon',
-    desc: 'Cat-friendly solar company. Hire staff, close contracts, calm angry customers.',
-    tags: ['idle','management'],
-    file: 'purr-and-power.html',
-    isNew: true,
-    coming: false,
-  },
-  {
-    emoji: '🐾',
-    name: 'Paws & Contempt',
-    genre: 'Fantasy Cat Café Manager',
-    desc: 'Run an enchanted café with cats, bunnies & foxes.',
-    tags: ['management','idle'],
-    file: 'cat-cafe-v4b.html',
-    isNew: false,
-    coming: false,
-  },
-  {
-    emoji: '🧙',
-    name: "Wizard's Last Stand",
-    genre: 'Isometric Tower Defense',
-    desc: '10 tower types, 17 enemies, 12 bosses, full particle system.',
-    tags: ['strategy'],
-    file: 'wizard.html',
-    coming: true,
-  },
-  {
-    emoji: '☕',
-    name: 'Empire Café World',
-    genre: '3D Isometric Café Tycoon',
-    desc: 'Drag-to-move furniture, customer AI, staff management.',
-    tags: ['management','idle'],
-    file: 'empire-kitchen.html',
-    coming: true,
-  },
-  {
-    emoji: '⚔️',
-    name: 'EPOCH: The Eternal Forge',
-    genre: 'Idle RPG',
-    desc: 'Prestige system, dungeon combat, rune attuning.',
-    tags: ['idle','adventure'],
-    file: 'epoch.html',
-    coming: true,
-  },
-  {
-    emoji: '🤖',
-    name: 'NEON DYNASTY',
-    genre: 'Cyberpunk Corporation Tycoon',
-    desc: 'Build a corp empire with a live AI Oracle.',
-    tags: ['management','strategy'],
-    file: 'neon-dynasty.html',
-    coming: true,
-  },
-  {
-    emoji: '🛸',
-    name: 'Galactic Tycoon',
-    genre: 'Space Empire Strategy',
-    desc: 'Turn-based space empire. Built entirely in Excel.',
-    tags: ['strategy'],
-    file: 'galactic-tycoon.html',
-    coming: true,
-  },
-  {
-    emoji: '🏙️',
-    name: 'Rift Legends',
-    genre: 'Mobile MOBA',
-    desc: 'Mobile-optimized controls, realistic terrain rendering.',
-    tags: ['strategy','adventure'],
-    file: 'rift-legends.html',
-    coming: true,
-  },
-  {
-    emoji: '📁',
-    name: 'X-Files PWA',
-    genre: 'Investigation RPG',
-    desc: "Mulder's basement, 8 agents, 11 real cases, conspiracy board.",
-    tags: ['adventure'],
-    file: 'xfiles.html',
-    coming: true,
-  },
-];
-
-let activeFilter = 'all';
-
-function filter(tag, btn) {
-  activeFilter = tag;
-  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+function filterGames(tag,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  renderGrid();
-  const featured = document.getElementById('featuredSection');
-  featured.style.display = tag === 'all' ? 'block' : 'none';
-}
-
-function renderGrid() {
-  const grid = document.getElementById('gameGrid');
-  const filtered = activeFilter === 'all'
-    ? GAMES
-    : GAMES.filter(g => g.tags.includes(activeFilter));
-
-  grid.innerHTML = filtered.map(g => {
-    const cls = g.coming ? 'game-card coming-soon' : 'game-card';
-    const action = g.coming
-      ? `<span class="gc-soon">🔒 Coming Soon</span>`
-      : `<span class="gc-play">▶ Play</span>`;
-    const href = g.coming ? '#' : g.file;
-    return `<a class="${cls}" href="${href}" ${g.coming ? 'onclick="return false;"' : ''}>
-      ${g.isNew ? '<div class="gc-new">NEW</div>' : ''}
-      <span class="gc-emoji">${g.emoji}</span>
-      <div class="gc-name">${g.name}</div>
-      <div class="gc-genre">${g.genre}</div>
-      <div class="gc-tags">${g.tags.map(t=>`<span class="gc-tag">${t}</span>`).join('')}</div>
-      ${action}
-    </a>`;
-  }).join('');
-
-  const total = GAMES.filter(g => !g.coming).length;
-  const coming = GAMES.filter(g => g.coming).length;
-  document.getElementById('gameCount').textContent = `✨ ${total} playable · ${coming} coming soon`;
-}
-
-// ── STAR CANVAS ──
-const canvas = document.getElementById('bg');
-const ctx = canvas.getContext('2d');
-let stars = [];
-let W, H;
-
-function initCanvas() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  stars = [];
-  for (let i = 0; i < 120; i++) {
-    stars.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      r: Math.random() * 1.4 + 0.3,
-      twinkle: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.02 + 0.008,
-    });
-  }
-}
-
-function drawBg() {
-  const grad = ctx.createRadialGradient(W*0.5, H*0.2, 0, W*0.5, H*0.5, Math.max(W,H)*0.8);
-  grad.addColorStop(0, '#110830');
-  grad.addColorStop(0.5, '#0a0618');
-  grad.addColorStop(1, '#060410');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  const now = Date.now() * 0.0004;
-  [
-    { y: H*0.08, color: 'rgba(124,58,237,0.06)', w: W*1.2 },
-    { y: H*0.14, color: 'rgba(56,189,248,0.04)', w: W*1.0 },
-    { y: H*0.20, color: 'rgba(192,132,252,0.05)', w: W*0.9 },
-  ].forEach(a => {
-    const g2 = ctx.createLinearGradient(0, 0, W, 0);
-    g2.addColorStop(0, 'transparent');
-    g2.addColorStop(0.3 + Math.sin(now)*0.1, a.color);
-    g2.addColorStop(0.7 + Math.cos(now)*0.1, a.color);
-    g2.addColorStop(1, 'transparent');
-    ctx.fillStyle = g2;
-    ctx.beginPath();
-    ctx.ellipse(W/2, a.y, a.w/2, 35, 0, 0, Math.PI*2);
-    ctx.fill();
+  const cards=document.querySelectorAll('.card');
+  let shown=0;
+  cards.forEach(c=>{
+    if(tag==='all'){c.removeAttribute('data-hidden');shown++;}
+    else{const tags=(c.dataset.tags||'').split(' ');if(tags.includes(tag)){c.removeAttribute('data-hidden');shown++;}else c.setAttribute('data-hidden','1');}
   });
-
-  stars.forEach(s => {
-    s.twinkle += s.speed;
-    const alpha = 0.15 + 0.65 * Math.abs(Math.sin(s.twinkle));
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(220,200,255,${alpha})`;
-    ctx.fill();
-  });
-
-  requestAnimationFrame(drawBg);
+  document.getElementById('s-total').textContent=shown;
 }
-
-window.addEventListener('resize', initCanvas);
-initCanvas();
-drawBg();
-renderGrid();
 </script>
 </body>
 </html>
