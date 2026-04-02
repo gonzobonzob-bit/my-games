@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Purr & Power Co.</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --sun: #F4A820;
+    --sun-pale: #FDE68A;
+    --green: #22C55E;
+    --green-dark: #15803D;
+    --office: #F8F4EF;
+    --wall: #E8E0D5;
+    --desk: #A0785A;
+    --desk-top: #C49A6C;
+    --cat-orange: #E07A30;
+    --cat-gray: #9CA3AF;
+    --cat-black: #1F2937;
+    --angry: #EF4444;
+    --ui-bg: #1C1917;
+    --ui-card: #292524;
+    --ui-border: #44403C;
+    --text: #FAFAF9;
+    --text-dim: #A8A29E;
+    --accent: #F4A820;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--ui-bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-width: 430px;
+    margin: 0 auto;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    background: var(--ui-bg);
+    border-bottom: 1px solid var(--ui-border);
+    padding: 10px 16px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+
+  #logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  #logo span { color: var(--text-dim); font-size: 11px; font-family: 'DM Sans', sans-serif; display: block; letter-spacing: 2px; font-weight: 300; }
+
+  #money-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  #money-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+  #money-amount {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--green);
+  }
+  #money-rate { font-size: 10px; color: var(--text-dim); }
+
+  /* ── OFFICE CANVAS ── */
+  #office-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--office);
+  }
+
+  #office-floor {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.04) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.04) 40px),
+      var(--office);
+  }
+
+  /* walls */
+  #office-floor::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 12px;
+    background: var(--wall);
+    border-bottom: 2px solid #C8BAA8;
+  }
+
+  /* window */
+  .window {
+    position: absolute;
+    top: 14px;
+    background: linear-gradient(160deg, #BAE6FD 0%, #7DD3FC 60%, #38BDF8 100%);
+    border: 3px solid #C8BAA8;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .window::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; width: 2px; height: 100%;
+    background: rgba(255,255,255,0.4);
+  }
+  .window::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; width: 100%; height: 2px;
+    background: rgba(255,255,255,0.4);
+    z-index: 1;
+  }
+
+  /* ── DESKS ── */
+  .desk {
+    position: absolute;
+    width: 72px;
+    height: 52px;
+    cursor: pointer;
+    transition: transform 0.1s;
+    user-select: none;
+  }
+  .desk:active { transform: scale(0.95); }
+  .desk-body {
+    width: 100%;
+    height: 38px;
+    background: var(--desk-top);
+    border-radius: 4px 4px 0 0;
+    border: 2px solid var(--desk);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .desk-body::after {
+    content: '';
+    position: absolute;
+    top: 4px; left: 4px; right: 4px;
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+  }
+  .desk-legs {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 6px;
+    height: 14px;
+  }
+  .desk-leg {
+    width: 8px;
+    height: 14px;
+    background: var(--desk);
+    border-radius: 0 0 2px 2px;
+  }
+  .monitor {
+    width: 32px;
+    height: 22px;
+    background: #1C1917;
+    border-radius: 3px;
+    border: 2px solid #44403C;
+    position: relative;
+    overflow: hidden;
+  }
+  .monitor-screen {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #064E3B, #065F46);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+  }
+  .monitor-screen.active { background: linear-gradient(135deg, #1E40AF, #1D4ED8); animation: screenPulse 2s infinite; }
+  @keyframes screenPulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+  .desk-coin {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    animation: coinFloat 0.8s ease-out forwards;
+    pointer-events: none;
+    z-index: 50;
+  }
+  @keyframes coinFloat { 0%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-30px)} }
+
+  .desk-ring {
+    position: absolute;
+    top: -6px; left: -6px; right: -6px; bottom: -6px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    animation: ringPulse 0.4s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes ringPulse { 0%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.2)} }
+
+  /* ── EMPLOYEE BADGE ── */
+  .employee-badge {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .employee-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── CATS ── */
+  .cat {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    cursor: default;
+    z-index: 20;
+    transition: left 3s linear, top 3s linear;
+    user-select: none;
+  }
+  .cat-body {
+    width: 20px;
+    height: 14px;
+    border-radius: 10px 10px 4px 4px;
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+  }
+  .cat-head {
+    width: 14px;
+    height: 12px;
+    border-radius: 50% 50% 40% 40%;
+    position: absolute;
+    top: 2px;
+    left: 7px;
+  }
+  .cat-ear-l, .cat-ear-r {
+    position: absolute;
+    width: 0; height: 0;
+    top: -4px;
+  }
+  .cat-ear-l { left: 1px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid currentColor; }
+  .cat-ear-r { right: 1px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid currentColor; }
+  .cat-tail {
+    position: absolute;
+    bottom: 6px;
+    right: 0;
+    width: 10px;
+    height: 4px;
+    border-radius: 0 4px 4px 0;
+    animation: tailWag 1.2s ease-in-out infinite;
+    transform-origin: left center;
+  }
+  @keyframes tailWag { 0%,100%{transform:rotate(-20deg)} 50%{transform:rotate(20deg)} }
+  .cat-eyes {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 3px;
+  }
+  .cat-eye {
+    width: 3px; height: 3px;
+    background: #1C1917;
+    border-radius: 50%;
+  }
+  .cat.purring::after {
+    content: 'purr~';
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    color: var(--accent);
+    white-space: nowrap;
+    animation: fadeUp 2s forwards;
+  }
+  @keyframes fadeUp { 0%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-15px)} }
+
+  /* ── ANGRY CUSTOMER ── */
+  .customer {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: customerBounce 0.5s ease-in-out infinite alternate;
+    cursor: pointer;
+  }
+  @keyframes customerBounce { 0%{transform:translateY(0)} 100%{transform:translateY(-4px)} }
+  .customer-bubble {
+    background: var(--angry);
+    color: white;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 10px;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+  .customer-bubble::after {
+    content: '';
+    display: block;
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--angry);
+    margin: 0 auto;
+  }
+  .customer-icon { font-size: 22px; }
+  .customer-timer {
+    width: 40px;
+    height: 3px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    margin-top: 3px;
+    overflow: hidden;
+  }
+  .customer-timer-bar {
+    height: 100%;
+    background: var(--angry);
+    transition: width 0.5s linear;
+  }
+
+  /* ── SOLAR PANEL DECORATION ── */
+  .solar-panel {
+    position: absolute;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    opacity: 0.7;
+  }
+  .solar-cell {
+    width: 14px;
+    height: 10px;
+    background: linear-gradient(135deg, #1E3A5F, #1E40AF);
+    border: 1px solid #60A5FA;
+    border-radius: 1px;
+    position: relative;
+  }
+  .solar-cell::after {
+    content: '';
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 4px; height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 1px;
+  }
+
+  /* ── BOTTOM UI ── */
+  #bottom-ui {
+    background: var(--ui-bg);
+    border-top: 1px solid var(--ui-border);
+    padding: 10px 12px 20px;
+    flex-shrink: 0;
+  }
+
+  #stats-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .stat-pill {
+    flex: 1;
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-icon { font-size: 14px; }
+  .stat-info { flex: 1; }
+  .stat-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-val { font-size: 13px; font-weight: 600; font-family: 'DM Mono', monospace; }
+
+  #action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .action-btn {
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+  .action-btn:active { transform: scale(0.97); }
+  .action-btn.primary { border-color: var(--accent); }
+  .action-btn.primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(244,168,32,0.1), transparent);
+  }
+  .action-btn.secondary { border-color: #3B82F6; }
+  .action-btn.secondary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(59,130,246,0.1), transparent);
+  }
+  .action-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .btn-icon { font-size: 18px; }
+  .btn-cost {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+  }
+  .btn-cost.cant-afford { color: var(--angry); }
+  .btn-title { font-size: 12px; font-weight: 600; display: block; }
+  .btn-sub { font-size: 10px; color: var(--text-dim); display: block; }
+
+  /* morale bar */
+  #morale-bar-wrap {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #morale-label { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+  #morale-track {
+    flex: 1;
+    height: 6px;
+    background: var(--ui-card);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+  }
+  #morale-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  #morale-val { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--accent); min-width: 28px; text-align: right; }
+
+  /* notification toast */
+  .toast {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    z-index: 999;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
+    white-space: nowrap;
+  }
+  @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  @keyframes toastOut { from{opacity:1} to{opacity:0} }
+
+  /* contract popup */
+  #contract-popup {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 20px;
+  }
+  #contract-popup.show { display: flex; }
+  .contract-card {
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .contract-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .contract-body { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
+  .contract-reward { font-size: 18px; font-weight: 700; color: var(--green); margin-bottom: 16px; }
+  .contract-btns { display: flex; gap: 8px; }
+  .contract-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .contract-btn:active { opacity: 0.8; }
+  .contract-accept { background: var(--green); color: white; }
+  .contract-decline { background: var(--ui-border); color: var(--text-dim); }
+
+  /* intro */
+  #intro {
+    position: fixed;
+    inset: 0;
+    background: var(--ui-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    padding: 32px;
+    text-align: center;
+  }
+  #intro-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  #intro-sub { font-size: 12px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 32px; }
+  #intro-desc { font-size: 14px; color: var(--text-dim); line-height: 1.7; margin-bottom: 32px; max-width: 280px; }
+  #intro-start {
+    background: var(--accent);
+    color: var(--ui-bg);
+    border: none;
+    border-radius: 14px;
+    padding: 14px 40px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  #intro-start:active { opacity: 0.8; }
+  .intro-cats { font-size: 32px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- INTRO SCREEN -->
+<div id="intro">
+  <div class="intro-cats">🐱☀️🐱</div>
+  <div id="intro-logo">Purr &<br>Power Co.</div>
+  <div id="intro-sub">Solar · Cats · Profit</div>
+  <div id="intro-desc">
+    Run El Paso's most cat-friendly solar installation company. Hire employees, manage contracts, keep the cats purring — and the panels selling.
+  </div>
+  <button id="intro-start" onclick="startGame()">START COMPANY</button>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div>
+    <div id="logo">Purr & Power<span>SOLAR CO. · EL PASO</span></div>
+  </div>
+  <div id="money-display">
+    <div id="money-label">Revenue</div>
+    <div id="money-amount">$0</div>
+    <div id="money-rate">+$0/sec</div>
+  </div>
+</div>
+
+<!-- OFFICE -->
+<div id="office-wrap">
+  <div id="office-floor">
+    <!-- windows injected by JS -->
+  </div>
+</div>
+
+<!-- BOTTOM UI -->
+<div id="bottom-ui">
+  <div id="morale-bar-wrap">
+    <div id="morale-label">🐱 Cat Morale</div>
+    <div id="morale-track"><div id="morale-fill" style="width:40%"></div></div>
+    <div id="morale-val">40%</div>
+  </div>
+  <div id="stats-row">
+    <div class="stat-pill">
+      <div class="stat-icon">👔</div>
+      <div class="stat-info">
+        <div class="stat-label">Staff</div>
+        <div class="stat-val" id="stat-staff">1</div>
+      </div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-icon">🐱</div>
+      <div class="stat-info">
+        <div class="stat-label">Cats</div>
+        <div class="stat-val" id="stat-cats">2</div>
+      </div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-info">
+        <div class="stat-label">Contracts</div>
+        <div class="stat-val" id="stat-contracts">0</div>
+      </div>
+    </div>
+  </div>
+  <div id="action-row">
+    <button class="action-btn primary" id="btn-hire" onclick="hireEmployee()">
+      <div class="btn-top">
+        <span class="btn-icon">👔</span>
+        <span class="btn-cost" id="hire-cost">$150</span>
+      </div>
+      <span class="btn-title">Hire Installer</span>
+      <span class="btn-sub">+$8/sec per desk</span>
+    </button>
+    <button class="action-btn secondary" id="btn-cat" onclick="adoptCat()">
+      <div class="btn-top">
+        <span class="btn-icon">🐱</span>
+        <span class="btn-cost" id="cat-cost">$80</span>
+      </div>
+      <span class="btn-title">Adopt Cat</span>
+      <span class="btn-sub">+15% morale boost</span>
+    </button>
+    <button class="action-btn primary" id="btn-upgrade" onclick="upgradeDesk()">
+      <div class="btn-top">
+        <span class="btn-icon">🖥️</span>
+        <span class="btn-cost" id="upgrade-cost">$300</span>
+      </div>
+      <span class="btn-title">Upgrade Office</span>
+      <span class="btn-sub">2× income multiplier</span>
+    </button>
+    <button class="action-btn secondary" id="btn-panel" onclick="buySolarPanel()">
+      <div class="btn-top">
+        <span class="btn-icon">☀️</span>
+        <span class="btn-cost" id="panel-cost">$500</span>
+      </div>
+      <span class="btn-title">Solar Display</span>
+      <span class="btn-sub">+$25/sec passive</span>
+    </button>
+  </div>
+</div>
+
+<!-- CONTRACT POPUP -->
+<div id="contract-popup">
+  <div class="contract-card">
+    <div class="contract-title" id="contract-title">New Contract!</div>
+    <div class="contract-body" id="contract-body"></div>
+    <div class="contract-reward" id="contract-reward"></div>
+    <div class="contract-btns">
+      <button class="contract-btn contract-accept" onclick="acceptContract()">✓ Accept</button>
+      <button class="contract-btn contract-decline" onclick="declineContract()">✗ Decline</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── GAME STATE ──
+const STATE = {
+  money: 0,
+  income: 0,
+  morale: 40,
+  staff: 1,
+  cats: 2,
+  contracts: 0,
+  upgrade: 1,
+  panels: 0,
+  hireCost: 150,
+  catCost: 80,
+  upgradeCost: 300,
+  panelCost: 500,
+  pendingContract: null,
+  angerCount: 0,
+  gameStarted: false
+};
+
+const CONTRACTS = [
+  { title: "Residential Install", body: "Mrs. Rodriguez on Mesa Hills needs 12 panels on her roof. Quick turnaround.", reward: 400 },
+  { title: "Commercial Rooftop", body: "Desert Star Plaza wants a 50-panel system. Big job, big pay.", reward: 1200 },
+  { title: "School District", body: "Ysleta ISD wants solar on 3 campuses. Community project.", reward: 2500 },
+  { title: "Hotel Solar Array", body: "Sunland Park hotel needs a rooftop system for their pool heating.", reward: 900 },
+  { title: "City Government Bid", body: "El Paso City Hall wants to go solar. Win this and you're famous.", reward: 5000 },
+  { title: "Ranch Solar Farm", body: "A cattle ranch out past Fabens needs off-grid power.", reward: 1800 },
+  { title: "Car Dealership", body: "AutoNation on Montana Ave wants a canopy solar system.", reward: 1100 },
+];
+
+const ANGRY_MSGS = [
+  "WHERE ARE MY PANELS?!", "THIS IS TAKING TOO LONG!", "I'M CALLING BBB!", "REFUND! NOW!", "YOUR CATS BROKE MY ROOF!"
+];
+
+const CAT_COLORS = [
+  { body: '#E07A30', head: '#E07A30', ear: '#E07A30', tail: '#C96020' }, // orange
+  { body: '#9CA3AF', head: '#9CA3AF', ear: '#9CA3AF', tail: '#6B7280' }, // gray
+  { body: '#1F2937', head: '#1F2937', ear: '#1F2937', tail: '#111827' }, // black
+  { body: '#F5DEB3', head: '#F5DEB3', ear: '#F5DEB3', tail: '#E8C878' }, // cream
+  { body: '#92400E', head: '#92400E', ear: '#92400E', tail: '#78350F' }, // brown
+];
+
+const CAT_NAMES = ['Luna', 'Mochi', 'Pixel', 'Solar', 'Watt', 'Volt', 'Amp', 'Ohm', 'Kilo', 'Mega'];
+
+let desks = [];
+let cats = [];
+let customers = [];
+let catMoveInterval;
+let incomeInterval;
+let contractInterval;
+let angerInterval;
+
+function startGame() {
+  document.getElementById('intro').style.display = 'none';
+  STATE.gameStarted = true;
+  initOffice();
+  startLoops();
+  save();
+}
+
+function initOffice() {
+  const floor = document.getElementById('office-floor');
+  // windows
+  const w1 = document.createElement('div');
+  w1.className = 'window';
+  w1.style.cssText = 'left:20px;width:60px;height:48px;';
+  const w2 = document.createElement('div');
+  w2.className = 'window';
+  w2.style.cssText = 'left:100px;width:60px;height:48px;';
+  const w3 = document.createElement('div');
+  w3.className = 'window';
+  w3.style.cssText = 'right:20px;width:60px;height:48px;';
+  floor.appendChild(w1);
+  floor.appendChild(w2);
+  floor.appendChild(w3);
+
+  // solar panel decoration
+  addSolarDecor(floor);
+
+  // initial desk
+  spawnDesk();
+  // initial cats
+  for (let i = 0; i < STATE.cats; i++) spawnCat();
+}
+
+function addSolarDecor(floor) {
+  const panel = document.createElement('div');
+  panel.className = 'solar-panel';
+  panel.style.cssText = 'right:12px;bottom:80px;';
+  for (let i = 0; i < 6; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'solar-cell';
+    panel.appendChild(cell);
+  }
+  floor.appendChild(panel);
+}
+
+function spawnDesk() {
+  const floor = document.getElementById('office-floor');
+  const wrap = floor.getBoundingClientRect();
+  const col = desks.length % 3;
+  const row = Math.floor(desks.length / 3);
+  const x = 20 + col * 90;
+  const y = 70 + row * 90;
+
+  const desk = document.createElement('div');
+  desk.className = 'desk';
+  desk.style.left = x + 'px';
+  desk.style.top = y + 'px';
+  desk.dataset.idx = desks.length;
+  desk.onclick = () => tapDesk(desk);
+
+  const body = document.createElement('div');
+  body.className = 'desk-body';
+  const monitor = document.createElement('div');
+  monitor.className = 'monitor';
+  const screen = document.createElement('div');
+  screen.className = 'monitor-screen active';
+  screen.textContent = '☀️';
+  monitor.appendChild(screen);
+  body.appendChild(monitor);
+
+  const legs = document.createElement('div');
+  legs.className = 'desk-legs';
+  legs.innerHTML = '<div class="desk-leg"></div><div class="desk-leg"></div>';
+
+  const badge = document.createElement('div');
+  badge.className = 'employee-badge';
+  badge.innerHTML = '<div class="employee-dot"></div><span>Installer ' + (desks.length + 1) + '</span>';
+
+  desk.appendChild(badge);
+  desk.appendChild(body);
+  desk.appendChild(legs);
+  floor.appendChild(desk);
+  desks.push(desk);
+  recalcIncome();
+}
+
+function tapDesk(desk) {
+  const bonus = 5 * STATE.upgrade;
+  STATE.money += bonus;
+  // coin
+  const coin = document.createElement('div');
+  coin.className = 'desk-coin';
+  coin.textContent = '+$' + bonus;
+  desk.appendChild(coin);
+  setTimeout(() => coin.remove(), 900);
+  // ring
+  const ring = document.createElement('div');
+  ring.className = 'desk-ring';
+  desk.appendChild(ring);
+  setTimeout(() => ring.remove(), 500);
+  updateUI();
+}
+
+function spawnCat() {
+  const floor = document.getElementById('office-floor');
+  const h = floor.offsetHeight || 300;
+  const w = floor.offsetWidth || 300;
+  const color = CAT_COLORS[cats.length % CAT_COLORS.length];
+  const name = CAT_NAMES[cats.length % CAT_NAMES.length];
+
+  const cat = document.createElement('div');
+  cat.className = 'cat';
+  cat.style.left = (20 + Math.random() * (w - 60)) + 'px';
+  cat.style.top = (30 + Math.random() * (h - 80)) + 'px';
+  cat.title = name;
+
+  cat.innerHTML = `
+    <div class="cat-body" style="background:${color.body}">
+      <div class="cat-tail" style="background:${color.tail}"></div>
+    </div>
+    <div class="cat-head" style="background:${color.head}">
+      <div class="cat-ear-l" style="color:${color.ear}"></div>
+      <div class="cat-ear-r" style="color:${color.ear}"></div>
+      <div class="cat-eyes"><div class="cat-eye"></div><div class="cat-eye"></div></div>
+    </div>
+  `;
+
+  cat.onclick = () => petCat(cat, name);
+  floor.appendChild(cat);
+  cats.push(cat);
+  moveCatRandom(cat);
+}
+
+function moveCatRandom(cat) {
+  const floor = document.getElementById('office-floor');
+  const h = floor.offsetHeight || 300;
+  const w = floor.offsetWidth || 300;
+  const move = () => {
+    if (!cat.parentNode) return;
+    cat.style.left = (10 + Math.random() * (w - 50)) + 'px';
+    cat.style.top = (30 + Math.random() * (h - 70)) + 'px';
+  };
+  move();
+  setInterval(move, 3000 + Math.random() * 2000);
+}
+
+function petCat(cat, name) {
+  cat.classList.add('purring');
+  STATE.morale = Math.min(100, STATE.morale + 5);
+  setTimeout(() => cat.classList.remove('purring'), 2500);
+  showToast('😻 ' + name + ' purrs!');
+  updateUI();
+}
+
+function spawnAngryCustomer() {
+  if (customers.length >= 2) return;
+  const floor = document.getElementById('office-floor');
+  const w = floor.offsetWidth || 300;
+  const msg = ANGRY_MSGS[Math.floor(Math.random() * ANGRY_MSGS.length)];
+  const x = 20 + Math.random() * (w - 100);
+  const y = 60 + Math.random() * 100;
+
+  const c = document.createElement('div');
+  c.className = 'customer';
+  c.style.left = x + 'px';
+  c.style.top = y + 'px';
+
+  let timeLeft = 100;
+  c.innerHTML = `
+    <div class="customer-bubble">${msg}</div>
+    <div class="customer-icon">😡</div>
+    <div class="customer-timer"><div class="customer-timer-bar" style="width:100%"></div></div>
+  `;
+
+  c.onclick = () => resolveCustomer(c, timeLeft);
+  floor.appendChild(c);
+  customers.push(c);
+
+  const bar = c.querySelector('.customer-timer-bar');
+  const tick = setInterval(() => {
+    timeLeft -= 2;
+    bar.style.width = timeLeft + '%';
+    if (timeLeft <= 0) {
+      clearInterval(tick);
+      loseContract(c);
+    }
+  }, 100);
+  c._tick = tick;
+}
+
+function resolveCustomer(el, timeLeft) {
+  clearInterval(el._tick);
+  const bonus = Math.floor(timeLeft * 2);
+  STATE.money += bonus;
+  STATE.morale = Math.min(100, STATE.morale + 8);
+  customers = customers.filter(c => c !== el);
+  el.remove();
+  showToast('😌 Customer calmed! +$' + bonus);
+  updateUI();
+}
+
+function loseContract(el) {
+  STATE.morale = Math.max(0, STATE.morale - 15);
+  customers = customers.filter(c => c !== el);
+  el.remove();
+  showToast('😤 Lost a contract! Morale -15');
+  updateUI();
+}
+
+function triggerContract() {
+  if (document.getElementById('contract-popup').classList.contains('show')) return;
+  if (STATE.staff < 1) return;
+  const contract = CONTRACTS[Math.floor(Math.random() * CONTRACTS.length)];
+  STATE.pendingContract = contract;
+  document.getElementById('contract-title').textContent = '📋 ' + contract.title;
+  document.getElementById('contract-body').textContent = contract.body;
+  document.getElementById('contract-reward').textContent = '+$' + contract.reward.toLocaleString();
+  document.getElementById('contract-popup').classList.add('show');
+}
+
+function acceptContract() {
+  if (!STATE.pendingContract) return;
+  STATE.money += STATE.pendingContract.reward;
+  STATE.contracts++;
+  STATE.morale = Math.min(100, STATE.morale + 10);
+  document.getElementById('contract-popup').classList.remove('show');
+  showToast('✅ Contract won! +$' + STATE.pendingContract.reward.toLocaleString());
+  STATE.pendingContract = null;
+  updateUI();
+}
+
+function declineContract() {
+  document.getElementById('contract-popup').classList.remove('show');
+  STATE.pendingContract = null;
+  showToast('❌ Contract declined');
+}
+
+// ── PURCHASES ──
+function hireEmployee() {
+  if (STATE.money < STATE.hireCost) { showToast('💸 Need $' + STATE.hireCost); return; }
+  STATE.money -= STATE.hireCost;
+  STATE.staff++;
+  STATE.hireCost = Math.floor(STATE.hireCost * 1.6);
+  spawnDesk();
+  showToast('👔 New installer hired!');
+  updateUI();
+}
+
+function adoptCat() {
+  if (STATE.money < STATE.catCost) { showToast('💸 Need $' + STATE.catCost); return; }
+  STATE.money -= STATE.catCost;
+  STATE.cats++;
+  STATE.catCost = Math.floor(STATE.catCost * 1.4);
+  spawnCat();
+  STATE.morale = Math.min(100, STATE.morale + 15);
+  showToast('🐱 New cat adopted! Morale up!');
+  updateUI();
+}
+
+function upgradeDesk() {
+  if (STATE.money < STATE.upgradeCost) { showToast('💸 Need $' + STATE.upgradeCost); return; }
+  STATE.money -= STATE.upgradeCost;
+  STATE.upgrade++;
+  STATE.upgradeCost = Math.floor(STATE.upgradeCost * 2.2);
+  showToast('🖥️ Office upgraded! Level ' + STATE.upgrade);
+  updateUI();
+}
+
+function buySolarPanel() {
+  if (STATE.money < STATE.panelCost) { showToast('💸 Need $' + STATE.panelCost); return; }
+  STATE.money -= STATE.panelCost;
+  STATE.panels++;
+  STATE.panelCost = Math.floor(STATE.panelCost * 1.8);
+  addSolarDecor(document.getElementById('office-floor'));
+  showToast('☀️ Solar display installed!');
+  recalcIncome();
+  updateUI();
+}
+
+// ── INCOME ──
+function recalcIncome() {
+  const moraleBonus = 1 + (STATE.morale / 100) * 0.5;
+  STATE.income = Math.floor((STATE.staff * 8 * STATE.upgrade + STATE.panels * 25) * moraleBonus);
+}
+
+function startLoops() {
+  // income tick
+  incomeInterval = setInterval(() => {
+    recalcIncome();
+    STATE.money += STATE.income / 10;
+    STATE.morale = Math.max(10, STATE.morale - 0.05);
+    updateUI();
+  }, 100);
+
+  // contracts every 25-40s
+  contractInterval = setInterval(() => {
+    if (Math.random() < 0.6) triggerContract();
+  }, 30000);
+
+  // angry customers every 20-45s
+  angerInterval = setInterval(() => {
+    if (STATE.staff > 0 && Math.random() < 0.5) spawnAngryCustomer();
+  }, 25000);
+
+  // first contract after 15s
+  setTimeout(triggerContract, 15000);
+  // first angry customer after 30s
+  setTimeout(spawnAngryCustomer, 30000);
+}
+
+// ── UI ──
+function formatMoney(n) {
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return '$' + (n/1000).toFixed(1) + 'K';
+  return '$' + Math.floor(n);
+}
+
+function updateUI() {
+  document.getElementById('money-amount').textContent = formatMoney(STATE.money);
+  document.getElementById('money-rate').textContent = '+' + formatMoney(STATE.income) + '/sec';
+  document.getElementById('stat-staff').textContent = STATE.staff;
+  document.getElementById('stat-cats').textContent = STATE.cats;
+  document.getElementById('stat-contracts').textContent = STATE.contracts;
+
+  const morale = Math.floor(STATE.morale);
+  document.getElementById('morale-fill').style.width = morale + '%';
+  document.getElementById('morale-val').textContent = morale + '%';
+
+  // button costs
+  const hc = document.getElementById('hire-cost');
+  hc.textContent = formatMoney(STATE.hireCost);
+  hc.className = 'btn-cost' + (STATE.money >= STATE.hireCost ? '' : ' cant-afford');
+
+  const cc = document.getElementById('cat-cost');
+  cc.textContent = formatMoney(STATE.catCost);
+  cc.className = 'btn-cost' + (STATE.money >= STATE.catCost ? '' : ' cant-afford');
+
+  const uc = document.getElementById('upgrade-cost');
+  uc.textContent = formatMoney(STATE.upgradeCost);
+  uc.className = 'btn-cost' + (STATE.money >= STATE.upgradeCost ? '' : ' cant-afford');
+
+  const pc = document.getElementById('panel-cost');
+  pc.textContent = formatMoney(STATE.panelCost);
+  pc.className = 'btn-cost' + (STATE.money >= STATE.panelCost ? '' : ' cant-afford');
+
+  save();
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2100);
+}
+
+// ── SAVE / LOAD ──
+function save() {
+  try {
+    localStorage.setItem('purr_power', JSON.stringify({
+      money: STATE.money,
+      contracts: STATE.contracts,
+      staff: STATE.staff,
+      cats: STATE.cats,
+      upgrade: STATE.upgrade,
+      panels: STATE.panels,
+      hireCost: STATE.hireCost,
+      catCost: STATE.catCost,
+      upgradeCost: STATE.upgradeCost,
+      panelCost: STATE.panelCost,
+      morale: STATE.morale,
+    }));
+  } catch(e) {}
+}
+
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('purr_power'));
+    if (!d) return;
+    Object.assign(STATE, d);
+    // offline income
+    const lastTime = parseInt(localStorage.getItem('purr_power_time') || Date.now());
+    const elapsed = Math.min((Date.now() - lastTime) / 1000, 3600);
+    recalcIncome();
+    const offline = STATE.income * elapsed * 0.5;
+    if (offline > 0) {
+      STATE.money += offline;
+      showToast('💤 Offline earnings: ' + formatMoney(offline));
+    }
+  } catch(e) {}
+  localStorage.setItem('purr_power_time', Date.now());
+}
+
+// ── INIT ──
+load();
+</script>
+</body>
+</html>
