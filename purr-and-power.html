@@ -5,247 +5,359 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Purr & Power Co.</title>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root {
-  --sun:#F59E0B;--sun2:#FDE68A;--sky:#38BDF8;--sky2:#BAE6FD;
-  --green:#22C55E;--green2:#86EFAC;--orange:#F97316;--red:#EF4444;
-  --blue:#3B82F6;--blue2:#93C5FD;--purple:#8B5CF6;
-  --bg:#1E293B;--bg2:#0F172A;--panel:#1A2744;--panel2:#243158;
+:root{
+  --sun:#F59E0B;--sun2:#FDE68A;--green:#22C55E;--green2:#86EFAC;
+  --orange:#F97316;--red:#EF4444;--blue:#3B82F6;--sky:#38BDF8;
+  --bg:#0F172A;--bg2:#1E293B;--panel:#1A2744;--panel2:#243158;
   --border:#334155;--text:#F1F5F9;--muted:#94A3B8;--card:#162035;
-  --gold:#F59E0B;
+  /* real equipment colors */
+  --silfab-black:#0A0A0A;--silfab-cell:#111827;--silfab-frame:#1F2937;
+  --smr-black:#1a1a1a;--smr-rail:#2a2a2a;
+  --se-white:#F8FAFC;--se-gray:#CBD5E1;
+  --ep-sand:#C4A882;--ep-sky:#87CEEB;--ep-desert:#D4956A;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-family:'Nunito',sans-serif;color:var(--text);}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
 
-/* SPLASH */
-#splash{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0F172A 0%,#1E293B 60%,#0F2040 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;}
-.sp-sun{font-size:80px;animation:spBounce 1.5s ease-in-out infinite;filter:drop-shadow(0 0 30px rgba(245,158,11,0.6));margin-bottom:12px;}
-@keyframes spBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-.sp-title{font-family:'Fredoka One',cursive;font-size:44px;color:var(--sun);text-shadow:0 0 30px rgba(245,158,11,0.4);line-height:1;margin-bottom:6px;}
-.sp-sub{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:24px;}
-.sp-cats{font-size:30px;margin-bottom:20px;animation:catRock 2s ease-in-out infinite;}
-@keyframes catRock{0%,100%{transform:translateX(-8px)}50%{transform:translateX(8px)}}
-.sp-desc{font-size:13px;color:var(--muted);line-height:1.7;max-width:280px;margin-bottom:32px;}
-.sp-btn{background:linear-gradient(135deg,var(--sun),var(--orange));color:white;border:none;border-radius:20px;padding:16px 48px;font-family:'Fredoka One',cursive;font-size:22px;letter-spacing:1px;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,0.4);transition:transform 0.15s;}
+/* ══ SPLASH ══ */
+#splash{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0F172A,#1E293B 50%,#0F2040);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;}
+.sp-logo-wrap{position:relative;margin-bottom:16px;}
+.sp-sun{font-size:72px;filter:drop-shadow(0 0 28px rgba(245,158,11,0.7));animation:spFloat 2s ease-in-out infinite;}
+@keyframes spFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.sp-title{font-family:'Fredoka One',cursive;font-size:42px;color:var(--sun);line-height:1;margin-bottom:4px;}
+.sp-tagline{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:20px;}
+.sp-equipment{display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:20px;padding:10px 16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;}
+.sp-eq-item{font-size:9px;color:var(--muted);text-align:center;line-height:1.4;}
+.sp-eq-item strong{display:block;color:var(--text);font-size:10px;margin-bottom:2px;}
+.sp-desc{font-size:12px;color:var(--muted);line-height:1.7;max-width:280px;margin-bottom:28px;}
+.sp-btn{background:linear-gradient(135deg,var(--sun),var(--orange));color:#0F172A;border:none;border-radius:18px;padding:14px 44px;font-family:'Fredoka One',cursive;font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,0.4);transition:transform 0.15s;}
 .sp-btn:active{transform:scale(0.96);}
+.sp-cats{font-size:24px;margin-bottom:16px;}
 
-/* APP */
+/* ══ APP ══ */
 #app{display:none;flex-direction:column;width:100%;height:100%;}
 #app.show{display:flex;}
 
 /* TOPBAR */
-#topbar{background:var(--bg2);border-bottom:2px solid var(--border);padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:100;}
-.tb-logo{font-family:'Fredoka One',cursive;font-size:17px;color:var(--sun);line-height:1;}
-.tb-logo span{display:block;font-size:8px;color:var(--muted);font-family:'Nunito',sans-serif;letter-spacing:2px;}
-.currencies{display:flex;gap:5px;align-items:center;}
-.currency{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 8px 4px 5px;display:flex;align-items:center;gap:3px;font-size:11px;font-weight:800;font-family:'Fredoka One',cursive;}
-.currency.money{border-color:rgba(34,197,94,0.4);color:var(--green);}
-.currency.credits{border-color:rgba(245,158,11,0.4);color:var(--sun);}
-.currency.purr{border-color:rgba(249,115,22,0.4);color:var(--orange);}
-.cur-icon{font-size:13px;}
+#topbar{background:var(--bg);border-bottom:2px solid var(--border);padding:6px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:100;}
+.tb-logo{font-family:'Fredoka One',cursive;font-size:15px;color:var(--sun);line-height:1;}
+.tb-logo span{display:block;font-size:7px;color:var(--muted);letter-spacing:2px;font-family:'Nunito',sans-serif;}
+.currencies{display:flex;gap:4px;}
+.cur{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:3px 7px 3px 5px;display:flex;align-items:center;gap:3px;font-size:10px;font-weight:800;font-family:'Fredoka One',cursive;}
+.cur.m{border-color:rgba(34,197,94,0.4);color:var(--green);}
+.cur.c{border-color:rgba(245,158,11,0.4);color:var(--sun);}
+.cur.p{border-color:rgba(249,115,22,0.4);color:var(--orange);}
 
 /* GAME AREA */
 #game-area{flex:1;overflow:hidden;position:relative;}
 .layer{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .layer.active{display:flex;}
 
-/* ═══ LAYER 1: OFFICE ═══ */
-#layer-office{background:linear-gradient(180deg,#E8DDD0 0%,#F0E8DC 100%);}
-.off-ceiling{height:12px;background:linear-gradient(180deg,#C8BAA8,#D4C8B8);border-bottom:2px solid #B8A898;flex-shrink:0;}
-.morale-row{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px;}
-.morale-lbl{font-size:10px;color:var(--muted);white-space:nowrap;}
-.morale-track{flex:1;height:8px;background:var(--card);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
-.morale-fill{height:100%;border-radius:4px;transition:width 0.5s ease;background:linear-gradient(90deg,var(--sun),var(--green));}
-.morale-val{font-family:'Fredoka One',cursive;font-size:12px;color:var(--sun);min-width:36px;text-align:right;}
-.income-row{flex-shrink:0;background:var(--bg2);padding:3px 12px;display:flex;justify-content:space-between;align-items:center;}
-.income-lbl{font-size:10px;color:var(--muted);}
-.income-val{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);}
-.office-main{flex:1;position:relative;overflow:hidden;}
-.off-window{position:absolute;top:8px;width:54px;height:48px;background:linear-gradient(160deg,#BAE6FD,#7DD3FC);border:3px solid #C8BAA8;border-radius:4px;}
-.off-window::before,.off-window::after{content:'';position:absolute;background:rgba(255,255,255,0.35);}
-.off-window::before{top:0;left:50%;width:2px;height:100%;}
-.off-window::after{top:50%;left:0;width:100%;height:2px;}
-.off-floor{position:absolute;bottom:0;left:0;right:0;height:10px;background:linear-gradient(180deg,#C8BAA8,#B8A898);}
+/* ══════════════════════════
+   LAYER 1 — OFFICE
+══════════════════════════ */
+#layer-office{background:#EDE8E0;}
+.off-ceiling{height:10px;background:linear-gradient(180deg,#BEB0A0,#CEC0B0);border-bottom:2px solid #AEA090;flex-shrink:0;}
+.off-info-bar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);padding:4px 10px;display:flex;align-items:center;gap:8px;}
+.morale-wrap{display:flex;align-items:center;gap:5px;flex:1;}
+.morale-lbl{font-size:9px;color:var(--muted);white-space:nowrap;}
+.morale-track{flex:1;height:6px;background:var(--card);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+.morale-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--sun),var(--green));transition:width 0.5s;}
+.morale-val{font-family:'Fredoka One',cursive;font-size:11px;color:var(--sun);min-width:32px;text-align:right;}
+.income-badge{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:2px 8px;font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);white-space:nowrap;}
 
-/* DESK */
-.desk-station{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.1s;}
-.desk-station:active{transform:scale(0.94);}
-.desk-visual{position:relative;width:76px;height:58px;}
-.desk-top{position:absolute;top:0;left:0;right:0;height:36px;background:linear-gradient(180deg,#C49A6C,#A0785A);border-radius:5px 5px 0 0;border:2px solid #8B6347;display:flex;align-items:center;justify-content:center;gap:3px;}
-.desk-monitor{width:28px;height:20px;background:#0F172A;border-radius:3px;border:2px solid #334155;display:flex;align-items:center;justify-content:center;font-size:10px;animation:screenGlow 2s infinite;}
-@keyframes screenGlow{0%,100%{opacity:1}50%{opacity:0.65}}
-.desk-legs{position:absolute;bottom:0;left:4px;right:4px;display:flex;justify-content:space-between;height:22px;}
-.desk-leg{width:9px;height:100%;background:#8B6347;border-radius:0 0 3px 3px;}
-.emp-char{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}
-.emp-head{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;animation:empBob 2s ease-in-out infinite;}
-@keyframes empBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-.emp-body{width:14px;height:10px;border-radius:4px 4px 0 0;margin-top:-2px;}
-.stn-info{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px 7px;margin-top:3px;text-align:center;min-width:78px;}
-.stn-name{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
-.stn-rate{font-family:'Fredoka One',cursive;font-size:12px;color:var(--green);}
-.stn-lvl{position:absolute;top:-8px;right:-8px;background:var(--blue);color:white;font-size:8px;font-weight:800;padding:1px 5px;border-radius:6px;font-family:'Fredoka One',cursive;}
+/* OFFICE FLOOR */
+.office-main{flex:1;position:relative;overflow:hidden;background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.03) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.03) 40px),#EDE8E0;}
+.off-win{position:absolute;top:6px;width:52px;height:46px;border:3px solid #B8A898;border-radius:3px;overflow:hidden;background:linear-gradient(160deg,#BAE6FD,#7DD3FC);}
+.off-win::before,.off-win::after{content:'';position:absolute;background:rgba(255,255,255,0.3);}
+.off-win::before{top:0;left:50%;width:2px;height:100%;}
+.off-win::after{top:50%;left:0;width:100%;height:2px;}
+.off-floor-strip{position:absolute;bottom:0;left:0;right:0;height:8px;background:linear-gradient(180deg,#C0B0A0,#B0A090);}
 
-/* CATS */
-.cat-spr{position:absolute;z-index:20;width:32px;height:28px;cursor:pointer;transition:left 4s ease-in-out,top 4s ease-in-out;}
+/* BREAKROOM */
+.breakroom{position:absolute;right:6px;bottom:20px;width:90px;background:rgba(255,255,255,0.5);border:2px solid #C8B8A8;border-radius:8px;padding:4px;display:flex;flex-direction:column;gap:3px;}
+.breakroom-lbl{font-size:7px;color:#8B7355;text-transform:uppercase;letter-spacing:0.5px;text-align:center;}
+.breakroom-items{display:flex;gap:4px;justify-content:center;}
+.coffee-machine{font-size:18px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));}
+.couch{font-size:14px;}
+.cat-sleeping{font-size:14px;animation:sleepBob 3s ease-in-out infinite;}
+@keyframes sleepBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+
+/* DESK STATIONS */
+.desk-stn{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.1s;}
+.desk-stn:active{transform:scale(0.93);}
+.desk-vis{position:relative;width:72px;}
+
+/* desk SVG drawn in JS */
+.stn-badge{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 6px;margin-top:2px;text-align:center;min-width:72px;}
+.stn-role{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
+.stn-rate{font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);}
+.stn-lvl{position:absolute;top:-7px;right:-7px;background:var(--blue);color:white;font-size:7px;font-weight:800;padding:1px 4px;border-radius:5px;font-family:'Fredoka One',cursive;}
+
+/* STAFF CHARACTERS */
+.staff-char{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;}
+.char-svg{width:22px;height:32px;}
+
+/* CAT SPRITES */
+.cat-spr{position:absolute;z-index:20;width:30px;height:26px;cursor:pointer;transition:left 4s ease-in-out,top 4s ease-in-out;}
 .cat-spr:active{transform:scale(1.2);}
-.cat-body-s{position:absolute;bottom:2px;left:4px;width:22px;height:13px;border-radius:10px 10px 5px 5px;}
-.cat-head-s{position:absolute;top:0;left:8px;width:16px;height:14px;border-radius:50% 50% 40% 40%;display:flex;align-items:center;justify-content:center;font-size:8px;}
-.cat-ear-s{position:absolute;top:-4px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;}
-.cat-ear-s.L{left:1px;}
-.cat-ear-s.R{right:1px;}
-.cat-tail-s{position:absolute;bottom:4px;right:-4px;width:9px;height:4px;border-radius:0 4px 4px 0;animation:tailWag 1.2s ease-in-out infinite;transform-origin:left center;}
-@keyframes tailWag{0%,100%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}}
 
 /* OFFICE BOTTOM */
-.off-bottom{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:8px 10px;display:flex;gap:7px;}
-.hbtn{flex:1;border:none;border-radius:12px;padding:8px 4px;color:white;cursor:pointer;transition:transform 0.1s;text-align:center;}
+.off-bottom{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:6px 8px;display:flex;gap:6px;}
+.hbtn{flex:1;border:none;border-radius:10px;padding:7px 3px;color:white;cursor:pointer;transition:transform 0.1s;text-align:center;}
 .hbtn:active{transform:scale(0.95);}
-.hbtn .hi{font-size:20px;display:block;}
-.hbtn .hl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin:1px 0;}
-.hbtn .hc{font-family:'Fredoka One',cursive;font-size:11px;color:var(--sun2);display:block;}
+.hbtn .hi{font-size:18px;display:block;}
+.hbtn .hl{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin:1px 0;}
+.hbtn .hc{font-family:'Fredoka One',cursive;font-size:10px;color:var(--sun2);display:block;}
 .hbtn .hc.red{color:#FCA5A5;}
-.hbtn.b-blue{background:linear-gradient(135deg,#1E40AF,#3B82F6);}
-.hbtn.b-orange{background:linear-gradient(135deg,#C2410C,#F97316);}
-.hbtn.b-purple{background:linear-gradient(135deg,#4C1D95,#8B5CF6);}
+.bb{background:linear-gradient(135deg,#1E40AF,#3B82F6);}
+.bo{background:linear-gradient(135deg,#C2410C,#F97316);}
+.bp{background:linear-gradient(135deg,#4C1D95,#8B5CF6);}
 
-/* ═══ LAYER 2: MAP ═══ */
-#layer-map{background:linear-gradient(180deg,#87CEEB 0%,#98D4A3 40%,#6B8F47 100%);}
-.map-sky{height:72px;flex-shrink:0;background:linear-gradient(180deg,#4A90D9,#87CEEB);position:relative;overflow:hidden;}
-.map-sun{position:absolute;top:10px;right:18px;font-size:34px;animation:sunSpin 12s linear infinite;filter:drop-shadow(0 0 14px rgba(245,158,11,0.6));}
+/* ══════════════════════════
+   LAYER 2 — MAP
+══════════════════════════ */
+#layer-map{background:#87CEEB;overflow:hidden;}
+.map-sky{height:60px;flex-shrink:0;background:linear-gradient(180deg,#4A90D9,#87CEEB);position:relative;overflow:hidden;}
+.map-sun-el{position:absolute;top:8px;right:16px;font-size:30px;animation:sunSpin 15s linear infinite;filter:drop-shadow(0 0 12px rgba(245,158,11,0.6));}
 @keyframes sunSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.map-cloud{position:absolute;font-size:22px;opacity:0.8;animation:cloudDrift linear infinite;}
-@keyframes cloudDrift{from{transform:translateX(-60px)}to{transform:translateX(110vw)}}
+.map-cloud{position:absolute;font-size:20px;opacity:0.8;animation:cDrift linear infinite;}
+@keyframes cDrift{from{transform:translateX(-60px)}to{transform:translateX(110vw)}}
+
+/* KPI STRIP */
+.kpi-strip{flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);padding:4px 8px;display:flex;gap:6px;overflow-x:auto;}
+.kpi-strip::-webkit-scrollbar{display:none;}
+.kpi-item{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px 8px;text-align:center;}
+.kpi-lbl{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.kpi-val{font-family:'Fredoka One',cursive;font-size:12px;color:var(--sun);}
+
 .map-main{flex:1;position:relative;overflow:hidden;}
-.map-road-h{position:absolute;left:0;right:0;height:30px;background:#6B7280;border-top:3px solid #9CA3AF;border-bottom:3px solid #9CA3AF;}
-.map-road-v{position:absolute;top:0;bottom:0;width:30px;background:#6B7280;border-left:3px solid #9CA3AF;border-right:3px solid #9CA3AF;}
-.job-site{position:absolute;background:var(--panel);border:2px solid var(--border);border-radius:12px;padding:8px 6px;width:88px;cursor:pointer;transition:transform 0.1s;text-align:center;}
-.job-site:active{transform:scale(0.94);}
-.job-site.active-job{border-color:var(--green);animation:jpulse 1.5s ease-in-out infinite;}
-.job-site.angry-job{border-color:var(--red);animation:jpulse 0.8s ease-in-out infinite;}
-@keyframes jpulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 10px 2px currentColor}}
-.ji{font-size:26px;display:block;margin-bottom:2px;}
-.jn{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
-.je{font-family:'Fredoka One',cursive;font-size:12px;color:var(--green);}
-.jlvl{position:absolute;top:-6px;right:-6px;background:var(--blue);color:white;font-size:8px;font-weight:800;padding:1px 5px;border-radius:6px;font-family:'Fredoka One',cursive;}
-.collect-bubble{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--green);color:white;font-family:'Fredoka One',cursive;font-size:11px;padding:2px 7px;border-radius:10px;white-space:nowrap;animation:bubBounce 1s ease-in-out infinite;}
-@keyframes bubBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
-.truck-el{position:absolute;z-index:30;font-size:22px;transition:left 3s linear,top 3s linear;filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.4));}
-.map-lock-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
-.map-lock-overlay.gone{display:none;}
-.lock-big{font-size:48px;}
-.lock-title{font-family:'Fredoka One',cursive;font-size:20px;color:var(--sun);text-align:center;}
-.lock-sub{font-size:12px;color:var(--muted);text-align:center;}
 
-/* ═══ LAYER 3: SITE ═══ */
-#layer-site{background:linear-gradient(180deg,#60A5FA 0%,#93C5FD 30%,#BFDBFE 50%,#6B8F47 50%,#4A7C2F 100%);}
-.site-sky-wrap{height:110px;flex-shrink:0;position:relative;background:linear-gradient(180deg,#2563EB,#60A5FA);overflow:hidden;}
-.site-sky-sun{position:absolute;top:8px;right:14px;font-size:38px;filter:drop-shadow(0 0 18px rgba(245,158,11,0.7));}
-.site-main{flex:1;position:relative;overflow:hidden;}
-.house-wrap{position:absolute;bottom:0;left:0;right:0;height:190px;display:flex;align-items:flex-end;justify-content:center;}
-.house-inner{position:relative;display:flex;flex-direction:column;align-items:center;}
-.h-roof{width:0;height:0;border-left:110px solid transparent;border-right:110px solid transparent;border-bottom:65px solid #B45309;position:relative;z-index:2;}
-.h-body{width:190px;height:100px;background:#D4956A;border:3px solid #B45309;position:relative;display:flex;align-items:flex-end;justify-content:center;z-index:1;}
-.h-door{width:28px;height:42px;background:#7C3AED;border-radius:14px 14px 0 0;border:2px solid #5B21B6;margin-bottom:0;}
-.h-wins{position:absolute;top:14px;display:flex;gap:18px;}
-.h-win{width:30px;height:26px;background:#BAE6FD;border:2px solid #7C3AED;border-radius:3px;}
-.roof-panels-wrap{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:2px;}
-.rp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;}
-.rp-cell{width:12px;height:9px;background:linear-gradient(135deg,#1E3A5F,#1E40AF);border:1px solid #60A5FA;border-radius:1px;}
-.roof-worker-el{position:absolute;top:-50px;font-size:20px;z-index:20;animation:rWork 4s ease-in-out infinite;}
-@keyframes rWork{0%{left:15px}50%{left:130px}100%{left:15px}}
-.site-progress-wrap{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:10px 14px;}
-.spj-name{font-family:'Fredoka One',cursive;font-size:15px;color:var(--sun);margin-bottom:5px;}
-.sp-track{width:100%;height:14px;background:var(--card);border-radius:7px;overflow:hidden;border:1px solid var(--border);margin-bottom:5px;}
-.sp-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--sky));border-radius:7px;transition:width 0.3s ease;}
-.sp-labels{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;}
-.site-bottom{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:8px 10px;display:flex;gap:7px;}
-.site-lock-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
-.site-lock-overlay.gone{display:none;}
+/* El Paso desert ground */
+.ep-ground{position:absolute;bottom:0;left:0;right:0;height:55%;background:linear-gradient(180deg,#C4A882,#B8956A);}
+.ep-mountain{position:absolute;bottom:55%;left:-10px;}
+.ep-cactus{position:absolute;font-size:20px;}
 
-/* ═══ UPGRADES ═══ */
+/* ROAD SYSTEM */
+.road-h{position:absolute;left:0;right:0;height:28px;background:#6B7280;border-top:2px solid #9CA3AF;border-bottom:2px solid #9CA3AF;}
+.road-v{position:absolute;top:0;bottom:0;width:28px;background:#6B7280;border-left:2px solid #9CA3AF;border-right:2px solid #9CA3AF;}
+.road-dash{position:absolute;background:#FDE68A;opacity:0.7;}
+
+/* PIPELINE PANELS */
+.pipeline-panel{position:absolute;background:rgba(15,23,42,0.88);border:1px solid var(--border);border-radius:10px;padding:6px 8px;backdrop-filter:blur(4px);}
+.pp-title{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
+.pp-dot{width:6px;height:6px;border-radius:50%;}
+.pp-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:9px;color:var(--text);}
+.pp-status{font-size:7px;padding:1px 4px;border-radius:4px;font-weight:700;}
+.pp-status.lead{background:rgba(245,158,11,0.2);color:var(--sun);}
+.pp-status.quote{background:rgba(59,130,246,0.2);color:var(--blue);}
+.pp-status.close{background:rgba(34,197,94,0.2);color:var(--green);}
+.pp-status.sched{background:rgba(139,92,246,0.2);color:#A78BFA;}
+.pp-status.route{background:rgba(249,115,22,0.2);color:var(--orange);}
+.pp-status.wip{background:rgba(245,158,11,0.2);color:var(--sun);}
+.pp-status.done{background:rgba(34,197,94,0.2);color:var(--green);}
+
+/* JOB SITE CARDS */
+.job-card{position:absolute;background:var(--panel);border:2px solid var(--border);border-radius:10px;padding:6px;width:82px;cursor:pointer;transition:transform 0.1s;text-align:center;}
+.job-card:active{transform:scale(0.93);}
+.job-card.ready{border-color:var(--green);box-shadow:0 0 8px rgba(34,197,94,0.3);}
+.job-card.angry{border-color:var(--red);animation:angPulse 0.8s ease-in-out infinite;}
+@keyframes angPulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 8px 2px rgba(239,68,68,0.5)}}
+.jc-icon{font-size:22px;display:block;margin-bottom:2px;}
+.jc-name{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
+.jc-earn{font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);}
+.jc-lvl{position:absolute;top:-5px;right:-5px;background:var(--blue);color:white;font-size:7px;font-weight:800;padding:1px 4px;border-radius:5px;font-family:'Fredoka One',cursive;}
+.jc-stage{font-size:7px;color:var(--muted);margin-top:1px;}
+
+/* TRUCK */
+.truck-el{position:absolute;z-index:30;transition:left 3s linear,top 3s linear;cursor:pointer;}
+
+/* MAP LOCK */
+.map-lock{position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50;}
+.map-lock.gone{display:none;}
+.lock-ico{font-size:44px;}
+.lock-title{font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center;}
+.lock-sub{font-size:11px;color:var(--muted);text-align:center;}
+
+/* ══════════════════════════
+   LAYER 3 — JOB SITE
+══════════════════════════ */
+#layer-site{overflow:hidden;}
+
+/* Sky gradient for El Paso */
+.site-sky{height:100px;flex-shrink:0;position:relative;background:linear-gradient(180deg,#1E3A8A,#2563EB,#60A5FA);overflow:hidden;}
+.site-sky-sun{position:absolute;top:8px;right:12px;font-size:36px;filter:drop-shadow(0 0 20px rgba(245,158,11,0.8));}
+.heat-shimmer{position:absolute;bottom:0;left:0;right:0;height:20px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.08));animation:shimmer 2s ease-in-out infinite;}
+@keyframes shimmer{0%,100%{opacity:0.5}50%{opacity:1}}
+.site-cloud{position:absolute;font-size:18px;opacity:0.6;animation:cDrift linear infinite;}
+
+.site-scene{flex:1;position:relative;overflow:hidden;}
+
+/* Ground / yard */
+.site-ground{position:absolute;bottom:0;left:0;right:0;height:35%;background:linear-gradient(180deg,#C4A882,#B8956A);}
+.site-grass-strip{position:absolute;top:0;left:0;right:0;height:8px;background:#8B9B6B;}
+
+/* HOUSE — realistic */
+.house-container{position:absolute;bottom:35%;left:50%;transform:translateX(-50%);width:220px;}
+
+/* Roof */
+.house-roof-wrap{position:relative;width:220px;height:0;}
+.roof-svg{width:220px;display:block;}
+
+/* Sunmodo SMR rails on roof */
+.smr-rail{position:absolute;background:var(--smr-black);border-radius:2px;}
+
+/* Silfab panels on roof */
+.silfab-panel{position:absolute;background:var(--silfab-black);border-radius:1px;overflow:hidden;cursor:pointer;}
+.silfab-panel .panel-cells{width:100%;height:100%;display:grid;gap:1px;padding:1px;}
+.silfab-cell{background:var(--silfab-cell);border-radius:0.5px;}
+.silfab-panel .panel-frame{position:absolute;inset:0;border:1.5px solid var(--silfab-frame);border-radius:1px;}
+.se-optimizer{position:absolute;background:#1a1a1a;border:1px solid #333;border-radius:2px;display:flex;align-items:center;justify-content:center;}
+.se-optimizer::after{content:'';width:4px;height:4px;border-radius:50%;background:#22C55E;box-shadow:0 0 3px #22C55E;}
+
+/* House walls */
+.house-wall{background:#D4956A;border:2px solid #B45309;position:relative;}
+.house-window-row{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:space-around;padding:0 16px;}
+.house-win{width:28px;height:24px;background:#BAE6FD;border:2px solid #7C3AED;border-radius:2px;}
+.house-door{width:26px;height:40px;background:#7C3AED;border-radius:13px 13px 0 0;border:2px solid #5B21B6;position:absolute;bottom:0;left:50%;transform:translateX(-50%);}
+.house-door::after{content:'';position:absolute;top:50%;right:4px;transform:translateY(-50%);width:3px;height:3px;background:#FDE68A;border-radius:50%;}
+
+/* SolarEdge Inverter on wall */
+.se-inverter-wrap{position:absolute;right:8px;}
+.se-inverter{background:var(--se-white);border:1px solid #94A3B8;border-radius:4px;padding:4px;position:relative;box-shadow:2px 2px 6px rgba(0,0,0,0.2);}
+.se-inv-logo{font-size:6px;font-weight:900;color:#1E40AF;letter-spacing:-0.3px;text-align:center;font-family:'Fredoka One',cursive;}
+.se-inv-display{width:100%;height:14px;background:#0F172A;border-radius:2px;margin:2px 0;display:flex;align-items:center;justify-content:center;gap:2px;}
+.se-inv-led{width:5px;height:5px;border-radius:50%;background:#22C55E;box-shadow:0 0 4px #22C55E;animation:ledBlink 2s ease-in-out infinite;}
+@keyframes ledBlink{0%,100%{opacity:1}50%{opacity:0.4}}
+.se-inv-text{font-size:5px;color:#22C55E;font-family:monospace;}
+.se-safety-sw{width:100%;height:8px;background:#334155;border-radius:2px;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:4px;color:#94A3B8;letter-spacing:0.3px;}
+.conduit{position:absolute;width:5px;background:#475569;border-radius:1px;}
+.conduit-connector{position:absolute;width:9px;height:4px;background:#64748B;border-radius:1px;}
+.main-panel{position:absolute;background:#334155;border:1px solid #475569;border-radius:3px;padding:2px;}
+.main-panel-inner{background:#1E293B;border-radius:2px;display:flex;flex-direction:column;gap:1px;padding:2px;}
+.breaker{width:100%;height:3px;background:#94A3B8;border-radius:1px;}
+
+/* LADDER & LADDERVATOR */
+.ladder-wrap{position:absolute;}
+.laddervator{position:absolute;font-size:16px;animation:lvMove 4s ease-in-out infinite;}
+@keyframes lvMove{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}
+
+/* CREW CHARACTERS */
+.crew-member{position:absolute;display:flex;flex-direction:column;align-items:center;}
+.crew-char{font-size:20px;animation:crewWork 1.5s ease-in-out infinite;}
+@keyframes crewWork{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.crew-label{font-size:7px;color:var(--text);background:rgba(0,0,0,0.6);padding:1px 4px;border-radius:4px;white-space:nowrap;margin-top:1px;}
+
+/* Ground crew */
+.ground-crew{position:absolute;}
+.gc-char{font-size:20px;}
+.gc-label{font-size:7px;color:var(--text);background:rgba(0,0,0,0.6);padding:1px 4px;border-radius:4px;white-space:nowrap;}
+
+/* INSTALL PROGRESS */
+.install-progress{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:8px 12px;}
+.ip-stage-name{font-family:'Fredoka One',cursive;font-size:14px;color:var(--sun);margin-bottom:3px;}
+.ip-stages{display:flex;gap:3px;margin-bottom:6px;overflow-x:auto;}
+.ip-stages::-webkit-scrollbar{display:none;}
+.ip-stage{flex-shrink:0;font-size:7px;padding:2px 5px;border-radius:4px;border:1px solid var(--border);color:var(--muted);}
+.ip-stage.done{background:rgba(34,197,94,0.15);border-color:var(--green);color:var(--green);}
+.ip-stage.active{background:rgba(245,158,11,0.15);border-color:var(--sun);color:var(--sun);}
+.ip-prog-track{width:100%;height:12px;background:var(--card);border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:4px;}
+.ip-prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--sky));border-radius:6px;transition:width 0.4s ease;}
+.ip-labels{font-size:10px;color:var(--muted);display:flex;justify-content:space-between;}
+.site-bottom{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:6px 8px;display:flex;gap:6px;}
+.site-lock{position:absolute;inset:0;background:rgba(0,0,0,0.78);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50;}
+.site-lock.gone{display:none;}
+
+/* ══════════════════════════
+   UPGRADES
+══════════════════════════ */
 #layer-upgrades{background:var(--bg);overflow-y:auto;}
-.upg-panel{padding:12px 12px 30px;}
-.upg-sec{font-family:'Fredoka One',cursive;font-size:16px;color:var(--sun);margin:12px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
-.upg-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:11px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform 0.1s,border-color 0.2s;}
+.upg-panel{padding:10px 10px 32px;}
+.upg-sec{font-family:'Fredoka One',cursive;font-size:15px;color:var(--sun);margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.upg-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:transform 0.1s,border-color 0.2s;}
 .upg-card:active{transform:scale(0.97);}
 .upg-card.can{border-color:var(--green);}
 .upg-card.maxed{opacity:0.5;cursor:default;}
-.upg-ico{font-size:30px;flex-shrink:0;}
+.upg-ico{font-size:28px;flex-shrink:0;}
 .upg-inf{flex:1;}
-.upg-name{font-family:'Fredoka One',cursive;font-size:14px;color:var(--text);}
-.upg-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+.upg-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--text);}
+.upg-desc{font-size:10px;color:var(--muted);margin-top:1px;}
 .upg-right{text-align:right;flex-shrink:0;}
-.upg-cost{font-family:'Fredoka One',cursive;font-size:14px;color:var(--green);}
+.upg-cost{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);}
 .upg-cost.no{color:var(--red);}
-.upg-lvl{font-size:10px;color:var(--muted);margin-top:2px;}
-.cat-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px 11px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform 0.1s;}
+.upg-lv{font-size:9px;color:var(--muted);margin-top:1px;}
+.cat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:transform 0.1s;}
 .cat-card:active{transform:scale(0.97);}
-.cc-ico{font-size:28px;}
+.cc-ico{font-size:26px;}
 .cc-inf{flex:1;}
-.cc-name{font-family:'Fredoka One',cursive;font-size:14px;color:var(--orange);}
-.cc-bonus{font-size:11px;color:var(--muted);}
+.cc-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--orange);}
+.cc-bonus{font-size:10px;color:var(--muted);}
 .cc-right{text-align:right;}
-.cc-owned{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);}
-.cc-cost{font-size:11px;color:var(--muted);}
+.cc-owned{font-family:'Fredoka One',cursive;font-size:12px;color:var(--sun);}
+.cc-cost{font-size:10px;color:var(--muted);}
 
-/* ═══ BOTTOM NAV ═══ */
-#bottom-nav{flex-shrink:0;background:var(--bg2);border-top:2px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom,0);}
-.nav-tab{flex:1;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border:none;background:none;transition:background 0.15s;position:relative;}
+/* ══ BOTTOM NAV ══ */
+#bottom-nav{flex-shrink:0;background:var(--bg);border-top:2px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom,0);}
+.nav-tab{flex:1;padding:7px 3px 9px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border:none;background:none;transition:background 0.15s;position:relative;}
 .nav-tab.active{background:rgba(245,158,11,0.08);}
-.nav-icon{font-size:22px;transition:transform 0.15s;}
+.nav-icon{font-size:20px;transition:transform 0.15s;}
 .nav-tab.active .nav-icon{transform:translateY(-2px);}
-.nav-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);}
+.nav-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);}
 .nav-tab.active .nav-lbl{color:var(--sun);}
-.nav-badge{position:absolute;top:6px;right:10px;width:8px;height:8px;background:var(--red);border-radius:50%;display:none;animation:bdgPulse 1s ease-in-out infinite;}
+.nav-badge{position:absolute;top:5px;right:8px;width:7px;height:7px;background:var(--red);border-radius:50%;display:none;animation:bPulse 1s ease-in-out infinite;}
 .nav-badge.on{display:block;}
-@keyframes bdgPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
-.nav-lock-icon{font-size:9px;color:var(--border);}
+@keyframes bPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
+.nav-lock{font-size:8px;color:var(--border);}
 
-/* ═══ POPUPS ═══ */
-.float-txt{position:fixed;z-index:500;font-family:'Fredoka One',cursive;font-size:14px;pointer-events:none;animation:floatUp 1s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,0.5);}
-@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-52px) scale(0.8)}}
+/* ══ POPUPS ══ */
+.float-txt{position:fixed;z-index:500;font-family:'Fredoka One',cursive;font-size:13px;pointer-events:none;animation:fUp 1s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,0.5);}
+@keyframes fUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-50px)}}
 
-.angry-pop{position:fixed;z-index:400;background:var(--panel);border:2px solid var(--red);border-radius:16px;padding:12px 14px;max-width:280px;left:50%;transform:translateX(-50%);top:68px;box-shadow:0 8px 32px rgba(239,68,68,0.3);animation:popIn 0.3s ease;}
+.angry-pop{position:fixed;z-index:400;background:var(--panel);border:2px solid var(--red);border-radius:14px;padding:12px 13px;max-width:280px;left:50%;transform:translateX(-50%);top:62px;box-shadow:0 8px 32px rgba(239,68,68,0.3);animation:pIn 0.3s ease;}
 .angry-pop.gone{display:none;}
-@keyframes popIn{from{opacity:0;transform:translateX(-50%) scale(0.82)}to{opacity:1;transform:translateX(-50%) scale(1)}}
-.ap-title{font-family:'Fredoka One',cursive;font-size:15px;color:var(--red);display:flex;align-items:center;gap:6px;margin-bottom:5px;}
-.ap-msg{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
-.ap-timer-track{width:100%;height:6px;background:var(--card);border-radius:3px;overflow:hidden;margin-bottom:4px;}
+@keyframes pIn{from{opacity:0;transform:translateX(-50%) scale(0.82)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.ap-title{font-family:'Fredoka One',cursive;font-size:14px;color:var(--red);display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.ap-msg{font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;}
+.ap-timer-track{width:100%;height:5px;background:var(--card);border-radius:3px;overflow:hidden;margin-bottom:3px;}
 .ap-timer-fill{height:100%;background:var(--red);border-radius:3px;transition:width 0.5s linear;}
-.ap-timer-lbl{font-size:10px;color:var(--muted);margin-bottom:10px;}
-.ap-btns{display:flex;gap:8px;}
-.ap-btn{flex:1;padding:8px;border:none;border-radius:10px;font-family:'Fredoka One',cursive;font-size:14px;cursor:pointer;transition:transform 0.1s;}
+.ap-timer-lbl{font-size:9px;color:var(--muted);margin-bottom:8px;}
+.ap-btns{display:flex;gap:6px;}
+.ap-btn{flex:1;padding:7px;border:none;border-radius:8px;font-family:'Fredoka One',cursive;font-size:13px;cursor:pointer;transition:transform 0.1s;}
 .ap-btn:active{transform:scale(0.95);}
 .ap-ok{background:var(--green);color:white;}
 .ap-no{background:var(--border);color:var(--muted);}
 
-.contract-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400;}
-.contract-overlay.gone{display:none;}
-.cp-card{background:var(--panel);border:2px solid var(--sun);border-radius:20px;padding:20px;width:100%;max-width:300px;animation:popIn 0.3s ease;}
-.cp-badge{display:inline-block;background:var(--sun);color:var(--bg2);font-size:9px;font-weight:800;padding:2px 8px;border-radius:6px;margin-bottom:8px;letter-spacing:1px;}
-.cp-title{font-family:'Fredoka One',cursive;font-size:20px;color:var(--text);margin-bottom:4px;}
-.cp-client{font-size:11px;color:var(--muted);margin-bottom:8px;}
-.cp-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
-.cp-reward{font-family:'Fredoka One',cursive;font-size:26px;color:var(--green);margin-bottom:14px;}
-.cp-btns{display:flex;gap:8px;}
-.cp-btn{flex:1;padding:10px;border:none;border-radius:12px;font-family:'Fredoka One',cursive;font-size:16px;cursor:pointer;transition:transform 0.1s;}
+.contract-ov{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:16px;z-index:400;}
+.contract-ov.gone{display:none;}
+.cp-card{background:var(--panel);border:2px solid var(--sun);border-radius:18px;padding:18px;width:100%;max-width:300px;animation:pIn 0.3s ease;}
+.cp-badge{display:inline-block;background:var(--sun);color:var(--bg);font-size:8px;font-weight:800;padding:2px 7px;border-radius:5px;margin-bottom:7px;letter-spacing:1px;}
+.cp-type{font-size:9px;color:var(--muted);margin-bottom:4px;}
+.cp-title{font-family:'Fredoka One',cursive;font-size:19px;color:var(--text);margin-bottom:3px;}
+.cp-client{font-size:10px;color:var(--muted);margin-bottom:7px;}
+.cp-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.cp-details{display:flex;gap:8px;margin-bottom:12px;}
+.cp-detail{flex:1;background:var(--card);border-radius:8px;padding:5px 8px;text-align:center;}
+.cp-detail-lbl{font-size:8px;color:var(--muted);text-transform:uppercase;}
+.cp-detail-val{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);}
+.cp-btns{display:flex;gap:7px;}
+.cp-btn{flex:1;padding:9px;border:none;border-radius:10px;font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;transition:transform 0.1s;}
 .cp-btn:active{transform:scale(0.95);}
 .cp-yes{background:var(--green);color:white;}
 .cp-no{background:var(--border);color:var(--muted);}
 
-.ms-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:600;}
-.ms-overlay.gone{display:none;}
-.ms-card{background:linear-gradient(135deg,#1E3A5F,#1E40AF);border:2px solid var(--sun);border-radius:20px;padding:26px 22px;text-align:center;max-width:280px;width:100%;animation:popIn 0.4s ease;}
-.ms-ico{font-size:52px;margin-bottom:10px;}
-.ms-title{font-family:'Fredoka One',cursive;font-size:22px;color:var(--sun);margin-bottom:6px;}
-.ms-desc{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
-.ms-btn{background:var(--sun);color:var(--bg2);border:none;border-radius:14px;padding:12px 32px;font-family:'Fredoka One',cursive;font-size:18px;cursor:pointer;}
+.ms-ov{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:600;}
+.ms-ov.gone{display:none;}
+.ms-card{background:linear-gradient(135deg,#1E3A5F,#1E40AF);border:2px solid var(--sun);border-radius:18px;padding:24px 20px;text-align:center;max-width:280px;width:100%;animation:pIn 0.4s ease;}
+.ms-ico{font-size:48px;margin-bottom:8px;}
+.ms-title{font-family:'Fredoka One',cursive;font-size:20px;color:var(--sun);margin-bottom:5px;}
+.ms-desc{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;}
+.ms-btn{background:var(--sun);color:var(--bg);border:none;border-radius:12px;padding:10px 28px;font-family:'Fredoka One',cursive;font-size:17px;cursor:pointer;}
 
-.toast{position:fixed;z-index:700;bottom:82px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:8px 18px;font-size:13px;font-weight:700;white-space:nowrap;animation:toastAn 2.3s ease forwards;}
-@keyframes toastAn{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-10px)}}
+.toast{position:fixed;z-index:700;bottom:76px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);border-radius:18px;padding:7px 16px;font-size:12px;font-weight:700;white-space:nowrap;animation:tAn 2.3s ease forwards;}
+@keyframes tAn{0%{opacity:0;transform:translateX(-50%) translateY(8px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-8px)}}
 </style>
 </head>
 <body>
@@ -253,109 +365,136 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
 <!-- SPLASH -->
 <div id="splash">
   <div class="sp-sun">☀️</div>
-  <div class="sp-title">Purr &<br>Power Co.</div>
-  <div class="sp-sub">Solar · Cats · El Paso, TX</div>
+  <div class="sp-title">Purr & Power Co.</div>
+  <div class="sp-tagline">Solar · Cats · El Paso, TX</div>
+  <div class="sp-equipment">
+    <div class="sp-eq-item"><strong>Silfab Prime</strong>All-Black Panels</div>
+    <div class="sp-eq-item"><strong>Sunmodo SMR</strong>Black Rails</div>
+    <div class="sp-eq-item"><strong>SolarEdge</strong>HD-Wave + P400</div>
+  </div>
   <div class="sp-cats">🐱 🐱 🐱</div>
-  <div class="sp-desc">Run El Paso's most cat-friendly solar installation company. Hire staff, dispatch trucks, close contracts — and keep the cats purring.</div>
+  <div class="sp-desc">Run El Paso's most cat-friendly solar installation company. Hire crews, dispatch trucks, close contracts — and keep the cats purring.</div>
   <button class="sp-btn" onclick="startGame()">🏢 Open For Business</button>
 </div>
 
 <!-- APP -->
 <div id="app">
-  <!-- TOPBAR -->
   <div id="topbar">
     <div class="tb-logo">Purr & Power Co.<span>SOLAR · EL PASO, TX</span></div>
     <div class="currencies">
-      <div class="currency money"><span class="cur-icon">💵</span><span id="cur-money">$0</span></div>
-      <div class="currency credits"><span class="cur-icon">⭐</span><span id="cur-credits">0</span></div>
-      <div class="currency purr"><span class="cur-icon">🐾</span><span id="cur-purr">0</span></div>
+      <div class="cur m">💵<span id="cur-money">$0</span></div>
+      <div class="cur c">⭐<span id="cur-credits">0</span></div>
+      <div class="cur p">🐾<span id="cur-purr">0</span></div>
     </div>
   </div>
 
-  <!-- GAME AREA -->
   <div id="game-area">
 
-    <!-- LAYER 1: OFFICE -->
+    <!-- ══ LAYER 1: OFFICE ══ -->
     <div class="layer active" id="layer-office">
       <div class="off-ceiling"></div>
-      <div class="morale-row">
-        <div class="morale-lbl">🐱 Cat Morale</div>
-        <div class="morale-track"><div class="morale-fill" id="morale-fill" style="width:40%"></div></div>
-        <div class="morale-val" id="morale-val">40%</div>
-      </div>
-      <div class="income-row">
-        <div class="income-lbl">Income</div>
-        <div class="income-val" id="income-display">+$0/sec</div>
+      <div class="off-info-bar">
+        <div class="morale-wrap">
+          <div class="morale-lbl">🐱 Morale</div>
+          <div class="morale-track"><div class="morale-fill" id="morale-fill" style="width:40%"></div></div>
+          <div class="morale-val" id="morale-val">40%</div>
+        </div>
+        <div class="income-badge" id="income-display">+$0/s</div>
       </div>
       <div class="office-main" id="office-main">
-        <div class="off-window" style="left:12px"></div>
-        <div class="off-window" style="left:80px"></div>
-        <div class="off-window" style="right:12px"></div>
-        <div class="off-floor"></div>
+        <div class="off-win" style="left:10px"></div>
+        <div class="off-win" style="left:74px"></div>
+        <div class="off-win" style="right:10px"></div>
+        <div class="off-floor-strip"></div>
+        <!-- break room -->
+        <div class="breakroom" id="breakroom">
+          <div class="breakroom-lbl">Break Room</div>
+          <div class="breakroom-items">
+            <span class="coffee-machine">☕</span>
+            <span class="couch">🛋️</span>
+            <span class="cat-sleeping">😴🐱</span>
+          </div>
+        </div>
       </div>
       <div class="off-bottom">
-        <button class="hbtn b-blue" onclick="hireEmployee()">
+        <button class="hbtn bb" onclick="hireEmployee()">
           <span class="hi">👔</span><span class="hl">Hire Staff</span>
           <span class="hc" id="hire-cost-lbl">$150</span>
         </button>
-        <button class="hbtn b-orange" onclick="adoptCat()">
+        <button class="hbtn bo" onclick="adoptCat()">
           <span class="hi">🐱</span><span class="hl">Adopt Cat</span>
           <span class="hc" id="cat-cost-lbl">$80</span>
         </button>
-        <button class="hbtn b-purple" onclick="switchLayer('upgrades')">
+        <button class="hbtn bp" onclick="switchLayer('upgrades')">
           <span class="hi">⬆️</span><span class="hl">Upgrades</span>
           <span class="hc">→</span>
         </button>
       </div>
     </div>
 
-    <!-- LAYER 2: MAP -->
+    <!-- ══ LAYER 2: MAP ══ -->
     <div class="layer" id="layer-map">
       <div class="map-sky">
-        <div class="map-sun">☀️</div>
-        <div class="map-cloud" style="top:8px;animation-duration:20s;animation-delay:-6s">☁️</div>
-        <div class="map-cloud" style="top:30px;font-size:16px;animation-duration:28s;animation-delay:-14s">☁️</div>
+        <div class="map-sun-el">☀️</div>
+        <div class="map-cloud" style="top:6px;animation-duration:22s;animation-delay:-8s">☁️</div>
+        <div class="map-cloud" style="top:26px;font-size:14px;animation-duration:30s;animation-delay:-16s">☁️</div>
+      </div>
+      <div class="kpi-strip" id="kpi-strip">
+        <div class="kpi-item"><div class="kpi-lbl">Today Revenue</div><div class="kpi-val" id="kpi-rev">$0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Contracts</div><div class="kpi-val" id="kpi-contracts">0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">In Progress</div><div class="kpi-val" id="kpi-wip">0</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Staff</div><div class="kpi-val" id="kpi-staff">1</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Cats</div><div class="kpi-val" id="kpi-cats">2</div></div>
       </div>
       <div class="map-main" id="map-main">
-        <div class="map-road-h" style="top:75px"></div>
-        <div class="map-road-h" style="top:185px"></div>
-        <div class="map-road-v" style="left:115px"></div>
-        <div class="map-lock-overlay" id="map-lock-overlay">
-          <div class="lock-big">🗺️</div>
+        <!-- El Paso desert ground -->
+        <div class="ep-ground"></div>
+        <div class="ep-cactus" style="left:8px;bottom:56%">🌵</div>
+        <div class="ep-cactus" style="left:60%;bottom:57%;font-size:14px">🌵</div>
+        <div class="ep-cactus" style="right:8px;bottom:55%;font-size:12px">🌵</div>
+        <!-- roads -->
+        <div class="road-h" style="top:50px"></div>
+        <div class="road-h" style="top:155px"></div>
+        <div class="road-v" style="left:100px"></div>
+        <!-- pipeline panels -->
+        <div class="pipeline-panel" style="left:4px;top:4px;width:88px;" id="sales-pipeline">
+          <div class="pp-title"><div class="pp-dot" style="background:#F59E0B"></div>SALES</div>
+          <div id="sales-rows"></div>
+        </div>
+        <div class="pipeline-panel" style="right:4px;top:4px;width:96px;" id="install-pipeline">
+          <div class="pp-title"><div class="pp-dot" style="background:#22C55E"></div>INSTALL</div>
+          <div id="install-rows"></div>
+        </div>
+        <!-- job sites injected by JS -->
+        <!-- trucks injected by JS -->
+        <div class="map-lock" id="map-lock">
+          <div class="lock-ico">🗺️</div>
           <div class="lock-title">Neighborhood Map</div>
           <div class="lock-sub">Complete 5 contracts to unlock</div>
         </div>
       </div>
     </div>
 
-    <!-- LAYER 3: JOB SITE -->
+    <!-- ══ LAYER 3: JOB SITE ══ -->
     <div class="layer" id="layer-site">
-      <div class="site-sky-wrap">
+      <div class="site-sky">
         <div class="site-sky-sun">☀️</div>
+        <div class="heat-shimmer"></div>
+        <div class="site-cloud" style="top:10px;animation-duration:25s;animation-delay:-6s">☁️</div>
       </div>
-      <div class="site-main" id="site-main">
-        <div class="house-wrap">
-          <div class="house-inner">
-            <div class="h-roof">
-              <div class="roof-panels-wrap" id="roof-panels"></div>
-              <div class="roof-worker-el" id="roof-worker">👷</div>
-            </div>
-            <div class="h-body">
-              <div class="h-wins"><div class="h-win"></div><div class="h-win"></div></div>
-              <div class="h-door"></div>
-            </div>
-          </div>
-        </div>
-        <div class="site-lock-overlay" id="site-lock-overlay">
-          <div class="lock-big">🏗️</div>
-          <div class="lock-title" style="font-family:'Fredoka One',cursive;font-size:20px;color:var(--sun);text-align:center;">Job Site View</div>
-          <div class="lock-sub" style="font-size:12px;color:var(--muted);text-align:center;">Reach $50,000 total revenue to unlock</div>
+      <div class="site-scene" id="site-scene">
+        <!-- house, crew, inverter built by JS -->
+        <div class="site-lock" id="site-lock">
+          <div class="lock-ico">🏗️</div>
+          <div class="lock-title" style="font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center;">Job Site View</div>
+          <div class="lock-sub" style="font-size:11px;color:var(--muted);text-align:center;">Reach $50,000 total revenue to unlock</div>
         </div>
       </div>
-      <div class="site-progress-wrap">
-        <div class="spj-name" id="site-job-name">No active job</div>
-        <div class="sp-track"><div class="sp-fill" id="site-prog-fill" style="width:0%"></div></div>
-        <div class="sp-labels"><span id="sp-pct">0%</span><span id="sp-earn">+$0 on complete</span></div>
+      <div class="install-progress">
+        <div class="ip-stage-name" id="ip-stage-name">No active job</div>
+        <div class="ip-stages" id="ip-stages"></div>
+        <div class="ip-prog-track"><div class="ip-prog-fill" id="ip-prog-fill" style="width:0%"></div></div>
+        <div class="ip-labels"><span id="ip-pct">0%</span><span id="ip-earn">+$0 on complete</span></div>
       </div>
       <div class="site-bottom">
         <button class="hbtn" style="background:linear-gradient(135deg,#065F46,#22C55E)" onclick="upgradeSite()">
@@ -366,10 +505,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
           <span class="hi">👷</span><span class="hl">Send Worker</span>
           <span class="hc" id="site-wkr-lbl">$500</span>
         </button>
+        <button class="hbtn" style="background:linear-gradient(135deg,#4C1D95,#8B5CF6)" onclick="switchLayer('upgrades')">
+          <span class="hi">⬆️</span><span class="hl">Upgrades</span>
+          <span class="hc">→</span>
+        </button>
       </div>
     </div>
 
-    <!-- UPGRADES -->
+    <!-- ══ UPGRADES ══ -->
     <div class="layer" id="layer-upgrades">
       <div class="upg-panel" id="upg-panel">
         <div class="upg-sec">🏢 Office Upgrades</div>
@@ -384,7 +527,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
 
   </div><!-- /game-area -->
 
-  <!-- BOTTOM NAV -->
   <div id="bottom-nav">
     <button class="nav-tab active" id="nav-office" onclick="switchLayer('office')">
       <span class="nav-icon">🏢</span><span class="nav-lbl">Office</span>
@@ -393,12 +535,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
     <button class="nav-tab" id="nav-map" onclick="switchLayer('map')">
       <span class="nav-icon">🗺️</span><span class="nav-lbl">Map</span>
       <div class="nav-badge" id="badge-map"></div>
-      <div class="nav-lock-icon" id="nav-map-lock">🔒</div>
+      <div class="nav-lock" id="nav-map-lock">🔒</div>
     </button>
     <button class="nav-tab" id="nav-site" onclick="switchLayer('site')">
       <span class="nav-icon">🏗️</span><span class="nav-lbl">Job Site</span>
       <div class="nav-badge" id="badge-site"></div>
-      <div class="nav-lock-icon" id="nav-site-lock">🔒</div>
+      <div class="nav-lock" id="nav-site-lock">🔒</div>
     </button>
     <button class="nav-tab" id="nav-upgrades" onclick="switchLayer('upgrades')">
       <span class="nav-icon">⬆️</span><span class="nav-lbl">Upgrades</span>
@@ -407,7 +549,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
   </div>
 </div>
 
-<!-- ANGRY CUSTOMER -->
+<!-- ANGRY POPUP -->
 <div class="angry-pop gone" id="angry-pop">
   <div class="ap-title">😡 <span id="ap-title-txt">Angry Customer!</span></div>
   <div class="ap-msg" id="ap-msg"></div>
@@ -420,13 +562,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
 </div>
 
 <!-- CONTRACT -->
-<div class="contract-overlay gone" id="contract-overlay">
+<div class="contract-ov gone" id="contract-ov">
   <div class="cp-card">
     <div class="cp-badge">📋 NEW CONTRACT</div>
+    <div class="cp-type" id="cp-type"></div>
     <div class="cp-title" id="cp-title"></div>
     <div class="cp-client" id="cp-client"></div>
     <div class="cp-desc" id="cp-desc"></div>
-    <div class="cp-reward" id="cp-reward"></div>
+    <div class="cp-details">
+      <div class="cp-detail"><div class="cp-detail-lbl">Reward</div><div class="cp-detail-val" id="cp-reward">$0</div></div>
+      <div class="cp-detail"><div class="cp-detail-lbl">Panels</div><div class="cp-detail-val" id="cp-panels">0</div></div>
+      <div class="cp-detail"><div class="cp-detail-lbl">Days</div><div class="cp-detail-val" id="cp-days">0</div></div>
+    </div>
     <div class="cp-btns">
       <button class="cp-btn cp-yes" onclick="acceptContract()">✓ Accept</button>
       <button class="cp-btn cp-no" onclick="declineContract()">✗ Pass</button>
@@ -435,7 +582,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
 </div>
 
 <!-- MILESTONE -->
-<div class="ms-overlay gone" id="ms-overlay">
+<div class="ms-ov gone" id="ms-ov">
   <div class="ms-card">
     <div class="ms-ico" id="ms-ico">🏆</div>
     <div class="ms-title" id="ms-title">Milestone!</div>
@@ -445,119 +592,125 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);font-fami
 </div>
 
 <script>
-// ═══════════════════════════════════
-// STATE
-// ═══════════════════════════════════
+// ════════════════════════════════════
+// GAME STATE
+// ════════════════════════════════════
 const G={
-  money:0,totalMoney:0,credits:0,purrPoints:0,
-  staff:1,hireCost:150,staffLevel:1,
-  cats:2,catCost:80,catBreeds:[],
+  money:0,totalMoney:0,todayRevenue:0,credits:0,purrPoints:0,
+  staff:1,hireCost:150,cats:2,catCost:80,catBreeds:[],
   income:0,morale:40,incomeMultiplier:1,
   contracts:0,pendingContract:null,
   mapUnlocked:false,siteUnlocked:false,
-  siteLevel:1,siteWorkers:1,siteProgress:0,
-  siteUpgCost:1000,siteWorkerCost:500,
-  currentJob:null,
-  upgrades:{},managers:{},
-  milestones:[],
-  angryActive:false,
-  timestamp:Date.now(),
+  siteLevel:1,siteWorkers:1,siteProgress:0,siteUpgCost:1000,siteWorkerCost:500,
+  siteStageIdx:0,currentJob:null,wipCount:0,
+  upgrades:{},managers:{},milestones:[],
+  angryActive:false,timestamp:Date.now(),
 };
 
-const CONTRACTS_DATA=[
-  {title:"Residential Install",client:"Mrs. Rodriguez, Mesa Hills",desc:"12 panels on a south-facing roof. Quick and clean.",reward:400},
-  {title:"Commercial Rooftop",client:"Desert Star Plaza",desc:"50-panel system across the whole roof.",reward:1200},
-  {title:"School District",client:"Ysleta ISD",desc:"Solar arrays on 3 campuses. Big community win.",reward:2500},
-  {title:"Hotel Solar Array",client:"Sunland Park Hotel",desc:"Rooftop system for pool heating and common areas.",reward:900},
-  {title:"City Hall Bid",client:"City of El Paso",desc:"Win this one and you're on the news.",reward:5000},
-  {title:"Ranch Solar Farm",client:"Barela Family Ranch",desc:"Off-grid power for cattle ranch past Fabens.",reward:1800},
-  {title:"Car Dealership",client:"AutoNation Montana Ave",desc:"Canopy system over the parking lot.",reward:1100},
-  {title:"Apartment Complex",client:"Sunrise Villas HOA",desc:"48 units want solar. Major project.",reward:3200},
-  {title:"Warehouse District",client:"El Paso Logistics Hub",desc:"Industrial rooftop solar, 5 buildings.",reward:8000},
+const INSTALL_STAGES=[
+  'Roof Inspection','Permits Pulled','L-Feet Install','SMR Rails','SE Optimizers','Silfab Panels','MC4 Wiring','Conduit Run','HD-Wave Inverter','AC Panel Hook-up','SetApp Commission','Grid Connected ✓'
 ];
 
-const ANGRY_DATA=[
-  {title:"WHERE ARE MY PANELS?!",msg:"Mr. Herrera called 3 times. Install was due last Tuesday."},
-  {title:"REFUND! NOW!",msg:"Mrs. Kim's panels stopped working day one. She's furious."},
-  {title:"I'M CALLING THE BBB!",msg:"4th reschedule. Customer threatening to post on Yelp."},
-  {title:"YOUR CAT BROKE MY ROOF!",msg:"A stray followed your crew and knocked off a tile."},
-  {title:"STILL WAITING!",msg:"Commercial client waiting 3 weeks for final inspection."},
+const CONTRACTS=[
+  {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Silfab Prime panels on a south-facing pitch. Sunmodo SMR rails, SolarEdge P400 optimizers.',reward:400,panels:12,days:1},
+  {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system across a flat commercial roof. SMR Tilt system at 10° fixed angle.',reward:1200,panels:50,days:3},
+  {title:'School District',type:'🏫 Commercial',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Silfab Commercial NTC modules, SolarEdge three-phase inverters.',reward:2500,panels:120,days:7},
+  {title:'Hotel Solar Array',type:'🏨 Commercial',client:'Sunland Park Hotel',desc:'Rooftop system for pool heating and common areas. 30 panels, HD-Wave inverter.',reward:900,panels:30,days:2},
+  {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'Win this and you\'re on the news. 200 panels, three-phase SolarEdge system.',reward:5000,panels:200,days:14},
+  {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens, TX',desc:'Off-grid. Sunmodo SunTurf ground mount system. 80 Silfab panels, SolarEdge + battery.',reward:1800,panels:80,days:5},
+  {title:'Car Dealership',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'Canopy carport system over the lot. 60 bifacial panels on Sunmodo canopy racking.',reward:1100,panels:60,days:4},
+  {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units going solar. Silfab Prime, individual SolarEdge inverters per unit.',reward:3200,panels:180,days:10},
+  {title:'Warehouse District',type:'🏭 Industrial',client:'El Paso Logistics Hub',desc:'5 warehouse rooftops. 500 panels total. Sunmodo SMR commercial rails.',reward:8000,panels:500,days:21},
 ];
 
-const CAT_BREEDS_DATA=[
-  {name:"Street Cat",icon:"🐱",bonus:"General morale +10%",cost:80,mult:1.1,moraleBoost:10},
-  {name:"Maine Coon",icon:"🦁",bonus:"Sales boost — income +20%",cost:500,mult:1.2,moraleBoost:15},
-  {name:"Siamese",icon:"😸",bonus:"Tech boost — income +15%",cost:400,mult:1.15,moraleBoost:12},
-  {name:"Black Cat",icon:"🐈‍⬛",bonus:"Contract values +25%",cost:800,mult:1.25,moraleBoost:20},
-  {name:"Director Whiskers",icon:"👔🐱",bonus:"Auto-manages office — morale never drops",cost:2000,mult:1.5,moraleBoost:30},
-  {name:"Calico",icon:"🌈",bonus:"All income +10%",cost:1200,mult:1.1,moraleBoost:18},
+const ANGRY=[
+  {title:'WHERE ARE MY PANELS?!',msg:'Mr. Herrera called 3 times. Silfab panels were due last Tuesday.'},
+  {title:'REFUND! NOW!',msg:'Mrs. Kim says her SolarEdge inverter shows no output. She\'s furious.'},
+  {title:'I\'M CALLING THE BBB!',msg:'4th reschedule. Customer threatening to post on Google.'},
+  {title:'YOUR CAT BROKE MY ROOF!',msg:'A stray followed your crew and knocked off a shingle near the SMR L-foot.'},
+  {title:'OPTIMIZER NOT WORKING!',msg:'Customer says the SolarEdge app shows 3 panels offline. P400 issue?'},
+];
+
+const CAT_BREEDS=[
+  {name:'Street Cat',icon:'🐱',bonus:'General morale +10%',cost:80,mult:1.1,mb:10},
+  {name:'Maine Coon',icon:'🦁',bonus:'Sales boost — income +20%',cost:500,mult:1.2,mb:15},
+  {name:'Siamese',icon:'😸',bonus:'Tech boost — income +15%',cost:400,mult:1.15,mb:12},
+  {name:'Black Cat',icon:'🐈‍⬛',bonus:'Contracts +25% value',cost:800,mult:1.25,mb:20},
+  {name:'Director Whiskers',icon:'👔🐱',bonus:'Office auto-managed',cost:2000,mult:1.5,mb:30},
+  {name:'Calico',icon:'🌈',bonus:'All income +10%',cost:1200,mult:1.1,mb:18},
 ];
 
 const UPGRADES_DATA=[
-  {id:"soft",name:"Lead Gen Software",desc:"Desks earn 2× faster",icon:"💻",cost:600,maxLv:3},
-  {id:"crm",name:"Solar CRM System",desc:"Contract values +30%",icon:"📊",cost:1200,maxLv:3},
-  {id:"fleet",name:"Upgraded Fleet",desc:"Map jobs pay 50% more",icon:"🚚",cost:1500,maxLv:2},
-  {id:"toys",name:"Premium Cat Toys",desc:"Cat morale boost +30%",icon:"🎾",cost:300,maxLv:5},
-  {id:"cert",name:"Installer Certification",desc:"All income +40%",icon:"🎓",cost:2000,maxLv:3},
-  {id:"espresso",name:"Espresso Machine",desc:"Income +10%, morale drain slowed",icon:"☕",cost:400,maxLv:3},
-  {id:"truck2",name:"Second Truck",desc:"Dispatch speed doubled",icon:"🚛",cost:3000,maxLv:1},
+  {id:'soft',name:'Lead Gen Software',desc:'Desks earn 2× faster',icon:'💻',cost:600,maxLv:3},
+  {id:'crm',name:'Solar CRM System',desc:'Contract values +30%',icon:'📊',cost:1200,maxLv:3},
+  {id:'fleet',name:'Upgraded Fleet',desc:'Map jobs pay 50% more',icon:'🚚',cost:1500,maxLv:2},
+  {id:'toys',name:'Premium Cat Toys',desc:'Cat morale boost +30%',icon:'🎾',cost:300,maxLv:5},
+  {id:'cert',name:'NABCEP Certification',desc:'All income +40%',icon:'🎓',cost:2000,maxLv:3},
+  {id:'espresso',name:'Espresso Machine',desc:'Income +10%, morale drain slower',icon:'☕',cost:400,maxLv:3},
+  {id:'truck2',name:'Second Truck',desc:'Map dispatch speed 2×',icon:'🚛',cost:3000,maxLv:1},
+  {id:'nanoRack',name:'Sunmodo NanoRack',desc:'Site completes 30% faster — rail-free install',icon:'🔩',cost:2500,maxLv:1},
+  {id:'seapp',name:'SolarEdge SetApp Pro',desc:'Commission time halved, +15% income',icon:'📱',cost:1800,maxLv:1},
 ];
 
 const MANAGERS_DATA=[
-  {id:"office",name:"Director Whiskers",desc:"Office fully automated — morale auto-maintained",icon:"👔🐱",cost:2000},
-  {id:"dispatch",name:"Dispatch Manager Dave",desc:"Map jobs auto-collect every 60s",icon:"🗺️👨",cost:3500},
-  {id:"foreman",name:"Site Foreman Rosa",desc:"Job site completes 2× faster",icon:"🏗️👩",cost:5000},
+  {id:'office',name:'Director Whiskers',desc:'Office fully automated — morale auto-maintained',icon:'👔🐱',cost:2000},
+  {id:'dispatch',name:'Dispatch Manager Dave',desc:'Map jobs auto-collect every 60s',icon:'🗺️👨',cost:3500},
+  {id:'foreman',name:'Site Foreman Rosa',desc:'Job site completes 2× faster',icon:'🏗️👩',cost:5000},
 ];
 
-const MILESTONES_DATA=[
-  {id:"m1k",check:()=>G.totalMoney>=1000,icon:"💵",title:"First $1,000!",desc:"The Purr & Power empire begins."},
-  {id:"m10k",check:()=>G.totalMoney>=10000,icon:"💰",title:"$10K Revenue!",desc:"You're a real company now.",credits:5},
-  {id:"m50k",check:()=>G.totalMoney>=50000,icon:"🏦",title:"$50K Revenue!",desc:"Job Site view unlocked!",credits:15},
-  {id:"m100k",check:()=>G.totalMoney>=100000,icon:"🌟",title:"$100K Company!",desc:"El Paso's #1 solar installer.",credits:30},
-  {id:"c5",check:()=>G.contracts>=5,icon:"📋",title:"5 Contracts Closed!",desc:"Neighborhood Map unlocked!",credits:3},
-  {id:"c20",check:()=>G.contracts>=20,icon:"📁",title:"20 Contracts!",desc:"You're the talk of the city.",credits:10},
-  {id:"cats5",check:()=>G.cats>=5,icon:"🐱",title:"Cat Crew!",desc:"5 cats in the office. Morale through the roof.",purr:20},
-  {id:"staff5",check:()=>G.staff>=5,icon:"👔",title:"Full Team!",desc:"5 staff members. You're growing fast."},
+const MILESTONES=[
+  {id:'m1k',check:()=>G.totalMoney>=1000,icon:'💵',title:'First $1,000!',desc:'The Purr & Power empire begins.'},
+  {id:'m10k',check:()=>G.totalMoney>=10000,icon:'💰',title:'$10K Revenue!',desc:'You\'re a real company now.',credits:5},
+  {id:'m50k',check:()=>G.totalMoney>=50000,icon:'🏦',title:'$50K Revenue!',desc:'Job Site view unlocked!',credits:15},
+  {id:'m100k',check:()=>G.totalMoney>=100000,icon:'🌟',title:'$100K Company!',desc:'El Paso\'s #1 solar installer.',credits:30},
+  {id:'c5',check:()=>G.contracts>=5,icon:'📋',title:'5 Contracts!',desc:'Neighborhood Map unlocked!',credits:3},
+  {id:'c20',check:()=>G.contracts>=20,icon:'📁',title:'20 Contracts!',desc:'You\'re the talk of the city.',credits:10},
+  {id:'cats5',check:()=>G.cats>=5,icon:'🐱',title:'Cat Crew!',desc:'5 cats on the team. Morale through the roof!',purr:20},
+  {id:'staff5',check:()=>G.staff>=5,icon:'👔',title:'Full Team!',desc:'5 staff members. Growing fast.'},
 ];
 
-const JOB_SITES_DATA=[
-  {name:"Casa Herrera",icon:"🏠",earn:50},
-  {name:"Sunrise Apts",icon:"🏢",earn:150},
-  {name:"El Paso High",icon:"🏫",earn:200},
-  {name:"Ranch Barela",icon:"🏚️",earn:400},
+const JOB_SITES=[
+  {name:'Casa Herrera',icon:'🏠',earn:50,stage:'Inspection'},
+  {name:'Sunrise Apts',icon:'🏢',earn:150,stage:'Installing'},
+  {name:'EP High School',icon:'🏫',earn:200,stage:'Wiring'},
+  {name:'Ranch Barela',icon:'🌵',earn:400,stage:'Permits'},
 ];
+const JOB_POS=[{x:10,y:68},{x:160,y:68},{x:10,y:178},{x:160,y:178}];
 
-const JOB_POS=[{x:12,y:98},{x:168,y:98},{x:12,y:208},{x:168,y:208}];
+// pipeline display data
+let salesLeads=['Montoya Family','EPCC Campus','Fort Bliss Housing','Grocery Chain'];
+let installJobs=['Casa Herrera','Hotel Job','Ysleta School'];
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // LAYER SWITCHING
-// ═══════════════════════════════════
+// ════════════════════════════════════
 let curLayer='office';
-
-function switchLayer(lyr){
-  if(lyr==='map'&&!G.mapUnlocked){showToast('🔒 Close 5 contracts first!');return;}
-  if(lyr==='site'&&!G.siteUnlocked){showToast('🔒 Earn $50,000 total first!');return;}
-  curLayer=lyr;
-  document.querySelectorAll('.layer').forEach(l=>l.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('layer-'+lyr).classList.add('active');
-  document.getElementById('nav-'+lyr).classList.add('active');
-  clearBadge(lyr);
-  if(lyr==='upgrades')renderUpgrades();
+function switchLayer(l){
+  if(l==='map'&&!G.mapUnlocked){showToast('🔒 Close 5 contracts first!');return;}
+  if(l==='site'&&!G.siteUnlocked){showToast('🔒 Earn $50,000 total first!');return;}
+  curLayer=l;
+  document.querySelectorAll('.layer').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById('layer-'+l).classList.add('active');
+  document.getElementById('nav-'+l).classList.add('active');
+  clearBadge(l);
+  if(l==='upgrades')renderUpgrades();
+  if(l==='map')updatePipelines();
+  if(l==='site')updateSiteScene();
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // OFFICE — DESKS
-// ═══════════════════════════════════
+// ════════════════════════════════════
 let desks=[];
 const DESK_POS=[
-  {x:12,y:55},{x:108,y:55},{x:204,y:55},
-  {x:12,y:145},{x:108,y:145},{x:204,y:145},
-  {x:12,y:235},{x:108,y:235},{x:204,y:235},
+  {x:8,y:50},{x:100,y:50},{x:192,y:50},
+  {x:8,y:140},{x:100,y:140},{x:192,y:140},
+  {x:8,y:230},{x:100,y:230},
 ];
-const EMP_COLORS=['#FCA5A5','#86EFAC','#93C5FD','#FDE68A','#C4B5FD','#F9A8D4'];
-const EMP_ICONS=['☀️','📞','💻','📋','🔧','📈'];
-const EMP_NAMES=['Solar Rep','Sales','Engineer','Closer','Installer','Analyst'];
+const EMP_COLORS=['#FCA5A5','#86EFAC','#93C5FD','#FDE68A','#C4B5FD','#F9A8D4','#A7F3D0','#FED7AA'];
+const EMP_ROLES=['Solar Rep','Sales Lead','Engineer','Project Mgr','Installer','Analyst','Designer','Estimator'];
+const EMP_ICONS=['☀️','📞','⚡','📋','🔧','📈','🎨','💰'];
 
 function spawnDesk(){
   const floor=document.getElementById('office-main');
@@ -565,51 +718,86 @@ function spawnDesk(){
   if(idx>=DESK_POS.length)return;
   const pos=DESK_POS[idx];
   const col=EMP_COLORS[idx%EMP_COLORS.length];
+  const role=EMP_ROLES[idx%EMP_ROLES.length];
   const icon=EMP_ICONS[idx%EMP_ICONS.length];
-  const name=EMP_NAMES[idx%EMP_NAMES.length];
+
   const el=document.createElement('div');
-  el.className='desk-station';
+  el.className='desk-stn';
   el.style.left=pos.x+'px';
   el.style.top=pos.y+'px';
   el.onclick=()=>tapDesk(el,idx);
+
+  // draw desk with SVG
   el.innerHTML=`
-    <div class="desk-visual">
+    <div class="desk-vis" style="height:58px;position:relative;">
       <div class="stn-lvl" id="dlvl-${idx}">Lv1</div>
-      <div class="emp-char">
-        <div class="emp-head" style="background:${col}">${icon}</div>
-        <div class="emp-body" style="background:${col}88"></div>
-      </div>
-      <div class="desk-top">
-        <div class="desk-monitor">${icon}</div>
-        <span style="font-size:10px">☕</span>
-      </div>
-      <div class="desk-legs"><div class="desk-leg"></div><div class="desk-leg"></div></div>
+      <svg width="72" height="58" viewBox="0 0 72 58" style="display:block;">
+        <!-- desk top surface -->
+        <rect x="2" y="10" width="68" height="32" rx="4" fill="#C49A6C" stroke="#8B6347" stroke-width="2"/>
+        <rect x="4" y="12" width="64" height="6" rx="2" fill="rgba(255,255,255,0.15)"/>
+        <!-- monitor -->
+        <rect x="16" y="14" width="28" height="20" rx="3" fill="#0F172A" stroke="#334155" stroke-width="1.5"/>
+        <rect x="17" y="15" width="26" height="18" rx="2" fill="#1E293B"/>
+        <text x="30" y="27" text-anchor="middle" font-size="10" fill="${col}">${icon}</text>
+        <!-- mug -->
+        <rect x="50" y="18" width="12" height="10" rx="2" fill="#7C3AED"/>
+        <text x="56" y="26" text-anchor="middle" font-size="8">☕</text>
+        <!-- desk legs -->
+        <rect x="6" y="42" width="10" height="14" rx="2" fill="#8B6347"/>
+        <rect x="56" y="42" width="10" height="14" rx="2" fill="#8B6347"/>
+        <!-- employee body -->
+        <ellipse cx="36" cy="8" rx="9" ry="9" fill="${col}" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+        <text x="36" y="12" text-anchor="middle" font-size="9">${icon}</text>
+        <!-- break animation indicator -->
+        <circle id="break-dot-${idx}" cx="64" cy="8" r="3" fill="#22C55E" opacity="0"/>
+      </svg>
     </div>
-    <div class="stn-info">
-      <div class="stn-name">${name}</div>
+    <div class="stn-badge">
+      <div class="stn-role">${role}</div>
       <div class="stn-rate" id="drate-${idx}">+$8/s</div>
     </div>`;
   floor.appendChild(el);
-  desks.push({el,level:1,name,idx});
+  desks.push({el,level:1,role,idx,onBreak:false});
+
+  // random break animations
+  scheduleBreak(idx);
+}
+
+function scheduleBreak(idx){
+  const d=desks[idx];
+  if(!d)return;
+  setTimeout(()=>{
+    if(d&&!d.onBreak){
+      d.onBreak=true;
+      const dot=document.getElementById('break-dot-'+idx);
+      if(dot)dot.style.opacity='1';
+      showToast('☕ '+d.role+' taking a quick break...');
+      setTimeout(()=>{
+        d.onBreak=false;
+        if(dot)dot.style.opacity='0';
+        scheduleBreak(idx);
+      },8000);
+    } else {scheduleBreak(idx);}
+  },30000+Math.random()*60000);
 }
 
 function tapDesk(el,idx){
-  const bonus=Math.floor(10*(G.upgrades.soft||1)*G.incomeMultiplier*(1+G.morale/200));
-  G.money+=bonus;G.totalMoney+=bonus;
-  spawnFloat(el,'+$'+fmtN(bonus),'#22C55E');
+  const bonus=Math.floor(12*(G.upgrades.soft||1)*G.incomeMultiplier*(1+G.morale/200));
+  G.money+=bonus;G.totalMoney+=bonus;G.todayRevenue+=bonus;
+  spawnFlt(el,'+$'+fmt(bonus),'#22C55E');
   checkMilestones();updateUI();
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // CATS
-// ═══════════════════════════════════
+// ════════════════════════════════════
 let catEls=[];
 const CAT_PAL=[
   {b:'#E07A30',e:'#C96020'},{b:'#9CA3AF',e:'#6B7280'},
-  {b:'#2D2D2D',e:'#111'},{b:'#F5DEB3',e:'#E8C878'},
+  {b:'#1a1a1a',e:'#111'},{b:'#F5DEB3',e:'#E8C878'},
   {b:'#92400E',e:'#78350F'},{b:'#D8B4FE',e:'#A855F7'},
 ];
-const CAT_EMOTES=['purr~','😸','zzz','meow!','😺','🐟','mrrrow'];
+const CAT_SAY=['purr~','😸','zzz','meow!','😺','mrrrow','*knocks pen off desk*','*sits on keyboard*'];
 
 function spawnCat(){
   const floor=document.getElementById('office-main');
@@ -620,14 +808,33 @@ function spawnCat(){
   cat.className='cat-spr';
   cat.style.left=(10+Math.random()*(w-50))+'px';
   cat.style.top=(30+Math.random()*(h-60))+'px';
-  cat.innerHTML=`
-    <div class="cat-body-s" style="background:${pal.b}">
-      <div class="cat-tail-s" style="background:${pal.e}"></div>
-    </div>
-    <div class="cat-head-s" style="background:${pal.b}">
-      <div class="cat-ear-s L" style="border-bottom-color:${pal.e}"></div>
-      <div class="cat-ear-s R" style="border-bottom-color:${pal.e}"></div>👀
-    </div>`;
+  // more realistic cat SVG
+  cat.innerHTML=`<svg width="30" height="26" viewBox="0 0 30 26">
+    <!-- body -->
+    <ellipse cx="15" cy="18" rx="10" ry="7" fill="${pal.b}"/>
+    <!-- head -->
+    <ellipse cx="15" cy="9" rx="8" ry="7" fill="${pal.b}"/>
+    <!-- ears -->
+    <polygon points="8,4 5,0 11,3" fill="${pal.b}"/>
+    <polygon points="22,4 25,0 19,3" fill="${pal.b}"/>
+    <!-- inner ear -->
+    <polygon points="8,4 6.5,1.5 10,3" fill="#FFB6C1" opacity="0.7"/>
+    <polygon points="22,4 23.5,1.5 20,3" fill="#FFB6C1" opacity="0.7"/>
+    <!-- eyes -->
+    <ellipse cx="11" cy="9" rx="2" ry="2.5" fill="#1F2937"/>
+    <ellipse cx="19" cy="9" rx="2" ry="2.5" fill="#1F2937"/>
+    <circle cx="11.5" cy="8.5" r="0.7" fill="white"/>
+    <circle cx="19.5" cy="8.5" r="0.7" fill="white"/>
+    <!-- nose -->
+    <polygon points="15,12 13.5,13.5 16.5,13.5" fill="#F472B6"/>
+    <!-- whiskers -->
+    <line x1="7" y1="12" x2="13" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
+    <line x1="7" y1="14" x2="13" y2="14" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
+    <line x1="23" y1="12" x2="17" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
+    <line x1="23" y1="14" x2="17" y2="14" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
+    <!-- tail -->
+    <path d="M 25 20 Q 30 15 28 10" stroke="${pal.e}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
   cat.onclick=()=>petCat(cat);
   floor.appendChild(cat);
   catEls.push(cat);
@@ -647,192 +854,451 @@ function moveCat(cat,floor){
 function petCat(cat){
   G.morale=Math.min(100,G.morale+8);
   G.purrPoints+=2;
-  const e=CAT_EMOTES[Math.floor(Math.random()*CAT_EMOTES.length)];
+  const e=CAT_SAY[Math.floor(Math.random()*CAT_SAY.length)];
   const r=cat.getBoundingClientRect();
-  spawnFloatXY(r.left+16,r.top,e,'#F97316');
+  spawnFltXY(r.left+15,r.top,e,'#F97316');
   checkMilestones();updateUI();
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // PURCHASES
-// ═══════════════════════════════════
+// ════════════════════════════════════
 function hireEmployee(){
-  if(G.money<G.hireCost){showToast('💸 Need '+fmtN(G.hireCost));return;}
+  if(G.money<G.hireCost){showToast('💸 Need '+fmt(G.hireCost));return;}
   G.money-=G.hireCost;G.staff++;
   G.hireCost=Math.floor(G.hireCost*1.65);
-  spawnDesk();
-  showToast('👔 Staff hired! '+G.staff+' total');
+  spawnDesk();showToast('👔 Staff hired! '+G.staff+' total');
   checkMilestones();updateUI();
 }
 
 function adoptCat(){
-  if(G.money<G.catCost){showToast('💸 Need '+fmtN(G.catCost));return;}
+  if(G.money<G.catCost){showToast('💸 Need '+fmt(G.catCost));return;}
   G.money-=G.catCost;G.cats++;
   G.catCost=Math.floor(G.catCost*1.4);
   G.morale=Math.min(100,G.morale+15);
-  spawnCat();
-  showToast('🐱 Cat adopted! Morale up!');
+  spawnCat();showToast('🐱 Cat adopted! Morale up!');
   checkMilestones();updateUI();
 }
 
 function upgradeSite(){
-  if(G.money<G.siteUpgCost){showToast('💸 Need '+fmtN(G.siteUpgCost));return;}
+  if(G.money<G.siteUpgCost){showToast('💸 Need '+fmt(G.siteUpgCost));return;}
   G.money-=G.siteUpgCost;G.siteLevel++;
   G.siteUpgCost=Math.floor(G.siteUpgCost*2);
-  showToast('🔧 Site upgraded to level '+G.siteLevel+'!');
-  updateUI();
+  showToast('🔧 Site upgraded to level '+G.siteLevel+'!');updateUI();
 }
 
 function sendWorker(){
-  if(G.money<G.siteWorkerCost){showToast('💸 Need '+fmtN(G.siteWorkerCost));return;}
+  if(G.money<G.siteWorkerCost){showToast('💸 Need '+fmt(G.siteWorkerCost));return;}
   G.money-=G.siteWorkerCost;G.siteWorkers++;
   G.siteWorkerCost=Math.floor(G.siteWorkerCost*1.5);
-  showToast('👷 Extra worker sent to site!');
-  updateUI();
+  showToast('👷 Extra worker sent to site!');updateUI();
 }
 
-// ═══════════════════════════════════
-// MAP — JOB SITES
-// ═══════════════════════════════════
-let jobSiteEls=[];
-let jobPayReady=[];
+// ════════════════════════════════════
+// MAP
+// ════════════════════════════════════
+let jobCardEls=[];let jobReady=[];
 
 function initMap(){
   const main=document.getElementById('map-main');
-  JOB_SITES_DATA.forEach((s,i)=>{
+  JOB_SITES.forEach((s,i)=>{
     const pos=JOB_POS[i];
     const el=document.createElement('div');
-    el.className='job-site'+(i===0?' active-job':'');
+    el.className='job-card'+(i===0?' ready':'');
     el.style.left=pos.x+'px';
     el.style.top=pos.y+'px';
     el.onclick=()=>collectJob(i);
     el.innerHTML=`
-      <div class="jlvl" id="jlvl-${i}">Lv1</div>
-      <span class="ji">${s.icon}</span>
-      <div class="jn">${s.name}</div>
-      <div class="je" id="jearn-${i}">+${fmtN(s.earn)}/min</div>`;
+      <div class="jc-lvl" id="jlvl-${i}">Lv1</div>
+      <span class="jc-icon">${s.icon}</span>
+      <div class="jc-name">${s.name}</div>
+      <div class="jc-earn" id="jearn-${i}">+${fmt(s.earn)}/tap</div>
+      <div class="jc-stage" id="jstage-${i}">${s.stage}</div>`;
     main.appendChild(el);
-    jobSiteEls.push({el,level:1,earn:s.earn});
-    jobPayReady.push(false);
+    jobCardEls.push({el,level:1,earn:s.earn,site:s});
+    jobReady.push(i===0);
   });
-  // truck
-  const truck=document.createElement('div');
-  truck.className='truck-el';
-  truck.textContent='🚐';
-  truck.style.left='50px';truck.style.top='85px';
-  main.appendChild(truck);
-  animTruck(truck);
-  // auto dispatch manager
-  setInterval(()=>{
-    if(G.managers.dispatch){
-      jobSiteEls.forEach((_,i)=>{if(jobPayReady[i])collectJob(i);});
-    }
-  },60000);
+  spawnTruck();
+  updatePipelines();
 }
 
-function animTruck(truck){
-  const stops=[{x:50,y:85},{x:175,y:85},{x:175,y:195},{x:50,y:195}];
-  let idx=0;
-  setInterval(()=>{idx=(idx+1)%stops.length;truck.style.left=stops[idx].x+'px';truck.style.top=stops[idx].y+'px';},2800);
+function spawnTruck(){
+  const main=document.getElementById('map-main');
+  const truck=document.createElement('div');
+  truck.className='truck-el';
+  truck.style.left='50px';truck.style.top='45px';
+  truck.style.fontSize='20px';
+  truck.innerHTML='🚐';
+  truck.onclick=()=>showToast('🚐 Crew en route!');
+  main.appendChild(truck);
+  animTruck(truck);
+}
+
+function animTruck(t){
+  const stops=[{x:50,y:45},{x:170,y:45},{x:170,y:160},{x:50,y:160}];
+  let i=0;
+  setInterval(()=>{i=(i+1)%stops.length;t.style.left=stops[i].x+'px';t.style.top=stops[i].y+'px';},2800);
 }
 
 function collectJob(i){
   if(!G.mapUnlocked)return;
-  const site=jobSiteEls[i];
-  const fleetBonus=G.upgrades.fleet||1;
+  if(!jobReady[i]){showToast('⏳ Job not ready yet');return;}
+  const site=jobCardEls[i];
+  const fleetBonus=G.upgrades.fleet?Math.pow(1.5,G.upgrades.fleet):1;
   const pay=Math.floor(site.earn*site.level*fleetBonus*(1+G.morale/120));
-  G.money+=pay;G.totalMoney+=pay;
-  const el=site.el;
-  const r=el.getBoundingClientRect();
-  spawnFloatXY(r.left+44,r.top,'+'+fmtN(pay),'#22C55E');
-  el.classList.remove('active-job');
-  jobPayReady[i]=false;
-  setTimeout(()=>{el.classList.add('active-job');jobPayReady[i]=true;},18000);
-  checkMilestones();updateUI();
+  G.money+=pay;G.totalMoney+=pay;G.todayRevenue+=pay;
+  const r=site.el.getBoundingClientRect();
+  spawnFltXY(r.left+41,r.top,'+'+fmt(pay),'#22C55E');
+  site.el.classList.remove('ready');
+  jobReady[i]=false;
+  setTimeout(()=>{site.el.classList.add('ready');jobReady[i]=true;},20000);
+  checkMilestones();updateUI();updatePipelines();
 }
 
-// ═══════════════════════════════════
-// JOB SITE PROGRESS
-// ═══════════════════════════════════
+function updatePipelines(){
+  // Sales pipeline
+  const sRows=document.getElementById('sales-rows');
+  if(!sRows)return;
+  const statuses=['lead','quote','close'];
+  const statusLabels=['Lead','Quoted','Closing'];
+  sRows.innerHTML=salesLeads.slice(0,4).map((n,i)=>`
+    <div class="pp-row">
+      <span class="pp-status ${statuses[i%3]}">${statusLabels[i%3]}</span>
+      <span style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50px">${n}</span>
+    </div>`).join('');
+  // Install pipeline
+  const iRows=document.getElementById('install-rows');
+  if(!iRows)return;
+  const iStatuses=['sched','route','wip','done'];
+  const iLabels=['Sched','En Route','Working','Done'];
+  iRows.innerHTML=installJobs.slice(0,4).map((n,i)=>`
+    <div class="pp-row">
+      <span class="pp-status ${iStatuses[i%4]}">${iLabels[i%4]}</span>
+      <span style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52px">${n}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════
+// JOB SITE — FULL ACCURATE SCENE
+// ════════════════════════════════════
+let siteBuilt=false;
+
+function buildSiteScene(){
+  if(siteBuilt)return;
+  siteBuilt=true;
+  const scene=document.getElementById('site-scene');
+  const w=scene.offsetWidth||320;
+  const h=scene.offsetHeight||240;
+
+  // Ground
+  const ground=document.createElement('div');
+  ground.style.cssText=`position:absolute;bottom:0;left:0;right:0;height:38%;background:linear-gradient(180deg,#C4A882,#B8956A);`;
+  scene.insertBefore(ground,scene.firstChild);
+  const grassStrip=document.createElement('div');
+  grassStrip.style.cssText=`position:absolute;bottom:38%;left:0;right:0;height:6px;background:#8B9B6B;`;
+  scene.insertBefore(grassStrip,scene.firstChild);
+
+  // Cactus
+  const cact=document.createElement('div');
+  cact.style.cssText=`position:absolute;bottom:38%;left:8px;font-size:22px;z-index:5;`;
+  cact.textContent='🌵';
+  scene.appendChild(cact);
+
+  // House container
+  const houseY=h*0.62;
+  const houseW=200;
+  const houseX=(w-houseW)/2;
+
+  // House walls
+  const wall=document.createElement('div');
+  wall.className='house-wall';
+  wall.style.cssText=`position:absolute;left:${houseX}px;top:${houseY}px;width:${houseW}px;height:95px;`;
+  wall.innerHTML=`
+    <div class="house-window-row">
+      <div class="house-win"></div>
+      <div class="house-win"></div>
+    </div>
+    <div class="house-door"></div>`;
+  scene.appendChild(wall);
+
+  // Roof (SVG triangle)
+  const roofH=65;
+  const roofY=houseY-roofH;
+  const roofSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  roofSvg.setAttribute('width',houseW+20+'');
+  roofSvg.setAttribute('height',roofH+'');
+  roofSvg.style.cssText=`position:absolute;left:${houseX-10}px;top:${roofY}px;`;
+  roofSvg.innerHTML=`
+    <polygon points="110,0 ${houseW+20},${roofH} 0,${roofH}" fill="#B45309"/>
+    <polygon points="110,0 ${houseW+20},${roofH} 0,${roofH}" fill="none" stroke="#92400E" stroke-width="2"/>`;
+  scene.appendChild(roofSvg);
+
+  // Sunmodo SMR Rails (2 horizontal black rails across roof)
+  // Rail 1
+  const rail1=document.createElement('div');
+  rail1.style.cssText=`position:absolute;left:${houseX+20}px;top:${roofY+28}px;width:${houseW-30}px;height:4px;background:#1a1a1a;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.5);z-index:10;`;
+  const railLbl1=document.createElement('div');
+  railLbl1.style.cssText=`position:absolute;left:${houseX-8}px;top:${roofY+27}px;font-size:6px;color:#666;z-index:11;`;
+  railLbl1.textContent='SMR';
+  scene.appendChild(rail1);scene.appendChild(railLbl1);
+  // Rail 2
+  const rail2=document.createElement('div');
+  rail2.style.cssText=`position:absolute;left:${houseX+20}px;top:${roofY+44}px;width:${houseW-30}px;height:4px;background:#1a1a1a;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.5);z-index:10;`;
+  scene.appendChild(rail2);
+
+  // Silfab Prime panels (4 panels on roof, added as progress increases)
+  const panelContainer=document.createElement('div');
+  panelContainer.id='panel-container';
+  panelContainer.style.cssText=`position:absolute;left:${houseX+22}px;top:${roofY+22}px;z-index:12;display:flex;gap:3px;`;
+  scene.appendChild(panelContainer);
+
+  // SolarEdge Optimizers label under panels
+  const optContainer=document.createElement('div');
+  optContainer.id='opt-container';
+  optContainer.style.cssText=`position:absolute;left:${houseX+22}px;top:${roofY+48}px;z-index:13;display:flex;gap:3px;`;
+  scene.appendChild(optContainer);
+
+  // Conduit running down wall
+  const conduit=document.createElement('div');
+  conduit.style.cssText=`position:absolute;left:${houseX+houseW-18}px;top:${roofY+roofH}px;width:5px;height:95px;background:#475569;border-radius:1px;z-index:8;`;
+  scene.appendChild(conduit);
+  const conduitTop=document.createElement('div');
+  conduitTop.style.cssText=`position:absolute;left:${houseX+houseW-22}px;top:${roofY+roofH-2}px;width:13px;height:5px;background:#64748B;border-radius:2px;z-index:9;`;
+  scene.appendChild(conduitTop);
+
+  // SolarEdge HD-Wave Inverter on wall
+  const inv=document.createElement('div');
+  inv.className='se-inverter';
+  inv.style.cssText=`position:absolute;left:${houseX+houseW-8}px;top:${houseY+20}px;width:42px;z-index:15;`;
+  inv.innerHTML=`
+    <div class="se-inv-logo">SolarEdge</div>
+    <div style="font-size:5px;color:#64748B;text-align:center;margin-bottom:2px;">HD-Wave</div>
+    <div class="se-inv-display">
+      <div class="se-inv-led"></div>
+      <span class="se-inv-text">99%</span>
+    </div>
+    <div style="font-size:5px;color:#64748B;text-align:center;">P400 Optimizers</div>
+    <div class="se-safety-sw">SAFETY SW ▮</div>`;
+  scene.appendChild(inv);
+
+  // Main electrical panel
+  const mainPanel=document.createElement('div');
+  mainPanel.className='main-panel';
+  mainPanel.style.cssText=`position:absolute;left:${houseX+houseW+38}px;top:${houseY+24}px;width:22px;z-index:15;`;
+  mainPanel.innerHTML=`<div class="main-panel-inner">
+    <div class="breaker"></div><div class="breaker"></div><div class="breaker"></div>
+    <div style="font-size:5px;color:#64748B;text-align:center;margin-top:2px;">PANEL</div>
+  </div>`;
+  scene.appendChild(mainPanel);
+
+  // AC wire from inverter to panel
+  const acWire=document.createElement('div');
+  acWire.style.cssText=`position:absolute;left:${houseX+houseW+34}px;top:${houseY+34}px;width:4px;height:2px;background:#22C55E;z-index:14;`;
+  scene.appendChild(acWire);
+
+  // Ladder on left side
+  const ladderWrap=document.createElement('div');
+  ladderWrap.style.cssText=`position:absolute;left:${houseX-28}px;top:${roofY+10}px;z-index:20;`;
+  ladderWrap.innerHTML=`<svg width="18" height="${houseY-roofY+50}" viewBox="0 0 18 ${houseY-roofY+50}">
+    <line x1="3" y1="0" x2="3" y2="${houseY-roofY+50}" stroke="#94A3B8" stroke-width="2.5"/>
+    <line x1="15" y1="0" x2="15" y2="${houseY-roofY+50}" stroke="#94A3B8" stroke-width="2.5"/>
+    ${Array.from({length:Math.floor((houseY-roofY+50)/14)},(_,i)=>`<line x1="3" y1="${i*14+7}" x2="15" y2="${i*14+7}" stroke="#94A3B8" stroke-width="1.5"/>`).join('')}
+  </svg>`;
+  scene.appendChild(ladderWrap);
+
+  // Laddervator
+  const lv=document.createElement('div');
+  lv.className='laddervator';
+  lv.style.cssText=`position:absolute;left:${houseX-32}px;top:${roofY+20}px;z-index:21;font-size:14px;`;
+  lv.title='Panel Hoist';
+  lv.textContent='📦';
+  scene.appendChild(lv);
+
+  // ROOF CREW (3 workers)
+  const crewPositions=[
+    {x:houseX+30,y:roofY+5,label:'Installer 1',icon:'👷'},
+    {x:houseX+80,y:roofY+15,label:'Installer 2',icon:'👷'},
+    {x:houseX+130,y:roofY+5,label:'Lead Tech',icon:'👷'},
+  ];
+  crewPositions.forEach(c=>{
+    const crew=document.createElement('div');
+    crew.className='crew-member';
+    crew.style.cssText=`position:absolute;left:${c.x}px;top:${c.y}px;z-index:25;`;
+    crew.innerHTML=`
+      <div class="crew-char" style="animation-delay:${Math.random()*1}s">${c.icon}</div>
+      <div class="crew-label">${c.label}</div>`;
+    scene.appendChild(crew);
+  });
+
+  // GROUND CREW (electrician)
+  const gc=document.createElement('div');
+  gc.className='ground-crew';
+  gc.style.cssText=`position:absolute;left:${houseX+houseW+2}px;top:${houseY+50}px;z-index:25;display:flex;flex-direction:column;align-items:center;`;
+  gc.innerHTML=`<div class="gc-char">👨‍🔧</div><div class="gc-label">Electrician</div>`;
+  scene.appendChild(gc);
+
+  // SetApp phone (electrician's phone)
+  const phone=document.createElement('div');
+  phone.style.cssText=`position:absolute;left:${houseX+houseW+52}px;top:${houseY+55}px;font-size:12px;z-index:26;animation:ledBlink 3s ease-in-out infinite;`;
+  phone.textContent='📱';
+  phone.title='SolarEdge SetApp';
+  scene.appendChild(phone);
+
+  updateSiteScene();
+}
+
+function updateSiteScene(){
+  if(!siteBuilt&&G.siteUnlocked)buildSiteScene();
+  if(!siteBuilt)return;
+
+  // Update panels based on progress
+  const panelContainer=document.getElementById('panel-container');
+  const optContainer=document.getElementById('opt-container');
+  if(!panelContainer)return;
+
+  const panelCount=Math.min(Math.floor(G.siteProgress/10),8);
+  panelContainer.innerHTML='';
+  optContainer.innerHTML='';
+
+  for(let i=0;i<panelCount;i++){
+    // Silfab Prime panel — all black, 3×5 cell grid
+    const p=document.createElement('div');
+    p.style.cssText=`width:20px;height:28px;background:#0A0A0A;border:1.5px solid #1F2937;border-radius:1px;position:relative;overflow:hidden;`;
+    // cell grid
+    const grid=document.createElement('div');
+    grid.style.cssText=`position:absolute;inset:2px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr);gap:0.5px;`;
+    for(let c=0;c<15;c++){
+      const cell=document.createElement('div');
+      cell.style.cssText=`background:#111827;border-radius:0.3px;`;
+      grid.appendChild(cell);
+    }
+    p.appendChild(grid);
+    // Silfab label (tiny)
+    const lbl=document.createElement('div');
+    lbl.style.cssText=`position:absolute;bottom:1px;left:0;right:0;text-align:center;font-size:3px;color:#333;`;
+    lbl.textContent='SILFAB';
+    p.appendChild(lbl);
+    panelContainer.appendChild(p);
+
+    // SolarEdge P400 optimizer under each panel
+    const opt=document.createElement('div');
+    opt.style.cssText=`width:20px;height:10px;background:#111;border:1px solid #333;border-radius:1px;display:flex;align-items:center;justify-content:center;position:relative;`;
+    opt.innerHTML=`<div style="width:4px;height:4px;border-radius:50%;background:#22C55E;box-shadow:0 0 3px #22C55E;"></div>`;
+    const optLbl=document.createElement('div');
+    optLbl.style.cssText=`position:absolute;bottom:-8px;left:0;right:0;text-align:center;font-size:3.5px;color:#555;`;
+    optLbl.textContent='P400';
+    opt.appendChild(optLbl);
+    optContainer.appendChild(opt);
+  }
+
+  // Update install stage label
+  const stageEl=document.getElementById('ip-stage-name');
+  if(stageEl){
+    const si=Math.min(Math.floor(G.siteProgress/9),INSTALL_STAGES.length-1);
+    G.siteStageIdx=si;
+    stageEl.textContent=INSTALL_STAGES[si];
+  }
+
+  // Stage chips
+  const stagesEl=document.getElementById('ip-stages');
+  if(stagesEl){
+    stagesEl.innerHTML=INSTALL_STAGES.slice(0,8).map((s,i)=>`
+      <div class="ip-stage ${i<G.siteStageIdx?'done':i===G.siteStageIdx?'active':''}">${s}</div>`).join('');
+  }
+}
+
+// ════════════════════════════════════
+// SITE PROGRESS
+// ════════════════════════════════════
 function tickSite(){
   if(!G.siteUnlocked)return;
   const foreman=G.managers.foreman?2:1;
-  const rate=G.siteWorkers*G.siteLevel*foreman*0.6;
+  const nanoBonus=G.upgrades.nanoRack?1.3:1;
+  const seBonus=G.upgrades.seapp?1.15:1;
+  const rate=G.siteWorkers*G.siteLevel*foreman*nanoBonus*seBonus*0.6;
   G.siteProgress=Math.min(100,G.siteProgress+rate);
   if(G.siteProgress>=100)completeSiteJob();
   updateSiteUI();
+  if(curLayer==='site')updateSiteScene();
 }
 
 function completeSiteJob(){
-  const earn=Math.floor(600*G.siteLevel*G.incomeMultiplier);
-  G.money+=earn;G.totalMoney+=earn;G.contracts++;
-  G.siteProgress=0;
-  const jobs=['Residential Install — Mesa Hills','Commercial Rooftop — Downtown','Industrial Array — East EP','School District — Socorro'];
+  const earn=Math.floor(700*G.siteLevel*G.incomeMultiplier);
+  G.money+=earn;G.totalMoney+=earn;G.todayRevenue+=earn;G.contracts++;
+  G.siteProgress=0;G.wipCount=Math.max(0,G.wipCount-1);
+  const jobs=['Residential Install — Mesa Hills','Commercial Rooftop — Downtown','Industrial Array — East EP','School District — Socorro','Ranch Ground Mount — Fabens'];
   G.currentJob=jobs[Math.floor(Math.random()*jobs.length)];
-  spawnFloatXY(window.innerWidth/2,window.innerHeight/2,'JOB DONE! +'+fmtN(earn),'#22C55E');
+  installJobs.unshift(G.currentJob.split('—')[0].trim());
+  if(installJobs.length>4)installJobs.pop();
+  spawnFltXY(window.innerWidth/2,window.innerHeight/2,'JOB DONE! +'+fmt(earn),'#22C55E');
   checkMilestones();checkUnlocks();updateUI();
 }
 
 function updateSiteUI(){
-  document.getElementById('site-prog-fill').style.width=G.siteProgress+'%';
-  document.getElementById('sp-pct').textContent=Math.floor(G.siteProgress)+'%';
-  const earn=Math.floor(600*G.siteLevel*G.incomeMultiplier);
-  document.getElementById('sp-earn').textContent='+'+fmtN(earn)+' on complete';
-  document.getElementById('site-job-name').textContent=G.currentJob||'Residential Install — Mesa Hills';
-  document.getElementById('site-upg-lbl').textContent=fmtN(G.siteUpgCost);
-  document.getElementById('site-wkr-lbl').textContent=fmtN(G.siteWorkerCost);
-  // roof panels
-  const pw=document.getElementById('roof-panels');
-  const cnt=Math.min(Math.floor(G.siteProgress/12),9);
-  pw.innerHTML='';
-  if(cnt>0){const d=document.createElement('div');d.className='rp-grid';for(let i=0;i<cnt;i++){const c=document.createElement('div');c.className='rp-cell';d.appendChild(c);}pw.appendChild(d);}
+  const pf=document.getElementById('ip-prog-fill');
+  if(pf)pf.style.width=G.siteProgress+'%';
+  const pp=document.getElementById('ip-pct');
+  if(pp)pp.textContent=Math.floor(G.siteProgress)+'%';
+  const pe=document.getElementById('ip-earn');
+  if(pe)pe.textContent='+'+fmt(Math.floor(700*G.siteLevel*G.incomeMultiplier))+' on complete';
+  const jn=document.getElementById('ip-stage-name');
+  if(jn&&!G.currentJob)jn.textContent='Residential Install — Mesa Hills';
+  const sul=document.getElementById('site-upg-lbl');if(sul)sul.textContent=fmt(G.siteUpgCost);
+  const swl=document.getElementById('site-wkr-lbl');if(swl)swl.textContent=fmt(G.siteWorkerCost);
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // CONTRACTS
-// ═══════════════════════════════════
+// ════════════════════════════════════
 function triggerContract(){
-  if(!document.getElementById('contract-overlay').classList.contains('gone'))return;
+  if(!document.getElementById('contract-ov').classList.contains('gone'))return;
   if(G.angryActive)return;
-  const c=CONTRACTS_DATA[Math.floor(Math.random()*CONTRACTS_DATA.length)];
-  const crmBonus=G.upgrades.crm||1;
+  const c=CONTRACTS[Math.floor(Math.random()*CONTRACTS.length)];
+  const crmBonus=G.upgrades.crm?Math.pow(1.3,G.upgrades.crm):1;
   const reward=Math.floor(c.reward*crmBonus*(1+(G.staff-1)*0.06));
   G.pendingContract={...c,actualReward:reward};
+  document.getElementById('cp-type').textContent=c.type;
   document.getElementById('cp-title').textContent=c.title;
   document.getElementById('cp-client').textContent='📍 '+c.client;
   document.getElementById('cp-desc').textContent=c.desc;
-  document.getElementById('cp-reward').textContent='+'+fmtN(reward);
-  document.getElementById('contract-overlay').classList.remove('gone');
+  document.getElementById('cp-reward').textContent=fmt(reward);
+  document.getElementById('cp-panels').textContent=c.panels;
+  document.getElementById('cp-days').textContent=c.days;
+  document.getElementById('contract-ov').classList.remove('gone');
   setBadge('office');
 }
 
 function acceptContract(){
   if(!G.pendingContract)return;
   const r=G.pendingContract.actualReward;
-  G.money+=r;G.totalMoney+=r;G.contracts++;
+  G.money+=r;G.totalMoney+=r;G.todayRevenue+=r;G.contracts++;
   G.morale=Math.min(100,G.morale+8);G.credits+=1;
-  document.getElementById('contract-overlay').classList.add('gone');
-  showToast('✅ Contract closed! +'+fmtN(r));
+  G.wipCount++;
+  salesLeads.shift();
+  salesLeads.push(['Lopez Family','UTEP Campus','Fort Bliss','Costco EP','Sun City Mall'][Math.floor(Math.random()*5)]);
+  installJobs.unshift(G.pendingContract.title);
+  if(installJobs.length>4)installJobs.pop();
+  document.getElementById('contract-ov').classList.add('gone');
+  showToast('✅ Contract signed! +'+fmt(r));
   G.pendingContract=null;
   checkMilestones();checkUnlocks();updateUI();
 }
 
 function declineContract(){
-  document.getElementById('contract-overlay').classList.add('gone');
-  G.pendingContract=null;
-  showToast('❌ Contract declined');
+  document.getElementById('contract-ov').classList.add('gone');
+  G.pendingContract=null;showToast('❌ Contract declined');
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // ANGRY CUSTOMERS
-// ═══════════════════════════════════
+// ════════════════════════════════════
 let angryLeft=30,angryIvl=null;
 
 function triggerAngry(){
   if(G.angryActive)return;
-  if(!document.getElementById('contract-overlay').classList.contains('gone'))return;
+  if(!document.getElementById('contract-ov').classList.contains('gone'))return;
   G.angryActive=true;
-  const a=ANGRY_DATA[Math.floor(Math.random()*ANGRY_DATA.length)];
+  const a=ANGRY[Math.floor(Math.random()*ANGRY.length)];
   angryLeft=30;
   document.getElementById('ap-title-txt').textContent=a.title;
   document.getElementById('ap-msg').textContent=a.msg;
@@ -850,12 +1316,12 @@ function triggerAngry(){
 
 function resolveAngry(){
   clearInterval(angryIvl);
-  const bonus=Math.floor(angryLeft*18*G.incomeMultiplier);
-  G.money+=bonus;G.totalMoney+=bonus;
+  const bonus=Math.floor(angryLeft*20*G.incomeMultiplier);
+  G.money+=bonus;G.totalMoney+=bonus;G.todayRevenue+=bonus;
   G.morale=Math.min(100,G.morale+12);G.credits+=1;
   document.getElementById('angry-pop').classList.add('gone');
   G.angryActive=false;
-  showToast('😊 Resolved! +'+fmtN(bonus)+' bonus!');
+  showToast('😊 Resolved! +'+fmt(bonus)+' bonus!');
   checkMilestones();updateUI();
 }
 
@@ -868,11 +1334,10 @@ function dismissAngry(expired){
   updateUI();
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // UPGRADES
-// ═══════════════════════════════════
+// ════════════════════════════════════
 function renderUpgrades(){
-  // office
   document.getElementById('upg-office').innerHTML=UPGRADES_DATA.map(u=>{
     const lv=G.upgrades[u.id]||0;
     const maxed=lv>=u.maxLv;
@@ -882,13 +1347,11 @@ function renderUpgrades(){
       <div class="upg-ico">${u.icon}</div>
       <div class="upg-inf"><div class="upg-name">${u.name}</div><div class="upg-desc">${u.desc}</div></div>
       <div class="upg-right">
-        <div class="upg-cost ${can?'':'no'}">${maxed?'MAX':fmtN(cost)}</div>
-        <div class="upg-lvl">Lv ${lv}/${u.maxLv}</div>
-      </div>
-    </div>`;
+        <div class="upg-cost ${can?'':'no'}">${maxed?'MAX':fmt(cost)}</div>
+        <div class="upg-lv">Lv ${lv}/${u.maxLv}</div>
+      </div></div>`;
   }).join('');
-  // cats
-  document.getElementById('upg-cats').innerHTML=CAT_BREEDS_DATA.map(c=>{
+  document.getElementById('upg-cats').innerHTML=CAT_BREEDS.map(c=>{
     const owned=G.catBreeds.filter(b=>b===c.name).length;
     const can=G.money>=c.cost;
     return `<div class="cat-card" onclick="buyCatBreed('${c.name}')">
@@ -896,11 +1359,9 @@ function renderUpgrades(){
       <div class="cc-inf"><div class="cc-name">${c.name}</div><div class="cc-bonus">${c.bonus}</div></div>
       <div class="cc-right">
         <div class="cc-owned">Owned: ${owned}</div>
-        <div class="cc-cost ${can?'':'no-cash'}">${fmtN(c.cost)}</div>
-      </div>
-    </div>`;
+        <div class="cc-cost">${fmt(c.cost)}</div>
+      </div></div>`;
   }).join('');
-  // managers
   document.getElementById('upg-managers').innerHTML=MANAGERS_DATA.map(m=>{
     const owned=!!G.managers[m.id];
     const can=G.money>=m.cost&&!owned;
@@ -908,9 +1369,8 @@ function renderUpgrades(){
       <div class="upg-ico">${m.icon}</div>
       <div class="upg-inf"><div class="upg-name">${m.name}</div><div class="upg-desc">${m.desc}</div></div>
       <div class="upg-right">
-        <div class="upg-cost ${can?'':'no'}">${owned?'HIRED':fmtN(m.cost)}</div>
-      </div>
-    </div>`;
+        <div class="upg-cost ${can?'':'no'}">${owned?'HIRED':fmt(m.cost)}</div>
+      </div></div>`;
   }).join('');
 }
 
@@ -919,50 +1379,39 @@ function buyUpgrade(id){
   const lv=G.upgrades[id]||0;
   if(lv>=u.maxLv){showToast('✅ Already maxed!');return;}
   const cost=Math.floor(u.cost*Math.pow(1.9,lv));
-  if(G.money<cost){showToast('💸 Need '+fmtN(cost));return;}
-  G.money-=cost;
-  G.upgrades[id]=(lv+1);
-  applyUpgrade(id,lv+1);
-  showToast('⬆️ '+u.name+' upgraded to Lv'+(lv+1)+'!');
+  if(G.money<cost){showToast('💸 Need '+fmt(cost));return;}
+  G.money-=cost;G.upgrades[id]=lv+1;
+  if(id==='cert')G.incomeMultiplier*=1.4;
+  if(id==='espresso')G.incomeMultiplier*=1.1;
+  showToast('⬆️ '+u.name+' upgraded!');
   renderUpgrades();updateUI();
 }
 
-function applyUpgrade(id,lv){
-  if(id==='cert')G.incomeMultiplier=G.incomeMultiplier*(1+(0.4*lv));
-  if(id==='espresso')G.incomeMultiplier*=1.1;
-  if(id==='soft'){}// handled in recalcIncome
-  if(id==='crm'){}// handled in contract reward
-  if(id==='fleet')G.upgrades.fleet=(G.upgrades.fleet||1)*1.5;
-}
-
 function buyCatBreed(name){
-  const breed=CAT_BREEDS_DATA.find(c=>c.name===name);if(!breed)return;
-  if(G.money<breed.cost){showToast('💸 Need '+fmtN(breed.cost));return;}
+  const breed=CAT_BREEDS.find(c=>c.name===name);if(!breed)return;
+  if(G.money<breed.cost){showToast('💸 Need '+fmt(breed.cost));return;}
   G.money-=breed.cost;G.catBreeds.push(name);G.cats++;
-  G.morale=Math.min(100,G.morale+breed.moraleBoost);
+  G.morale=Math.min(100,G.morale+breed.mb);
   G.incomeMultiplier*=breed.mult;
-  spawnCat();
-  showToast(breed.icon+' '+breed.name+' joined the office!');
+  spawnCat();showToast(breed.icon+' '+breed.name+' joined the office!');
   checkMilestones();renderUpgrades();updateUI();
 }
 
 function buyManager(id){
   const m=MANAGERS_DATA.find(x=>x.id===id);if(!m)return;
   if(G.managers[id]){showToast('✅ Already hired!');return;}
-  if(G.money<m.cost){showToast('💸 Need '+fmtN(m.cost));return;}
+  if(G.money<m.cost){showToast('💸 Need '+fmt(m.cost));return;}
   G.money-=m.cost;G.managers[id]=true;
   showToast(m.icon+' '+m.name+' hired!');
   renderUpgrades();updateUI();
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // MILESTONES & UNLOCKS
-// ═══════════════════════════════════
-let msQueue=[];
-let msShowing=false;
-
+// ════════════════════════════════════
+let msQueue=[];let msShowing=false;
 function checkMilestones(){
-  MILESTONES_DATA.forEach(m=>{
+  MILESTONES.forEach(m=>{
     if(G.milestones.includes(m.id))return;
     if(m.check()){
       G.milestones.push(m.id);
@@ -971,85 +1420,75 @@ function checkMilestones(){
       msQueue.push(m);
     }
   });
-  if(!msShowing&&msQueue.length>0)showNextMilestone();
+  if(!msShowing&&msQueue.length>0)showNextMs();
 }
-
-function showNextMilestone(){
-  if(msQueue.length===0){msShowing=false;return;}
+function showNextMs(){
+  if(!msQueue.length){msShowing=false;return;}
   msShowing=true;
   const m=msQueue.shift();
   document.getElementById('ms-ico').textContent=m.icon;
   document.getElementById('ms-title').textContent=m.title;
   document.getElementById('ms-desc').textContent=m.desc+(m.credits?' (+'+m.credits+' Credits!)':'')+(m.purr?' (+'+m.purr+' Purr Points!)':'');
-  document.getElementById('ms-overlay').classList.remove('gone');
+  document.getElementById('ms-ov').classList.remove('gone');
 }
-
 function closeMilestone(){
-  document.getElementById('ms-overlay').classList.add('gone');
-  msShowing=false;
-  checkUnlocks();
-  setTimeout(()=>{if(msQueue.length>0)showNextMilestone();},400);
+  document.getElementById('ms-ov').classList.add('gone');
+  msShowing=false;checkUnlocks();
+  setTimeout(()=>{if(msQueue.length>0)showNextMs();},400);
 }
-
 function checkUnlocks(){
   if(G.contracts>=5&&!G.mapUnlocked){
     G.mapUnlocked=true;
-    document.getElementById('map-lock-overlay').classList.add('gone');
+    document.getElementById('map-lock').classList.add('gone');
     document.getElementById('nav-map-lock').style.display='none';
-    showToast('🗺️ Neighborhood Map UNLOCKED!');
-    setBadge('map');
+    showToast('🗺️ Neighborhood Map UNLOCKED!');setBadge('map');
     initJobPayTimers();
   }
   if(G.totalMoney>=50000&&!G.siteUnlocked){
     G.siteUnlocked=true;
-    document.getElementById('site-lock-overlay').classList.add('gone');
+    document.getElementById('site-lock').classList.add('gone');
     document.getElementById('nav-site-lock').style.display='none';
     G.currentJob='Residential Install — Mesa Hills';
-    showToast('🏗️ Job Site View UNLOCKED!');
-    setBadge('site');
+    showToast('🏗️ Job Site View UNLOCKED!');setBadge('site');
+    buildSiteScene();
   }
 }
-
 function initJobPayTimers(){
-  jobSiteEls.forEach((_,i)=>{
-    setTimeout(()=>{jobPayReady[i]=true;jobSiteEls[i].el.classList.add('active-job');},5000+(i*8000));
+  jobCardEls.forEach((_,i)=>{
+    setTimeout(()=>{jobReady[i]=true;jobCardEls[i].el.classList.add('ready');},5000+i*8000);
   });
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // INCOME ENGINE
-// ═══════════════════════════════════
+// ════════════════════════════════════
 function recalcIncome(){
   const moraleBonus=1+(G.morale/100)*0.6;
   const catBonus=1+(G.cats*0.05);
   const softBonus=G.upgrades.soft?Math.pow(2,G.upgrades.soft):1;
-  const officeManagerBonus=G.managers.office?1.3:1;
-  G.income=Math.floor(G.staff*8*G.staffLevel*G.incomeMultiplier*moraleBonus*catBonus*softBonus*officeManagerBonus);
+  const offMgr=G.managers.office?1.3:1;
+  G.income=Math.floor(G.staff*8*G.incomeMultiplier*moraleBonus*catBonus*softBonus*offMgr);
 }
-
 function gameTick(){
   recalcIncome();
   const earned=G.income/10;
-  G.money+=earned;G.totalMoney+=earned;
-  // morale
+  G.money+=earned;G.totalMoney+=earned;G.todayRevenue+=earned;
   const espresso=G.upgrades.espresso||0;
-  const drainRate=Math.max(0.01,0.04-espresso*0.01);
-  if(G.managers.office){G.morale=Math.min(100,G.morale+0.05);}
-  else{G.morale=Math.max(10,G.morale-drainRate);}
+  const drain=Math.max(0.01,0.04-espresso*0.01);
+  if(G.managers.office)G.morale=Math.min(100,G.morale+0.05);
+  else G.morale=Math.max(10,G.morale-drain);
   checkMilestones();updateUI();
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // UI
-// ═══════════════════════════════════
+// ════════════════════════════════════
 function fmt(n){
   if(n>=1e9)return '$'+(n/1e9).toFixed(1)+'B';
   if(n>=1e6)return '$'+(n/1e6).toFixed(1)+'M';
   if(n>=1000)return '$'+(n/1000).toFixed(1)+'K';
   return '$'+Math.floor(n);
 }
-function fmtN(n){return fmt(n);}
-
 function updateUI(){
   document.getElementById('cur-money').textContent=fmt(G.money);
   document.getElementById('cur-credits').textContent=G.credits;
@@ -1057,53 +1496,42 @@ function updateUI(){
   const m=Math.floor(G.morale);
   document.getElementById('morale-fill').style.width=m+'%';
   document.getElementById('morale-val').textContent=m+'%';
-  document.getElementById('income-display').textContent='+'+fmt(G.income)+'/sec';
+  document.getElementById('income-display').textContent='+'+fmt(G.income)+'/s';
   const hc=document.getElementById('hire-cost-lbl');
   hc.textContent=fmt(G.hireCost);hc.className='hc'+(G.money<G.hireCost?' red':'');
   const cc=document.getElementById('cat-cost-lbl');
   cc.textContent=fmt(G.catCost);cc.className='hc'+(G.money<G.catCost?' red':'');
   desks.forEach((d,i)=>{
     const r=document.getElementById('drate-'+i);
-    const s=document.getElementById('dlvl-'+i);
     if(r){const rate=Math.floor(8*(G.upgrades.soft?Math.pow(2,G.upgrades.soft):1)*G.incomeMultiplier*(1+G.morale/200));r.textContent='+'+fmt(rate)+'/s';}
-    if(s)s.textContent='Lv'+d.level;
   });
+  // KPI strip
+  const kr=document.getElementById('kpi-rev');if(kr)kr.textContent=fmt(G.todayRevenue);
+  const kc=document.getElementById('kpi-contracts');if(kc)kc.textContent=G.contracts;
+  const kw=document.getElementById('kpi-wip');if(kw)kw.textContent=G.wipCount;
+  const ks=document.getElementById('kpi-staff');if(ks)ks.textContent=G.staff;
+  const kat=document.getElementById('kpi-cats');if(kat)kat.textContent=G.cats;
   save();
 }
 
-// ═══════════════════════════════════
 // FLOAT TEXT
-// ═══════════════════════════════════
-function spawnFloat(el,txt,col){
-  const r=el.getBoundingClientRect();
-  spawnFloatXY(r.left+r.width/2,r.top,txt,col);
-}
-function spawnFloatXY(x,y,txt,col){
-  const el=document.createElement('div');
-  el.className='float-txt';
-  el.style.left=x+'px';el.style.top=y+'px';
-  el.style.color=col||'#22C55E';
-  el.textContent=txt;
-  document.body.appendChild(el);
+function spawnFlt(el,txt,col){const r=el.getBoundingClientRect();spawnFltXY(r.left+r.width/2,r.top,txt,col);}
+function spawnFltXY(x,y,txt,col){
+  const el=document.createElement('div');el.className='float-txt';
+  el.style.left=x+'px';el.style.top=y+'px';el.style.color=col||'#22C55E';
+  el.textContent=txt;document.body.appendChild(el);
   setTimeout(()=>el.remove(),1100);
 }
-
-// ═══════════════════════════════════
-// BADGES & TOAST
-// ═══════════════════════════════════
 function setBadge(tab){const el=document.getElementById('badge-'+tab);if(el)el.classList.add('on');}
 function clearBadge(tab){const el=document.getElementById('badge-'+tab);if(el)el.classList.remove('on');}
-
 function showToast(msg){
   const ex=document.querySelector('.toast');if(ex)ex.remove();
   const t=document.createElement('div');t.className='toast';t.textContent=msg;
   document.body.appendChild(t);setTimeout(()=>t.remove(),2400);
 }
 
-// ═══════════════════════════════════
 // SAVE / LOAD
-// ═══════════════════════════════════
-const SK='pnp_v3';
+const SK='pnp_v4';
 function save(){
   try{localStorage.setItem(SK,JSON.stringify({...G,timestamp:Date.now()}));}catch(e){}
 }
@@ -1119,9 +1547,9 @@ function load(){
   }catch(e){return false;}
 }
 
-// ═══════════════════════════════════
+// ════════════════════════════════════
 // INIT
-// ═══════════════════════════════════
+// ════════════════════════════════════
 function startGame(){
   document.getElementById('splash').style.display='none';
   document.getElementById('app').classList.add('show');
@@ -1130,21 +1558,24 @@ function startGame(){
   for(let i=0;i<G.cats;i++)spawnCat();
   initMap();
   if(G.mapUnlocked){
-    document.getElementById('map-lock-overlay').classList.add('gone');
+    document.getElementById('map-lock').classList.add('gone');
     document.getElementById('nav-map-lock').style.display='none';
     initJobPayTimers();
   }
   if(G.siteUnlocked){
-    document.getElementById('site-lock-overlay').classList.add('gone');
+    document.getElementById('site-lock').classList.add('gone');
     document.getElementById('nav-site-lock').style.display='none';
     G.currentJob=G.currentJob||'Residential Install — Mesa Hills';
+    buildSiteScene();
   }
   setInterval(gameTick,100);
   setInterval(tickSite,500);
   setInterval(()=>{if(Math.random()<0.65)triggerContract();},30000);
-  setInterval(()=>{if(G.staff>=1&&Math.random()<0.5)triggerAngry();},38000);
+  setInterval(()=>{if(G.staff>=1&&Math.random()<0.5)triggerAngry();},40000);
   setTimeout(triggerContract,12000);
-  setTimeout(()=>{if(Math.random()<0.55)triggerAngry();},50000);
+  setTimeout(()=>{if(Math.random()<0.55)triggerAngry();},55000);
+  // reset today revenue at midnight
+  setInterval(()=>{G.todayRevenue=0;},86400000);
   updateUI();updateSiteUI();
   if(hasSave)showToast('☀️ Welcome back to Purr & Power Co.!');
   else showToast('🐱 Welcome! Tap desks to earn money!');
