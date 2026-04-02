@@ -261,9 +261,6 @@ footer {
 .footer-emoji { font-size: 1.5rem; margin-bottom: 6px; display: block; }
 .footer-text { font-size: 0.62rem; color: var(--muted); font-style: italic; line-height: 1.6; }
 .footer-link { color: var(--glow2); text-decoration: none; }
-
-/* ── STARS CANVAS ── */
-@keyframes twinkle { 0%{opacity:0.1;} 100%{opacity:0.8;} }
 </style>
 </head>
 <body>
@@ -291,16 +288,16 @@ footer {
   <!-- FEATURED -->
   <div id="featuredSection">
     <div class="section-title">⭐ Featured Game</div>
-    <a class="featured" href="cat-cafe-v4b.html" id="featuredCard">
-      <div class="featured-badge">✨ LATEST RELEASE</div>
-      <span class="featured-emoji">🐾</span>
-      <div class="featured-name">Paws &amp; Contempt</div>
-      <div class="featured-desc">"A fantasy cat café where bunnies serve the drinks, foxes charm the customers, and cats knock everything over. Run the most chaotic café in the enchanted realm."</div>
+    <a class="featured" href="purr-and-power.html" id="featuredCard">
+      <div class="featured-badge">🐱 NEWEST RELEASE</div>
+      <span class="featured-emoji">☀️</span>
+      <div class="featured-name">Purr & Power Co.</div>
+      <div class="featured-desc">"Run El Paso's most cat-friendly solar installation company. Hire installers, manage angry customers, close contracts — and keep the cats purring."</div>
       <div class="featured-tags">
-        <span class="tag">Management</span>
-        <span class="tag">Fantasy</span>
-        <span class="tag">Cats</span>
         <span class="tag">Idle</span>
+        <span class="tag">Management</span>
+        <span class="tag">Cats</span>
+        <span class="tag">Solar</span>
       </div>
       <span class="play-btn">▶ Play Now</span>
     </a>
@@ -320,11 +317,17 @@ footer {
 </div>
 
 <script>
-// ── GAME LIBRARY ──
-// TO ADD A NEW GAME: copy one of the objects below and fill in the details.
-// Set "file" to the HTML filename you uploaded to GitHub.
-// Set "coming" to true if the file isn't uploaded yet.
 const GAMES = [
+  {
+    emoji: '☀️',
+    name: 'Purr & Power Co.',
+    genre: 'Solar Idle Tycoon',
+    desc: 'Cat-friendly solar company. Hire staff, close contracts, calm angry customers.',
+    tags: ['idle','management'],
+    file: 'purr-and-power.html',
+    isNew: true,
+    coming: false,
+  },
   {
     emoji: '🐾',
     name: 'Paws & Contempt',
@@ -332,7 +335,7 @@ const GAMES = [
     desc: 'Run an enchanted café with cats, bunnies & foxes.',
     tags: ['management','idle'],
     file: 'cat-cafe-v4b.html',
-    isNew: true,
+    isNew: false,
     coming: false,
   },
   {
@@ -393,7 +396,7 @@ const GAMES = [
     emoji: '📁',
     name: 'X-Files PWA',
     genre: 'Investigation RPG',
-    desc: 'Mulder\'s basement, 8 agents, 11 real cases, conspiracy board.',
+    desc: "Mulder's basement, 8 agents, 11 real cases, conspiracy board.",
     tags: ['adventure'],
     file: 'xfiles.html',
     coming: true,
@@ -407,7 +410,6 @@ function filter(tag, btn) {
   document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderGrid();
-  // Show/hide featured
   const featured = document.getElementById('featuredSection');
   featured.style.display = tag === 'all' ? 'block' : 'none';
 }
@@ -424,8 +426,7 @@ function renderGrid() {
       ? `<span class="gc-soon">🔒 Coming Soon</span>`
       : `<span class="gc-play">▶ Play</span>`;
     const href = g.coming ? '#' : g.file;
-    const onclick = g.coming ? 'return false;' : '';
-    return `<a class="${cls}" href="${href}" ${g.coming?'onclick="return false;"':''}>
+    return `<a class="${cls}" href="${href}" ${g.coming ? 'onclick="return false;"' : ''}>
       ${g.isNew ? '<div class="gc-new">NEW</div>' : ''}
       <span class="gc-emoji">${g.emoji}</span>
       <div class="gc-name">${g.name}</div>
@@ -435,8 +436,8 @@ function renderGrid() {
     </a>`;
   }).join('');
 
-  const total = GAMES.filter(g=>!g.coming).length;
-  const coming = GAMES.filter(g=>g.coming).length;
+  const total = GAMES.filter(g => !g.coming).length;
+  const coming = GAMES.filter(g => g.coming).length;
   document.getElementById('gameCount').textContent = `✨ ${total} playable · ${coming} coming soon`;
 }
 
@@ -462,7 +463,6 @@ function initCanvas() {
 }
 
 function drawBg() {
-  // Gradient bg
   const grad = ctx.createRadialGradient(W*0.5, H*0.2, 0, W*0.5, H*0.5, Math.max(W,H)*0.8);
   grad.addColorStop(0, '#110830');
   grad.addColorStop(0.5, '#0a0618');
@@ -470,7 +470,6 @@ function drawBg() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Aurora
   const now = Date.now() * 0.0004;
   [
     { y: H*0.08, color: 'rgba(124,58,237,0.06)', w: W*1.2 },
@@ -488,7 +487,6 @@ function drawBg() {
     ctx.fill();
   });
 
-  // Stars
   stars.forEach(s => {
     s.twinkle += s.speed;
     const alpha = 0.15 + 0.65 * Math.abs(Math.sin(s.twinkle));
