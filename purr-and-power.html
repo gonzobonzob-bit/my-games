@@ -9,33 +9,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --sun:#F59E0B;--sun2:#FDE68A;--green:#22C55E;--green2:#86EFAC;
-  --orange:#F97316;--red:#EF4444;--blue:#3B82F6;--sky:#38BDF8;
+  --sun:#F59E0B;--sun2:#FDE68A;--green:#22C55E;--orange:#F97316;
+  --red:#EF4444;--blue:#3B82F6;--sky:#38BDF8;--purple:#8B5CF6;
   --bg:#0F172A;--bg2:#1E293B;--panel:#1A2744;--panel2:#243158;
   --border:#334155;--text:#F1F5F9;--muted:#94A3B8;--card:#162035;
-  /* real equipment colors */
-  --silfab-black:#0A0A0A;--silfab-cell:#111827;--silfab-frame:#1F2937;
-  --smr-black:#1a1a1a;--smr-rail:#2a2a2a;
-  --se-white:#F8FAFC;--se-gray:#CBD5E1;
-  --ep-sand:#C4A882;--ep-sky:#87CEEB;--ep-desert:#D4956A;
+  --ep-sand:#C4A882;--ep-sky1:#2563EB;--ep-sky2:#60A5FA;
+  --silfab:#0A0A0A;--smr:#1a1a1a;--se-white:#F8FAFC;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
 
 /* ══ SPLASH ══ */
 #splash{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0F172A,#1E293B 50%,#0F2040);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;}
-.sp-logo-wrap{position:relative;margin-bottom:16px;}
-.sp-sun{font-size:72px;filter:drop-shadow(0 0 28px rgba(245,158,11,0.7));animation:spFloat 2s ease-in-out infinite;}
+.sp-sun{font-size:72px;filter:drop-shadow(0 0 28px rgba(245,158,11,0.7));animation:spFloat 2s ease-in-out infinite;margin-bottom:12px;}
 @keyframes spFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 .sp-title{font-family:'Fredoka One',cursive;font-size:42px;color:var(--sun);line-height:1;margin-bottom:4px;}
-.sp-tagline{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:20px;}
-.sp-equipment{display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:20px;padding:10px 16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;}
-.sp-eq-item{font-size:9px;color:var(--muted);text-align:center;line-height:1.4;}
-.sp-eq-item strong{display:block;color:var(--text);font-size:10px;margin-bottom:2px;}
-.sp-desc{font-size:12px;color:var(--muted);line-height:1.7;max-width:280px;margin-bottom:28px;}
+.sp-sub{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;}
+.sp-eq{display:flex;gap:10px;justify-content:center;margin-bottom:16px;padding:8px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;}
+.sp-eq-item{font-size:9px;color:var(--muted);text-align:center;}
+.sp-eq-item strong{display:block;color:var(--text);font-size:10px;margin-bottom:1px;}
+.sp-cats{font-size:26px;margin-bottom:14px;}
+.sp-desc{font-size:12px;color:var(--muted);line-height:1.7;max-width:280px;margin-bottom:26px;}
 .sp-btn{background:linear-gradient(135deg,var(--sun),var(--orange));color:#0F172A;border:none;border-radius:18px;padding:14px 44px;font-family:'Fredoka One',cursive;font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,0.4);transition:transform 0.15s;}
 .sp-btn:active{transform:scale(0.96);}
-.sp-cats{font-size:24px;margin-bottom:16px;}
 
 /* ══ APP ══ */
 #app{display:none;flex-direction:column;width:100%;height:100%;}
@@ -51,7 +47,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .cur.c{border-color:rgba(245,158,11,0.4);color:var(--sun);}
 .cur.p{border-color:rgba(249,115,22,0.4);color:var(--orange);}
 
-/* GAME AREA */
 #game-area{flex:1;overflow:hidden;position:relative;}
 .layer{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .layer.active{display:flex;}
@@ -70,39 +65,56 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .income-badge{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:2px 8px;font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);white-space:nowrap;}
 
 /* OFFICE FLOOR */
-.office-main{flex:1;position:relative;overflow:hidden;background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.03) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.03) 40px),#EDE8E0;}
-.off-win{position:absolute;top:6px;width:52px;height:46px;border:3px solid #B8A898;border-radius:3px;overflow:hidden;background:linear-gradient(160deg,#BAE6FD,#7DD3FC);}
+.office-main{flex:1;position:relative;overflow:hidden;background:
+  repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.025) 40px),
+  repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.025) 40px),#EDE8E0;}
+.off-win{position:absolute;top:6px;width:46px;height:40px;border:2px solid #B8A898;border-radius:3px;overflow:hidden;background:linear-gradient(160deg,#BAE6FD,#7DD3FC);}
 .off-win::before,.off-win::after{content:'';position:absolute;background:rgba(255,255,255,0.3);}
 .off-win::before{top:0;left:50%;width:2px;height:100%;}
 .off-win::after{top:50%;left:0;width:100%;height:2px;}
-.off-floor-strip{position:absolute;bottom:0;left:0;right:0;height:8px;background:linear-gradient(180deg,#C0B0A0,#B0A090);}
+.off-floor{position:absolute;bottom:0;left:0;right:0;height:8px;background:linear-gradient(180deg,#C0B0A0,#B0A090);}
+
+/* OFFICE WALL POSTERS */
+.wall-poster{position:absolute;top:16px;background:white;border:1px solid #C8B8A8;border-radius:2px;padding:2px 4px;font-size:6px;color:#666;text-align:center;}
+
+/* FILING CABINET */
+.filing-cabinet{position:absolute;background:#8B9BB4;border:1px solid #6B7B94;border-radius:2px;display:flex;flex-direction:column;gap:1px;padding:2px;}
+.fc-drawer{height:10px;background:#A0B0C4;border:1px solid #6B7B94;border-radius:1px;display:flex;align-items:center;justify-content:center;}
+.fc-handle{width:12px;height:3px;background:#64748B;border-radius:1px;}
+
+/* PRINTER */
+.printer{position:absolute;background:#475569;border:1px solid #334155;border-radius:3px;padding:3px;}
+
+/* SALES PIPELINE BOARD */
+.pipeline-board{position:absolute;background:white;border:2px solid #C8B8A8;border-radius:4px;padding:4px;}
+.pb-title{font-size:7px;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;text-align:center;border-bottom:1px solid #E5E7EB;padding-bottom:2px;}
+.pb-stages{display:flex;gap:2px;}
+.pb-stage{flex:1;background:#F3F4F6;border-radius:2px;padding:2px;min-width:28px;}
+.pb-stage-lbl{font-size:5px;color:#6B7280;text-align:center;margin-bottom:2px;font-weight:700;}
+.pb-card{background:#FEF3C7;border:1px solid #F59E0B;border-radius:2px;padding:1px 2px;font-size:5px;color:#374151;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pb-card.hot{background:#DCFCE7;border-color:#22C55E;}
+.pb-card.cold{background:#F1F5F9;border-color:#94A3B8;}
 
 /* BREAKROOM */
-.breakroom{position:absolute;right:6px;bottom:20px;width:90px;background:rgba(255,255,255,0.5);border:2px solid #C8B8A8;border-radius:8px;padding:4px;display:flex;flex-direction:column;gap:3px;}
-.breakroom-lbl{font-size:7px;color:#8B7355;text-transform:uppercase;letter-spacing:0.5px;text-align:center;}
-.breakroom-items{display:flex;gap:4px;justify-content:center;}
-.coffee-machine{font-size:18px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));}
-.couch{font-size:14px;}
-.cat-sleeping{font-size:14px;animation:sleepBob 3s ease-in-out infinite;}
+.breakroom{position:absolute;background:rgba(255,255,255,0.6);border:2px solid #C8B8A8;border-radius:6px;padding:5px;}
+.br-lbl{font-size:6px;color:#8B7355;text-transform:uppercase;letter-spacing:0.5px;text-align:center;margin-bottom:3px;}
+.br-items{display:flex;gap:5px;justify-content:center;align-items:center;}
+.br-couch{font-size:20px;}
+.br-coffee{font-size:16px;}
+.br-fridge{font-size:14px;}
+.br-cat{font-size:14px;animation:sleepBob 3s ease-in-out infinite;}
 @keyframes sleepBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 
 /* DESK STATIONS */
 .desk-stn{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.1s;}
 .desk-stn:active{transform:scale(0.93);}
-.desk-vis{position:relative;width:72px;}
-
-/* desk SVG drawn in JS */
-.stn-badge{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 6px;margin-top:2px;text-align:center;min-width:72px;}
-.stn-role{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
-.stn-rate{font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);}
+.stn-badge{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 5px;margin-top:2px;text-align:center;min-width:66px;}
+.stn-role{font-size:6px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
+.stn-rate{font-family:'Fredoka One',cursive;font-size:10px;color:var(--green);}
 .stn-lvl{position:absolute;top:-7px;right:-7px;background:var(--blue);color:white;font-size:7px;font-weight:800;padding:1px 4px;border-radius:5px;font-family:'Fredoka One',cursive;}
 
-/* STAFF CHARACTERS */
-.staff-char{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;}
-.char-svg{width:22px;height:32px;}
-
-/* CAT SPRITES */
-.cat-spr{position:absolute;z-index:20;width:30px;height:26px;cursor:pointer;transition:left 4s ease-in-out,top 4s ease-in-out;}
+/* CATS */
+.cat-spr{position:absolute;z-index:20;width:28px;height:24px;cursor:pointer;transition:left 4s ease-in-out,top 4s ease-in-out;}
 .cat-spr:active{transform:scale(1.2);}
 
 /* OFFICE BOTTOM */
@@ -120,38 +132,45 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* ══════════════════════════
    LAYER 2 — MAP
 ══════════════════════════ */
-#layer-map{background:#87CEEB;overflow:hidden;}
-.map-sky{height:60px;flex-shrink:0;background:linear-gradient(180deg,#4A90D9,#87CEEB);position:relative;overflow:hidden;}
-.map-sun-el{position:absolute;top:8px;right:16px;font-size:30px;animation:sunSpin 15s linear infinite;filter:drop-shadow(0 0 12px rgba(245,158,11,0.6));}
+#layer-map{overflow:hidden;position:relative;}
+
+/* Sky with gradient and mountains */
+.map-sky{position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,#1E3A8A 0%,#2563EB 40%,#60A5FA 70%,#93C5FD 100%);}
+.map-sun-el{position:absolute;top:10px;right:20px;font-size:36px;animation:sunSpin 15s linear infinite;filter:drop-shadow(0 0 16px rgba(245,158,11,0.7));}
 @keyframes sunSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.map-cloud{position:absolute;font-size:20px;opacity:0.8;animation:cDrift linear infinite;}
-@keyframes cDrift{from{transform:translateX(-60px)}to{transform:translateX(110vw)}}
+.map-cloud{position:absolute;font-size:22px;opacity:0.7;animation:cDrift linear infinite;}
+@keyframes cDrift{from{transform:translateX(-80px)}to{transform:translateX(110vw)}}
+
+/* Franklin Mountains SVG */
+.mountains-wrap{position:absolute;bottom:0;left:0;right:0;}
+
+/* Ground / neighborhood */
+.map-ground{position:absolute;bottom:0;left:0;right:0;height:58%;background:linear-gradient(180deg,#D4C4A8 0%,#C4A882 40%,#B8956A 100%);}
+
+/* ROADS */
+.road-h{position:absolute;left:0;right:0;height:24px;background:#52525B;}
+.road-h::before{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:repeating-linear-gradient(90deg,#FDE68A 0px,#FDE68A 16px,transparent 16px,transparent 32px);transform:translateY(-50%);opacity:0.6;}
+.road-v{position:absolute;top:0;bottom:0;width:24px;background:#52525B;}
+.road-v::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:repeating-linear-gradient(180deg,#FDE68A 0px,#FDE68A 16px,transparent 16px,transparent 32px);transform:translateX(-50%);opacity:0.6;}
+.street-sign{position:absolute;font-size:6px;background:#1E3A8A;color:white;padding:1px 3px;border-radius:2px;white-space:nowrap;font-weight:700;}
+
+/* NEIGHBORHOOD HOUSES */
+.nbr-house{position:absolute;display:flex;flex-direction:column;align-items:center;}
+.nbr-house-svg{display:block;}
 
 /* KPI STRIP */
-.kpi-strip{flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);padding:4px 8px;display:flex;gap:6px;overflow-x:auto;}
+.kpi-strip{position:absolute;top:0;left:0;right:0;z-index:10;background:rgba(15,23,42,0.92);border-bottom:1px solid var(--border);padding:4px 8px;display:flex;gap:5px;overflow-x:auto;}
 .kpi-strip::-webkit-scrollbar{display:none;}
-.kpi-item{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px 8px;text-align:center;}
-.kpi-lbl{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
-.kpi-val{font-family:'Fredoka One',cursive;font-size:12px;color:var(--sun);}
-
-.map-main{flex:1;position:relative;overflow:hidden;}
-
-/* El Paso desert ground */
-.ep-ground{position:absolute;bottom:0;left:0;right:0;height:55%;background:linear-gradient(180deg,#C4A882,#B8956A);}
-.ep-mountain{position:absolute;bottom:55%;left:-10px;}
-.ep-cactus{position:absolute;font-size:20px;}
-
-/* ROAD SYSTEM */
-.road-h{position:absolute;left:0;right:0;height:28px;background:#6B7280;border-top:2px solid #9CA3AF;border-bottom:2px solid #9CA3AF;}
-.road-v{position:absolute;top:0;bottom:0;width:28px;background:#6B7280;border-left:2px solid #9CA3AF;border-right:2px solid #9CA3AF;}
-.road-dash{position:absolute;background:#FDE68A;opacity:0.7;}
+.kpi-item{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:3px 8px;text-align:center;}
+.kpi-lbl{font-size:6px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.kpi-val{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);}
 
 /* PIPELINE PANELS */
-.pipeline-panel{position:absolute;background:rgba(15,23,42,0.88);border:1px solid var(--border);border-radius:10px;padding:6px 8px;backdrop-filter:blur(4px);}
+.pipeline-panel{position:absolute;background:rgba(15,23,42,0.9);border:1px solid var(--border);border-radius:10px;padding:6px 8px;backdrop-filter:blur(4px);z-index:10;min-width:110px;}
 .pp-title{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
-.pp-dot{width:6px;height:6px;border-radius:50%;}
-.pp-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:9px;color:var(--text);}
-.pp-status{font-size:7px;padding:1px 4px;border-radius:4px;font-weight:700;}
+.pp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.pp-row{display:flex;align-items:center;gap:4px;margin-bottom:3px;font-size:9px;color:var(--text);}
+.pp-status{font-size:7px;padding:1px 4px;border-radius:4px;font-weight:700;flex-shrink:0;}
 .pp-status.lead{background:rgba(245,158,11,0.2);color:var(--sun);}
 .pp-status.quote{background:rgba(59,130,246,0.2);color:var(--blue);}
 .pp-status.close{background:rgba(34,197,94,0.2);color:var(--green);}
@@ -159,21 +178,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .pp-status.route{background:rgba(249,115,22,0.2);color:var(--orange);}
 .pp-status.wip{background:rgba(245,158,11,0.2);color:var(--sun);}
 .pp-status.done{background:rgba(34,197,94,0.2);color:var(--green);}
+.pp-name{font-size:8px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:68px;}
 
-/* JOB SITE CARDS */
-.job-card{position:absolute;background:var(--panel);border:2px solid var(--border);border-radius:10px;padding:6px;width:82px;cursor:pointer;transition:transform 0.1s;text-align:center;}
+/* JOB CARDS */
+.job-card{position:absolute;background:var(--panel);border:2px solid var(--border);border-radius:10px;padding:6px;width:80px;cursor:pointer;transition:transform 0.1s;text-align:center;z-index:5;}
 .job-card:active{transform:scale(0.93);}
 .job-card.ready{border-color:var(--green);box-shadow:0 0 8px rgba(34,197,94,0.3);}
 .job-card.angry{border-color:var(--red);animation:angPulse 0.8s ease-in-out infinite;}
-@keyframes angPulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 8px 2px rgba(239,68,68,0.5)}}
-.jc-icon{font-size:22px;display:block;margin-bottom:2px;}
+@keyframes angPulse{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 10px rgba(239,68,68,0.5)}}
+.jc-icon{font-size:20px;display:block;margin-bottom:1px;}
 .jc-name{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
 .jc-earn{font-family:'Fredoka One',cursive;font-size:11px;color:var(--green);}
 .jc-lvl{position:absolute;top:-5px;right:-5px;background:var(--blue);color:white;font-size:7px;font-weight:800;padding:1px 4px;border-radius:5px;font-family:'Fredoka One',cursive;}
-.jc-stage{font-size:7px;color:var(--muted);margin-top:1px;}
+.jc-stage{font-size:6px;color:var(--muted);margin-top:1px;}
+
+/* SALES REP ICON on map */
+.sales-rep-icon{position:absolute;z-index:6;font-size:14px;animation:repWalk 3s ease-in-out infinite;}
+@keyframes repWalk{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
 
 /* TRUCK */
-.truck-el{position:absolute;z-index:30;transition:left 3s linear,top 3s linear;cursor:pointer;}
+.truck-el{position:absolute;z-index:8;font-size:20px;transition:left 3s linear,top 3s linear;cursor:pointer;filter:drop-shadow(1px 2px 3px rgba(0,0,0,0.3));}
 
 /* MAP LOCK */
 .map-lock{position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50;}
@@ -186,94 +210,62 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
    LAYER 3 — JOB SITE
 ══════════════════════════ */
 #layer-site{overflow:hidden;}
-
-/* Sky gradient for El Paso */
-.site-sky{height:100px;flex-shrink:0;position:relative;background:linear-gradient(180deg,#1E3A8A,#2563EB,#60A5FA);overflow:hidden;}
-.site-sky-sun{position:absolute;top:8px;right:12px;font-size:36px;filter:drop-shadow(0 0 20px rgba(245,158,11,0.8));}
-.heat-shimmer{position:absolute;bottom:0;left:0;right:0;height:20px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.08));animation:shimmer 2s ease-in-out infinite;}
+.site-sky{height:110px;flex-shrink:0;position:relative;background:linear-gradient(180deg,#1E3A8A,#2563EB,#60A5FA);overflow:hidden;}
+.site-sky-sun{position:absolute;top:8px;right:14px;font-size:40px;filter:drop-shadow(0 0 22px rgba(245,158,11,0.8));}
+.heat-shimmer{position:absolute;bottom:0;left:0;right:0;height:18px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.07));animation:shimmer 2s ease-in-out infinite;}
 @keyframes shimmer{0%,100%{opacity:0.5}50%{opacity:1}}
-.site-cloud{position:absolute;font-size:18px;opacity:0.6;animation:cDrift linear infinite;}
+.site-cloud{position:absolute;font-size:16px;opacity:0.6;animation:cDrift linear infinite;}
+/* Franklin Mountains on site sky */
+.site-mountains{position:absolute;bottom:0;left:0;right:0;}
 
 .site-scene{flex:1;position:relative;overflow:hidden;}
+.site-ground{position:absolute;bottom:0;left:0;right:0;height:32%;background:linear-gradient(180deg,#C4A882,#B8956A);}
+.site-grass{position:absolute;bottom:32%;left:0;right:0;height:5px;background:#8B9B6B;}
 
-/* Ground / yard */
-.site-ground{position:absolute;bottom:0;left:0;right:0;height:35%;background:linear-gradient(180deg,#C4A882,#B8956A);}
-.site-grass-strip{position:absolute;top:0;left:0;right:0;height:8px;background:#8B9B6B;}
+/* HOUSE */
+.house-container{position:absolute;bottom:32%;}
 
-/* HOUSE — realistic */
-.house-container{position:absolute;bottom:35%;left:50%;transform:translateX(-50%);width:220px;}
+/* CREW */
+.crew-member{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:25;}
+.crew-char{font-size:18px;animation:crewWork 1.8s ease-in-out infinite;}
+@keyframes crewWork{0%,100%{transform:translateY(0) scaleX(1)}50%{transform:translateY(-4px) scaleX(-1)}}
+.crew-label{font-size:6px;color:white;background:rgba(0,0,0,0.65);padding:1px 3px;border-radius:3px;white-space:nowrap;margin-top:1px;}
 
-/* Roof */
-.house-roof-wrap{position:relative;width:220px;height:0;}
-.roof-svg{width:220px;display:block;}
+.ground-crew{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:25;}
+.gc-char{font-size:18px;}
+.gc-label{font-size:6px;color:white;background:rgba(0,0,0,0.65);padding:1px 3px;border-radius:3px;white-space:nowrap;}
 
-/* Sunmodo SMR rails on roof */
-.smr-rail{position:absolute;background:var(--smr-black);border-radius:2px;}
+/* VAN */
+.company-van{position:absolute;z-index:10;font-size:24px;filter:drop-shadow(1px 2px 4px rgba(0,0,0,0.3));}
 
-/* Silfab panels on roof */
-.silfab-panel{position:absolute;background:var(--silfab-black);border-radius:1px;overflow:hidden;cursor:pointer;}
-.silfab-panel .panel-cells{width:100%;height:100%;display:grid;gap:1px;padding:1px;}
-.silfab-cell{background:var(--silfab-cell);border-radius:0.5px;}
-.silfab-panel .panel-frame{position:absolute;inset:0;border:1.5px solid var(--silfab-frame);border-radius:1px;}
-.se-optimizer{position:absolute;background:#1a1a1a;border:1px solid #333;border-radius:2px;display:flex;align-items:center;justify-content:center;}
-.se-optimizer::after{content:'';width:4px;height:4px;border-radius:50%;background:#22C55E;box-shadow:0 0 3px #22C55E;}
-
-/* House walls */
-.house-wall{background:#D4956A;border:2px solid #B45309;position:relative;}
-.house-window-row{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:space-around;padding:0 16px;}
-.house-win{width:28px;height:24px;background:#BAE6FD;border:2px solid #7C3AED;border-radius:2px;}
-.house-door{width:26px;height:40px;background:#7C3AED;border-radius:13px 13px 0 0;border:2px solid #5B21B6;position:absolute;bottom:0;left:50%;transform:translateX(-50%);}
-.house-door::after{content:'';position:absolute;top:50%;right:4px;transform:translateY(-50%);width:3px;height:3px;background:#FDE68A;border-radius:50%;}
-
-/* SolarEdge Inverter on wall */
-.se-inverter-wrap{position:absolute;right:8px;}
-.se-inverter{background:var(--se-white);border:1px solid #94A3B8;border-radius:4px;padding:4px;position:relative;box-shadow:2px 2px 6px rgba(0,0,0,0.2);}
-.se-inv-logo{font-size:6px;font-weight:900;color:#1E40AF;letter-spacing:-0.3px;text-align:center;font-family:'Fredoka One',cursive;}
-.se-inv-display{width:100%;height:14px;background:#0F172A;border-radius:2px;margin:2px 0;display:flex;align-items:center;justify-content:center;gap:2px;}
+/* SE Inverter */
+.se-inverter{position:absolute;z-index:15;}
+.se-inv-box{background:var(--se-white);border:1px solid #94A3B8;border-radius:4px;padding:4px;box-shadow:2px 2px 6px rgba(0,0,0,0.2);}
+.se-inv-logo{font-size:5px;font-weight:900;color:#1E40AF;text-align:center;font-family:'Fredoka One',cursive;}
+.se-inv-model{font-size:4px;color:#64748B;text-align:center;margin-bottom:2px;}
+.se-inv-display{width:100%;height:12px;background:#0F172A;border-radius:2px;margin:2px 0;display:flex;align-items:center;justify-content:center;gap:2px;}
 .se-inv-led{width:5px;height:5px;border-radius:50%;background:#22C55E;box-shadow:0 0 4px #22C55E;animation:ledBlink 2s ease-in-out infinite;}
-@keyframes ledBlink{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes ledBlink{0%,100%{opacity:1}50%{opacity:0.3}}
 .se-inv-text{font-size:5px;color:#22C55E;font-family:monospace;}
-.se-safety-sw{width:100%;height:8px;background:#334155;border-radius:2px;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:4px;color:#94A3B8;letter-spacing:0.3px;}
-.conduit{position:absolute;width:5px;background:#475569;border-radius:1px;}
-.conduit-connector{position:absolute;width:9px;height:4px;background:#64748B;border-radius:1px;}
-.main-panel{position:absolute;background:#334155;border:1px solid #475569;border-radius:3px;padding:2px;}
-.main-panel-inner{background:#1E293B;border-radius:2px;display:flex;flex-direction:column;gap:1px;padding:2px;}
-.breaker{width:100%;height:3px;background:#94A3B8;border-radius:1px;}
+.se-safety{width:100%;height:7px;background:#334155;border-radius:1px;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:4px;color:#64748B;}
+.conduit{position:absolute;background:#475569;border-radius:1px;z-index:8;}
 
-/* LADDER & LADDERVATOR */
-.ladder-wrap{position:absolute;}
-.laddervator{position:absolute;font-size:16px;animation:lvMove 4s ease-in-out infinite;}
-@keyframes lvMove{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}
-
-/* CREW CHARACTERS */
-.crew-member{position:absolute;display:flex;flex-direction:column;align-items:center;}
-.crew-char{font-size:20px;animation:crewWork 1.5s ease-in-out infinite;}
-@keyframes crewWork{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-.crew-label{font-size:7px;color:var(--text);background:rgba(0,0,0,0.6);padding:1px 4px;border-radius:4px;white-space:nowrap;margin-top:1px;}
-
-/* Ground crew */
-.ground-crew{position:absolute;}
-.gc-char{font-size:20px;}
-.gc-label{font-size:7px;color:var(--text);background:rgba(0,0,0,0.6);padding:1px 4px;border-radius:4px;white-space:nowrap;}
-
-/* INSTALL PROGRESS */
-.install-progress{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:8px 12px;}
-.ip-stage-name{font-family:'Fredoka One',cursive;font-size:14px;color:var(--sun);margin-bottom:3px;}
-.ip-stages{display:flex;gap:3px;margin-bottom:6px;overflow-x:auto;}
+/* Install progress */
+.install-progress{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:8px 10px;}
+.ip-stage-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);margin-bottom:3px;}
+.ip-stages{display:flex;gap:2px;margin-bottom:5px;overflow-x:auto;}
 .ip-stages::-webkit-scrollbar{display:none;}
-.ip-stage{flex-shrink:0;font-size:7px;padding:2px 5px;border-radius:4px;border:1px solid var(--border);color:var(--muted);}
-.ip-stage.done{background:rgba(34,197,94,0.15);border-color:var(--green);color:var(--green);}
-.ip-stage.active{background:rgba(245,158,11,0.15);border-color:var(--sun);color:var(--sun);}
-.ip-prog-track{width:100%;height:12px;background:var(--card);border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:4px;}
+.ip-stage-chip{flex-shrink:0;font-size:6px;padding:2px 4px;border-radius:4px;border:1px solid var(--border);color:var(--muted);}
+.ip-stage-chip.done{background:rgba(34,197,94,0.15);border-color:var(--green);color:var(--green);}
+.ip-stage-chip.active{background:rgba(245,158,11,0.15);border-color:var(--sun);color:var(--sun);}
+.ip-prog-track{width:100%;height:11px;background:var(--card);border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:3px;}
 .ip-prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--sky));border-radius:6px;transition:width 0.4s ease;}
 .ip-labels{font-size:10px;color:var(--muted);display:flex;justify-content:space-between;}
-.site-bottom{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:6px 8px;display:flex;gap:6px;}
+.site-bottom{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:5px 8px;display:flex;gap:6px;}
 .site-lock{position:absolute;inset:0;background:rgba(0,0,0,0.78);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:50;}
 .site-lock.gone{display:none;}
 
-/* ══════════════════════════
-   UPGRADES
-══════════════════════════ */
+/* ══ UPGRADES ══ */
 #layer-upgrades{background:var(--bg);overflow-y:auto;}
 .upg-panel{padding:10px 10px 32px;}
 .upg-sec{font-family:'Fredoka One',cursive;font-size:15px;color:var(--sun);margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
@@ -291,7 +283,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .upg-lv{font-size:9px;color:var(--muted);margin-top:1px;}
 .cat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:transform 0.1s;}
 .cat-card:active{transform:scale(0.97);}
-.cc-ico{font-size:26px;}
+.cc-ico{font-size:24px;}
 .cc-inf{flex:1;}
 .cc-name{font-family:'Fredoka One',cursive;font-size:13px;color:var(--orange);}
 .cc-bonus{font-size:10px;color:var(--muted);}
@@ -316,7 +308,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .float-txt{position:fixed;z-index:500;font-family:'Fredoka One',cursive;font-size:13px;pointer-events:none;animation:fUp 1s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,0.5);}
 @keyframes fUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-50px)}}
 
-.angry-pop{position:fixed;z-index:400;background:var(--panel);border:2px solid var(--red);border-radius:14px;padding:12px 13px;max-width:280px;left:50%;transform:translateX(-50%);top:62px;box-shadow:0 8px 32px rgba(239,68,68,0.3);animation:pIn 0.3s ease;}
+.angry-pop{position:fixed;z-index:400;background:var(--panel);border:2px solid var(--red);border-radius:14px;padding:12px 13px;max-width:290px;left:50%;transform:translateX(-50%);top:62px;box-shadow:0 8px 32px rgba(239,68,68,0.3);animation:pIn 0.3s ease;}
 .angry-pop.gone{display:none;}
 @keyframes pIn{from{opacity:0;transform:translateX(-50%) scale(0.82)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 .ap-title{font-family:'Fredoka One',cursive;font-size:14px;color:var(--red);display:flex;align-items:center;gap:5px;margin-bottom:4px;}
@@ -330,17 +322,31 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .ap-ok{background:var(--green);color:white;}
 .ap-no{background:var(--border);color:var(--muted);}
 
+/* OBJECTION POPUP */
+.objection-pop{position:fixed;z-index:410;background:var(--panel);border:2px solid var(--sun);border-radius:14px;padding:12px 13px;max-width:290px;left:50%;transform:translateX(-50%);top:62px;box-shadow:0 8px 32px rgba(245,158,11,0.3);animation:pIn 0.3s ease;}
+.objection-pop.gone{display:none;}
+.obj-title{font-family:'Fredoka One',cursive;font-size:13px;color:var(--sun);margin-bottom:4px;}
+.obj-msg{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.obj-btns{display:flex;gap:6px;}
+.obj-btn{flex:1;padding:7px;border:none;border-radius:8px;font-family:'Fredoka One',cursive;font-size:12px;cursor:pointer;}
+.obj-save{background:var(--sun);color:var(--bg);}
+.obj-lose{background:var(--border);color:var(--muted);}
+
 .contract-ov{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:16px;z-index:400;}
 .contract-ov.gone{display:none;}
 .cp-card{background:var(--panel);border:2px solid var(--sun);border-radius:18px;padding:18px;width:100%;max-width:300px;animation:pIn 0.3s ease;}
 .cp-badge{display:inline-block;background:var(--sun);color:var(--bg);font-size:8px;font-weight:800;padding:2px 7px;border-radius:5px;margin-bottom:7px;letter-spacing:1px;}
-.cp-type{font-size:9px;color:var(--muted);margin-bottom:4px;}
-.cp-title{font-family:'Fredoka One',cursive;font-size:19px;color:var(--text);margin-bottom:3px;}
-.cp-client{font-size:10px;color:var(--muted);margin-bottom:7px;}
+.cp-type{font-size:9px;color:var(--muted);margin-bottom:3px;}
+.cp-title{font-family:'Fredoka One',cursive;font-size:18px;color:var(--text);margin-bottom:2px;}
+.cp-client{font-size:10px;color:var(--muted);margin-bottom:6px;}
 .cp-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
-.cp-details{display:flex;gap:8px;margin-bottom:12px;}
-.cp-detail{flex:1;background:var(--card);border-radius:8px;padding:5px 8px;text-align:center;}
-.cp-detail-lbl{font-size:8px;color:var(--muted);text-transform:uppercase;}
+.cp-quality{display:inline-block;font-size:9px;padding:2px 7px;border-radius:8px;margin-bottom:10px;font-weight:700;}
+.cp-quality.hot{background:rgba(34,197,94,0.2);color:var(--green);border:1px solid var(--green);}
+.cp-quality.warm{background:rgba(245,158,11,0.2);color:var(--sun);border:1px solid var(--sun);}
+.cp-quality.cold{background:rgba(148,163,184,0.2);color:var(--muted);border:1px solid var(--border);}
+.cp-details{display:flex;gap:6px;margin-bottom:12px;}
+.cp-detail{flex:1;background:var(--card);border-radius:8px;padding:5px 6px;text-align:center;}
+.cp-detail-lbl{font-size:7px;color:var(--muted);text-transform:uppercase;}
 .cp-detail-val{font-family:'Fredoka One',cursive;font-size:13px;color:var(--green);}
 .cp-btns{display:flex;gap:7px;}
 .cp-btn{flex:1;padding:9px;border:none;border-radius:10px;font-family:'Fredoka One',cursive;font-size:15px;cursor:pointer;transition:transform 0.1s;}
@@ -366,14 +372,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 <div id="splash">
   <div class="sp-sun">☀️</div>
   <div class="sp-title">Purr & Power Co.</div>
-  <div class="sp-tagline">Solar · Cats · El Paso, TX</div>
-  <div class="sp-equipment">
+  <div class="sp-sub">Solar · Cats · El Paso, TX</div>
+  <div class="sp-eq">
     <div class="sp-eq-item"><strong>Silfab Prime</strong>All-Black Panels</div>
     <div class="sp-eq-item"><strong>Sunmodo SMR</strong>Black Rails</div>
     <div class="sp-eq-item"><strong>SolarEdge</strong>HD-Wave + P400</div>
   </div>
   <div class="sp-cats">🐱 🐱 🐱</div>
-  <div class="sp-desc">Run El Paso's most cat-friendly solar installation company. Hire crews, dispatch trucks, close contracts — and keep the cats purring.</div>
+  <div class="sp-desc">Run El Paso's most cat-friendly solar company. Build your sales pipeline, dispatch crews, close contracts — keep the cats purring.</div>
   <button class="sp-btn" onclick="startGame()">🏢 Open For Business</button>
 </div>
 
@@ -390,7 +396,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
   <div id="game-area">
 
-    <!-- ══ LAYER 1: OFFICE ══ -->
+    <!-- OFFICE -->
     <div class="layer active" id="layer-office">
       <div class="off-ceiling"></div>
       <div class="off-info-bar">
@@ -402,19 +408,30 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
         <div class="income-badge" id="income-display">+$0/s</div>
       </div>
       <div class="office-main" id="office-main">
-        <div class="off-win" style="left:10px"></div>
-        <div class="off-win" style="left:74px"></div>
-        <div class="off-win" style="right:10px"></div>
-        <div class="off-floor-strip"></div>
-        <!-- break room -->
-        <div class="breakroom" id="breakroom">
-          <div class="breakroom-lbl">Break Room</div>
-          <div class="breakroom-items">
-            <span class="coffee-machine">☕</span>
-            <span class="couch">🛋️</span>
-            <span class="cat-sleeping">😴🐱</span>
-          </div>
+        <!-- windows along top wall -->
+        <div class="off-win" style="left:30px"></div>
+        <div class="off-win" style="left:90px"></div>
+        <div class="off-win" style="left:150px"></div>
+        <div class="off-win" style="right:90px"></div>
+        <div class="off-win" style="right:30px"></div>
+        <!-- wall poster: solar diagram -->
+        <div class="wall-poster" style="left:220px;width:46px;">☀️ kWh<br>Production<br>Chart</div>
+        <!-- wall poster: company logo -->
+        <div class="wall-poster" style="right:140px;width:44px;">Purr &<br>Power Co.</div>
+        <!-- filing cabinet -->
+        <div class="filing-cabinet" id="filing-cabinet" style="display:none">
+          <div class="fc-drawer"><div class="fc-handle"></div></div>
+          <div class="fc-drawer"><div class="fc-handle"></div></div>
+          <div class="fc-drawer"><div class="fc-handle"></div></div>
         </div>
+        <!-- printer -->
+        <div class="printer" id="printer-el" style="display:none;font-size:12px;">🖨️</div>
+        <!-- floor strip -->
+        <div class="off-floor"></div>
+        <!-- break room injected by JS -->
+        <!-- sales pipeline board injected by JS -->
+        <!-- desks injected by JS -->
+        <!-- cats injected by JS -->
       </div>
       <div class="off-bottom">
         <button class="hbtn bb" onclick="hireEmployee()">
@@ -432,41 +449,54 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
       </div>
     </div>
 
-    <!-- ══ LAYER 2: MAP ══ -->
+    <!-- MAP -->
     <div class="layer" id="layer-map">
+      <!-- Sky -->
       <div class="map-sky">
         <div class="map-sun-el">☀️</div>
-        <div class="map-cloud" style="top:6px;animation-duration:22s;animation-delay:-8s">☁️</div>
-        <div class="map-cloud" style="top:26px;font-size:14px;animation-duration:30s;animation-delay:-16s">☁️</div>
+        <div class="map-cloud" style="top:8px;animation-duration:22s;animation-delay:-8s">☁️</div>
+        <div class="map-cloud" style="top:28px;font-size:16px;animation-duration:32s;animation-delay:-18s">☁️</div>
+        <!-- Franklin Mountains SVG -->
+        <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;height:60px" viewBox="0 0 400 60" preserveAspectRatio="none">
+          <polygon points="0,60 40,20 80,35 120,10 160,28 200,5 240,22 280,12 320,30 360,18 400,25 400,60" fill="#8B9BB4" opacity="0.6"/>
+          <polygon points="0,60 60,30 100,42 140,22 180,35 220,18 260,32 300,20 340,38 380,28 400,35 400,60" fill="#6B7B94" opacity="0.5"/>
+        </svg>
       </div>
-      <div class="kpi-strip" id="kpi-strip">
+      <!-- KPI strip -->
+      <div class="kpi-strip">
         <div class="kpi-item"><div class="kpi-lbl">Today Revenue</div><div class="kpi-val" id="kpi-rev">$0</div></div>
         <div class="kpi-item"><div class="kpi-lbl">Contracts</div><div class="kpi-val" id="kpi-contracts">0</div></div>
         <div class="kpi-item"><div class="kpi-lbl">In Progress</div><div class="kpi-val" id="kpi-wip">0</div></div>
         <div class="kpi-item"><div class="kpi-lbl">Staff</div><div class="kpi-val" id="kpi-staff">1</div></div>
+        <div class="kpi-item"><div class="kpi-lbl">Leads</div><div class="kpi-val" id="kpi-leads">0</div></div>
         <div class="kpi-item"><div class="kpi-lbl">Cats</div><div class="kpi-val" id="kpi-cats">2</div></div>
       </div>
-      <div class="map-main" id="map-main">
-        <!-- El Paso desert ground -->
-        <div class="ep-ground"></div>
-        <div class="ep-cactus" style="left:8px;bottom:56%">🌵</div>
-        <div class="ep-cactus" style="left:60%;bottom:57%;font-size:14px">🌵</div>
-        <div class="ep-cactus" style="right:8px;bottom:55%;font-size:12px">🌵</div>
-        <!-- roads -->
-        <div class="road-h" style="top:50px"></div>
-        <div class="road-h" style="top:155px"></div>
-        <div class="road-v" style="left:100px"></div>
-        <!-- pipeline panels -->
-        <div class="pipeline-panel" style="left:4px;top:4px;width:88px;" id="sales-pipeline">
-          <div class="pp-title"><div class="pp-dot" style="background:#F59E0B"></div>SALES</div>
+      <!-- Map main area -->
+      <div style="flex:1;position:relative;overflow:hidden;" id="map-main">
+        <!-- Desert ground -->
+        <div class="map-ground"></div>
+        <!-- Roads -->
+        <div class="road-h" style="top:38px" id="road1"></div>
+        <div class="road-h" style="top:148px" id="road2"></div>
+        <div class="road-v" style="left:110px" id="road3"></div>
+        <div class="road-v" style="right:60px" id="road4"></div>
+        <!-- Street signs -->
+        <div class="street-sign" style="left:114px;top:24px">Mesa Hills Dr</div>
+        <div class="street-sign" style="left:114px;top:134px">Montana Ave</div>
+        <div class="street-sign" style="right:64px;top:82px">Sun City Blvd</div>
+        <!-- Neighborhood houses (decorative) injected by JS -->
+        <!-- Pipeline panels -->
+        <div class="pipeline-panel" style="left:4px;top:4px;width:115px;" id="sales-pipeline">
+          <div class="pp-title"><div class="pp-dot" style="background:#F59E0B"></div>SALES PIPELINE</div>
           <div id="sales-rows"></div>
         </div>
-        <div class="pipeline-panel" style="right:4px;top:4px;width:96px;" id="install-pipeline">
-          <div class="pp-title"><div class="pp-dot" style="background:#22C55E"></div>INSTALL</div>
+        <div class="pipeline-panel" style="right:4px;top:4px;width:115px;" id="install-pipeline">
+          <div class="pp-title"><div class="pp-dot" style="background:#22C55E"></div>INSTALL PIPELINE</div>
           <div id="install-rows"></div>
         </div>
-        <!-- job sites injected by JS -->
-        <!-- trucks injected by JS -->
+        <!-- Job sites injected by JS -->
+        <!-- Sales rep icons injected by JS -->
+        <!-- Trucks injected by JS -->
         <div class="map-lock" id="map-lock">
           <div class="lock-ico">🗺️</div>
           <div class="lock-title">Neighborhood Map</div>
@@ -475,23 +505,31 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
       </div>
     </div>
 
-    <!-- ══ LAYER 3: JOB SITE ══ -->
+    <!-- JOB SITE -->
     <div class="layer" id="layer-site">
       <div class="site-sky">
         <div class="site-sky-sun">☀️</div>
         <div class="heat-shimmer"></div>
-        <div class="site-cloud" style="top:10px;animation-duration:25s;animation-delay:-6s">☁️</div>
+        <div class="site-cloud" style="top:12px;animation-duration:28s;animation-delay:-8s">☁️</div>
+        <!-- Franklin Mountains -->
+        <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;height:50px" viewBox="0 0 400 50" preserveAspectRatio="none">
+          <polygon points="0,50 50,18 90,30 130,8 170,22 210,4 250,18 290,10 330,26 370,14 400,20 400,50" fill="#6B7B94" opacity="0.5"/>
+        </svg>
       </div>
       <div class="site-scene" id="site-scene">
-        <!-- house, crew, inverter built by JS -->
+        <div class="site-ground"></div>
+        <div class="site-grass"></div>
+        <!-- Cactus -->
+        <div style="position:absolute;bottom:32%;left:8px;font-size:20px;z-index:5">🌵</div>
+        <div style="position:absolute;bottom:33%;right:12px;font-size:14px;z-index:5">🌵</div>
         <div class="site-lock" id="site-lock">
           <div class="lock-ico">🏗️</div>
-          <div class="lock-title" style="font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center;">Job Site View</div>
-          <div class="lock-sub" style="font-size:11px;color:var(--muted);text-align:center;">Reach $50,000 total revenue to unlock</div>
+          <div class="lock-title" style="font-family:'Fredoka One',cursive;font-size:18px;color:var(--sun);text-align:center">Job Site View</div>
+          <div class="lock-sub" style="font-size:11px;color:var(--muted);text-align:center">Earn $50,000 total to unlock</div>
         </div>
       </div>
       <div class="install-progress">
-        <div class="ip-stage-name" id="ip-stage-name">No active job</div>
+        <div class="ip-stage-name" id="ip-stage-name">Awaiting Job Assignment</div>
         <div class="ip-stages" id="ip-stages"></div>
         <div class="ip-prog-track"><div class="ip-prog-fill" id="ip-prog-fill" style="width:0%"></div></div>
         <div class="ip-labels"><span id="ip-pct">0%</span><span id="ip-earn">+$0 on complete</span></div>
@@ -505,16 +543,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
           <span class="hi">👷</span><span class="hl">Send Worker</span>
           <span class="hc" id="site-wkr-lbl">$500</span>
         </button>
-        <button class="hbtn" style="background:linear-gradient(135deg,#4C1D95,#8B5CF6)" onclick="switchLayer('upgrades')">
-          <span class="hi">⬆️</span><span class="hl">Upgrades</span>
-          <span class="hc">→</span>
+        <button class="hbtn bp" onclick="switchLayer('upgrades')">
+          <span class="hi">⬆️</span><span class="hl">Upgrades</span><span class="hc">→</span>
         </button>
       </div>
     </div>
 
-    <!-- ══ UPGRADES ══ -->
+    <!-- UPGRADES -->
     <div class="layer" id="layer-upgrades">
-      <div class="upg-panel" id="upg-panel">
+      <div class="upg-panel">
         <div class="upg-sec">🏢 Office Upgrades</div>
         <div id="upg-office"></div>
         <div class="upg-sec">🐱 Cat Roster</div>
@@ -525,7 +562,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
       </div>
     </div>
 
-  </div><!-- /game-area -->
+  </div>
 
   <div id="bottom-nav">
     <button class="nav-tab active" id="nav-office" onclick="switchLayer('office')">
@@ -549,7 +586,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   </div>
 </div>
 
-<!-- ANGRY POPUP -->
+<!-- ANGRY -->
 <div class="angry-pop gone" id="angry-pop">
   <div class="ap-title">😡 <span id="ap-title-txt">Angry Customer!</span></div>
   <div class="ap-msg" id="ap-msg"></div>
@@ -561,6 +598,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   </div>
 </div>
 
+<!-- OBJECTION -->
+<div class="objection-pop gone" id="objection-pop">
+  <div class="obj-title">⚠️ <span id="obj-title-txt">Lead Objection!</span></div>
+  <div class="obj-msg" id="obj-msg"></div>
+  <div class="obj-btns">
+    <button class="obj-btn obj-save" onclick="handleObjection(true)">💪 Handle It</button>
+    <button class="obj-btn obj-lose" onclick="handleObjection(false)">✗ Lose the Lead</button>
+  </div>
+</div>
+
 <!-- CONTRACT -->
 <div class="contract-ov gone" id="contract-ov">
   <div class="cp-card">
@@ -569,10 +616,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="cp-title" id="cp-title"></div>
     <div class="cp-client" id="cp-client"></div>
     <div class="cp-desc" id="cp-desc"></div>
+    <div class="cp-quality" id="cp-quality"></div>
     <div class="cp-details">
       <div class="cp-detail"><div class="cp-detail-lbl">Reward</div><div class="cp-detail-val" id="cp-reward">$0</div></div>
       <div class="cp-detail"><div class="cp-detail-lbl">Panels</div><div class="cp-detail-val" id="cp-panels">0</div></div>
-      <div class="cp-detail"><div class="cp-detail-lbl">Days</div><div class="cp-detail-val" id="cp-days">0</div></div>
+      <div class="cp-detail"><div class="cp-detail-lbl">Days Est.</div><div class="cp-detail-val" id="cp-days">0</div></div>
     </div>
     <div class="cp-btns">
       <button class="cp-btn cp-yes" onclick="acceptContract()">✓ Accept</button>
@@ -592,50 +640,62 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 </div>
 
 <script>
-// ════════════════════════════════════
+// ════════════════════════════════
 // GAME STATE
-// ════════════════════════════════════
+// ════════════════════════════════
 const G={
   money:0,totalMoney:0,todayRevenue:0,credits:0,purrPoints:0,
   staff:1,hireCost:150,cats:2,catCost:80,catBreeds:[],
   income:0,morale:40,incomeMultiplier:1,
-  contracts:0,pendingContract:null,
+  contracts:0,pendingContract:null,wipCount:0,
+  // Sales pipeline leads
+  leads:[],leadCooldowns:{},hotLeads:0,
   mapUnlocked:false,siteUnlocked:false,
   siteLevel:1,siteWorkers:1,siteProgress:0,siteUpgCost:1000,siteWorkerCost:500,
-  siteStageIdx:0,currentJob:null,wipCount:0,
+  siteStageIdx:0,currentJob:null,
   upgrades:{},managers:{},milestones:[],
-  angryActive:false,timestamp:Date.now(),
+  angryActive:false,objectionActive:false,
+  timestamp:Date.now(),
 };
 
-const INSTALL_STAGES=[
-  'Roof Inspection','Permits Pulled','L-Feet Install','SMR Rails','SE Optimizers','Silfab Panels','MC4 Wiring','Conduit Run','HD-Wave Inverter','AC Panel Hook-up','SetApp Commission','Grid Connected ✓'
-];
+const INSTALL_STAGES=['Roof Inspection','Permits Pulled','L-Feet Install','SMR Rails','SE Optimizers','Silfab Panels','MC4 Wiring','Conduit Run','HD-Wave Inverter','AC Panel Hook-up','SetApp Commission','Grid Connected ✓'];
 
 const CONTRACTS=[
-  {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Silfab Prime panels on a south-facing pitch. Sunmodo SMR rails, SolarEdge P400 optimizers.',reward:400,panels:12,days:1},
-  {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system across a flat commercial roof. SMR Tilt system at 10° fixed angle.',reward:1200,panels:50,days:3},
-  {title:'School District',type:'🏫 Commercial',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Silfab Commercial NTC modules, SolarEdge three-phase inverters.',reward:2500,panels:120,days:7},
-  {title:'Hotel Solar Array',type:'🏨 Commercial',client:'Sunland Park Hotel',desc:'Rooftop system for pool heating and common areas. 30 panels, HD-Wave inverter.',reward:900,panels:30,days:2},
-  {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'Win this and you\'re on the news. 200 panels, three-phase SolarEdge system.',reward:5000,panels:200,days:14},
-  {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens, TX',desc:'Off-grid. Sunmodo SunTurf ground mount system. 80 Silfab panels, SolarEdge + battery.',reward:1800,panels:80,days:5},
-  {title:'Car Dealership',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'Canopy carport system over the lot. 60 bifacial panels on Sunmodo canopy racking.',reward:1100,panels:60,days:4},
-  {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units going solar. Silfab Prime, individual SolarEdge inverters per unit.',reward:3200,panels:180,days:10},
-  {title:'Warehouse District',type:'🏭 Industrial',client:'El Paso Logistics Hub',desc:'5 warehouse rooftops. 500 panels total. Sunmodo SMR commercial rails.',reward:8000,panels:500,days:21},
+  {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Silfab Prime panels, Sunmodo SMR rails, SolarEdge P400 optimizers.',reward:400,panels:12,days:1,quality:'hot'},
+  {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system. SMR Tilt at 10° fixed angle.',reward:1200,panels:50,days:3,quality:'warm'},
+  {title:'School District',type:'🏫 Commercial',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Silfab Commercial NTC + SolarEdge three-phase.',reward:2500,panels:120,days:7,quality:'warm'},
+  {title:'Hotel Solar Array',type:'🏨 Commercial',client:'Sunland Park Hotel',desc:'30 panels for pool heating and common areas.',reward:900,panels:30,days:2,quality:'hot'},
+  {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'200 panels, three-phase SolarEdge. Win this and you\'re on the news.',reward:5000,panels:200,days:14,quality:'warm'},
+  {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens',desc:'Off-grid. Sunmodo SunTurf ground mount. 80 Silfab panels + SolarEdge battery.',reward:1800,panels:80,days:5,quality:'cold'},
+  {title:'Car Dealership Canopy',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'60 bifacial panels on Sunmodo canopy racking over the lot.',reward:1100,panels:60,days:4,quality:'warm'},
+  {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units, individual SolarEdge inverters per unit.',reward:3200,panels:180,days:10,quality:'cold'},
+  {title:'Warehouse District',type:'🏭 Industrial',client:'EP Logistics Hub',desc:'5 warehouse rooftops, 500 Silfab panels. Sunmodo SMR commercial rails.',reward:8000,panels:500,days:21,quality:'cold'},
 ];
 
 const ANGRY=[
   {title:'WHERE ARE MY PANELS?!',msg:'Mr. Herrera called 3 times. Silfab panels were due last Tuesday.'},
-  {title:'REFUND! NOW!',msg:'Mrs. Kim says her SolarEdge inverter shows no output. She\'s furious.'},
-  {title:'I\'M CALLING THE BBB!',msg:'4th reschedule. Customer threatening to post on Google.'},
+  {title:'REFUND! NOW!',msg:'Mrs. Kim\'s SolarEdge inverter shows no output. She\'s calling her lawyer.'},
+  {title:'I\'M CALLING THE BBB!',msg:'4th reschedule. This customer is about to post on Google Reviews.'},
   {title:'YOUR CAT BROKE MY ROOF!',msg:'A stray followed your crew and knocked off a shingle near the SMR L-foot.'},
-  {title:'OPTIMIZER NOT WORKING!',msg:'Customer says the SolarEdge app shows 3 panels offline. P400 issue?'},
+  {title:'OPTIMIZER OFFLINE!',msg:'Customer SolarEdge app shows 3 P400 panels offline. Need a service call.'},
 ];
+
+const OBJECTIONS=[
+  {title:'Cost Objection',msg:'"$28,000 is too much. My neighbor said he paid less." — Lead: Garcia Family',save:'Offer financing — show 25yr ROI'},
+  {title:'Roof Concern',msg:'"My roof is 8 years old. Will the SMR L-feet void my roof warranty?" — Lead: Kim Residence',save:'Reassure — Sunmodo installs with proper flashing'},
+  {title:'HOA Pushback',msg:'"Our HOA says we need approval first. This could take months." — Lead: Sunrise Villas',save:'Offer to handle HOA paperwork for them'},
+  {title:'Utility Company Doubt',msg:'"El Paso Electric told me solar isn\'t worth it here." — Lead: Montoya Family',save:'Show EP sun hours data — 300+ sunny days/year'},
+  {title:'Competitor Quote',msg:'"SunRun quoted us $2,000 less. Why should we pick you?" — Lead: UTEP Faculty',save:'Highlight Silfab quality + SolarEdge monitoring'},
+];
+
+const LEAD_NAMES=['Garcia Family','Kim Residence','Montoya Prop.','UTEP Faculty','Torres LLC','Barela Ranch','Sunset Apt.','Fort Bliss Hsg','EP High','Costco EP','Valley View','Sun City Mall','Mesa Hills Dr.','Kern Place Res.'];
+const INSTALL_JOBS=['Casa Herrera','Hotel Job','Ysleta School','Ranch Barela','AutoNation','Sunrise Villas'];
 
 const CAT_BREEDS=[
   {name:'Street Cat',icon:'🐱',bonus:'General morale +10%',cost:80,mult:1.1,mb:10},
   {name:'Maine Coon',icon:'🦁',bonus:'Sales boost — income +20%',cost:500,mult:1.2,mb:15},
   {name:'Siamese',icon:'😸',bonus:'Tech boost — income +15%',cost:400,mult:1.15,mb:12},
-  {name:'Black Cat',icon:'🐈‍⬛',bonus:'Contracts +25% value',cost:800,mult:1.25,mb:20},
+  {name:'Black Cat',icon:'🐈‍⬛',bonus:'Contract values +25%',cost:800,mult:1.25,mb:20},
   {name:'Director Whiskers',icon:'👔🐱',bonus:'Office auto-managed',cost:2000,mult:1.5,mb:30},
   {name:'Calico',icon:'🌈',bonus:'All income +10%',cost:1200,mult:1.1,mb:18},
 ];
@@ -647,9 +707,9 @@ const UPGRADES_DATA=[
   {id:'toys',name:'Premium Cat Toys',desc:'Cat morale boost +30%',icon:'🎾',cost:300,maxLv:5},
   {id:'cert',name:'NABCEP Certification',desc:'All income +40%',icon:'🎓',cost:2000,maxLv:3},
   {id:'espresso',name:'Espresso Machine',desc:'Income +10%, morale drain slower',icon:'☕',cost:400,maxLv:3},
+  {id:'nanoRack',name:'Sunmodo NanoRack',desc:'Site completes 30% faster',icon:'🔩',cost:2500,maxLv:1},
+  {id:'seapp',name:'SolarEdge SetApp Pro',desc:'Commission time halved',icon:'📱',cost:1800,maxLv:1},
   {id:'truck2',name:'Second Truck',desc:'Map dispatch speed 2×',icon:'🚛',cost:3000,maxLv:1},
-  {id:'nanoRack',name:'Sunmodo NanoRack',desc:'Site completes 30% faster — rail-free install',icon:'🔩',cost:2500,maxLv:1},
-  {id:'seapp',name:'SolarEdge SetApp Pro',desc:'Commission time halved, +15% income',icon:'📱',cost:1800,maxLv:1},
 ];
 
 const MANAGERS_DATA=[
@@ -663,10 +723,10 @@ const MILESTONES=[
   {id:'m10k',check:()=>G.totalMoney>=10000,icon:'💰',title:'$10K Revenue!',desc:'You\'re a real company now.',credits:5},
   {id:'m50k',check:()=>G.totalMoney>=50000,icon:'🏦',title:'$50K Revenue!',desc:'Job Site view unlocked!',credits:15},
   {id:'m100k',check:()=>G.totalMoney>=100000,icon:'🌟',title:'$100K Company!',desc:'El Paso\'s #1 solar installer.',credits:30},
-  {id:'c5',check:()=>G.contracts>=5,icon:'📋',title:'5 Contracts!',desc:'Neighborhood Map unlocked!',credits:3},
+  {id:'c5',check:()=>G.contracts>=5,icon:'📋',title:'5 Contracts Closed!',desc:'Neighborhood Map unlocked!',credits:3},
   {id:'c20',check:()=>G.contracts>=20,icon:'📁',title:'20 Contracts!',desc:'You\'re the talk of the city.',credits:10},
-  {id:'cats5',check:()=>G.cats>=5,icon:'🐱',title:'Cat Crew!',desc:'5 cats on the team. Morale through the roof!',purr:20},
-  {id:'staff5',check:()=>G.staff>=5,icon:'👔',title:'Full Team!',desc:'5 staff members. Growing fast.'},
+  {id:'cats5',check:()=>G.cats>=5,icon:'🐱',title:'Cat Crew!',desc:'5 cats in the office!',purr:20},
+  {id:'staff5',check:()=>G.staff>=5,icon:'👔',title:'Full Team!',desc:'5 staff members hired.'},
 ];
 
 const JOB_SITES=[
@@ -675,15 +735,39 @@ const JOB_SITES=[
   {name:'EP High School',icon:'🏫',earn:200,stage:'Wiring'},
   {name:'Ranch Barela',icon:'🌵',earn:400,stage:'Permits'},
 ];
-const JOB_POS=[{x:10,y:68},{x:160,y:68},{x:10,y:178},{x:160,y:178}];
+const JOB_POS=[{x:134,y:56},{x:240,y:56},{x:134,y:166},{x:240,y:166}];
 
-// pipeline display data
-let salesLeads=['Montoya Family','EPCC Campus','Fort Bliss Housing','Grocery Chain'];
-let installJobs=['Casa Herrera','Hotel Job','Ysleta School'];
+// Real solar staff roles
+const STAFF_ROLES=[
+  {role:'Solar Rep',icon:'☀️',col:'#FCA5A5',desc:'Generates leads & calls prospects'},
+  {role:'Sales Consultant',icon:'📞',col:'#86EFAC',desc:'Runs appointments & closes deals'},
+  {role:'Appt Setter',icon:'📅',col:'#93C5FD',desc:'Books site surveys & demos'},
+  {role:'Project Coord',icon:'📋',col:'#FDE68A',desc:'Manages job timeline start to finish'},
+  {role:'Permit Coord',icon:'📄',col:'#C4B5FD',desc:'Submits to AHJ, tracks approvals'},
+  {role:'System Designer',icon:'📐',col:'#F9A8D4',desc:'Designs array layout & proposals'},
+  {role:'Monitoring Tech',icon:'📡',col:'#A7F3D0',desc:'Watches SolarEdge portal 24/7'},
+  {role:'Service Tech',icon:'🔧',col:'#FED7AA',desc:'Handles post-install service calls'},
+];
 
-// ════════════════════════════════════
-// LAYER SWITCHING
-// ════════════════════════════════════
+// Desk positions — spread across whole floor
+const DESK_POS=[
+  // Row 1 (top)
+  {x:10,y:55},{x:88,y:55},{x:166,y:55},{x:244,y:55},
+  // Row 2 (middle)
+  {x:10,y:145},{x:88,y:145},{x:166,y:145},{x:244,y:145},
+];
+
+// Sales pipeline stages
+const PIPE_STAGES=['Prospect','Contacted','Survey','Proposal','Follow-up','Negotiating','Signed'];
+let salesLeads=[];
+let installJobs=['Casa Herrera','Hotel Job','EP School'];
+let jobCardEls=[];let jobReady=[];
+let siteBuilt=false;
+let desks=[];let catEls=[];
+
+// ════════════════════════════════
+// LAYER
+// ════════════════════════════════
 let curLayer='office';
 function switchLayer(l){
   if(l==='map'&&!G.mapUnlocked){showToast('🔒 Close 5 contracts first!');return;}
@@ -695,31 +779,76 @@ function switchLayer(l){
   document.getElementById('nav-'+l).classList.add('active');
   clearBadge(l);
   if(l==='upgrades')renderUpgrades();
-  if(l==='map')updatePipelines();
+  if(l==='map'){updatePipelines();renderNeighborhood();}
   if(l==='site')updateSiteScene();
 }
 
-// ════════════════════════════════════
-// OFFICE — DESKS
-// ════════════════════════════════════
-let desks=[];
-const DESK_POS=[
-  {x:8,y:50},{x:100,y:50},{x:192,y:50},
-  {x:8,y:140},{x:100,y:140},{x:192,y:140},
-  {x:8,y:230},{x:100,y:230},
-];
-const EMP_COLORS=['#FCA5A5','#86EFAC','#93C5FD','#FDE68A','#C4B5FD','#F9A8D4','#A7F3D0','#FED7AA'];
-const EMP_ROLES=['Solar Rep','Sales Lead','Engineer','Project Mgr','Installer','Analyst','Designer','Estimator'];
-const EMP_ICONS=['☀️','📞','⚡','📋','🔧','📈','🎨','💰'];
+// ════════════════════════════════
+// OFFICE BUILD
+// ════════════════════════════════
+function buildOffice(){
+  const floor=document.getElementById('office-main');
+  const w=floor.offsetWidth||320;
+  const h=floor.offsetHeight||300;
 
+  // Filing cabinet
+  const fc=document.getElementById('filing-cabinet');
+  fc.style.cssText=`display:flex;flex-direction:column;gap:2px;padding:3px;position:absolute;right:8px;top:20px;width:24px;background:#8B9BB4;border:1px solid #6B7B94;border-radius:2px;`;
+
+  // Printer
+  const pr=document.getElementById('printer-el');
+  pr.style.cssText=`display:block;position:absolute;right:38px;top:18px;font-size:14px;`;
+
+  // Breakroom — right side, middle height
+  const br=document.createElement('div');
+  br.className='breakroom';
+  br.style.cssText=`right:6px;top:${Math.floor(h*0.35)}px;width:82px;`;
+  br.innerHTML=`<div class="br-lbl">Break Room</div>
+    <div class="br-items">
+      <span class="br-couch">🛋️</span>
+      <span class="br-coffee">☕</span>
+    </div>
+    <div class="br-items" style="margin-top:3px">
+      <span class="br-fridge">🧊</span>
+      <span class="br-cat">😴🐱</span>
+    </div>`;
+  floor.appendChild(br);
+
+  // Sales pipeline board — center wall
+  const pb=document.createElement('div');
+  pb.className='pipeline-board';
+  pb.id='office-pipeline-board';
+  pb.style.cssText=`left:${Math.floor(w*0.3)}px;bottom:${Math.floor(h*0.15)}px;width:${Math.floor(w*0.42)}px;`;
+  pb.innerHTML=`<div class="pb-title">📊 Sales Pipeline</div><div class="pb-stages" id="pb-stages-inner"></div>`;
+  floor.appendChild(pb);
+  updateOfficePipelineBoard();
+}
+
+function updateOfficePipelineBoard(){
+  const inner=document.getElementById('pb-stages-inner');
+  if(!inner)return;
+  // Show 4 key stages
+  const stages=['Prospect','Survey','Proposal','Closing'];
+  const icons=['📋','🏠','📑','✍️'];
+  inner.innerHTML=stages.map((s,i)=>{
+    const leads=G.leads.filter(l=>l.stage===i);
+    return `<div class="pb-stage">
+      <div class="pb-stage-lbl">${icons[i]} ${s}</div>
+      ${leads.slice(0,2).map(l=>`<div class="pb-card ${l.quality}">${l.name}</div>`).join('')}
+      ${leads.length===0?`<div style="font-size:5px;color:#9CA3AF;text-align:center">—</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════
+// DESKS
+// ════════════════════════════════
 function spawnDesk(){
   const floor=document.getElementById('office-main');
   const idx=desks.length;
   if(idx>=DESK_POS.length)return;
   const pos=DESK_POS[idx];
-  const col=EMP_COLORS[idx%EMP_COLORS.length];
-  const role=EMP_ROLES[idx%EMP_ROLES.length];
-  const icon=EMP_ICONS[idx%EMP_ICONS.length];
+  const roleData=STAFF_ROLES[idx%STAFF_ROLES.length];
 
   const el=document.createElement('div');
   el.className='desk-stn';
@@ -727,77 +856,79 @@ function spawnDesk(){
   el.style.top=pos.y+'px';
   el.onclick=()=>tapDesk(el,idx);
 
-  // draw desk with SVG
-  el.innerHTML=`
-    <div class="desk-vis" style="height:58px;position:relative;">
-      <div class="stn-lvl" id="dlvl-${idx}">Lv1</div>
-      <svg width="72" height="58" viewBox="0 0 72 58" style="display:block;">
-        <!-- desk top surface -->
-        <rect x="2" y="10" width="68" height="32" rx="4" fill="#C49A6C" stroke="#8B6347" stroke-width="2"/>
-        <rect x="4" y="12" width="64" height="6" rx="2" fill="rgba(255,255,255,0.15)"/>
-        <!-- monitor -->
-        <rect x="16" y="14" width="28" height="20" rx="3" fill="#0F172A" stroke="#334155" stroke-width="1.5"/>
-        <rect x="17" y="15" width="26" height="18" rx="2" fill="#1E293B"/>
-        <text x="30" y="27" text-anchor="middle" font-size="10" fill="${col}">${icon}</text>
-        <!-- mug -->
-        <rect x="50" y="18" width="12" height="10" rx="2" fill="#7C3AED"/>
-        <text x="56" y="26" text-anchor="middle" font-size="8">☕</text>
-        <!-- desk legs -->
-        <rect x="6" y="42" width="10" height="14" rx="2" fill="#8B6347"/>
-        <rect x="56" y="42" width="10" height="14" rx="2" fill="#8B6347"/>
-        <!-- employee body -->
-        <ellipse cx="36" cy="8" rx="9" ry="9" fill="${col}" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
-        <text x="36" y="12" text-anchor="middle" font-size="9">${icon}</text>
-        <!-- break animation indicator -->
-        <circle id="break-dot-${idx}" cx="64" cy="8" r="3" fill="#22C55E" opacity="0"/>
-      </svg>
-    </div>
-    <div class="stn-badge">
-      <div class="stn-role">${role}</div>
-      <div class="stn-rate" id="drate-${idx}">+$8/s</div>
-    </div>`;
+  el.innerHTML=`<div style="position:relative;width:66px;">
+    <div class="stn-lvl" id="dlvl-${idx}">Lv1</div>
+    <svg width="66" height="54" viewBox="0 0 66 54">
+      <!-- desk surface -->
+      <rect x="1" y="12" width="64" height="28" rx="3" fill="#C49A6C" stroke="#8B6347" stroke-width="1.5"/>
+      <rect x="3" y="14" width="60" height="5" rx="2" fill="rgba(255,255,255,0.15)"/>
+      <!-- monitor -->
+      <rect x="10" y="16" width="26" height="18" rx="2" fill="#0F172A" stroke="#334155" stroke-width="1"/>
+      <rect x="11" y="17" width="24" height="16" rx="1" fill="#1E293B"/>
+      <text x="23" y="27" text-anchor="middle" font-size="9" fill="${roleData.col}">${roleData.icon}</text>
+      <!-- phone / paperwork -->
+      <rect x="42" y="18" width="14" height="10" rx="2" fill="#334155"/>
+      <text x="49" y="26" text-anchor="middle" font-size="7">📱</text>
+      <!-- legs -->
+      <rect x="5" y="40" width="8" height="12" rx="1" fill="#8B6347"/>
+      <rect x="53" y="40" width="8" height="12" rx="1" fill="#8B6347"/>
+      <!-- employee head -->
+      <circle cx="33" cy="9" r="8" fill="${roleData.col}" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
+      <text x="33" y="13" text-anchor="middle" font-size="8">${roleData.icon}</text>
+      <!-- break dot -->
+      <circle id="bdot-${idx}" cx="60" cy="6" r="3" fill="#F59E0B" opacity="0"/>
+    </svg>
+  </div>
+  <div class="stn-badge">
+    <div class="stn-role">${roleData.role}</div>
+    <div class="stn-rate" id="drate-${idx}">+$8/s</div>
+  </div>`;
   floor.appendChild(el);
-  desks.push({el,level:1,role,idx,onBreak:false});
-
-  // random break animations
+  desks.push({el,level:1,role:roleData.role,idx});
   scheduleBreak(idx);
 }
 
 function scheduleBreak(idx){
-  const d=desks[idx];
-  if(!d)return;
+  const d=desks[idx];if(!d)return;
   setTimeout(()=>{
-    if(d&&!d.onBreak){
-      d.onBreak=true;
-      const dot=document.getElementById('break-dot-'+idx);
-      if(dot)dot.style.opacity='1';
-      showToast('☕ '+d.role+' taking a quick break...');
-      setTimeout(()=>{
-        d.onBreak=false;
-        if(dot)dot.style.opacity='0';
-        scheduleBreak(idx);
-      },8000);
-    } else {scheduleBreak(idx);}
-  },30000+Math.random()*60000);
+    if(!d)return;
+    const dot=document.getElementById('bdot-'+idx);
+    if(dot){dot.style.opacity='1';}
+    // lead progression on break — rep followed up on a lead
+    if(G.leads.length>0){
+      const lead=G.leads[Math.floor(Math.random()*G.leads.length)];
+      if(lead.stage<6)lead.stage++;
+      updateOfficePipelineBoard();
+    }
+    setTimeout(()=>{
+      if(dot)dot.style.opacity='0';
+      scheduleBreak(idx);
+    },10000);
+  },25000+Math.random()*45000);
 }
 
 function tapDesk(el,idx){
-  const bonus=Math.floor(12*(G.upgrades.soft||1)*G.incomeMultiplier*(1+G.morale/200));
+  const softBonus=G.upgrades.soft?Math.pow(2,G.upgrades.soft):1;
+  const bonus=Math.floor(12*softBonus*G.incomeMultiplier*(1+G.morale/200));
   G.money+=bonus;G.totalMoney+=bonus;G.todayRevenue+=bonus;
   spawnFlt(el,'+$'+fmt(bonus),'#22C55E');
+  // Also advance a random lead
+  if(G.leads.length>0&&Math.random()<0.3){
+    const lead=G.leads[Math.floor(Math.random()*G.leads.length)];
+    if(lead.stage<6){lead.stage++;updateOfficePipelineBoard();}
+  }
   checkMilestones();updateUI();
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // CATS
-// ════════════════════════════════════
-let catEls=[];
+// ════════════════════════════════
 const CAT_PAL=[
   {b:'#E07A30',e:'#C96020'},{b:'#9CA3AF',e:'#6B7280'},
-  {b:'#1a1a1a',e:'#111'},{b:'#F5DEB3',e:'#E8C878'},
+  {b:'#2D2D2D',e:'#111'},{b:'#F5DEB3',e:'#E8C878'},
   {b:'#92400E',e:'#78350F'},{b:'#D8B4FE',e:'#A855F7'},
 ];
-const CAT_SAY=['purr~','😸','zzz','meow!','😺','mrrrow','*knocks pen off desk*','*sits on keyboard*'];
+const CAT_SAY=['purr~','😸','zzz~','meow!','*knocks pen off desk*','*sits on keyboard*','mrrrow'];
 
 function spawnCat(){
   const floor=document.getElementById('office-main');
@@ -807,33 +938,24 @@ function spawnCat(){
   const cat=document.createElement('div');
   cat.className='cat-spr';
   cat.style.left=(10+Math.random()*(w-50))+'px';
-  cat.style.top=(30+Math.random()*(h-60))+'px';
-  // more realistic cat SVG
-  cat.innerHTML=`<svg width="30" height="26" viewBox="0 0 30 26">
-    <!-- body -->
-    <ellipse cx="15" cy="18" rx="10" ry="7" fill="${pal.b}"/>
-    <!-- head -->
-    <ellipse cx="15" cy="9" rx="8" ry="7" fill="${pal.b}"/>
-    <!-- ears -->
+  cat.style.top=(40+Math.random()*(h-80))+'px';
+  cat.innerHTML=`<svg width="28" height="24" viewBox="0 0 28 24">
+    <ellipse cx="14" cy="17" rx="9" ry="6" fill="${pal.b}"/>
+    <ellipse cx="14" cy="9" rx="7" ry="6" fill="${pal.b}"/>
     <polygon points="8,4 5,0 11,3" fill="${pal.b}"/>
-    <polygon points="22,4 25,0 19,3" fill="${pal.b}"/>
-    <!-- inner ear -->
-    <polygon points="8,4 6.5,1.5 10,3" fill="#FFB6C1" opacity="0.7"/>
-    <polygon points="22,4 23.5,1.5 20,3" fill="#FFB6C1" opacity="0.7"/>
-    <!-- eyes -->
-    <ellipse cx="11" cy="9" rx="2" ry="2.5" fill="#1F2937"/>
-    <ellipse cx="19" cy="9" rx="2" ry="2.5" fill="#1F2937"/>
-    <circle cx="11.5" cy="8.5" r="0.7" fill="white"/>
-    <circle cx="19.5" cy="8.5" r="0.7" fill="white"/>
-    <!-- nose -->
-    <polygon points="15,12 13.5,13.5 16.5,13.5" fill="#F472B6"/>
-    <!-- whiskers -->
-    <line x1="7" y1="12" x2="13" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
-    <line x1="7" y1="14" x2="13" y2="14" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
-    <line x1="23" y1="12" x2="17" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
-    <line x1="23" y1="14" x2="17" y2="14" stroke="${pal.e}" stroke-width="0.7" opacity="0.6"/>
-    <!-- tail -->
-    <path d="M 25 20 Q 30 15 28 10" stroke="${pal.e}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <polygon points="20,4 23,0 17,3" fill="${pal.b}"/>
+    <polygon points="8,4 6,1.5 10,3" fill="#FFB6C1" opacity="0.7"/>
+    <polygon points="20,4 22,1.5 18,3" fill="#FFB6C1" opacity="0.7"/>
+    <ellipse cx="10" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
+    <ellipse cx="18" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
+    <circle cx="10.5" cy="8.5" r="0.6" fill="white"/>
+    <circle cx="18.5" cy="8.5" r="0.6" fill="white"/>
+    <polygon points="14,12 12.5,13.5 15.5,13.5" fill="#F472B6"/>
+    <line x1="6" y1="11" x2="12" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="6" y1="13" x2="12" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="22" y1="11" x2="16" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="22" y1="13" x2="16" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <path d="M 23 18 Q 28 14 26 10" stroke="${pal.e}" stroke-width="2" fill="none" stroke-linecap="round"/>
   </svg>`;
   cat.onclick=()=>petCat(cat);
   floor.appendChild(cat);
@@ -847,22 +969,55 @@ function moveCat(cat,floor){
     const w=floor.offsetWidth||320;
     const h=floor.offsetHeight||300;
     cat.style.left=(10+Math.random()*(w-50))+'px';
-    cat.style.top=(30+Math.random()*(h-60))+'px';
+    cat.style.top=(40+Math.random()*(h-80))+'px';
   },3500+Math.random()*3000);
 }
 
 function petCat(cat){
-  G.morale=Math.min(100,G.morale+8);
-  G.purrPoints+=2;
+  G.morale=Math.min(100,G.morale+8);G.purrPoints+=2;
   const e=CAT_SAY[Math.floor(Math.random()*CAT_SAY.length)];
   const r=cat.getBoundingClientRect();
-  spawnFltXY(r.left+15,r.top,e,'#F97316');
+  spawnFltXY(r.left+14,r.top,e,'#F97316');
   checkMilestones();updateUI();
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
+// SALES PIPELINE
+// ════════════════════════════════
+function addLead(){
+  if(G.leads.length>=12)return;
+  const name=LEAD_NAMES[Math.floor(Math.random()*LEAD_NAMES.length)];
+  const quality=['hot','warm','cold'][Math.floor(Math.random()*3)];
+  G.leads.push({name,stage:0,quality,age:0});
+  G.hotLeads=G.leads.filter(l=>l.quality==='hot').length;
+  updateOfficePipelineBoard();
+  updateUI();
+}
+
+function tickLeads(){
+  // Leads age and cool down
+  G.leads.forEach(l=>{
+    l.age++;
+    // cold leads might fall off if not attended to
+    if(l.quality==='cold'&&l.age>300&&Math.random()<0.002){
+      G.leads=G.leads.filter(x=>x!==l);
+      showToast('❄️ Cold lead '+l.name+' went quiet.');
+    }
+  });
+  // Leads at stage 6 (signed) convert to contracts slowly
+  const signed=G.leads.filter(l=>l.stage>=6);
+  if(signed.length>0&&Math.random()<0.008){
+    const lead=signed[0];
+    G.leads=G.leads.filter(l=>l!==lead);
+    // Trigger a contract popup based on lead quality
+    setTimeout(triggerContract,2000);
+  }
+  updateOfficePipelineBoard();
+}
+
+// ════════════════════════════════
 // PURCHASES
-// ════════════════════════════════════
+// ════════════════════════════════
 function hireEmployee(){
   if(G.money<G.hireCost){showToast('💸 Need '+fmt(G.hireCost));return;}
   G.money-=G.hireCost;G.staff++;
@@ -891,13 +1046,41 @@ function sendWorker(){
   if(G.money<G.siteWorkerCost){showToast('💸 Need '+fmt(G.siteWorkerCost));return;}
   G.money-=G.siteWorkerCost;G.siteWorkers++;
   G.siteWorkerCost=Math.floor(G.siteWorkerCost*1.5);
-  showToast('👷 Extra worker sent to site!');updateUI();
+  showToast('👷 Extra worker sent!');updateUI();
 }
 
-// ════════════════════════════════════
-// MAP
-// ════════════════════════════════════
-let jobCardEls=[];let jobReady=[];
+// ════════════════════════════════
+// MAP — NEIGHBORHOOD
+// ════════════════════════════════
+let neighborhoodBuilt=false;
+
+function renderNeighborhood(){
+  if(neighborhoodBuilt)return;
+  neighborhoodBuilt=true;
+  const main=document.getElementById('map-main');
+  // Small decorative houses scattered around
+  const houseDefs=[
+    {x:20,y:64,icon:'🏡'},{x:60,y:80,icon:'🏠'},{x:300,y:64,icon:'🏠'},
+    {x:340,y:80,icon:'🏡'},{x:20,y:174,icon:'🏠'},{x:60,y:190,icon:'🏡'},
+    {x:300,y:174,icon:'🏠'},{x:340,y:190,icon:'🏠'},
+  ];
+  houseDefs.forEach(h=>{
+    const el=document.createElement('div');
+    el.style.cssText=`position:absolute;left:${h.x}px;top:${h.y}px;font-size:18px;z-index:3;`;
+    el.textContent=h.icon;
+    main.appendChild(el);
+  });
+  // Sales rep icons knocking on doors
+  const repDefs=[{x:38,y:72},{x:315,y:72}];
+  repDefs.forEach(r=>{
+    const el=document.createElement('div');
+    el.className='sales-rep-icon';
+    el.style.cssText=`left:${r.x}px;top:${r.y}px;`;
+    el.textContent='🧑‍💼';
+    el.title='Sales rep canvassing';
+    main.appendChild(el);
+  });
+}
 
 function initMap(){
   const main=document.getElementById('map-main');
@@ -918,26 +1101,21 @@ function initMap(){
     jobCardEls.push({el,level:1,earn:s.earn,site:s});
     jobReady.push(i===0);
   });
-  spawnTruck();
-  updatePipelines();
-}
-
-function spawnTruck(){
-  const main=document.getElementById('map-main');
+  // Truck
   const truck=document.createElement('div');
   truck.className='truck-el';
-  truck.style.left='50px';truck.style.top='45px';
-  truck.style.fontSize='20px';
+  truck.style.left='150px';truck.style.top='36px';
   truck.innerHTML='🚐';
-  truck.onclick=()=>showToast('🚐 Crew en route!');
+  truck.title='Purr & Power crew truck';
+  truck.onclick=()=>showToast('🚐 Crew en route to job site!');
   main.appendChild(truck);
   animTruck(truck);
 }
 
 function animTruck(t){
-  const stops=[{x:50,y:45},{x:170,y:45},{x:170,y:160},{x:50,y:160}];
+  const stops=[{x:150,y:36},{x:250,y:36},{x:250,y:145},{x:150,y:145}];
   let i=0;
-  setInterval(()=>{i=(i+1)%stops.length;t.style.left=stops[i].x+'px';t.style.top=stops[i].y+'px';},2800);
+  setInterval(()=>{i=(i+1)%stops.length;t.style.left=stops[i].x+'px';t.style.top=stops[i].y+'px';},2600);
 }
 
 function collectJob(i){
@@ -948,7 +1126,7 @@ function collectJob(i){
   const pay=Math.floor(site.earn*site.level*fleetBonus*(1+G.morale/120));
   G.money+=pay;G.totalMoney+=pay;G.todayRevenue+=pay;
   const r=site.el.getBoundingClientRect();
-  spawnFltXY(r.left+41,r.top,'+'+fmt(pay),'#22C55E');
+  spawnFltXY(r.left+40,r.top,'+'+fmt(pay),'#22C55E');
   site.el.classList.remove('ready');
   jobReady[i]=false;
   setTimeout(()=>{site.el.classList.add('ready');jobReady[i]=true;},20000);
@@ -956,192 +1134,181 @@ function collectJob(i){
 }
 
 function updatePipelines(){
-  // Sales pipeline
-  const sRows=document.getElementById('sales-rows');
-  if(!sRows)return;
-  const statuses=['lead','quote','close'];
-  const statusLabels=['Lead','Quoted','Closing'];
-  sRows.innerHTML=salesLeads.slice(0,4).map((n,i)=>`
+  const sr=document.getElementById('sales-rows');
+  if(!sr)return;
+  const statuses=['lead','quote','quote','close'];
+  const statusLabels=['Lead','Quoted','Survey','Closing'];
+  const displayLeads=G.leads.slice(0,4);
+  sr.innerHTML=displayLeads.map((l,i)=>`
     <div class="pp-row">
-      <span class="pp-status ${statuses[i%3]}">${statusLabels[i%3]}</span>
-      <span style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50px">${n}</span>
-    </div>`).join('');
-  // Install pipeline
-  const iRows=document.getElementById('install-rows');
-  if(!iRows)return;
+      <span class="pp-status ${statuses[Math.min(l.stage,3)]}">${statusLabels[Math.min(l.stage,3)]}</span>
+      <span class="pp-name">${l.name}</span>
+    </div>`).join('')||(G.leads.length===0?'<div style="font-size:8px;color:var(--muted);text-align:center;padding:4px">No active leads</div>':'');
+
+  const ir=document.getElementById('install-rows');
+  if(!ir)return;
   const iStatuses=['sched','route','wip','done'];
   const iLabels=['Sched','En Route','Working','Done'];
-  iRows.innerHTML=installJobs.slice(0,4).map((n,i)=>`
+  ir.innerHTML=installJobs.slice(0,4).map((n,i)=>`
     <div class="pp-row">
       <span class="pp-status ${iStatuses[i%4]}">${iLabels[i%4]}</span>
-      <span style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52px">${n}</span>
+      <span class="pp-name">${n}</span>
     </div>`).join('');
 }
 
-// ════════════════════════════════════
-// JOB SITE — FULL ACCURATE SCENE
-// ════════════════════════════════════
-let siteBuilt=false;
-
+// ════════════════════════════════
+// JOB SITE
+// ════════════════════════════════
 function buildSiteScene(){
-  if(siteBuilt)return;
-  siteBuilt=true;
+  if(siteBuilt)return;siteBuilt=true;
   const scene=document.getElementById('site-scene');
   const w=scene.offsetWidth||320;
   const h=scene.offsetHeight||240;
-
-  // Ground
-  const ground=document.createElement('div');
-  ground.style.cssText=`position:absolute;bottom:0;left:0;right:0;height:38%;background:linear-gradient(180deg,#C4A882,#B8956A);`;
-  scene.insertBefore(ground,scene.firstChild);
-  const grassStrip=document.createElement('div');
-  grassStrip.style.cssText=`position:absolute;bottom:38%;left:0;right:0;height:6px;background:#8B9B6B;`;
-  scene.insertBefore(grassStrip,scene.firstChild);
-
-  // Cactus
-  const cact=document.createElement('div');
-  cact.style.cssText=`position:absolute;bottom:38%;left:8px;font-size:22px;z-index:5;`;
-  cact.textContent='🌵';
-  scene.appendChild(cact);
-
-  // House container
-  const houseY=h*0.62;
-  const houseW=200;
-  const houseX=(w-houseW)/2;
+  const houseW=210;
+  const houseX=(w-houseW)/2 - 20;
+  const houseY=h*0.58;
+  const roofH=70;
 
   // House walls
   const wall=document.createElement('div');
-  wall.className='house-wall';
-  wall.style.cssText=`position:absolute;left:${houseX}px;top:${houseY}px;width:${houseW}px;height:95px;`;
+  wall.className='house-container';
+  wall.style.cssText=`left:${houseX}px;top:${houseY}px;`;
   wall.innerHTML=`
-    <div class="house-window-row">
-      <div class="house-win"></div>
-      <div class="house-win"></div>
-    </div>
-    <div class="house-door"></div>`;
+    <div style="width:${houseW}px;height:100px;background:#D4956A;border:2px solid #B45309;position:relative;">
+      <div style="position:absolute;top:12px;left:0;right:0;display:flex;justify-content:space-around;padding:0 14px;">
+        <div style="width:28px;height:24px;background:#BAE6FD;border:2px solid #7C3AED;border-radius:2px;"></div>
+        <div style="width:28px;height:24px;background:#BAE6FD;border:2px solid #7C3AED;border-radius:2px;"></div>
+        <div style="width:28px;height:24px;background:#BAE6FD;border:2px solid #7C3AED;border-radius:2px;"></div>
+      </div>
+      <div style="width:28px;height:44px;background:#7C3AED;border-radius:14px 14px 0 0;border:2px solid #5B21B6;position:absolute;bottom:0;left:50%;transform:translateX(-50%);">
+        <div style="width:4px;height:4px;border-radius:50%;background:#FDE68A;position:absolute;top:50%;right:4px;transform:translateY(-50%);"></div>
+      </div>
+    </div>`;
   scene.appendChild(wall);
 
-  // Roof (SVG triangle)
-  const roofH=65;
-  const roofY=houseY-roofH;
+  // Roof SVG
   const roofSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  roofSvg.setAttribute('width',houseW+20+'');
+  roofSvg.setAttribute('width',(houseW+20)+'');
   roofSvg.setAttribute('height',roofH+'');
-  roofSvg.style.cssText=`position:absolute;left:${houseX-10}px;top:${roofY}px;`;
-  roofSvg.innerHTML=`
-    <polygon points="110,0 ${houseW+20},${roofH} 0,${roofH}" fill="#B45309"/>
-    <polygon points="110,0 ${houseW+20},${roofH} 0,${roofH}" fill="none" stroke="#92400E" stroke-width="2"/>`;
+  roofSvg.style.cssText=`position:absolute;left:${houseX-10}px;top:${houseY-roofH}px;`;
+  roofSvg.innerHTML=`<polygon points="${(houseW+20)/2},0 ${houseW+20},${roofH} 0,${roofH}" fill="#B45309" stroke="#92400E" stroke-width="1.5"/>`;
   scene.appendChild(roofSvg);
 
-  // Sunmodo SMR Rails (2 horizontal black rails across roof)
-  // Rail 1
-  const rail1=document.createElement('div');
-  rail1.style.cssText=`position:absolute;left:${houseX+20}px;top:${roofY+28}px;width:${houseW-30}px;height:4px;background:#1a1a1a;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.5);z-index:10;`;
-  const railLbl1=document.createElement('div');
-  railLbl1.style.cssText=`position:absolute;left:${houseX-8}px;top:${roofY+27}px;font-size:6px;color:#666;z-index:11;`;
-  railLbl1.textContent='SMR';
-  scene.appendChild(rail1);scene.appendChild(railLbl1);
-  // Rail 2
-  const rail2=document.createElement('div');
-  rail2.style.cssText=`position:absolute;left:${houseX+20}px;top:${roofY+44}px;width:${houseW-30}px;height:4px;background:#1a1a1a;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.5);z-index:10;`;
-  scene.appendChild(rail2);
+  // Sunmodo SMR Rails
+  [roofH*0.38, roofH*0.62].forEach(railY=>{
+    const rail=document.createElement('div');
+    rail.style.cssText=`position:absolute;left:${houseX+18}px;top:${houseY-roofH+railY}px;width:${houseW-28}px;height:4px;background:#1a1a1a;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,0.5);z-index:10;`;
+    scene.appendChild(rail);
+  });
+  // SMR label
+  const smrLbl=document.createElement('div');
+  smrLbl.style.cssText=`position:absolute;left:${houseX}px;top:${houseY-roofH+14}px;font-size:5px;color:#888;z-index:11;`;
+  smrLbl.textContent='SMR Rail';
+  scene.appendChild(smrLbl);
 
-  // Silfab Prime panels (4 panels on roof, added as progress increases)
-  const panelContainer=document.createElement('div');
-  panelContainer.id='panel-container';
-  panelContainer.style.cssText=`position:absolute;left:${houseX+22}px;top:${roofY+22}px;z-index:12;display:flex;gap:3px;`;
-  scene.appendChild(panelContainer);
+  // Panel container
+  const pc=document.createElement('div');
+  pc.id='panel-container';
+  pc.style.cssText=`position:absolute;left:${houseX+20}px;top:${houseY-roofH+20}px;z-index:12;display:flex;gap:2px;flex-wrap:wrap;width:${houseW-28}px;`;
+  scene.appendChild(pc);
 
-  // SolarEdge Optimizers label under panels
-  const optContainer=document.createElement('div');
-  optContainer.id='opt-container';
-  optContainer.style.cssText=`position:absolute;left:${houseX+22}px;top:${roofY+48}px;z-index:13;display:flex;gap:3px;`;
-  scene.appendChild(optContainer);
+  // Optimizer container
+  const oc=document.createElement('div');
+  oc.id='opt-container';
+  oc.style.cssText=`position:absolute;left:${houseX+20}px;top:${houseY-roofH+50}px;z-index:13;display:flex;gap:2px;`;
+  scene.appendChild(oc);
 
-  // Conduit running down wall
+  // Conduit
   const conduit=document.createElement('div');
-  conduit.style.cssText=`position:absolute;left:${houseX+houseW-18}px;top:${roofY+roofH}px;width:5px;height:95px;background:#475569;border-radius:1px;z-index:8;`;
+  conduit.style.cssText=`position:absolute;left:${houseX+houseW-16}px;top:${houseY-roofH+roofH}px;width:5px;height:100px;background:#475569;border-radius:1px;z-index:8;`;
   scene.appendChild(conduit);
-  const conduitTop=document.createElement('div');
-  conduitTop.style.cssText=`position:absolute;left:${houseX+houseW-22}px;top:${roofY+roofH-2}px;width:13px;height:5px;background:#64748B;border-radius:2px;z-index:9;`;
-  scene.appendChild(conduitTop);
 
-  // SolarEdge HD-Wave Inverter on wall
+  // SolarEdge HD-Wave Inverter
   const inv=document.createElement('div');
   inv.className='se-inverter';
-  inv.style.cssText=`position:absolute;left:${houseX+houseW-8}px;top:${houseY+20}px;width:42px;z-index:15;`;
-  inv.innerHTML=`
+  inv.style.cssText=`left:${houseX+houseW-6}px;top:${houseY+20}px;`;
+  inv.innerHTML=`<div class="se-inv-box" style="width:46px;">
     <div class="se-inv-logo">SolarEdge</div>
-    <div style="font-size:5px;color:#64748B;text-align:center;margin-bottom:2px;">HD-Wave</div>
-    <div class="se-inv-display">
-      <div class="se-inv-led"></div>
-      <span class="se-inv-text">99%</span>
-    </div>
-    <div style="font-size:5px;color:#64748B;text-align:center;">P400 Optimizers</div>
-    <div class="se-safety-sw">SAFETY SW ▮</div>`;
+    <div class="se-inv-model">HD-Wave Inverter</div>
+    <div class="se-inv-display"><div class="se-inv-led"></div><span class="se-inv-text">99%EFF</span></div>
+    <div style="font-size:4px;color:#64748B;text-align:center;">P400 Optimizers</div>
+    <div class="se-safety">SAFETY SW ▮</div>
+  </div>`;
   scene.appendChild(inv);
 
   // Main electrical panel
-  const mainPanel=document.createElement('div');
-  mainPanel.className='main-panel';
-  mainPanel.style.cssText=`position:absolute;left:${houseX+houseW+38}px;top:${houseY+24}px;width:22px;z-index:15;`;
-  mainPanel.innerHTML=`<div class="main-panel-inner">
-    <div class="breaker"></div><div class="breaker"></div><div class="breaker"></div>
-    <div style="font-size:5px;color:#64748B;text-align:center;margin-top:2px;">PANEL</div>
+  const mp=document.createElement('div');
+  mp.style.cssText=`position:absolute;left:${houseX+houseW+44}px;top:${houseY+24}px;width:22px;background:#334155;border:1px solid #475569;border-radius:3px;padding:3px;z-index:15;`;
+  mp.innerHTML=`<div style="background:#1E293B;border-radius:2px;padding:2px;">
+    <div style="height:3px;background:#94A3B8;border-radius:1px;margin-bottom:1px;"></div>
+    <div style="height:3px;background:#94A3B8;border-radius:1px;margin-bottom:1px;"></div>
+    <div style="height:3px;background:#94A3B8;border-radius:1px;"></div>
+    <div style="font-size:4px;color:#64748B;text-align:center;margin-top:2px;">PANEL</div>
   </div>`;
-  scene.appendChild(mainPanel);
+  scene.appendChild(mp);
 
-  // AC wire from inverter to panel
-  const acWire=document.createElement('div');
-  acWire.style.cssText=`position:absolute;left:${houseX+houseW+34}px;top:${houseY+34}px;width:4px;height:2px;background:#22C55E;z-index:14;`;
-  scene.appendChild(acWire);
+  // AC wire
+  const acw=document.createElement('div');
+  acw.style.cssText=`position:absolute;left:${houseX+houseW+40}px;top:${houseY+34}px;width:4px;height:2px;background:#22C55E;z-index:14;`;
+  scene.appendChild(acw);
 
-  // Ladder on left side
-  const ladderWrap=document.createElement('div');
-  ladderWrap.style.cssText=`position:absolute;left:${houseX-28}px;top:${roofY+10}px;z-index:20;`;
-  ladderWrap.innerHTML=`<svg width="18" height="${houseY-roofY+50}" viewBox="0 0 18 ${houseY-roofY+50}">
-    <line x1="3" y1="0" x2="3" y2="${houseY-roofY+50}" stroke="#94A3B8" stroke-width="2.5"/>
-    <line x1="15" y1="0" x2="15" y2="${houseY-roofY+50}" stroke="#94A3B8" stroke-width="2.5"/>
-    ${Array.from({length:Math.floor((houseY-roofY+50)/14)},(_,i)=>`<line x1="3" y1="${i*14+7}" x2="15" y2="${i*14+7}" stroke="#94A3B8" stroke-width="1.5"/>`).join('')}
-  </svg>`;
-  scene.appendChild(ladderWrap);
+  // Ladder
+  const ladderH=houseY-roofH+roofH+20;
+  const ladSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  ladSvg.setAttribute('width','16');
+  ladSvg.setAttribute('height',ladderH+'');
+  ladSvg.style.cssText=`position:absolute;left:${houseX-22}px;top:${houseY-roofH-4}px;z-index:20;`;
+  const rungs=Math.floor(ladderH/13);
+  ladSvg.innerHTML=`
+    <line x1="3" y1="0" x2="3" y2="${ladderH}" stroke="#94A3B8" stroke-width="2"/>
+    <line x1="13" y1="0" x2="13" y2="${ladderH}" stroke="#94A3B8" stroke-width="2"/>
+    ${Array.from({length:rungs},(_,i)=>`<line x1="3" y1="${i*13+6}" x2="13" y2="${i*13+6}" stroke="#94A3B8" stroke-width="1.5"/>`).join('')}`;
+  scene.appendChild(ladSvg);
 
   // Laddervator
   const lv=document.createElement('div');
-  lv.className='laddervator';
-  lv.style.cssText=`position:absolute;left:${houseX-32}px;top:${roofY+20}px;z-index:21;font-size:14px;`;
-  lv.title='Panel Hoist';
-  lv.textContent='📦';
+  lv.style.cssText=`position:absolute;left:${houseX-30}px;top:${houseY-roofH+10}px;font-size:13px;z-index:21;animation:laddervatorMove 4s ease-in-out infinite;`;
+  lv.textContent='📦';lv.title='Panel Hoist';
   scene.appendChild(lv);
 
-  // ROOF CREW (3 workers)
-  const crewPositions=[
-    {x:houseX+30,y:roofY+5,label:'Installer 1',icon:'👷'},
-    {x:houseX+80,y:roofY+15,label:'Installer 2',icon:'👷'},
-    {x:houseX+130,y:roofY+5,label:'Lead Tech',icon:'👷'},
-  ];
-  crewPositions.forEach(c=>{
+  // Add laddervator CSS
+  if(!document.getElementById('lv-style')){
+    const s=document.createElement('style');
+    s.id='lv-style';
+    s.textContent='@keyframes laddervatorMove{0%{transform:translateY(0)}50%{transform:translateY(-22px)}100%{transform:translateY(0)}}';
+    document.head.appendChild(s);
+  }
+
+  // Company van
+  const van=document.createElement('div');
+  van.className='company-van';
+  van.style.cssText=`bottom:32%;left:${houseX-10}px;font-size:22px;`;
+  van.textContent='🚐';van.title='Purr & Power crew van';
+  scene.appendChild(van);
+
+  // ROOF CREW (3)
+  [{x:houseX+28,y:houseY-roofH+4,label:'Installer 1',delay:0},
+   {x:houseX+88,y:houseY-roofH+14,label:'Installer 2',delay:0.5},
+   {x:houseX+150,y:houseY-roofH+4,label:'Lead Tech',delay:1},
+  ].forEach(c=>{
     const crew=document.createElement('div');
     crew.className='crew-member';
-    crew.style.cssText=`position:absolute;left:${c.x}px;top:${c.y}px;z-index:25;`;
-    crew.innerHTML=`
-      <div class="crew-char" style="animation-delay:${Math.random()*1}s">${c.icon}</div>
-      <div class="crew-label">${c.label}</div>`;
+    crew.style.cssText=`left:${c.x}px;top:${c.y}px;`;
+    crew.innerHTML=`<div class="crew-char" style="animation-delay:${c.delay}s">👷</div><div class="crew-label">${c.label}</div>`;
     scene.appendChild(crew);
   });
 
-  // GROUND CREW (electrician)
+  // Ground crew — electrician
   const gc=document.createElement('div');
   gc.className='ground-crew';
-  gc.style.cssText=`position:absolute;left:${houseX+houseW+2}px;top:${houseY+50}px;z-index:25;display:flex;flex-direction:column;align-items:center;`;
+  gc.style.cssText=`left:${houseX+houseW+2}px;top:${houseY+50}px;`;
   gc.innerHTML=`<div class="gc-char">👨‍🔧</div><div class="gc-label">Electrician</div>`;
   scene.appendChild(gc);
 
-  // SetApp phone (electrician's phone)
+  // SetApp phone
   const phone=document.createElement('div');
-  phone.style.cssText=`position:absolute;left:${houseX+houseW+52}px;top:${houseY+55}px;font-size:12px;z-index:26;animation:ledBlink 3s ease-in-out infinite;`;
-  phone.textContent='📱';
-  phone.title='SolarEdge SetApp';
+  phone.style.cssText=`position:absolute;left:${houseX+houseW+52}px;top:${houseY+56}px;font-size:11px;z-index:26;animation:ledBlink 3s ease-in-out infinite;`;
+  phone.textContent='📱';phone.title='SolarEdge SetApp';
   scene.appendChild(phone);
 
   updateSiteScene();
@@ -1150,75 +1317,51 @@ function buildSiteScene(){
 function updateSiteScene(){
   if(!siteBuilt&&G.siteUnlocked)buildSiteScene();
   if(!siteBuilt)return;
-
-  // Update panels based on progress
-  const panelContainer=document.getElementById('panel-container');
-  const optContainer=document.getElementById('opt-container');
-  if(!panelContainer)return;
-
-  const panelCount=Math.min(Math.floor(G.siteProgress/10),8);
-  panelContainer.innerHTML='';
-  optContainer.innerHTML='';
-
-  for(let i=0;i<panelCount;i++){
-    // Silfab Prime panel — all black, 3×5 cell grid
+  const pc=document.getElementById('panel-container');
+  const oc=document.getElementById('opt-container');
+  if(!pc)return;
+  const cnt=Math.min(Math.floor(G.siteProgress/11),9);
+  pc.innerHTML='';oc.innerHTML='';
+  for(let i=0;i<cnt;i++){
     const p=document.createElement('div');
-    p.style.cssText=`width:20px;height:28px;background:#0A0A0A;border:1.5px solid #1F2937;border-radius:1px;position:relative;overflow:hidden;`;
-    // cell grid
+    p.style.cssText=`width:19px;height:26px;background:#0A0A0A;border:1.5px solid #1F2937;border-radius:1px;position:relative;overflow:hidden;flex-shrink:0;`;
     const grid=document.createElement('div');
     grid.style.cssText=`position:absolute;inset:2px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr);gap:0.5px;`;
-    for(let c=0;c<15;c++){
-      const cell=document.createElement('div');
-      cell.style.cssText=`background:#111827;border-radius:0.3px;`;
-      grid.appendChild(cell);
-    }
+    for(let c=0;c<15;c++){const cell=document.createElement('div');cell.style.cssText=`background:#111827;border-radius:0.3px;`;grid.appendChild(cell);}
     p.appendChild(grid);
-    // Silfab label (tiny)
     const lbl=document.createElement('div');
     lbl.style.cssText=`position:absolute;bottom:1px;left:0;right:0;text-align:center;font-size:3px;color:#333;`;
-    lbl.textContent='SILFAB';
-    p.appendChild(lbl);
-    panelContainer.appendChild(p);
-
-    // SolarEdge P400 optimizer under each panel
+    lbl.textContent='SILFAB';p.appendChild(lbl);
+    pc.appendChild(p);
     const opt=document.createElement('div');
-    opt.style.cssText=`width:20px;height:10px;background:#111;border:1px solid #333;border-radius:1px;display:flex;align-items:center;justify-content:center;position:relative;`;
+    opt.style.cssText=`width:19px;height:9px;background:#111;border:1px solid #333;border-radius:1px;display:flex;align-items:center;justify-content:center;flex-shrink:0;`;
     opt.innerHTML=`<div style="width:4px;height:4px;border-radius:50%;background:#22C55E;box-shadow:0 0 3px #22C55E;"></div>`;
-    const optLbl=document.createElement('div');
-    optLbl.style.cssText=`position:absolute;bottom:-8px;left:0;right:0;text-align:center;font-size:3.5px;color:#555;`;
-    optLbl.textContent='P400';
-    opt.appendChild(optLbl);
-    optContainer.appendChild(opt);
+    oc.appendChild(opt);
   }
-
-  // Update install stage label
-  const stageEl=document.getElementById('ip-stage-name');
-  if(stageEl){
-    const si=Math.min(Math.floor(G.siteProgress/9),INSTALL_STAGES.length-1);
-    G.siteStageIdx=si;
-    stageEl.textContent=INSTALL_STAGES[si];
-  }
-
-  // Stage chips
-  const stagesEl=document.getElementById('ip-stages');
-  if(stagesEl){
-    stagesEl.innerHTML=INSTALL_STAGES.slice(0,8).map((s,i)=>`
-      <div class="ip-stage ${i<G.siteStageIdx?'done':i===G.siteStageIdx?'active':''}">${s}</div>`).join('');
-  }
+  const si=Math.min(Math.floor(G.siteProgress/9),INSTALL_STAGES.length-1);
+  G.siteStageIdx=si;
+  const sn=document.getElementById('ip-stage-name');
+  if(sn)sn.textContent=INSTALL_STAGES[si];
+  const sc=document.getElementById('ip-stages');
+  if(sc)sc.innerHTML=INSTALL_STAGES.slice(0,8).map((s,i)=>`<div class="ip-stage-chip ${i<si?'done':i===si?'active':''}">${s}</div>`).join('');
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // SITE PROGRESS
-// ════════════════════════════════════
+// ════════════════════════════════
 function tickSite(){
   if(!G.siteUnlocked)return;
   const foreman=G.managers.foreman?2:1;
   const nanoBonus=G.upgrades.nanoRack?1.3:1;
   const seBonus=G.upgrades.seapp?1.15:1;
-  const rate=G.siteWorkers*G.siteLevel*foreman*nanoBonus*seBonus*0.6;
+  const rate=G.siteWorkers*G.siteLevel*foreman*nanoBonus*seBonus*0.55;
   G.siteProgress=Math.min(100,G.siteProgress+rate);
   if(G.siteProgress>=100)completeSiteJob();
-  updateSiteUI();
+  const pf=document.getElementById('ip-prog-fill');if(pf)pf.style.width=G.siteProgress+'%';
+  const pp=document.getElementById('ip-pct');if(pp)pp.textContent=Math.floor(G.siteProgress)+'%';
+  const pe=document.getElementById('ip-earn');if(pe)pe.textContent='+'+fmt(Math.floor(700*G.siteLevel*G.incomeMultiplier))+' on complete';
+  const sul=document.getElementById('site-upg-lbl');if(sul)sul.textContent=fmt(G.siteUpgCost);
+  const swl=document.getElementById('site-wkr-lbl');if(swl)swl.textContent=fmt(G.siteWorkerCost);
   if(curLayer==='site')updateSiteScene();
 }
 
@@ -1226,7 +1369,7 @@ function completeSiteJob(){
   const earn=Math.floor(700*G.siteLevel*G.incomeMultiplier);
   G.money+=earn;G.totalMoney+=earn;G.todayRevenue+=earn;G.contracts++;
   G.siteProgress=0;G.wipCount=Math.max(0,G.wipCount-1);
-  const jobs=['Residential Install — Mesa Hills','Commercial Rooftop — Downtown','Industrial Array — East EP','School District — Socorro','Ranch Ground Mount — Fabens'];
+  const jobs=['Residential — Mesa Hills','Commercial — Downtown EP','Industrial — East EP','School District — Socorro','Ranch Ground Mount — Fabens'];
   G.currentJob=jobs[Math.floor(Math.random()*jobs.length)];
   installJobs.unshift(G.currentJob.split('—')[0].trim());
   if(installJobs.length>4)installJobs.pop();
@@ -1234,33 +1377,24 @@ function completeSiteJob(){
   checkMilestones();checkUnlocks();updateUI();
 }
 
-function updateSiteUI(){
-  const pf=document.getElementById('ip-prog-fill');
-  if(pf)pf.style.width=G.siteProgress+'%';
-  const pp=document.getElementById('ip-pct');
-  if(pp)pp.textContent=Math.floor(G.siteProgress)+'%';
-  const pe=document.getElementById('ip-earn');
-  if(pe)pe.textContent='+'+fmt(Math.floor(700*G.siteLevel*G.incomeMultiplier))+' on complete';
-  const jn=document.getElementById('ip-stage-name');
-  if(jn&&!G.currentJob)jn.textContent='Residential Install — Mesa Hills';
-  const sul=document.getElementById('site-upg-lbl');if(sul)sul.textContent=fmt(G.siteUpgCost);
-  const swl=document.getElementById('site-wkr-lbl');if(swl)swl.textContent=fmt(G.siteWorkerCost);
-}
-
-// ════════════════════════════════════
+// ════════════════════════════════
 // CONTRACTS
-// ════════════════════════════════════
+// ════════════════════════════════
 function triggerContract(){
   if(!document.getElementById('contract-ov').classList.contains('gone'))return;
-  if(G.angryActive)return;
+  if(G.angryActive||G.objectionActive)return;
   const c=CONTRACTS[Math.floor(Math.random()*CONTRACTS.length)];
   const crmBonus=G.upgrades.crm?Math.pow(1.3,G.upgrades.crm):1;
-  const reward=Math.floor(c.reward*crmBonus*(1+(G.staff-1)*0.06));
+  const qualMultiplier=c.quality==='hot'?1.2:c.quality==='cold'?0.85:1;
+  const reward=Math.floor(c.reward*crmBonus*qualMultiplier*(1+(G.staff-1)*0.05));
   G.pendingContract={...c,actualReward:reward};
   document.getElementById('cp-type').textContent=c.type;
   document.getElementById('cp-title').textContent=c.title;
   document.getElementById('cp-client').textContent='📍 '+c.client;
   document.getElementById('cp-desc').textContent=c.desc;
+  const qEl=document.getElementById('cp-quality');
+  qEl.textContent=c.quality==='hot'?'🔥 Hot Lead — Ready to sign':c.quality==='warm'?'⭐ Warm Lead — Interested':' ❄️ Cold Lead — Needs convincing';
+  qEl.className='cp-quality '+c.quality;
   document.getElementById('cp-reward').textContent=fmt(reward);
   document.getElementById('cp-panels').textContent=c.panels;
   document.getElementById('cp-days').textContent=c.days;
@@ -1271,11 +1405,9 @@ function triggerContract(){
 function acceptContract(){
   if(!G.pendingContract)return;
   const r=G.pendingContract.actualReward;
+  // Hot leads pay immediately, cold leads take longer
   G.money+=r;G.totalMoney+=r;G.todayRevenue+=r;G.contracts++;
-  G.morale=Math.min(100,G.morale+8);G.credits+=1;
-  G.wipCount++;
-  salesLeads.shift();
-  salesLeads.push(['Lopez Family','UTEP Campus','Fort Bliss','Costco EP','Sun City Mall'][Math.floor(Math.random()*5)]);
+  G.morale=Math.min(100,G.morale+8);G.credits+=1;G.wipCount++;
   installJobs.unshift(G.pendingContract.title);
   if(installJobs.length>4)installJobs.pop();
   document.getElementById('contract-ov').classList.add('gone');
@@ -1289,13 +1421,13 @@ function declineContract(){
   G.pendingContract=null;showToast('❌ Contract declined');
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // ANGRY CUSTOMERS
-// ════════════════════════════════════
+// ════════════════════════════════
 let angryLeft=30,angryIvl=null;
 
 function triggerAngry(){
-  if(G.angryActive)return;
+  if(G.angryActive||G.objectionActive)return;
   if(!document.getElementById('contract-ov').classList.contains('gone'))return;
   G.angryActive=true;
   const a=ANGRY[Math.floor(Math.random()*ANGRY.length)];
@@ -1334,9 +1466,41 @@ function dismissAngry(expired){
   updateUI();
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
+// OBJECTIONS
+// ════════════════════════════════
+function triggerObjection(){
+  if(G.objectionActive||G.angryActive)return;
+  if(!document.getElementById('contract-ov').classList.contains('gone'))return;
+  if(G.leads.length===0)return;
+  G.objectionActive=true;
+  const obj=OBJECTIONS[Math.floor(Math.random()*OBJECTIONS.length)];
+  document.getElementById('obj-title-txt').textContent=obj.title;
+  document.getElementById('obj-msg').textContent=obj.msg+'\n\n💡 Response: '+obj.save;
+  document.getElementById('objection-pop').classList.remove('gone');
+  setBadge('office');
+}
+
+function handleObjection(save){
+  document.getElementById('objection-pop').classList.add('gone');
+  G.objectionActive=false;
+  if(save){
+    G.morale=Math.min(100,G.morale+5);
+    // Advance the oldest lead
+    if(G.leads.length>0){G.leads[0].stage=Math.min(6,G.leads[0].stage+2);}
+    showToast('💪 Objection handled! Lead advanced!');
+    updateOfficePipelineBoard();
+  } else {
+    if(G.leads.length>0)G.leads.shift();
+    showToast('❌ Lost the lead.');
+    updateOfficePipelineBoard();
+  }
+  updateUI();
+}
+
+// ════════════════════════════════
 // UPGRADES
-// ════════════════════════════════════
+// ════════════════════════════════
 function renderUpgrades(){
   document.getElementById('upg-office').innerHTML=UPGRADES_DATA.map(u=>{
     const lv=G.upgrades[u.id]||0;
@@ -1357,10 +1521,8 @@ function renderUpgrades(){
     return `<div class="cat-card" onclick="buyCatBreed('${c.name}')">
       <div class="cc-ico">${c.icon}</div>
       <div class="cc-inf"><div class="cc-name">${c.name}</div><div class="cc-bonus">${c.bonus}</div></div>
-      <div class="cc-right">
-        <div class="cc-owned">Owned: ${owned}</div>
-        <div class="cc-cost">${fmt(c.cost)}</div>
-      </div></div>`;
+      <div class="cc-right"><div class="cc-owned">Owned: ${owned}</div><div class="cc-cost">${fmt(c.cost)}</div></div>
+    </div>`;
   }).join('');
   document.getElementById('upg-managers').innerHTML=MANAGERS_DATA.map(m=>{
     const owned=!!G.managers[m.id];
@@ -1368,9 +1530,8 @@ function renderUpgrades(){
     return `<div class="upg-card ${can?'can':''} ${owned?'maxed':''}" onclick="buyManager('${m.id}')">
       <div class="upg-ico">${m.icon}</div>
       <div class="upg-inf"><div class="upg-name">${m.name}</div><div class="upg-desc">${m.desc}</div></div>
-      <div class="upg-right">
-        <div class="upg-cost ${can?'':'no'}">${owned?'HIRED':fmt(m.cost)}</div>
-      </div></div>`;
+      <div class="upg-right"><div class="upg-cost ${can?'':'no'}">${owned?'HIRED':fmt(m.cost)}</div></div>
+    </div>`;
   }).join('');
 }
 
@@ -1406,10 +1567,11 @@ function buyManager(id){
   renderUpgrades();updateUI();
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // MILESTONES & UNLOCKS
-// ════════════════════════════════════
+// ════════════════════════════════
 let msQueue=[];let msShowing=false;
+
 function checkMilestones(){
   MILESTONES.forEach(m=>{
     if(G.milestones.includes(m.id))return;
@@ -1422,6 +1584,7 @@ function checkMilestones(){
   });
   if(!msShowing&&msQueue.length>0)showNextMs();
 }
+
 function showNextMs(){
   if(!msQueue.length){msShowing=false;return;}
   msShowing=true;
@@ -1431,11 +1594,13 @@ function showNextMs(){
   document.getElementById('ms-desc').textContent=m.desc+(m.credits?' (+'+m.credits+' Credits!)':'')+(m.purr?' (+'+m.purr+' Purr Points!)':'');
   document.getElementById('ms-ov').classList.remove('gone');
 }
+
 function closeMilestone(){
   document.getElementById('ms-ov').classList.add('gone');
   msShowing=false;checkUnlocks();
   setTimeout(()=>{if(msQueue.length>0)showNextMs();},400);
 }
+
 function checkUnlocks(){
   if(G.contracts>=5&&!G.mapUnlocked){
     G.mapUnlocked=true;
@@ -1448,20 +1613,21 @@ function checkUnlocks(){
     G.siteUnlocked=true;
     document.getElementById('site-lock').classList.add('gone');
     document.getElementById('nav-site-lock').style.display='none';
-    G.currentJob='Residential Install — Mesa Hills';
+    G.currentJob='Residential — Mesa Hills';
     showToast('🏗️ Job Site View UNLOCKED!');setBadge('site');
     buildSiteScene();
   }
 }
+
 function initJobPayTimers(){
   jobCardEls.forEach((_,i)=>{
     setTimeout(()=>{jobReady[i]=true;jobCardEls[i].el.classList.add('ready');},5000+i*8000);
   });
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // INCOME ENGINE
-// ════════════════════════════════════
+// ════════════════════════════════
 function recalcIncome(){
   const moraleBonus=1+(G.morale/100)*0.6;
   const catBonus=1+(G.cats*0.05);
@@ -1469,10 +1635,10 @@ function recalcIncome(){
   const offMgr=G.managers.office?1.3:1;
   G.income=Math.floor(G.staff*8*G.incomeMultiplier*moraleBonus*catBonus*softBonus*offMgr);
 }
+
 function gameTick(){
   recalcIncome();
-  const earned=G.income/10;
-  G.money+=earned;G.totalMoney+=earned;G.todayRevenue+=earned;
+  G.money+=G.income/10;G.totalMoney+=G.income/10;G.todayRevenue+=G.income/10;
   const espresso=G.upgrades.espresso||0;
   const drain=Math.max(0.01,0.04-espresso*0.01);
   if(G.managers.office)G.morale=Math.min(100,G.morale+0.05);
@@ -1480,15 +1646,16 @@ function gameTick(){
   checkMilestones();updateUI();
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // UI
-// ════════════════════════════════════
+// ════════════════════════════════
 function fmt(n){
   if(n>=1e9)return '$'+(n/1e9).toFixed(1)+'B';
   if(n>=1e6)return '$'+(n/1e6).toFixed(1)+'M';
   if(n>=1000)return '$'+(n/1000).toFixed(1)+'K';
   return '$'+Math.floor(n);
 }
+
 function updateUI(){
   document.getElementById('cur-money').textContent=fmt(G.money);
   document.getElementById('cur-credits').textContent=G.credits;
@@ -1505,16 +1672,16 @@ function updateUI(){
     const r=document.getElementById('drate-'+i);
     if(r){const rate=Math.floor(8*(G.upgrades.soft?Math.pow(2,G.upgrades.soft):1)*G.incomeMultiplier*(1+G.morale/200));r.textContent='+'+fmt(rate)+'/s';}
   });
-  // KPI strip
+  // KPI
   const kr=document.getElementById('kpi-rev');if(kr)kr.textContent=fmt(G.todayRevenue);
   const kc=document.getElementById('kpi-contracts');if(kc)kc.textContent=G.contracts;
   const kw=document.getElementById('kpi-wip');if(kw)kw.textContent=G.wipCount;
   const ks=document.getElementById('kpi-staff');if(ks)ks.textContent=G.staff;
+  const kl=document.getElementById('kpi-leads');if(kl)kl.textContent=G.leads.length;
   const kat=document.getElementById('kpi-cats');if(kat)kat.textContent=G.cats;
   save();
 }
 
-// FLOAT TEXT
 function spawnFlt(el,txt,col){const r=el.getBoundingClientRect();spawnFltXY(r.left+r.width/2,r.top,txt,col);}
 function spawnFltXY(x,y,txt,col){
   const el=document.createElement('div');el.className='float-txt';
@@ -1530,11 +1697,25 @@ function showToast(msg){
   document.body.appendChild(t);setTimeout(()=>t.remove(),2400);
 }
 
+// ════════════════════════════════
 // SAVE / LOAD
+// ════════════════════════════════
 const SK='pnp_v4';
 function save(){
-  try{localStorage.setItem(SK,JSON.stringify({...G,timestamp:Date.now()}));}catch(e){}
+  try{localStorage.setItem(SK,JSON.stringify({
+    money:G.money,totalMoney:G.totalMoney,todayRevenue:G.todayRevenue,
+    credits:G.credits,purrPoints:G.purrPoints,
+    staff:G.staff,hireCost:G.hireCost,cats:G.cats,catCost:G.catCost,catBreeds:G.catBreeds,
+    morale:G.morale,incomeMultiplier:G.incomeMultiplier,
+    contracts:G.contracts,wipCount:G.wipCount,leads:G.leads,
+    mapUnlocked:G.mapUnlocked,siteUnlocked:G.siteUnlocked,
+    siteLevel:G.siteLevel,siteWorkers:G.siteWorkers,siteUpgCost:G.siteUpgCost,
+    siteWorkerCost:G.siteWorkerCost,currentJob:G.currentJob,
+    upgrades:G.upgrades,managers:G.managers,milestones:G.milestones,
+    timestamp:Date.now()
+  }));}catch(e){}
 }
+
 function load(){
   try{
     const d=JSON.parse(localStorage.getItem(SK));if(!d)return false;
@@ -1547,16 +1728,28 @@ function load(){
   }catch(e){return false;}
 }
 
-// ════════════════════════════════════
+// ════════════════════════════════
 // INIT
-// ════════════════════════════════════
+// ════════════════════════════════
 function startGame(){
   document.getElementById('splash').style.display='none';
   document.getElementById('app').classList.add('show');
   const hasSave=load();
+
+  // Build office environment
+  setTimeout(buildOffice,100);
+
+  // Spawn initial desks
   for(let i=0;i<Math.min(G.staff,DESK_POS.length);i++)spawnDesk();
+  // Spawn initial cats
   for(let i=0;i<G.cats;i++)spawnCat();
+  // Seed initial leads
+  if(G.leads.length===0){
+    for(let i=0;i<3;i++)addLead();
+  }
+
   initMap();
+
   if(G.mapUnlocked){
     document.getElementById('map-lock').classList.add('gone');
     document.getElementById('nav-map-lock').style.display='none';
@@ -1565,20 +1758,46 @@ function startGame(){
   if(G.siteUnlocked){
     document.getElementById('site-lock').classList.add('gone');
     document.getElementById('nav-site-lock').style.display='none';
-    G.currentJob=G.currentJob||'Residential Install — Mesa Hills';
-    buildSiteScene();
+    G.currentJob=G.currentJob||'Residential — Mesa Hills';
+    setTimeout(buildSiteScene,200);
   }
+
+  // Ticks
   setInterval(gameTick,100);
   setInterval(tickSite,500);
-  setInterval(()=>{if(Math.random()<0.65)triggerContract();},30000);
-  setInterval(()=>{if(G.staff>=1&&Math.random()<0.5)triggerAngry();},40000);
-  setTimeout(triggerContract,12000);
-  setTimeout(()=>{if(Math.random()<0.55)triggerAngry();},55000);
-  // reset today revenue at midnight
+  setInterval(tickLeads,2000);
+
+  // Leads generated slowly — solar sales cycle is LONG
+  setInterval(()=>{if(Math.random()<0.5)addLead();},45000);
+
+  // Contracts come from signed leads — slower cadence
+  setInterval(()=>{if(Math.random()<0.5)triggerContract();},50000);
+
+  // Angry customers
+  setInterval(()=>{if(G.staff>=1&&Math.random()<0.45)triggerAngry();},45000);
+
+  // Objections — lead almost walks
+  setInterval(()=>{if(G.leads.length>0&&Math.random()<0.5)triggerObjection();},60000);
+
+  // Auto dispatch manager
+  setInterval(()=>{if(G.managers.dispatch){jobCardEls.forEach((_,i)=>{if(jobReady[i])collectJob(i);});}},60000);
+
+  // First contract after 15s
+  setTimeout(triggerContract,15000);
+  // First angry after 50s
+  setTimeout(()=>{if(Math.random()<0.5)triggerAngry();},50000);
+
+  // Reset today revenue daily
   setInterval(()=>{G.todayRevenue=0;},86400000);
-  updateUI();updateSiteUI();
+
+  updateUI();updateSiteUI_labels();
   if(hasSave)showToast('☀️ Welcome back to Purr & Power Co.!');
-  else showToast('🐱 Welcome! Tap desks to earn money!');
+  else showToast('🐱 Welcome! Tap your Solar Rep to earn!');
+}
+
+function updateSiteUI_labels(){
+  const sul=document.getElementById('site-upg-lbl');if(sul)sul.textContent=fmt(G.siteUpgCost);
+  const swl=document.getElementById('site-wkr-lbl');if(swl)swl.textContent=fmt(G.siteWorkerCost);
 }
 </script>
 </body>
