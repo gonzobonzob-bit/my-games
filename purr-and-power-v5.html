@@ -129,13 +129,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .bg-gray{background:linear-gradient(135deg,#374151,#4B5563);}
 
 /* ══════════════════════════
-   LAYER 2 — MAP (TOP-DOWN)
+   LAYER 2 — MAP (CANVAS)
 ══════════════════════════ */
 #layer-map{overflow:hidden;position:relative;flex-direction:column;}
-#map-main-wrap{flex:1;position:relative;overflow:hidden;background:#E8DFD0;}
-#map-svg{display:block;width:100%;height:100%;}
-#map-main{position:absolute;inset:0;pointer-events:none;}
-#map-main .job-card{pointer-events:all;}
+#map-main-wrap{flex:1;position:relative;overflow:hidden;background:#D4C8A8;}
+#map-canvas{display:block;position:absolute;inset:0;width:100%;height:100%;}
+#map-overlay{position:absolute;inset:0;pointer-events:none;}
+#map-overlay .job-card{pointer-events:all;}
+#map-overlay .pipeline-panel{pointer-events:all;}
+#map-overlay .map-lock{pointer-events:all;}
 
 /* KPI STRIP */
 .kpi-strip{position:relative;background:rgba(15,23,42,0.95);border-bottom:1px solid var(--border);padding:4px 8px;display:flex;gap:5px;overflow-x:auto;flex-shrink:0;}
@@ -189,9 +191,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .heat-shimmer{position:absolute;bottom:0;left:0;right:0;height:18px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.07));animation:shimmer 2s ease-in-out infinite;}
 @keyframes shimmer{0%,100%{opacity:0.5}50%{opacity:1}}
 .site-cloud{position:absolute;font-size:16px;opacity:0.6;animation:cDrift linear infinite;}
-.site-scene{flex:1;position:relative;overflow:hidden;}
-.site-ground{position:absolute;bottom:0;left:0;right:0;height:32%;background:linear-gradient(180deg,#C4A882,#B8956A);}
-.site-grass{position:absolute;bottom:32%;left:0;right:0;height:5px;background:#8B9B6B;}
+.site-scene{flex:1;position:relative;overflow:hidden;background:linear-gradient(180deg,#1E3A8A 0%,#2563EB 38%,#C4A882 38%,#B8956A 100%);}
+.site-ground{position:absolute;bottom:0;left:0;right:0;height:38%;background:linear-gradient(180deg,#C4A882,#B8956A);}
+.site-grass{position:absolute;bottom:38%;left:0;right:0;height:5px;background:#8B9B6B;}
 .house-container{position:absolute;bottom:32%;}
 .crew-member{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:25;}
 .crew-char{font-size:18px;animation:crewWork 1.8s ease-in-out infinite;}
@@ -502,42 +504,29 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
         <div class="kpi-item"><div class="kpi-lbl">Leads</div><div class="kpi-val" id="kpi-leads">0</div></div>
         <div class="kpi-item"><div class="kpi-lbl">Net/Wk</div><div class="kpi-val" id="kpi-net" style="color:var(--red)">-$0</div></div>
       </div>
-      <!-- Top-down map canvas -->
+      <!-- Canvas map — drawn after real dimensions confirmed -->
       <div style="flex:1;position:relative;overflow:hidden;" id="map-main-wrap">
-        <svg id="map-svg" width="100%" height="100%" style="position:absolute;inset:0;display:block;" xmlns="http://www.w3.org/2000/svg">
-          <!-- Base terrain — El Paso desert block fill -->
-          <rect width="100%" height="100%" fill="#E8DFD0"/>
-          <!-- City blocks will be injected by JS -->
-          <g id="map-blocks"></g>
-          <!-- Roads injected by JS -->
-          <g id="map-roads"></g>
-          <!-- Buildings / lots injected by JS -->
-          <g id="map-buildings"></g>
-          <!-- Labels injected by JS -->
-          <g id="map-labels"></g>
-          <!-- Trucks / reps injected by JS -->
-          <g id="map-vehicles"></g>
-          <!-- Job site markers injected by JS -->
-          <g id="map-markers"></g>
-        </svg>
-        <!-- Pipeline overlays -->
-        <div class="pipeline-panel" style="left:4px;top:4px;width:116px;" id="sales-pipeline">
-          <div class="pp-title"><div class="pp-dot" style="background:#F59E0B"></div>SALES PIPELINE</div>
-          <div id="sales-rows"></div>
-        </div>
-        <div class="pipeline-panel" style="right:4px;top:4px;width:116px;" id="install-pipeline">
-          <div class="pp-title"><div class="pp-dot" style="background:#22C55E"></div>INSTALL PIPELINE</div>
-          <div id="install-rows"></div>
-        </div>
-        <!-- Weather alert bar -->
-        <div class="weather-alert" id="weather-alert" style="position:absolute;bottom:0;left:0;right:0;top:auto;">🌡️ EP HEAT ADVISORY: 106°F — Crews hydrating!</div>
-        <!-- Job card HTML overlays injected by JS -->
-        <div id="map-main"></div>
-        <!-- Lock overlay -->
-        <div class="map-lock" id="map-lock">
-          <div class="lock-ico">🗺️</div>
-          <div class="lock-title">Neighborhood Map</div>
-          <div class="lock-sub">Complete 5 contracts to unlock</div>
+        <canvas id="map-canvas"></canvas>
+        <div id="map-overlay">
+          <!-- Pipeline overlays -->
+          <div class="pipeline-panel" style="left:4px;top:4px;width:116px;" id="sales-pipeline">
+            <div class="pp-title"><div class="pp-dot" style="background:#F59E0B"></div>SALES PIPELINE</div>
+            <div id="sales-rows"></div>
+          </div>
+          <div class="pipeline-panel" style="right:4px;top:4px;width:116px;" id="install-pipeline">
+            <div class="pp-title"><div class="pp-dot" style="background:#22C55E"></div>INSTALL PIPELINE</div>
+            <div id="install-rows"></div>
+          </div>
+          <!-- Weather alert -->
+          <div class="weather-alert" id="weather-alert" style="position:absolute;bottom:0;left:0;right:0;top:auto;">🌡️ EP HEAT ADVISORY: 106°F</div>
+          <!-- Job cards injected by JS -->
+          <div id="map-main"></div>
+          <!-- Lock overlay -->
+          <div class="map-lock" id="map-lock">
+            <div class="lock-ico">🗺️</div>
+            <div class="lock-title">Neighborhood Map</div>
+            <div class="lock-sub">Complete 5 contracts to unlock</div>
+          </div>
         </div>
       </div>
     </div>
@@ -772,6 +761,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <button class="menu-btn" onclick="manualSave()">💾 Save Game</button>
     <button class="menu-btn" onclick="loadGame()">📂 Load Game</button>
     <button class="menu-btn" onclick="returnToMenu()">🏠 Return to Main Menu</button>
+    <button class="menu-btn" onclick="newGame()">🔄 New Game (Reset)</button>
     <button class="menu-btn" onclick="showWeeklyLeaderboard();closeMenu()">🏆 Weekly Leaderboard</button>
     <button class="menu-btn" onclick="showPrestige()">🌟 Go Regional (Prestige)</button>
     <button class="menu-btn" onclick="showCredits()">📜 Credits</button>
@@ -1563,350 +1553,357 @@ function declineContract(){
 }
 
 // ════════════════════════════════
-// MAP — NEIGHBORHOOD
+// MAP — CANVAS (reliable cross-browser top-down street map)
 // ════════════════════════════════
 let neighborhoodBuilt=false;
 let installJobs=['Casa Herrera','Hotel Job','EP School'];
+let mapCanvas=null,mapCtx=null,mapW=0,mapH=0;
+let truckAnim=[];
 
-// ════════════════════════════════
-// MAP — TOP-DOWN SVG (MapQuest style)
-// ════════════════════════════════
 function renderNeighborhood(){
   if(neighborhoodBuilt)return;
-  // Use rAF so the layer is actually painted before we measure
-  requestAnimationFrame(()=>{
-    const wrap=document.getElementById('map-main-wrap');
-    const W=wrap?wrap.offsetWidth:0;
-    if(W<10){
-      // Still not visible — retry after paint
-      setTimeout(()=>{neighborhoodBuilt=false;renderNeighborhood();},150);
-      return;
-    }
-    if(neighborhoodBuilt)return;
-    neighborhoodBuilt=true;
-    buildTopDownMap();
-  });
+  neighborhoodBuilt=true;
+
+  // Use window dimensions directly — works on file:// and http://
+  // KPI strip ~34px, topbar ~48px, bottom nav ~58px
+  const W=window.innerWidth;
+  const H=window.innerHeight - 48 - 34 - 58;
+
+  // Small delay so the layer has painted before canvas is added
+  setTimeout(()=>buildCanvasMap(W, Math.max(H, 200)), 30);
 }
 
-function buildTopDownMap(){
-  const svg=document.getElementById('map-svg');
-  const wrap=document.getElementById('map-main-wrap');
-  const W=wrap.offsetWidth||360;
-  const H=wrap.offsetHeight||420;
+function buildCanvasMap(W,H){
+  // Set up canvas
+  const c=document.getElementById('map-canvas');
+  if(!c)return;
+  c.width=W; c.height=H;
+  c.style.width=W+'px'; c.style.height=H+'px';
+  mapCanvas=c; mapCtx=c.getContext('2d'); mapW=W; mapH=H;
+  drawMap();
+  // Place job cards
+  initMap();
+  // Animate truck
+  startTruckAnim();
+}
 
-  // ── ROAD NETWORK (MapQuest style) ──
-  // Major arterials
-  const roads=[
-    // Horizontals
-    {x1:0,y1:H*0.18,x2:W,y2:H*0.18,w:18,type:'major'},   // Montana Ave
-    {x1:0,y1:H*0.42,x2:W,y2:H*0.42,w:18,type:'major'},   // Mesa Hills Dr
-    {x1:0,y1:H*0.68,x2:W,y2:H*0.68,w:18,type:'major'},   // Doniphan Dr
-    // Minor cross streets
-    {x1:0,y1:H*0.30,x2:W,y2:H*0.30,w:10,type:'minor'},
-    {x1:0,y1:H*0.56,x2:W,y2:H*0.56,w:10,type:'minor'},
-    {x1:0,y1:H*0.82,x2:W,y2:H*0.82,w:10,type:'minor'},
-    // Verticals
-    {x1:W*0.22,y1:0,x2:W*0.22,y2:H,w:18,type:'major'},   // Sun City Blvd
-    {x1:W*0.60,y1:0,x2:W*0.60,y2:H,w:18,type:'major'},   // Resler Dr
-    // Minor verticals
-    {x1:W*0.40,y1:0,x2:W*0.40,y2:H,w:10,type:'minor'},
-    {x1:W*0.78,y1:0,x2:W*0.78,y2:H,w:10,type:'minor'},
-  ];
+function drawMap(){
+  const c=mapCtx; const W=mapW; const H=mapH;
 
-  const roadsG=document.getElementById('map-roads');
-  roads.forEach(r=>{
-    // Shadow
-    const sh=document.createElementNS('http://www.w3.org/2000/svg','line');
-    sh.setAttribute('x1',r.x1);sh.setAttribute('y1',r.y1+1.5);
-    sh.setAttribute('x2',r.x2);sh.setAttribute('y2',r.y2+1.5);
-    sh.setAttribute('stroke','rgba(0,0,0,0.15)');sh.setAttribute('stroke-width',r.w+2);
-    roadsG.appendChild(sh);
-    // Road fill
-    const road=document.createElementNS('http://www.w3.org/2000/svg','line');
-    road.setAttribute('x1',r.x1);road.setAttribute('y1',r.y1);
-    road.setAttribute('x2',r.x2);road.setAttribute('y2',r.y2);
-    road.setAttribute('stroke',r.type==='major'?'#6B7280':'#9CA3AF');
-    road.setAttribute('stroke-width',r.w);
-    roadsG.appendChild(road);
-    // Center line (major only)
-    if(r.type==='major'){
-      const cl=document.createElementNS('http://www.w3.org/2000/svg','line');
-      cl.setAttribute('x1',r.x1);cl.setAttribute('y1',r.y1);
-      cl.setAttribute('x2',r.x2);cl.setAttribute('y2',r.y2);
-      cl.setAttribute('stroke','#FDE68A');cl.setAttribute('stroke-width','1.2');
-      cl.setAttribute('stroke-dasharray','14,10');cl.setAttribute('opacity','0.5');
-      roadsG.appendChild(cl);
-    }
+  // ── BACKGROUND — desert sand ──
+  c.fillStyle='#D4C4A0';
+  c.fillRect(0,0,W,H);
+
+  // Subtle noise texture via random dots
+  c.globalAlpha=0.04;
+  for(let i=0;i<400;i++){
+    c.fillStyle=Math.random()>0.5?'#8B6347':'#C4A882';
+    c.fillRect(Math.random()*W,Math.random()*H,2,2);
+  }
+  c.globalAlpha=1;
+
+  // ── REAL EP STREET GRID ──
+  // Based on actual El Paso West Side / Central grid
+  // X grid lines (N-S streets), Y grid lines (E-W streets)
+  const streets={
+    horizontal:[
+      {y:0.12, name:'I-10 / Trans Mountain', major:true, highway:true},
+      {y:0.24, name:'Montana Ave',            major:true},
+      {y:0.35, name:'Paisano Dr',             major:false},
+      {y:0.46, name:'Mesa Hills Dr',          major:true},
+      {y:0.57, name:'Executive Center Blvd',  major:false},
+      {y:0.68, name:'Sunland Park Dr',        major:true},
+      {y:0.80, name:'Doniphan Dr',            major:false},
+      {y:0.90, name:'McNutt Rd',              major:false},
+    ],
+    vertical:[
+      {x:0.10, name:'N. Mesa St',     major:true},
+      {x:0.24, name:'Resler Dr',      major:true},
+      {x:0.38, name:'N. Stanton St',  major:false},
+      {x:0.52, name:'Sun City Blvd',  major:true},
+      {x:0.65, name:'Transmountain',  major:false},
+      {x:0.78, name:'George Dieter',  major:true},
+      {x:0.90, name:'Lee Trevino',    major:false},
+    ]
+  };
+
+  // Draw city blocks (fill between roads first)
+  const blockColors=['#DCCFB8','#D8CBBA','#E0D3BC','#D4C8B0','#DDD0BA'];
+  streets.horizontal.forEach((h,hi)=>{
+    streets.vertical.forEach((v,vi)=>{
+      const nx=streets.vertical[vi+1];
+      const nh=streets.horizontal[hi+1];
+      if(!nx||!nh)return;
+      const x1=v.x*W + (v.major?10:6);
+      const y1=h.y*H + (h.major?9:5);
+      const x2=nx.x*W - (nx.major?10:6);
+      const y2=nh.y*H - (nh.major?9:5);
+      if(x2>x1&&y2>y1){
+        c.fillStyle=blockColors[(hi+vi)%blockColors.length];
+        c.fillRect(x1,y1,x2-x1,y2-y1);
+        // Building footprints inside block
+        drawBuildings(x1,y1,x2-x1,y2-y1,hi,vi);
+      }
+    });
   });
 
-  // ── CITY BLOCKS (lots between roads) ──
-  // Define grid intersection points to fill city blocks
-  const vx=[0,W*0.22,W*0.40,W*0.60,W*0.78,W];
-  const hy=[0,H*0.18,H*0.30,H*0.42,H*0.56,H*0.68,H*0.82,H];
-  const roadW={major:9,minor:5};
+  // Draw highway first (widest)
+  streets.horizontal.filter(s=>s.highway).forEach(s=>{
+    const y=s.y*H;
+    c.fillStyle='#6B7280'; c.fillRect(0,y-12,W,24);
+    c.fillStyle='#F59E0B'; c.fillRect(0,y-1,W,2); // median
+    c.strokeStyle='#9CA3AF'; c.lineWidth=1; c.setLineDash([16,10]);
+    c.beginPath(); c.moveTo(0,y-6); c.lineTo(W,y-6); c.stroke();
+    c.beginPath(); c.moveTo(0,y+6); c.lineTo(W,y+6); c.stroke();
+    c.setLineDash([]);
+  });
 
-  const blockG=document.getElementById('map-blocks');
-  const buildG=document.getElementById('map-buildings');
-  const labelG=document.getElementById('map-labels');
+  // Major roads
+  streets.horizontal.filter(s=>!s.highway&&s.major).forEach(s=>{
+    const y=s.y*H;
+    c.fillStyle='#888070'; c.fillRect(0,y-7,W,14);
+    c.strokeStyle='#FDE68A'; c.lineWidth=1; c.setLineDash([12,8]);
+    c.beginPath(); c.moveTo(0,y); c.lineTo(W,y); c.stroke();
+    c.setLineDash([]);
+  });
+  streets.vertical.filter(s=>s.major).forEach(s=>{
+    const x=s.x*W;
+    c.fillStyle='#888070'; c.fillRect(x-7,0,14,H);
+    c.strokeStyle='#FDE68A'; c.lineWidth=1; c.setLineDash([12,8]);
+    c.beginPath(); c.moveTo(x,0); c.lineTo(x,H); c.stroke();
+    c.setLineDash([]);
+  });
 
-  // Block fill colors — El Paso residential / commercial
-  const blockColors=['#DAD0BE','#D4C9B5','#DCCFBC','#D8CCB8','#E0D5C2'];
+  // Minor roads
+  streets.horizontal.filter(s=>!s.highway&&!s.major).forEach(s=>{
+    const y=s.y*H;
+    c.fillStyle='#9A9080'; c.fillRect(0,y-4,W,8);
+  });
+  streets.vertical.filter(s=>!s.major).forEach(s=>{
+    const x=s.x*W;
+    c.fillStyle='#9A9080'; c.fillRect(x-4,0,8,H);
+  });
 
-  for(let col=0;col<vx.length-1;col++){
-    for(let row=0;row<hy.length-1;row++){
-      const isVmajor=(col===0||col===1||col===3);
-      const isHmajor=(row===0||row===2||row===5);
-      const margin=9; // half road width for major
-      const x1=vx[col]+margin;
-      const y1=hy[row]+margin;
-      const x2=vx[col+1]-margin;
-      const y2=hy[row+1]-margin;
-      if(x2<=x1||y2<=y1)continue;
-      const bw=x2-x1, bh=y2-y1;
+  // ── LANDMARKS ──
+  // Franklin Mountains (top portion of map)
+  const mtY=H*0.05;
+  c.fillStyle='#8B9BB4';
+  c.beginPath();
+  c.moveTo(0,mtY+H*0.06);
+  [0.05,0.12,0.18,0.25,0.32,0.40,0.48,0.55,0.62,0.70,0.78,0.86,0.93,1.0].forEach((fx,i)=>{
+    const py=mtY+(i%3===1?H*0.01:i%3===2?H*0.035:H*0.025);
+    c.lineTo(fx*W,py);
+  });
+  c.lineTo(W,H*0.0); c.lineTo(0,0); c.closePath(); c.fill();
+  // Snow cap tint
+  c.fillStyle='rgba(255,255,255,0.15)';
+  c.beginPath();
+  c.moveTo(W*0.3,mtY);
+  c.lineTo(W*0.38,mtY+H*0.008);
+  c.lineTo(W*0.34,mtY+H*0.018);
+  c.closePath(); c.fill();
 
-      // Block background
-      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      rect.setAttribute('x',x1);rect.setAttribute('y',y1);
-      rect.setAttribute('width',bw);rect.setAttribute('height',bh);
-      rect.setAttribute('fill',blockColors[(col+row)%blockColors.length]);
-      rect.setAttribute('rx','1');
-      blockG.appendChild(rect);
+  // UTEP campus block
+  drawLandmarkBlock(W*0.11,H*0.26,W*0.11,H*0.08,'#C4A852','#A08030','UTEP');
 
-      // Fill block with tiny top-down building footprints
-      _fillBlockBuildings(buildG,x1,y1,bw,bh,col,row);
-    }
-  }
+  // El Paso Airport
+  drawLandmarkBlock(W*0.54,H*0.47,W*0.14,H*0.10,'#94A3B8','#64748B','✈ EP Airport');
+
+  // Sunland Park
+  drawLandmarkBlock(W*0.66,H*0.70,W*0.10,H*0.08,'#86EFAC','#22C55E','Sunland Park');
+
+  // Rio Grande (blue line at bottom)
+  c.strokeStyle='#60A5FA'; c.lineWidth=6;
+  c.beginPath();
+  c.moveTo(0,H*0.94);
+  c.bezierCurveTo(W*0.2,H*0.92,W*0.5,H*0.96,W*0.8,H*0.93);
+  c.bezierCurveTo(W*0.9,H*0.92,W,H*0.95,W,H*0.95);
+  c.stroke();
+  c.fillStyle='rgba(96,165,250,0.15)';
+  c.beginPath();
+  c.moveTo(0,H*0.94);
+  c.bezierCurveTo(W*0.2,H*0.92,W*0.5,H*0.96,W*0.8,H*0.93);
+  c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
+  c.fillStyle='#60A5FA'; c.font='7px sans-serif'; c.fillText('Rio Grande',W*0.4,H*0.97);
 
   // ── STREET LABELS ──
-  const streetLabels=[
-    {x:W*0.22+4,y:H*0.18-6,text:'Sun City Blvd',horiz:false},
-    {x:W*0.60+4,y:H*0.18-6,text:'Resler Dr',horiz:false},
-    {x:4,y:H*0.18-4,text:'Montana Ave',horiz:true},
-    {x:4,y:H*0.42-4,text:'Mesa Hills Dr',horiz:true},
-    {x:4,y:H*0.68-4,text:'Doniphan Dr',horiz:true},
-  ];
-  streetLabels.forEach(l=>{
-    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x',l.x);t.setAttribute('y',l.y);
-    t.setAttribute('font-size','7');t.setAttribute('font-weight','700');
-    t.setAttribute('fill','#374151');t.setAttribute('font-family','Nunito,sans-serif');
-    t.setAttribute('opacity','0.85');
-    if(!l.horiz){
-      t.setAttribute('transform',`rotate(-90,${l.x},${l.y})`);
-    }
-    t.textContent=l.text;
-    labelG.appendChild(t);
+  c.font='bold 8px sans-serif';
+  streets.horizontal.forEach(s=>{
+    if(!s.major)return;
+    const y=s.y*H;
+    c.fillStyle='rgba(15,23,42,0.8)';
+    c.fillRect(4,y-8,s.name.length*5.5+4,10);
+    c.fillStyle='#F1F5F9';
+    c.fillText(s.name,6,y);
+  });
+  streets.vertical.forEach(s=>{
+    if(!s.major)return;
+    const x=s.x*W;
+    c.save();
+    c.translate(x,H*0.5);
+    c.rotate(-Math.PI/2);
+    c.fillStyle='rgba(15,23,42,0.7)';
+    c.fillRect(-s.name.length*3.5,9,s.name.length*7+4,10);
+    c.fillStyle='#F1F5F9';
+    c.font='bold 7px sans-serif';
+    c.textAlign='center';
+    c.fillText(s.name,0,18);
+    c.restore();
   });
 
-  // ── SPECIAL LANDMARKS ──
-  // Office building (our HQ)
-  _drawLandmark(buildG,labelG,W*0.25,H*0.22,38,28,'#1E40AF','#3B82F6','HQ');
-  // Park / desert lot
-  _drawPark(buildG,W*0.44,H*0.46,W*0.16,H*0.10);
-  // Parking lot
-  _drawParking(buildG,W*0.62,H*0.72,W*0.14,H*0.08);
+  // Compass rose
+  const cx=W-28,cy=28;
+  c.fillStyle='rgba(15,23,42,0.7)'; c.beginPath(); c.arc(cx,cy,18,0,Math.PI*2); c.fill();
+  c.fillStyle='#F1F5F9'; c.font='bold 10px sans-serif'; c.textAlign='center';
+  c.fillText('N',cx,cy-6); c.fillText('S',cx,cy+14);
+  c.font='8px sans-serif'; c.fillText('E',cx+10,cy+4); c.fillText('W',cx-10,cy+4);
+  c.strokeStyle='#F59E0B'; c.lineWidth=1.5;
+  c.beginPath(); c.moveTo(cx,cy-4); c.lineTo(cx,cy-14); c.stroke();
+
+  // Purr & Power HQ marker
+  const hqX=W*0.24, hqY=H*0.35;
+  c.fillStyle='#F59E0B';
+  c.beginPath(); c.arc(hqX,hqY,8,0,Math.PI*2); c.fill();
+  c.fillStyle='white'; c.font='10px sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+  c.fillText('☀️',hqX,hqY);
+  c.fillStyle='rgba(15,23,42,0.8)'; c.fillRect(hqX-22,hqY+10,44,11);
+  c.fillStyle='#FDE68A'; c.font='bold 7px sans-serif'; c.textAlign='center';
+  c.fillText('P&P HQ',hqX,hqY+16);
+  c.textBaseline='alphabetic';
 }
 
-function _fillBlockBuildings(g,bx,by,bw,bh,col,row){
-  // Vary building density and type by block
+function drawBuildings(bx,by,bw,bh,col,row){
+  const c=mapCtx;
   const seed=(col*7+row*13);
   const rand=(n)=>((seed*n*2654435769)>>>0)/4294967296;
-
-  // Residential: small footprint homes with tiny yards
-  // Commercial: larger flat rectangles
-  const isCommercial=(col===1&&row===2)||(col===3&&row===0)||(col===2&&row===4);
-  const footprintW=isCommercial?Math.floor(rand(3)*bw*0.4+bw*0.35):Math.floor(rand(3)*18+12);
-  const footprintH=isCommercial?Math.floor(rand(5)*bh*0.4+bh*0.3):Math.floor(rand(5)*14+10);
-  const cols=Math.max(1,Math.floor(bw/(footprintW+8)));
-  const rows2=Math.max(1,Math.floor(bh/(footprintH+8)));
-  const padX=(bw-(cols*(footprintW+8)))/2+4;
-  const padY=(bh-(rows2*(footprintH+8)))/2+4;
-
-  for(let c=0;c<cols;c++){
-    for(let r=0;r<rows2;r++){
-      const bldX=bx+padX+c*(footprintW+8);
-      const bldY=by+padY+r*(footprintH+8);
-      const hue=isCommercial?'#B0A898':'#C8B8A0';
-      const shadow=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      shadow.setAttribute('x',bldX+1.5);shadow.setAttribute('y',bldY+1.5);
-      shadow.setAttribute('width',footprintW);shadow.setAttribute('height',footprintH);
-      shadow.setAttribute('fill','rgba(0,0,0,0.12)');shadow.setAttribute('rx','1');
-      g.appendChild(shadow);
-      const bld=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      bld.setAttribute('x',bldX);bld.setAttribute('y',bldY);
-      bld.setAttribute('width',footprintW);bld.setAttribute('height',footprintH);
-      bld.setAttribute('fill',hue);bld.setAttribute('stroke','#9C8C7C');
-      bld.setAttribute('stroke-width','0.6');bld.setAttribute('rx','1');
-      g.appendChild(bld);
-      // Roof detail line
-      if(!isCommercial){
-        const ridge=document.createElementNS('http://www.w3.org/2000/svg','line');
-        ridge.setAttribute('x1',bldX+2);ridge.setAttribute('y1',bldY+footprintH/2);
-        ridge.setAttribute('x2',bldX+footprintW-2);ridge.setAttribute('y2',bldY+footprintH/2);
-        ridge.setAttribute('stroke','#A89880');ridge.setAttribute('stroke-width','1');ridge.setAttribute('opacity','0.5');
-        g.appendChild(ridge);
-      }
+  const density=rand(1)>0.3?3:2;
+  const fw=Math.max(8,Math.floor(bw/(density+1)));
+  const fh=Math.max(6,Math.floor(bh/(density)));
+  const colors=['#C8B898','#BFAD90','#C4B294','#CCB89A'];
+  for(let ci=0;ci<density;ci++){
+    for(let ri=0;ri<density-1;ri++){
+      const bldX=bx+4+ci*(fw+3)+rand(ci*10)*4;
+      const bldY=by+3+ri*(fh+3)+rand(ri*7)*3;
+      const bw2=fw-rand(3)*4;
+      const bh2=fh-rand(5)*3;
+      if(bldX+bw2>bx+bw-4||bldY+bh2>by+bh-3)continue;
+      // Shadow
+      c.fillStyle='rgba(0,0,0,0.12)';
+      c.fillRect(bldX+1.5,bldY+1.5,bw2,bh2);
+      // Building
+      c.fillStyle=colors[(ci+ri+col+row)%colors.length];
+      c.fillRect(bldX,bldY,bw2,bh2);
+      // Roof line
+      c.strokeStyle='rgba(0,0,0,0.15)'; c.lineWidth=0.5;
+      c.strokeRect(bldX,bldY,bw2,bh2);
     }
   }
 }
 
-function _drawLandmark(g,lg,x,y,w,h,fill,stroke,label){
-  const sh=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  sh.setAttribute('x',x+2);sh.setAttribute('y',y+2);sh.setAttribute('width',w);sh.setAttribute('height',h);
-  sh.setAttribute('fill','rgba(0,0,0,0.2)');sh.setAttribute('rx','2');g.appendChild(sh);
-  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
-  r.setAttribute('fill',fill);r.setAttribute('stroke',stroke);r.setAttribute('stroke-width','1.5');r.setAttribute('rx','2');
-  g.appendChild(r);
-  const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-  t.setAttribute('x',x+w/2);t.setAttribute('y',y+h/2+3);
-  t.setAttribute('text-anchor','middle');t.setAttribute('font-size','6');
-  t.setAttribute('font-weight','800');t.setAttribute('fill','white');t.setAttribute('font-family','Nunito,sans-serif');
-  t.textContent=label;lg.appendChild(t);
+function drawLandmarkBlock(x,y,w,h,fill,stroke,label){
+  const c=mapCtx;
+  c.fillStyle='rgba(0,0,0,0.15)'; c.fillRect(x+2,y+2,w,h);
+  c.fillStyle=fill; c.fillRect(x,y,w,h);
+  c.strokeStyle=stroke; c.lineWidth=1.5; c.strokeRect(x,y,w,h);
+  c.fillStyle='rgba(15,23,42,0.75)'; c.fillRect(x+2,y+h/2-6,w-4,12);
+  c.fillStyle='white'; c.font='bold 7px sans-serif';
+  c.textAlign='center'; c.textBaseline='middle';
+  c.fillText(label,x+w/2,y+h/2);
+  c.textBaseline='alphabetic';
 }
 
-function _drawPark(g,x,y,w,h){
-  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
-  r.setAttribute('fill','#8FB878');r.setAttribute('stroke','#6A9A5A');r.setAttribute('stroke-width','0.8');r.setAttribute('rx','2');
-  g.appendChild(r);
-  // Little trees
-  [[x+w*0.25,y+h*0.3],[x+w*0.6,y+h*0.6],[x+w*0.8,y+h*0.25]].forEach(([tx,ty])=>{
-    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',tx);c.setAttribute('cy',ty);c.setAttribute('r','4');
-    c.setAttribute('fill','#4A8040');c.setAttribute('opacity','0.8');
-    g.appendChild(c);
-  });
+// Truck animation on canvas
+function startTruckAnim(){
+  const stops=[
+    {x:mapW*0.24,y:mapH*0.35},{x:mapW*0.52,y:mapH*0.35},
+    {x:mapW*0.52,y:mapH*0.68},{x:mapW*0.24,y:mapH*0.68}
+  ];
+  let si=0,progress=0;
+  const truck={x:stops[0].x,y:stops[0].y,icon:'🚐'};
+  truckAnim=[truck];
+
+  setInterval(()=>{
+    progress+=0.02;
+    if(progress>=1){progress=0;si=(si+1)%stops.length;}
+    const from=stops[si],to=stops[(si+1)%stops.length];
+    truck.x=from.x+(to.x-from.x)*progress;
+    truck.y=from.y+(to.y-from.y)*progress;
+    redrawTruckLayer();
+  },50);
 }
 
-function _drawParking(g,x,y,w,h){
-  const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
-  r.setAttribute('fill','#9CA3AF');r.setAttribute('stroke','#6B7280');r.setAttribute('stroke-width','0.6');
-  g.appendChild(r);
-  // Parking stall lines
-  const stalls=Math.floor(w/8);
-  for(let i=1;i<stalls;i++){
-    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
-    l.setAttribute('x1',x+i*8);l.setAttribute('y1',y);l.setAttribute('x2',x+i*8);l.setAttribute('y2',y+h);
-    l.setAttribute('stroke','white');l.setAttribute('stroke-width','0.6');l.setAttribute('opacity','0.5');
-    g.appendChild(l);
+function redrawTruckLayer(){
+  if(!mapCtx)return;
+  // Redraw just truck area by redrawing whole map — fast enough at small canvas sizes
+  // Actually just draw truck overlay on a separate position (canvas is already drawn)
+  // We use a div overlay for the truck emoji instead
+  let truckEl=document.getElementById('map-truck-el');
+  if(!truckEl){
+    truckEl=document.createElement('div');
+    truckEl.id='map-truck-el';
+    truckEl.style.cssText='position:absolute;font-size:18px;z-index:8;pointer-events:none;transition:left 0.05s linear,top 0.05s linear;';
+    truckEl.textContent='🚐';
+    document.getElementById('map-overlay').appendChild(truckEl);
+  }
+  if(truckAnim.length>0){
+    const t=truckAnim[0];
+    truckEl.style.left=(t.x-12)+'px';
+    truckEl.style.top=(t.y-12)+'px';
   }
 }
 
 function initMap(){
-  const wrap=document.getElementById('map-main-wrap');
-  const W=wrap.offsetWidth||360;
-  const H=wrap.offsetHeight||420;
-  const main=document.getElementById('map-main');
-  const vehicleG=document.getElementById('map-vehicles');
-
-  // Job site positions — placed on real city blocks
-  const jobPositions=[
-    {x:W*0.05,  y:H*0.22},  // top-left block
-    {x:W*0.44,  y:H*0.08},  // top-center block
-    {x:W*0.05,  y:H*0.46},  // mid-left block
-    {x:W*0.62,  y:H*0.46},  // mid-right block
+  // Place job cards as HTML overlays using % positions — no pixel dependency
+  const overlay=document.getElementById('map-main');
+  if(!overlay)return;
+  const positions=[
+    {left:'22%',top:'30%'},{left:'48%',top:'30%'},
+    {left:'22%',top:'60%'},{left:'48%',top:'60%'}
   ];
-
   JOB_SITES.forEach((s,i)=>{
-    const pos=jobPositions[i]||{x:W*0.1+i*80,y:H*0.3};
-    // Drop pin on SVG map
-    const pin=document.createElementNS('http://www.w3.org/2000/svg','g');
-    pin.setAttribute('id','pin-'+i);
-    const shadow=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
-    shadow.setAttribute('cx',pos.x+32);shadow.setAttribute('cy',pos.y+52);
-    shadow.setAttribute('rx','10');shadow.setAttribute('ry','4');
-    shadow.setAttribute('fill','rgba(0,0,0,0.15)');
-    pin.appendChild(shadow);
-    document.getElementById('map-markers').appendChild(pin);
-
-    // Card overlay
+    const pos=positions[i]||{left:'30%',top:'40%'};
     const el=document.createElement('div');
     el.className='job-card'+(i===0?' ready':'');
-    el.style.left=(pos.x)+'px';
-    el.style.top=(pos.y)+'px';
+    el.style.position='absolute';
+    el.style.left=pos.left;
+    el.style.top=pos.top;
     el.onclick=()=>collectJob(i);
     el.innerHTML=`
       <div class="jc-lvl" id="jlvl-${i}">Lv1</div>
+      <div class="jc-type">${s.type}</div>
       <span class="jc-icon">${s.icon}</span>
       <div class="jc-name">${s.name}</div>
       <div class="jc-earn" id="jearn-${i}">+${fmt(s.earn)}/tap</div>
       <div class="jc-stage" id="jstage-${i}">${s.stage}</div>`;
-    main.appendChild(el);
+    overlay.appendChild(el);
     jobCardEls.push({el,level:1,earn:s.earn,site:s});
     jobReady.push(i===0);
   });
-
-  // Animated truck on SVG — top-down van shape
-  _spawnSVGTruck(vehicleG,W,H,'#1E40AF',false);
-  if(G.upgrades.truck2) _spawnSVGTruck(vehicleG,W,H,'#065F46',true);
 }
 
-function _spawnSVGTruck(g,W,H,color,second){
-  // Top-down van: rectangle with windshield
-  const truck=document.createElementNS('http://www.w3.org/2000/svg','g');
-  truck.setAttribute('id',second?'truck2-svg':'truck1-svg');
-
-  const body=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  body.setAttribute('width','18');body.setAttribute('height','30');body.setAttribute('rx','3');
-  body.setAttribute('fill',color);body.setAttribute('stroke','rgba(0,0,0,0.3)');body.setAttribute('stroke-width','1');
-  truck.appendChild(body);
-
-  // Windshield
-  const ws=document.createElementNS('http://www.w3.org/2000/svg','rect');
-  ws.setAttribute('x','3');ws.setAttribute('y','2');ws.setAttribute('width','12');ws.setAttribute('height','7');
-  ws.setAttribute('rx','1');ws.setAttribute('fill','#BAE6FD');ws.setAttribute('opacity','0.8');
-  truck.appendChild(ws);
-
-  // Wheels
-  [[0,4],[15,4],[0,22],[15,22]].forEach(([wx,wy])=>{
-    const w=document.createElementNS('http://www.w3.org/2000/svg','rect');
-    w.setAttribute('x',wx-2);w.setAttribute('y',wy);w.setAttribute('width','5');w.setAttribute('height','6');
-    w.setAttribute('rx','1');w.setAttribute('fill','#1F2937');
-    truck.appendChild(w);
-  });
-
-  // Shadow dot
-  const sd=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
-  sd.setAttribute('cx','9');sd.setAttribute('cy','32');sd.setAttribute('rx','8');sd.setAttribute('ry','3');
-  sd.setAttribute('fill','rgba(0,0,0,0.15)');
-  truck.appendChild(sd);
-
-  g.appendChild(truck);
-
-  // Animate truck along road paths
-  const startX=second?W*0.40:W*0.22;
-  const startY=second?H*0.42:H*0.18;
-  truck.setAttribute('transform',`translate(${startX},${startY})`);
-
-  const routes=second?[
-    {x:W*0.40,y:H*0.42},{x:W*0.60,y:H*0.42},{x:W*0.60,y:H*0.68},{x:W*0.40,y:H*0.68},
-  ]:[
-    {x:W*0.22,y:H*0.18},{x:W*0.60,y:H*0.18},{x:W*0.60,y:H*0.42},{x:W*0.22,y:H*0.42},
-  ];
-  let ri=0;
-  setInterval(()=>{
-    ri=(ri+1)%routes.length;
-    const {x,y}=routes[ri];
-    truck.style.transition='transform 2.8s linear';
-    truck.setAttribute('transform',`translate(${x},${y})`);
-    // Rotate to face direction of travel
-    const prev=routes[(ri-1+routes.length)%routes.length];
-    const dx=x-prev.x,dy=y-prev.y;
-    const angle=Math.atan2(dy,dx)*(180/Math.PI)+90;
-    truck.setAttribute('transform',`translate(${x},${y}) rotate(${angle},9,15)`);
-  },3000);
-}
-
-function animTruck(){}  // replaced by _spawnSVGTruck
+function animTruck(){}  // no-op — replaced by startTruckAnim
 
 function spawnSecondTruck(){
-  const g=document.getElementById('map-vehicles');
-  const wrap=document.getElementById('map-main-wrap');
-  _spawnSVGTruck(g,wrap.offsetWidth||360,wrap.offsetHeight||420,'#065F46',true);
+  // Add a second truck element
+  const t2=document.getElementById('map-truck2-el');
+  if(t2)return;
+  const el=document.createElement('div');
+  el.id='map-truck2-el';
+  el.style.cssText='position:absolute;font-size:16px;z-index:8;pointer-events:none;left:60px;top:60px;';
+  el.textContent='🚛';
+  const overlay=document.getElementById('map-overlay');
+  if(overlay)overlay.appendChild(el);
+  // Simple patrol
+  let x2=mapW*0.52,y2=mapH*0.46,dir=1;
+  setInterval(()=>{
+    x2+=dir*1.5;
+    if(x2>mapW*0.78||x2<mapW*0.52)dir*=-1;
+    el.style.left=(x2-10)+'px';
+    el.style.top=(y2-10)+'px';
+  },60);
 }
 
+// ════════════════════════════════
 function collectJob(i){
   if(!G.mapUnlocked)return;
   if(!jobReady[i]){showToast('⏳ Job not ready yet');return;}
@@ -1951,8 +1948,9 @@ function updatePipelines(){
 function buildSiteScene(){
   if(siteBuilt)return;siteBuilt=true;
   const scene=document.getElementById('site-scene');
-  const w=scene.offsetWidth||360;
-  const h=scene.offsetHeight||260;
+  void scene.getBoundingClientRect();
+  const w=scene.offsetWidth||scene.clientWidth||window.innerWidth||360;
+  const h=scene.offsetHeight||scene.clientHeight||(window.innerHeight-280)||260;
 
   // One large SVG fills the entire scene
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -2113,57 +2111,181 @@ function buildSiteScene(){
     g.setAttribute('class','site-worker');
     g.style.animation=`crewBob 1.6s ease-in-out ${animDelay}s infinite`;
     g.innerHTML=`
-      <!-- Hard hat -->
       <ellipse cx="${x}" cy="${y-28}" rx="9" ry="5" fill="${hard_hat_col}"/>
       <rect x="${x-9}" y="${y-27}" width="18" height="3" rx="1" fill="${hard_hat_col}"/>
-      <!-- Head -->
       <circle cx="${x}" cy="${y-20}" r="7" fill="#FBBF24"/>
-      <!-- Safety vest over shirt -->
       <rect x="${x-6}" y="${y-13}" width="12" height="16" rx="2" fill="${vest_col}"/>
       <rect x="${x-4}" y="${y-13}" width="3" height="16" rx="1" fill="#F59E0B" opacity="0.9"/>
       <rect x="${x+1}" y="${y-13}" width="3" height="16" rx="1" fill="#F59E0B" opacity="0.9"/>
-      <!-- Arms -->
       <rect x="${x-11}" y="${y-13}" width="5" height="13" rx="2" fill="${vest_col}"/>
       <rect x="${x+6}" y="${y-13}" width="5" height="13" rx="2" fill="${vest_col}"/>
-      <!-- Legs -->
       <rect x="${x-5}" y="${y+3}" width="5" height="14" rx="2" fill="#374151"/>
       <rect x="${x+0}" y="${y+3}" width="5" height="14" rx="2" fill="#374151"/>
-      <!-- Boots -->
       <rect x="${x-6}" y="${y+15}" width="7" height="5" rx="1" fill="#1F2937"/>
       <rect x="${x-1}" y="${y+15}" width="7" height="5" rx="1" fill="#1F2937"/>
-      <!-- Label -->
-      <rect x="${x-18}" y="${y+20}" width="36" height="10" rx="2" fill="rgba(0,0,0,0.65)"/>
-      <text x="${x}" y="${y+28}" text-anchor="middle" font-size="6" fill="white" font-family="sans-serif">${label}</text>
+      <rect x="${x-22}" y="${y+20}" width="44" height="11" rx="2" fill="rgba(0,0,0,0.75)"/>
+      <text x="${x}" y="${y+29}" text-anchor="middle" font-size="6.5" fill="white" font-family="sans-serif" class="site-worker-label">${label}</text>
     `;
     svg.appendChild(g);
   };
 
-  // Add crewBob keyframes
+  // crewBob keyframes — varied speeds for liveliness
   if(!document.getElementById('crewBob-style')){
     const s=document.createElement('style');
     s.id='crewBob-style';
-    s.textContent='@keyframes crewBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}';
+    s.textContent=`
+      @keyframes crewBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+      @keyframes crewBob2{0%,100%{transform:translateY(0) scaleX(1)}50%{transform:translateY(-4px) scaleX(-1)}}
+      @keyframes crewBob3{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-7px) rotate(3deg)}}
+      @keyframes armSwing{0%,100%{transform:rotate(0deg)}50%{transform:rotate(20deg)}}
+      .site-worker:nth-child(odd){animation-name:crewBob2!important;}
+      .site-worker:nth-child(3n){animation-name:crewBob3!important;}
+    `;
     document.head.appendChild(s);
   }
 
-  // Roof workers
+  // Roof workers — staggered delays for organic feel
   const roofWorkerY=houseTop+roofH-14;
-  drawWorker(houseX+40, roofWorkerY, '#F59E0B','#EF4444','Installer 1',0);
-  drawWorker(cx,        roofWorkerY, '#F59E0B','#EF4444','Installer 2',0.5);
-  drawWorker(houseX+houseW-40, roofWorkerY, '#F59E0B','#22C55E','Installer 3',1);
+  drawWorker(houseX+40,  roofWorkerY, '#F59E0B','#EF4444','Inspecting roof',0);
+  drawWorker(cx,         roofWorkerY, '#F59E0B','#EF4444','Installing rail',0.5);
+  drawWorker(houseX+houseW-40, roofWorkerY, '#F59E0B','#22C55E','Placing panel',1.1);
 
   // Ground workers
-  drawWorker(houseX-45, groundY-22, '#94A3B8','#3B82F6','Electrician',0.3);
-  drawWorker(houseX+houseW+invX/4+20, groundY-22, '#F59E0B','#EF4444','Installer 4',0.8);
+  drawWorker(houseX-48, groundY-22, '#94A3B8','#3B82F6','Electrician',0.3);
+  drawWorker(houseX+houseW+22, groundY-22, '#F59E0B','#EF4444','Installer 4',0.8);
+
+  // ── ENHANCED INVERTER DISPLAY ──
+  // Replace static inverter with live-updating version
+  const oldInv=svg.querySelector('.se-inverter-g');
+  if(oldInv)oldInv.remove();
+  const invGrp=document.createElementNS('http://www.w3.org/2000/svg','g');
+  invGrp.setAttribute('class','se-inverter-g');
+  const invX2=houseX+houseW+8;
+  const invY2=houseTop+roofH+20;
+  invGrp.innerHTML=`
+    <rect x="${invX2}" y="${invY2}" width="52" height="70" rx="3" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
+    <text x="${invX2+26}" y="${invY2+10}" text-anchor="middle" font-size="6" fill="#1E40AF" font-family="sans-serif" font-weight="bold">SolarEdge</text>
+    <text x="${invX2+26}" y="${invY2+18}" text-anchor="middle" font-size="4.5" fill="#64748B" font-family="sans-serif">HD-Wave Inverter</text>
+    <rect x="${invX2+4}" y="${invY2+21}" width="44" height="18" rx="2" fill="#0F172A"/>
+    <circle cx="${invX2+12}" cy="${invY2+30}" r="4" fill="#22C55E" id="site-led-dot" style="animation:ledBlink 2s ease-in-out infinite"/>
+    <text id="site-inv-reading" x="${invX2+36}" y="${invY2+33}" text-anchor="middle" font-size="6" fill="#22C55E" font-family="monospace">--W</text>
+    <text x="${invX2+26}" y="${invY2+46}" text-anchor="middle" font-size="4" fill="#64748B" font-family="sans-serif">P400 Optimizers</text>
+    <rect x="${invX2+4}" y="${invY2+50}" width="44" height="9" rx="1" fill="#334155"/>
+    <text id="site-inv-eff" x="${invX2+26}" y="${invY2+57}" text-anchor="middle" font-size="5" fill="#94A3B8" font-family="monospace">COMM OK</text>
+    <rect x="${invX2+4}" y="${invY2+61}" width="44" height="7" rx="1" fill="#1E293B"/>
+    <text x="${invX2+26}" y="${invY2+66}" text-anchor="middle" font-size="4" fill="#64748B" font-family="sans-serif">SAFETY SW ▮</text>
+  `;
+  svg.appendChild(invGrp);
 
   // Store svg ref for panel updates
   scene._siteSvg=svg;
-  scene._siteGeom={houseX,houseTop,roofH,houseW,panelG,w,h};
+  scene._siteGeom={houseX,houseTop,roofH,houseW,panelG,w,h,svg};
 }
 
 function updateSiteScene(){
   if(!G.siteUnlocked)return;
-  if(!siteBuilt){buildSiteScene();}
+  if(!siteBuilt){buildSiteScene();return;}
+
+  const stages=INSTALL_STAGES;
+  const stagesEl=document.getElementById('ip-stages');
+  if(stagesEl){
+    stagesEl.innerHTML=stages.map((s,i)=>`<div class="ip-stage-chip ${i<G.siteStageIdx?'done':i===G.siteStageIdx?'active':''}">${s}</div>`).join('');
+  }
+  const pct=Math.min(100,Math.floor(G.siteProgress));
+  const fill=document.getElementById('ip-prog-fill');
+  if(fill)fill.style.width=pct+'%';
+  const pctEl=document.getElementById('ip-pct');
+  if(pctEl)pctEl.textContent=pct+'%';
+  const earnEl=document.getElementById('ip-earn');
+  if(earnEl)earnEl.textContent='+'+fmt(G.siteLevel*1200)+' on complete';
+  const nameEl=document.getElementById('ip-stage-name');
+  if(nameEl)nameEl.textContent=G.currentJob?G.currentJob+' — '+stages[Math.min(G.siteStageIdx,stages.length-1)]:'Awaiting Job';
+
+  // ── ANIMATED PANEL PLACEMENT ──
+  const scene=document.getElementById('site-scene');
+  const geom=scene?scene._siteGeom:null;
+  if(geom){
+    const {houseX,houseTop,roofH,houseW,panelG,svg}=geom;
+    const panelCount=Math.min(Math.floor(G.siteProgress/8.5),12);
+    // Only add new panels — don't clear and redraw (causes flicker)
+    const existing=panelG.children.length/2; // 2 elements per panel (rect+line)
+    if(panelCount>existing){
+      const pW=16,pH=11,gap=3;
+      const startX=houseX+24;
+      const row1Y=houseTop+roofH*0.28;
+      const row2Y=houseTop+roofH*0.52;
+      for(let i=Math.floor(existing);i<panelCount;i++){
+        const row=Math.floor(i/6),col=i%6;
+        const px=startX+col*(pW+gap);
+        const py=(row===0?row1Y:row2Y);
+        const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x',px);rect.setAttribute('y',py);
+        rect.setAttribute('width',pW);rect.setAttribute('height',pH);
+        rect.setAttribute('rx','1');rect.setAttribute('fill','#0A0A0A');
+        rect.setAttribute('stroke','#22C55E');rect.setAttribute('stroke-width','1.5');
+        rect.setAttribute('opacity','0');
+        panelG.appendChild(rect);
+        const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1',px+pW/2);l.setAttribute('y1',py);
+        l.setAttribute('x2',px+pW/2);l.setAttribute('y2',py+pH);
+        l.setAttribute('stroke','#1a3a1a');l.setAttribute('stroke-width','0.4');
+        panelG.appendChild(l);
+        // Flash animation — new panel appears with glow then settles
+        const delay=i*80;
+        setTimeout(()=>{
+          rect.setAttribute('stroke','#22C55E');
+          rect.setAttribute('opacity','1');
+          // Flash bright then darken
+          setTimeout(()=>rect.setAttribute('stroke','#1a3a1a'),400);
+        },delay);
+      }
+    }
+
+    // ── LIVE INVERTER DISPLAY ──
+    const invDisplay=document.getElementById('site-inv-reading');
+    if(invDisplay){
+      const eff=(92+Math.random()*7).toFixed(1);
+      const watts=Math.floor(panelCount*380+Math.random()*200);
+      invDisplay.textContent=watts>0?watts+'W':'-';
+    }
+    const invEff=document.getElementById('site-inv-eff');
+    if(invEff)invEff.textContent=panelCount>0?(92+Math.random()*7).toFixed(1)+'%':'--';
+
+    // ── WORKER ACTIVITY based on stage ──
+    animateWorkersForStage(G.siteStageIdx);
+  }
+}
+
+let lastWorkerStage=-1;
+function animateWorkersForStage(stageIdx){
+  if(stageIdx===lastWorkerStage)return;
+  lastWorkerStage=stageIdx;
+  const scene=document.getElementById('site-scene');
+  if(!scene)return;
+
+  // Stage-specific worker activity labels
+  const stageActions=[
+    ['Inspecting roof','Checking pitch','Measuring'],   // 0 Inspection
+    ['Filing permits','On the phone','Waiting on city'],// 1 Permits
+    ['Drilling L-feet','Sealing flashing','Torquing'],  // 2 L-Feet
+    ['Running rails','Aligning SMR','Cutting rail'],    // 3 Rails
+    ['Wiring optimizers','Clipping P400','Testing'],    // 4 Optimizers
+    ['Placing panel','Securing clips','Lifting panel'], // 5 Panels
+    ['Running MC4','Crimping wires','Pulling wire'],    // 6 Wiring
+    ['Running conduit','Drilling wall','Bending EMT'],  // 7 Conduit
+    ['Mounting inverter','Wiring HD-Wave','Labeling'],  // 8 Inverter
+    ['Breaker hookup','AC wiring','Testing breaker'],   // 9 AC Panel
+    ['SetApp scan','Commissioning','Activating'],       // 10 SetApp
+    ['Grid connected!','Final inspection','Done! 🎉'],  // 11 Done
+  ];
+  const actions=stageActions[Math.min(stageIdx,stageActions.length-1)];
+  const workers=scene.querySelectorAll('.site-worker-label');
+  workers.forEach((w,i)=>{
+    w.textContent=actions[i%actions.length];
+  });
+}
+
+
   const stages=INSTALL_STAGES;
   const stagesEl=document.getElementById('ip-stages');
   if(stagesEl){
@@ -2179,35 +2301,6 @@ function updateSiteScene(){
   const nameEl=document.getElementById('ip-stage-name');
   if(nameEl)nameEl.textContent=G.currentJob?G.currentJob+' — '+stages[Math.min(G.siteStageIdx,stages.length-1)]:'Awaiting Job';
   // Update Silfab panels on SVG roof
-  const scene=document.getElementById('site-scene');
-  const geom=scene?scene._siteGeom:null;
-  if(geom){
-    const {houseX,houseTop,roofH,houseW,panelG}=geom;
-    panelG.innerHTML='';
-    const panelCount=Math.min(Math.floor(G.siteProgress/8.5),12);
-    const pW=16,pH=11,gap=3;
-    const startX=houseX+24;
-    const row1Y=houseTop+roofH*0.28;
-    const row2Y=houseTop+roofH*0.52;
-    for(let i=0;i<panelCount;i++){
-      const row=Math.floor(i/6),col=i%6;
-      const px=startX+col*(pW+gap);
-      const py=(row===0?row1Y:row2Y);
-      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      rect.setAttribute('x',px);rect.setAttribute('y',py);
-      rect.setAttribute('width',pW);rect.setAttribute('height',pH);
-      rect.setAttribute('rx','1');rect.setAttribute('fill','#0A0A0A');
-      rect.setAttribute('stroke','#1a3a1a');rect.setAttribute('stroke-width','0.5');
-      panelG.appendChild(rect);
-      // Cell lines
-      const l=document.createElementNS('http://www.w3.org/2000/svg','line');
-      l.setAttribute('x1',px+pW/2);l.setAttribute('y1',py);
-      l.setAttribute('x2',px+pW/2);l.setAttribute('y2',py+pH);
-      l.setAttribute('stroke','#1a3a1a');l.setAttribute('stroke-width','0.4');
-      panelG.appendChild(l);
-    }
-  }
-}
 
 function tickSite(){
   if(!G.siteUnlocked)return;
@@ -2767,6 +2860,12 @@ function returnToMenu(){
   document.getElementById('app').classList.remove('show');
   document.getElementById('splash').style.display='flex';
 }
+function newGame(){
+  if(!confirm('Start a new game? All progress will be lost.'))return;
+  closeMenu();
+  try{localStorage.removeItem(SK);}catch(e){}
+  location.reload();
+}
 function showCredits(){
   closeMenu();
   showToast('☀️ Purr & Power Co. v5 | Built for Gonzo | Silfab+SolarEdge+Sunmodo');
@@ -2924,7 +3023,7 @@ function showToast(msg){
 // ════════════════════════════════
 // SAVE / LOAD
 // ════════════════════════════════
-const SK='pnp_v5';
+const SK='pnp_v6';
 function save(){
   try{localStorage.setItem(SK,JSON.stringify({
     money:G.money,totalMoney:G.totalMoney,todayRevenue:G.todayRevenue,
