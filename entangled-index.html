@@ -1,0 +1,2542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ENTANGLED: Love, Invested or Detested</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#E8A020;--amber:#D4781C;--burgundy:#8C2040;
+  --rose:#E8406A;--hg:#2E6E3A;--hr:#C02828;
+  --bg:#0D0A08;--card:#161210;--border:#2A2018;
+  --text:#E8D4B8;--muted:#7A6A58;
+  --neon:#E8406A;--neon2:#E8A020;--smoke:#1A1510;
+  --panel:#120F0D;--highlight:#2A2018;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+*:focus{outline:none;}
+button:focus,button:focus-visible{outline:none;box-shadow:none;}
+body{font-family:'DM Sans',sans-serif;font-size:16px;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9998;opacity:.6;}
+.vig{position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.7) 100%);pointer-events:none;z-index:9;}
+.screen{display:none;min-height:100vh;position:relative;z-index:1;}
+.screen.active{display:flex;flex-direction:column;}
+@keyframes fu{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes mi{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes pulse{0%,100%{opacity:.6;}50%{opacity:1;}}
+
+/* ══ TITLE ══ */
+#ts{position:relative;justify-content:center;align-items:center;overflow:hidden;
+  background:radial-gradient(ellipse at 30% 60%,#1A0A0A,#0D0A08 70%);}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.18;animation:ofl 8s ease-in-out infinite;}
+.o1{width:500px;height:500px;background:#C02040;top:-150px;left:-150px;}
+.o2{width:300px;height:300px;background:#E8801C;bottom:-80px;right:-60px;animation-delay:3s;}
+.o3{width:200px;height:200px;background:#8C1840;top:50%;left:65%;animation-delay:5s;}
+@keyframes ofl{0%,100%{transform:translate(0,0)scale(1);}50%{transform:translate(20px,-20px)scale(1.05);}}
+.tc{text-align:center;z-index:1;animation:fu 1.2s ease forwards;}
+.te{font-size:.78rem;letter-spacing:.5em;color:var(--amber);text-transform:uppercase;margin-bottom:1.5rem;opacity:0;animation:fu 1s .3s ease forwards;}
+.tm{font-family:'Cormorant Garamond',serif;font-size:clamp(3.5rem,12vw,7rem);font-weight:300;color:var(--text);letter-spacing:.05em;line-height:.9;opacity:0;animation:fu 1s .6s ease forwards;}
+.tm span{color:var(--neon);font-style:italic;text-shadow:0 0 40px rgba(232,64,106,.4);}
+.tsub{font-family:'Cormorant Garamond',serif;font-size:clamp(.9rem,2.5vw,1.2rem);font-weight:300;color:var(--amber);letter-spacing:.15em;margin-top:1rem;font-style:italic;opacity:0;animation:fu 1s .9s ease forwards;}
+.ttag{font-size:.84rem;color:var(--neon);letter-spacing:.2em;margin-top:2rem;opacity:0;animation:fu 1s 1.2s ease forwards;text-shadow:0 0 20px rgba(232,64,106,.3);}
+.tdiv{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);margin:1.5rem auto;opacity:0;animation:fu 1s 1s ease forwards;}
+.mbtns{display:flex;flex-direction:column;gap:.75rem;margin-top:2.5rem;opacity:0;animation:fu 1s 1.5s ease forwards;}
+.bp{background:linear-gradient(135deg,var(--neon),var(--burgundy));color:#fff;border:none;padding:1rem 3rem;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:all .3s;box-shadow:0 4px 30px rgba(232,64,106,.3);}
+.bp:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(232,64,106,.5);}
+.bs{background:transparent;color:var(--text);border:1px solid var(--border);padding:.9rem 3rem;font-family:'DM Sans',sans-serif;font-size:.88rem;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:all .3s;}
+.bs:hover{border-color:var(--amber);color:var(--amber);}
+.bgh{background:transparent;color:var(--muted);border:none;padding:.6rem 2rem;font-family:'DM Sans',sans-serif;font-size:.82rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;transition:color .3s;}
+.bgh:hover{color:var(--text);}
+
+/* ══ CREATION ══ */
+#cs{background:#0D0A08;padding:2rem;align-items:center;position:relative;z-index:1;}
+.cw{width:100%;max-width:680px;margin:0 auto;}
+.sh{text-align:center;margin-bottom:2rem;}
+.sl{font-size:.8rem;letter-spacing:.35em;color:var(--amber);text-transform:uppercase;margin-bottom:.5rem;}
+.st{font-family:'Cormorant Garamond',serif;font-size:2.6rem;font-weight:300;color:var(--text);}
+.csec{margin-bottom:1.2rem;background:var(--card);border:1px solid var(--border);padding:1.3rem;}
+.cst{font-size:.78rem;letter-spacing:.3em;color:var(--amber);text-transform:uppercase;margin-bottom:.25rem;}
+.csub{font-size:.7rem;color:var(--muted);font-style:italic;margin-bottom:.9rem;}
+.ni{width:100%;background:var(--smoke);border:1px solid var(--border);padding:.85rem 1rem;color:var(--text);font-family:'Cormorant Garamond',serif;font-size:1.2rem;outline:none;transition:border-color .3s;}
+.ni:focus{border-color:var(--amber);}
+.ni::placeholder{color:var(--muted);}
+.og{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;}
+.ob{background:var(--smoke);border:1px solid var(--border);color:var(--muted);padding:.8rem .4rem;font-family:'DM Sans',sans-serif;font-size:.86rem;cursor:pointer;transition:all .15s;text-align:center;-webkit-tap-highlight-color:transparent;}
+.ob:hover{border-color:var(--amber);color:var(--amber);}
+.ob.sel{background:rgba(232,160,32,.12);border-color:var(--amber);color:var(--amber);}
+.ag{display:grid;grid-template-columns:repeat(6,1fr);gap:.4rem;}
+.ao{aspect-ratio:1;background:var(--smoke);border:2px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.8rem;transition:all .2s;border-radius:50%;-webkit-tap-highlight-color:transparent;}
+.ao:hover{border-color:var(--amber);transform:scale(1.08);}
+.ao.sel{border-color:var(--neon);background:rgba(232,64,106,.1);}
+
+/* ══ SPEECH CONTROLS ══ */
+.speech-bar{background:rgba(13,10,8,.95);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:50;}
+.speech-toggle{background:rgba(232,160,32,.08);border:1px solid rgba(232,160,32,.2);color:var(--amber);padding:.3rem .65rem;font-size:.72rem;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;border-radius:3px;}
+.speech-toggle.on{background:rgba(232,160,32,.18);border-color:var(--amber);color:var(--amber);}
+.speech-status{font-size:.7rem;color:var(--muted);flex:1;}
+.speaking-dot{width:8px;height:8px;border-radius:50%;background:var(--neon);display:none;margin-right:.4rem;animation:pulse 1s infinite;}
+.speaking-dot.active{display:inline-block;}
+
+/* ══ SCENE BACKGROUNDS ══ */
+.scene-bg{position:fixed;inset:0;z-index:0;transition:opacity .8s ease,background 1.2s ease;pointer-events:none;}
+.scene-bg-img{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease;}
+.scene-bg-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);}
+.scene-bg-gradient{position:absolute;inset:0;}
+
+/* ══ HUB ══ */
+#hs{background:var(--bg);position:relative;z-index:1;}
+.hh{background:rgba(13,10,8,.97);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.hl{font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--neon);letter-spacing:.1em;text-shadow:0 0 20px rgba(232,64,106,.3);}
+.hn{display:flex;gap:.5rem;}
+.nb{background:none;border:none;color:var(--muted);font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;padding:.4rem .7rem;transition:color .2s;}
+.nb:hover,.nb.act{color:var(--amber);}
+.hpl{display:flex;align-items:center;gap:.75rem;}
+.hav{width:40px;height:40px;border-radius:50%;background:rgba(232,64,106,.1);border:1px solid var(--neon);display:flex;align-items:center;justify-content:center;font-size:1.3rem;}
+.hpn{font-size:.9rem;color:var(--text);}
+.hpr{font-size:.7rem;color:var(--muted);letter-spacing:.1em;}
+.hb{padding:2rem;max-width:900px;margin:0 auto;width:100%;}
+.hbar{background:var(--card);border:1px solid var(--border);padding:1.2rem 1.5rem;margin-bottom:2rem;display:flex;align-items:center;gap:1.5rem;}
+.hlbl{font-size:.72rem;letter-spacing:.25em;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+.htrk{flex:1;height:5px;background:var(--border);position:relative;}
+.hfl2{height:100%;background:linear-gradient(90deg,var(--hg),var(--amber));transition:width .8s;position:relative;}
+.hfl2::after{content:'';position:absolute;right:-5px;top:-4px;width:13px;height:13px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px rgba(212,120,28,.6);}
+.hval{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--amber);white-space:nowrap;}
+.slbl{font-size:.78rem;letter-spacing:.35em;color:var(--amber);text-transform:uppercase;margin-bottom:1.1rem;}
+.epg{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:1rem;margin-bottom:2.5rem;}
+.epc{background:var(--card);border:1px solid var(--border);padding:1.2rem;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;}
+.epc::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(232,64,106,.06),transparent);opacity:0;transition:opacity .3s;}
+.epc:hover::before{opacity:1;}
+.epc:hover{border-color:var(--neon);transform:translateY(-2px);box-shadow:0 4px 20px rgba(232,64,106,.15);}
+.epc.lk{opacity:.35;cursor:not-allowed;}
+.epc.lk:hover{transform:none;border-color:var(--border);box-shadow:none;}
+.epc.dn{border-color:var(--hg);}
+.epph{font-size:.7rem;letter-spacing:.25em;color:var(--amber);text-transform:uppercase;margin-bottom:.3rem;}
+.epn{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:rgba(232,64,106,.2);line-height:1;margin-bottom:.4rem;}
+.ept{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-style:italic;color:var(--text);margin-bottom:.4rem;line-height:1.3;}
+.epd{font-size:.82rem;color:var(--muted);line-height:1.5;}
+.epst{position:absolute;top:.8rem;right:.8rem;font-size:.85rem;}
+.cag{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1rem;margin-bottom:2rem;}
+.cac{background:var(--card);border:1px solid var(--border);padding:1.2rem .8rem;text-align:center;cursor:pointer;transition:all .3s;}
+.cac:hover{border-color:var(--neon);transform:translateY(-3px);box-shadow:0 4px 20px rgba(232,64,106,.15);}
+.cap{width:64px;height:64px;border-radius:50%;margin:0 auto .8rem;display:flex;align-items:center;justify-content:center;font-size:2rem;position:relative;}
+.cap::after{content:'';position:absolute;inset:-2px;border-radius:50%;border:1px solid var(--amber);opacity:.35;}
+.can{font-family:'Cormorant Garamond',serif;font-size:1.05rem;color:var(--text);margin-bottom:.2rem;}
+.cat{font-size:.68rem;letter-spacing:.1em;color:var(--amber);text-transform:uppercase;}
+.cam{width:100%;height:2px;background:var(--border);margin-top:.8rem;}
+.camf{height:100%;background:linear-gradient(90deg,var(--neon),var(--amber));transition:width .5s;}
+
+/* ══ EPISODE SCREEN ══ */
+#eps{position:relative;z-index:1;}
+.eph{background:rgba(13,10,8,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:.9rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.epbk{background:none;border:none;color:var(--muted);font-size:.82rem;letter-spacing:.12em;cursor:pointer;transition:color .2s;}
+.epbk:hover{color:var(--amber);}
+.ephi{text-align:center;}
+.ephph{font-size:.68rem;letter-spacing:.3em;color:var(--amber);text-transform:uppercase;}
+.ephtt{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:var(--text);}
+.hp-display{font-size:.82rem;color:var(--muted);}
+
+/* SCENE WRAPPER — sits above bg */
+.sw{flex:1;display:flex;flex-direction:column;max-width:740px;margin:0 auto;width:100%;padding:1.5rem 1.5rem 2rem;position:relative;z-index:2;}
+
+/* CINEMATIC SCENE — full immersive */
+.scene-panel{display:none;position:relative;margin-bottom:1.2rem;border-radius:4px;overflow:hidden;min-height:200px;}
+.scene-panel.act{display:flex;flex-direction:column;animation:fu .6s ease forwards;}
+.scene-panel-bg{position:absolute;inset:0;background-size:cover;background-position:center;}
+.scene-panel-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(20,12,5,.18) 0%,rgba(20,12,5,.72) 60%,rgba(20,12,5,.88) 100%);}
+.scene-panel-content{position:relative;z-index:1;padding:1.5rem;display:flex;flex-direction:column;justify-content:flex-end;min-height:240px;}
+.scene-label{font-size:.68rem;letter-spacing:.35em;color:rgba(255,220,150,.85);text-transform:uppercase;margin-bottom:.6rem;text-shadow:0 1px 4px rgba(0,0,0,.5);}
+.scene-txt{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-style:italic;color:#FFF5E8;line-height:1.65;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+.scene-sub{font-size:.86rem;color:rgba(255,235,200,.8);line-height:1.55;margin-top:.5rem;font-style:italic;text-shadow:0 1px 4px rgba(0,0,0,.5);}
+
+/* PROFILE CARD */
+.profile-card{background:var(--card);border:1px solid var(--border);padding:1.2rem;margin-bottom:1.2rem;animation:fu .5s ease forwards;position:relative;overflow:hidden;}
+.profile-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(232,64,106,.06),transparent 60%);}
+.pc-header{display:flex;align-items:center;gap:1rem;margin-bottom:.8rem;position:relative;z-index:1;}
+.pc-av{font-size:2.5rem;width:58px;height:58px;background:rgba(232,64,106,.08);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pc-info{flex:1;}
+.pc-name{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:var(--text);}
+.pc-age{font-size:.78rem;color:var(--amber);margin-bottom:.1rem;}
+.pc-bio{font-size:.86rem;color:var(--text);line-height:1.55;opacity:.75;margin-bottom:.8rem;position:relative;z-index:1;}
+.pc-tags{display:flex;flex-wrap:wrap;gap:.35rem;position:relative;z-index:1;}
+.pc-tag{background:rgba(232,160,32,.08);border:1px solid rgba(232,160,32,.2);padding:.2rem .55rem;font-size:.68rem;color:var(--amber);}
+.pc-match{text-align:center;margin-top:.8rem;font-size:.7rem;letter-spacing:.2em;color:var(--neon);text-transform:uppercase;}
+
+/* APP CHAT */
+.app-panel{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:1.2rem;}
+.app-bar{background:rgba(232,64,106,.06);padding:.65rem 1.1rem;display:flex;align-items:center;gap:.45rem;border-bottom:1px solid var(--border);}
+.ad{width:7px;height:7px;border-radius:50%;}
+.adr{background:#FF5F57;}.ady{background:#FEBC2E;}.adg{background:#28C840;}
+.abt{font-size:.72rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-left:.4rem;}
+.cms{padding:1rem;min-height:120px;max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:.85rem;}
+.cms::-webkit-scrollbar{width:2px;}
+.cms::-webkit-scrollbar-thumb{background:rgba(232,64,106,.2);}
+.mg{max-width:78%;animation:mi .3s ease forwards;}
+.mg.th{align-self:flex-start;}
+.mg.me{align-self:flex-end;}
+.mgs{font-size:.72rem;letter-spacing:.08em;color:var(--amber);margin-bottom:.25rem;text-transform:uppercase;font-weight:500;}
+.mgb{padding:.8rem 1rem;font-size:.95rem;line-height:1.6;}
+.mg.th .mgb{background:#1E1510;border:1px solid var(--border);color:var(--text);border-radius:0 12px 12px 12px;}
+.mg.me .mgb{background:rgba(232,64,106,.12);border:1px solid rgba(232,64,106,.2);color:var(--text);border-radius:12px 0 12px 12px;}
+.msys{text-align:center;font-size:.76rem;color:var(--muted);letter-spacing:.06em;padding:.15rem 0;}
+.mgt{font-size:.66rem;color:var(--muted);margin-top:.2rem;text-align:right;}
+.typing{align-self:flex-start;display:flex;gap:4px;align-items:center;padding:.6rem .8rem;background:#1E1510;border:1px solid var(--border);border-radius:0 10px 10px 10px;}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:bounce .9s infinite;}
+.typing span:nth-child(2){animation-delay:.15s;}
+.typing span:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-5px);}}
+
+/* CHAOS */
+.chaos-panel{display:none;background:rgba(192,40,40,.06);border:1px solid rgba(192,40,40,.25);border-left:3px solid var(--hr);padding:1.3rem;margin-bottom:1.2rem;}
+.chaos-panel.act{display:block;animation:shake .4s ease;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+.chl{font-size:.72rem;letter-spacing:.3em;color:var(--hr);text-transform:uppercase;margin-bottom:.5rem;}
+.cht2{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--text);line-height:1.6;margin-bottom:.4rem;}
+.chs3{font-size:.85rem;color:var(--muted);font-style:italic;line-height:1.5;}
+
+/* AI INNER VOICE */
+.inner-voice{display:none;background:rgba(232,64,106,.06);border:1px solid rgba(232,64,106,.2);border-left:3px solid var(--neon);padding:1rem 1.2rem;margin-bottom:1.2rem;animation:mi .5s ease forwards;}
+.inner-voice.act{display:block;}
+.iv-label{font-size:.66rem;letter-spacing:.3em;color:var(--neon);text-transform:uppercase;margin-bottom:.35rem;display:flex;align-items:center;gap:.4rem;}
+.iv-dot{width:6px;height:6px;border-radius:50%;background:var(--neon);animation:pulse 1.2s infinite;box-shadow:0 0 8px rgba(232,64,106,.5);}
+.iv-txt{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-style:italic;color:var(--text);line-height:1.6;}
+.iv-loading{font-size:.8rem;color:var(--muted);font-style:italic;animation:pulse 1.2s infinite;}
+
+/* CHOICES */
+.choice-area{margin-top:auto;padding-top:.8rem;}
+.cp-label{font-size:.78rem;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:.7rem;text-align:center;}
+.choices{display:flex;flex-direction:column;gap:.5rem;}
+.cb{background:var(--card);border:1px solid var(--border);color:var(--text);padding:.95rem 1.1rem;font-family:'DM Sans',sans-serif;font-size:.92rem;text-align:left;cursor:pointer;transition:all .22s;display:flex;align-items:flex-start;gap:.7rem;line-height:1.5;-webkit-tap-highlight-color:transparent;}
+.cb:hover{background:#1E1510;border-color:var(--amber);transform:translateX(3px);}
+.cb.sg{background:rgba(46,110,58,.1);border-color:var(--hg);}
+.cb.sb{background:rgba(192,40,40,.08);border-color:var(--hr);}
+.cb.sn{background:rgba(232,160,32,.08);border-color:var(--amber);}
+.cb:disabled{cursor:not-allowed;}
+.cn{font-size:.72rem;color:var(--amber);opacity:.65;min-width:16px;margin-top:2px;}
+.ctb{background:transparent;border:1px solid var(--border);color:var(--amber);padding:.85rem;font-family:'DM Sans',sans-serif;font-size:.82rem;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .22s;margin-top:.4rem;-webkit-tap-highlight-color:transparent;}
+.ctb:hover{background:#1E1510;border-color:var(--amber);}
+
+/* DEBRIEF */
+#ds{background:var(--bg);padding:2rem;align-items:center;position:relative;z-index:1;}
+.dw{max-width:640px;width:100%;margin:0 auto;}
+.dh{text-align:center;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);}
+.del{font-size:.72rem;letter-spacing:.35em;color:var(--amber);text-transform:uppercase;margin-bottom:.5rem;}
+.dtt{font-family:'Cormorant Garamond',serif;font-size:1.9rem;font-style:italic;color:var(--text);margin-bottom:.5rem;}
+.sr{width:100px;height:100px;margin:1.2rem auto;position:relative;}
+.sr svg{transform:rotate(-90deg);width:100%;height:100%;}
+.sr circle{fill:none;stroke-width:4;}
+.srt{stroke:var(--border);}
+.srf{stroke:var(--neon);stroke-linecap:round;stroke-dasharray:283;stroke-dashoffset:283;transition:stroke-dashoffset 1.4s ease;filter:drop-shadow(0 0 6px rgba(232,64,106,.4));}
+.srv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--neon);}
+.psy-section{background:rgba(232,64,106,.05);border:1px solid rgba(232,64,106,.15);padding:1.2rem;margin-bottom:1rem;}
+.psy-lbl{font-size:.72rem;letter-spacing:.3em;color:var(--neon);text-transform:uppercase;margin-bottom:.8rem;}
+.psy-item{display:flex;align-items:flex-start;gap:.8rem;padding:.7rem 0;border-bottom:1px solid var(--border);}
+.psy-item:last-child{border-bottom:none;}
+.psy-ico{font-size:1rem;flex-shrink:0;}
+.psy-ttl{font-size:.88rem;font-weight:500;color:var(--text);margin-bottom:.15rem;}
+.psy-txt{font-size:.82rem;color:var(--muted);line-height:1.5;}
+.dic{background:var(--card);border:1px solid var(--border);padding:1rem 1.2rem;margin-bottom:.5rem;display:flex;gap:.8rem;align-items:flex-start;}
+.dii{font-size:1.2rem;flex-shrink:0;}
+.dill{font-size:.68rem;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:.2rem;}
+.dit{font-size:.88rem;color:var(--muted);line-height:1.5;}
+.nn{background:rgba(232,64,106,.05);border-left:3px solid var(--neon);padding:1rem 1.2rem;margin-bottom:1.5rem;}
+.nnl{font-size:.68rem;letter-spacing:.25em;color:var(--neon);text-transform:uppercase;margin-bottom:.35rem;}
+.nnt{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:var(--text);line-height:1.6;}
+.sw2,.pw{max-width:600px;width:100%;margin:0 auto;}
+.ssec{background:var(--card);border:1px solid var(--border);padding:1.4rem;margin-bottom:1rem;}
+.sstl{font-size:.72rem;letter-spacing:.3em;color:var(--amber);text-transform:uppercase;margin-bottom:1.1rem;}
+.sr2{display:flex;align-items:center;justify-content:space-between;padding:.75rem 0;border-bottom:1px solid var(--border);}
+.sr2:last-child{border-bottom:none;}
+.sl2{font-size:.88rem;color:var(--text);}
+.ss2{font-size:.75rem;color:var(--muted);margin-top:.15rem;}
+.slc{display:flex;align-items:center;gap:.7rem;}
+.slv{font-size:.8rem;color:var(--amber);min-width:32px;text-align:right;}
+.tog{width:44px;height:24px;background:var(--border);border-radius:12px;cursor:pointer;position:relative;transition:background .3s;border:none;flex-shrink:0;}
+.tog.on{background:var(--neon);}
+.tog::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .3s;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.tog.on::after{transform:translateX(20px);}
+.as{background:rgba(232,160,32,.06);border:1px solid rgba(232,160,32,.2);padding:1.2rem;margin-bottom:1rem;text-align:center;}
+.asl{font-size:.68rem;letter-spacing:.3em;color:var(--amber);text-transform:uppercase;margin-bottom:.4rem;}
+.ast{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--amber);margin-bottom:.35rem;}
+.asd{font-size:.85rem;color:var(--muted);line-height:1.55;}
+.pb{background:var(--card);border:1px solid var(--border);padding:1.3rem;margin-bottom:.8rem;}
+.pi{display:flex;align-items:flex-start;gap:.9rem;padding:.8rem 0;border-bottom:1px solid var(--border);}
+.pi:last-child{border-bottom:none;}
+.pd{width:9px;height:9px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.pd.fl{background:var(--neon);}.pd.gr{background:var(--hg);}.pd.nt{background:var(--muted);}
+.ps2{font-size:.78rem;color:var(--muted);margin-top:.2rem;}
+.pt{font-size:.88rem;color:var(--text);line-height:1.5;}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:2rem;}
+.mo.act{display:flex;}
+.md{background:var(--card);border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5);padding:2rem;max-width:480px;width:100%;animation:fu .3s ease forwards;}
+.mtt{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--text);margin-bottom:.5rem;}
+.mei{font-size:3rem;margin-bottom:.8rem;text-align:center;}
+.mty{font-size:.78rem;letter-spacing:.15em;color:var(--amber);text-transform:uppercase;margin-bottom:.8rem;text-align:center;}
+.mtx{font-size:.88rem;color:var(--muted);line-height:1.6;margin-bottom:.9rem;}
+.mac{display:flex;gap:.7rem;justify-content:flex-end;}
+.psy-item{display:flex;gap:.8rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border);}
+.psy-item:last-child{border-bottom:none;}
+.psy-ico{font-size:1.1rem;min-width:22px;}
+.psy-ttl{font-size:.7rem;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;margin-bottom:.2rem;}
+.psy-txt{font-size:.86rem;color:var(--text);line-height:1.5;}
+.dic{background:var(--card);border:1px solid var(--border);padding:1rem 1.2rem;margin-bottom:.5rem;display:flex;gap:.8rem;align-items:flex-start;}
+.dii{font-size:1.1rem;min-width:22px;}
+.dill{font-size:.68rem;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;margin-bottom:.2rem;}
+.dit{font-size:.88rem;color:var(--text);line-height:1.5;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(232,64,106,.2);}
+@media(max-width:600px){
+  .hn{display:none;}
+  .ag{grid-template-columns:repeat(4,1fr);}
+  .cag{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+<div class="vig"></div>
+
+<!-- SCENE BACKGROUND (persists across episode) -->
+<div class="scene-bg" id="scene-bg">
+  <div class="scene-bg-img" id="scene-bg-img"></div>
+  <div class="scene-bg-overlay"></div>
+</div>
+
+<!-- ══ TITLE ══ -->
+<div id="ts" class="screen active">
+  <div style="position:absolute;inset:0;pointer-events:none;">
+    <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  </div>
+  <div class="tc">
+    <div class="te">An Interactive Experience</div>
+    <div class="tm">ENTAN<span>GLED</span></div>
+    <div class="tsub">Love, Invested or Detested</div>
+    <div class="tdiv"></div>
+    <div class="ttag">"Some patterns end here."</div>
+    <div class="mbtns">
+      <button class="bp" onclick="goCreate()">▶ &nbsp; New Game</button>
+      <button class="bs" onclick="goCont()">Continue</button>
+      <button class="bgh" onclick="show('ss')">Settings</button>
+      <button class="bgh" onclick="show('ps')">Pattern Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CREATION ══ -->
+<div id="cs" class="screen">
+  <div class="cw">
+    <div class="sh"><div class="sl">Before We Begin</div><div class="st">Who Are You?</div></div>
+    <div class="csec">
+      <div class="cst">Your Name</div>
+      <input class="ni" id="pn" type="text" placeholder="Enter your name…" maxlength="20">
+    </div>
+    <div class="csec">
+      <div class="cst">Gender Identity</div><div class="csub">Click to select · click again to deselect</div>
+      <div class="og" id="gg">
+        <button class="ob" onclick="tog(this,'g')">Male</button><button class="ob" onclick="tog(this,'g')">Female</button>
+        <button class="ob" onclick="tog(this,'g')">Non-Binary</button><button class="ob" onclick="tog(this,'g')">Transgender</button>
+        <button class="ob" onclick="tog(this,'g')">Genderfluid</button><button class="ob" onclick="tog(this,'g')">Prefer Not to Say</button>
+      </div>
+    </div>
+    <div class="csec">
+      <div class="cst">Sexual Orientation</div><div class="csub">Click to select · click again to deselect</div>
+      <div class="og" id="go">
+        <button class="ob" onclick="tog(this,'o')">Heterosexual</button><button class="ob" onclick="tog(this,'o')">Gay / Lesbian</button>
+        <button class="ob" onclick="tog(this,'o')">Bisexual</button><button class="ob" onclick="tog(this,'o')">Pansexual</button>
+        <button class="ob" onclick="tog(this,'o')">Questioning</button><button class="ob" onclick="tog(this,'o')">Prefer Not to Say</button>
+      </div>
+    </div>
+    <div class="csec">
+      <div class="cst">Your Look</div><div class="csub">Choose your avatar</div>
+      <div class="ag" id="gav">
+        <div class="ao" onclick="pickAv(this)">🧑🏻</div><div class="ao" onclick="pickAv(this)">🧑🏽</div>
+        <div class="ao" onclick="pickAv(this)">🧑🏿</div><div class="ao" onclick="pickAv(this)">👩🏻</div>
+        <div class="ao" onclick="pickAv(this)">👩🏽</div><div class="ao" onclick="pickAv(this)">👩🏿</div>
+        <div class="ao" onclick="pickAv(this)">🧔🏻</div><div class="ao" onclick="pickAv(this)">🧔🏽</div>
+        <div class="ao" onclick="pickAv(this)">🧔🏿</div><div class="ao" onclick="pickAv(this)">👱🏻</div>
+        <div class="ao" onclick="pickAv(this)">👱🏽</div><div class="ao" onclick="pickAv(this)">🧑‍🦱</div>
+      </div>
+    </div>
+    <div class="csec">
+      <div class="cst">Age Range</div><div class="csub">Click to select · click again to deselect</div>
+      <div class="og" id="ga">
+        <button class="ob" onclick="tog(this,'a')">Early 20s</button><button class="ob" onclick="tog(this,'a')">Late 20s</button>
+        <button class="ob" onclick="tog(this,'a')">30s</button><button class="ob" onclick="tog(this,'a')">40s+</button>
+      </div>
+    </div>
+    <div class="csec" style="border-color:rgba(212,168,75,.18);">
+      <div class="cst" style="color:var(--rose);">Your Last Relationship Ended Because…</div>
+      <div class="csub">Shapes how characters respond to you</div>
+      <div class="og" id="gbs1">
+        <button class="ob" onclick="tog(this,'bs1')">I left</button><button class="ob" onclick="tog(this,'bs1')">They left</button>
+        <button class="ob" onclick="tog(this,'bs1')">It just faded</button><button class="ob" onclick="tog(this,'bs1')">There was a betrayal</button>
+        <button class="ob" onclick="tog(this,'bs1')">It's complicated</button><button class="ob" onclick="tog(this,'bs1')">Haven't had one</button>
+      </div>
+    </div>
+    <div class="csec" style="border-color:rgba(212,168,75,.18);">
+      <div class="cst" style="color:var(--rose);">Right Now You're Looking For…</div>
+      <div class="csub">Honest answers make for a better experience</div>
+      <div class="og" id="gbs2">
+        <button class="ob" onclick="tog(this,'bs2')">Something real</button><button class="ob" onclick="tog(this,'bs2')">A distraction</button>
+        <button class="ob" onclick="tog(this,'bs2')">Not sure</button><button class="ob" onclick="tog(this,'bs2')">Connection without pressure</button>
+        <button class="ob" onclick="tog(this,'bs2')">To prove I'm over it</button>
+      </div>
+    </div>
+    <div class="csec" style="border-color:rgba(212,168,75,.18);">
+      <div class="cst" style="color:var(--rose);">Your Friends Would Describe You As…</div>
+      <div class="og" id="gbs3">
+        <button class="ob" onclick="tog(this,'bs3')">The loyal one</button><button class="ob" onclick="tog(this,'bs3')">The romantic</button>
+        <button class="ob" onclick="tog(this,'bs3')">The guarded one</button><button class="ob" onclick="tog(this,'bs3')">The fun one</button>
+        <button class="ob" onclick="tog(this,'bs3')">The overthinker</button><button class="ob" onclick="tog(this,'bs3')">The fixer</button>
+      </div>
+    </div>
+    <div class="csec">
+      <div class="cst">Anything Else? <span style="color:var(--wg);font-size:.68rem;">(Optional)</span></div>
+      <div class="og" id="ge">
+        <button class="ob" onclick="this.classList.toggle('sel')">Neurodivergent</button>
+        <button class="ob" onclick="this.classList.toggle('sel')">Introvert</button>
+        <button class="ob" onclick="this.classList.toggle('sel')">Highly Sensitive</button>
+        <button class="ob" onclick="this.classList.toggle('sel')">In Recovery</button>
+        <button class="ob" onclick="this.classList.toggle('sel')">Single Parent</button>
+        <button class="ob" onclick="this.classList.toggle('sel')">Recently Heartbroken</button>
+      </div>
+    </div>
+    <button class="bp" style="width:100%;margin-bottom:2rem;" onclick="finishCreate()">Enter the Experience →</button>
+  </div>
+</div>
+
+<!-- ══ HUB ══ -->
+<div id="hs" class="screen">
+  <div class="hh">
+    <div class="hl">ENTANGLED</div>
+    <div class="hn">
+      <button class="nb act" onclick="navH(this,'esec')">Episodes</button>
+      <button class="nb" onclick="navH(this,'csec')">Cast</button>
+      <button class="nb" onclick="show('ps')">Patterns</button>
+      <button class="nb" onclick="show('ss')">Settings</button>
+      <button class="nb" onclick="show('ts')" style="color:var(--rose);">☰ Menu</button>
+    </div>
+    <div class="hpl">
+      <div><div class="hpn" id="hnm">Player</div><div class="hpr">Run #<span id="hrn">1</span></div></div>
+      <div class="hav" id="hav">🧑🏽</div>
+    </div>
+  </div>
+  <div class="hb">
+    <div class="hbar">
+      <div class="hlbl">Relationship Health</div>
+      <div class="htrk"><div class="hfl2" id="hfl" style="width:65%"></div></div>
+      <div class="hval" id="hvl">65</div>
+    </div>
+    <div id="esec">
+      <div class="slbl">Phase 1 — The Talking Stage</div>
+      <div class="epg">
+        <div class="epc" id="ec1" onclick="startEp(1)"><div class="epst">📱</div><div class="epph">Episode</div><div class="epn">01</div><div class="ept">"New App, Who Dis"</div><div class="epd">Download the app. Four matches arrive tonight.</div></div>
+        <div class="epc lk" id="ec2" onclick="startEp(2)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">02</div><div class="ept">"First Impressions"</div><div class="epd">Your first real date. Determined by your choices.</div></div>
+        <div class="epc lk" id="ec3" onclick="startEp(3)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">03</div><div class="ept">"The Group Chat"</div><div class="epd">Everyone in the same room. Chaos is real.</div></div>
+      </div>
+      <div class="slbl">Phase 2 — The Entanglement</div>
+      <div class="epg">
+        <div class="epc lk" id="ec4" onclick="startEp(4)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">04</div><div class="ept">"Catching Feelings"</div><div class="epd">Real feelings start forming.</div></div>
+        <div class="epc lk" id="ec5" onclick="startEp(5)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">05</div><div class="ept">"Red Flag or Rose?"</div><div class="epd">The first major warning signs appear.</div></div>
+        <div class="epc lk" id="ec6" onclick="startEp(6)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">06</div><div class="ept">"The Almost"</div><div class="epd">A near perfect moment. Then disruption.</div></div>
+      </div>
+      <div class="slbl">Phase 3 — The Unraveling</div>
+      <div class="epg">
+        <div class="epc lk" id="ec7"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">07</div><div class="ept">"Patterns"</div><div class="epd">Your choices get reflected back at you.</div></div>
+        <div class="epc lk" id="ec8"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">08</div><div class="ept">"The Confession"</div><div class="epd">Someone tells their truth.</div></div>
+        <div class="epc lk" id="ec9"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">09</div><div class="ept">"It All Comes Out"</div><div class="epd">Everything collides at once.</div></div>
+      </div>
+      <div class="slbl">Phase 4 — The Resolution</div>
+      <div class="epg">
+        <div class="epc lk" id="ec10"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">10</div><div class="ept">"The Talk"</div><div class="epd">Define the relationship.</div></div>
+        <div class="epc lk" id="ec11"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">11</div><div class="ept">"Growth or Repeat"</div><div class="epd">Two paths. Choose one.</div></div>
+        <div class="epc lk" id="ec12"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">12</div><div class="ept">"Entangled or Free"</div><div class="epd">The finale.</div></div>
+      </div>
+    </div>
+    <div id="csec" style="display:none;">
+      <div class="slbl">The Cast</div>
+      <div class="cag">
+        <div class="cac" onclick="showCast('marco')"><div class="cap" style="background:rgba(212,168,75,.15);">😏</div><div class="can">Marco</div><div class="cat">The Love Bomber</div><div class="cam"><div class="camf" style="width:80%"></div></div></div>
+        <div class="cac" onclick="showCast('jade')"><div class="cap" style="background:rgba(217,138,160,.15);">🎨</div><div class="can">Jade</div><div class="cat">The Avoidant</div><div class="cam"><div class="camf" style="width:35%"></div></div></div>
+        <div class="cac" onclick="showCast('riley')"><div class="cap" style="background:rgba(141,196,146,.15);">😄</div><div class="can">Riley</div><div class="cat">The Situationship</div><div class="cam"><div class="camf" style="width:55%"></div></div></div>
+        <div class="cac" onclick="showCast('dominique')"><div class="cap" style="background:rgba(107,39,55,.25);">🔥</div><div class="can">Dominique</div><div class="cat">The Toxic Familiar</div><div class="cam"><div class="camf" style="width:70%"></div></div></div>
+        <div class="cac" onclick="showCast('alex')"><div class="cap" style="background:rgba(141,196,146,.2);">💚</div><div class="can">Alex</div><div class="cat">The Healthy One</div><div class="cam"><div class="camf" style="width:20%"></div></div></div>
+        <div class="cac" onclick="showCast('sam')"><div class="cap" style="background:rgba(212,168,75,.1);">🌊</div><div class="can">Sam</div><div class="cat">The Wildcard</div><div class="cam"><div class="camf" style="width:50%"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EPISODE ══ -->
+<div id="eps" class="screen">
+  <div class="eph">
+    <button class="epbk" onclick="show('hs')">← Hub</button>
+    <div class="ephi">
+      <div class="ephph" id="ephph">Phase 1</div>
+      <div class="ephtt" id="ephtt">"New App, Who Dis"</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.6rem;">
+      <button class="speech-toggle" id="spk-btn" onclick="toggleSpeech()" title="Toggle Voice">🔊</button>
+      <button class="speech-toggle" id="music-btn" onclick="toggleMusic()" title="Toggle Music">🎵</button>
+      <button class="epbk" onclick="show('ts')" style="color:var(--rose);">Menu</button>
+      <span class="hp-display">❤️ <span id="ehp">65</span></span>
+    </div>
+  </div>
+  <div class="sw">
+    <!-- Scene panel (cinematic backgrounds) -->
+    <div class="scene-panel" id="scene-panel">
+      <div class="scene-panel-bg" id="spbg"></div>
+      <div class="scene-panel-overlay"></div>
+      <div class="scene-panel-content">
+        <div class="scene-label" id="sp-label"></div>
+        <div class="scene-txt" id="sp-txt"></div>
+        <div class="scene-sub" id="sp-sub"></div>
+      </div>
+    </div>
+
+    <!-- Profile card (character intro) -->
+    <div class="profile-card" id="profile-card" style="display:none;"></div>
+
+    <!-- App chat -->
+    <div class="app-panel" id="app-panel" style="display:none;">
+      <div class="app-bar"><div class="ad adr"></div><div class="ad ady"></div><div class="ad adg"></div><div class="abt">Entangled — Dating App</div></div>
+      <div class="cms" id="cms"></div>
+    </div>
+
+    <!-- Chaos -->
+    <div class="chaos-panel" id="chaos-panel">
+      <div class="chl">⚡ Chaos Event</div>
+      <div class="cht2" id="cht2"></div>
+      <div class="chs3" id="chs3"></div>
+    </div>
+
+    <!-- AI Inner Voice -->
+    <div class="inner-voice" id="inner-voice">
+      <div class="iv-label"><span class="iv-dot"></span> Your Inner Voice</div>
+      <div class="iv-txt" id="iv-txt"></div>
+    </div>
+
+    <!-- Choices -->
+    <div class="choice-area">
+      <div class="cp-label" id="cp-label" style="display:none;">What do you do?</div>
+      <div class="choices" id="choices"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DEBRIEF ══ -->
+<div id="ds" class="screen">
+  <div class="dw">
+    <div class="dh">
+      <div class="del" id="del">Episode 1 Debrief</div>
+      <div class="dtt" id="dtt">"New App, Who Dis"</div>
+      <div class="sr">
+        <svg viewBox="0 0 100 100"><circle class="srt" cx="50" cy="50" r="45"/><circle class="srf" id="srf" cx="50" cy="50" r="45"/></svg>
+        <div class="srv" id="srv">0</div>
+      </div>
+    </div>
+
+    <!-- Character recaps -->
+    <div id="dil"></div>
+
+    <!-- Psychology breakdown -->
+    <div class="psy-section" id="psy-section">
+      <div class="psy-lbl">🧠 What Just Happened — Psychology Breakdown</div>
+      <div id="psy-items"></div>
+    </div>
+
+    <div class="nn"><div class="nnl">Narrator's Note</div><div class="nnt" id="nnt"></div></div>
+
+    <button class="bp" style="width:100%;margin-bottom:.5rem;" onclick="afterDebrief()">Continue →</button>
+    <button class="bs" style="width:100%;margin-bottom:.4rem;" onclick="show('hs')">Return to Hub</button>
+    <button class="bgh" style="width:100%;" onclick="show('ts')">← Main Menu</button>
+  </div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="ss" class="screen">
+  <div class="sw2">
+    <div class="sh"><div class="sl">Preferences</div><div class="st">Settings</div></div>
+    <div class="ssec"><div class="sstl">Experience</div>
+      <div class="sr2"><div><div class="sl2">Voice Narration</div><div class="ss2">Characters and narrator speak aloud</div></div><button class="tog" id="voice-tog" onclick="toggleSpeechSetting()"></button></div>
+      <div class="sr2"><div><div class="sl2">AI Inner Voice</div><div class="ss2">Live conscience reaction after choices</div></div><button class="tog on" id="ai-tog" onclick="this.classList.toggle('on')"></button></div>
+      <div class="sr2"><div><div class="sl2">Psychology Insights</div><div class="ss2">Shown in episode debrief</div></div><button class="tog on" onclick="this.classList.toggle('on')"></button></div>
+      <div class="sr2"><div><div class="sl2">Pattern Tracking</div><div class="ss2">Tracks choices across playthroughs</div></div><button class="tog on" onclick="this.classList.toggle('on')"></button></div>
+    </div>
+    <div class="ssec"><div class="sstl">Accessibility</div>
+      <div class="sr2"><div><div class="sl2">Text Size</div></div><div class="slc"><input type="range" min="90" max="130" value="100" oninput="document.body.style.fontSize=this.value+'%';document.getElementById('fv').textContent=this.value+'%'"><div class="slv" id="fv">100%</div></div></div>
+      <div class="sr2"><div><div class="sl2">Narration Speed</div></div><div class="slc"><input type="range" min="0.6" max="1.4" step="0.1" value="1" id="speech-rate" oninput="document.getElementById('srv2').textContent=this.value+'x'"><div class="slv" id="srv2">1x</div></div></div>
+    </div>
+    <div class="ssec"><div class="sstl">Data</div>
+      <div class="sr2"><div><div class="sl2">Auto-Save</div></div><button class="tog on" onclick="this.classList.toggle('on')"></button></div>
+      <div class="sr2"><div><div class="sl2">Reset All Progress</div><div class="ss2">Cannot be undone</div></div><button class="bgh" style="color:var(--hr);padding:0;" onclick="document.getElementById('rm').classList.add('act')">Reset</button></div>
+    </div>
+    <button class="bs" style="width:100%;margin-bottom:.5rem;" onclick="show('hs')">← Back</button>
+    <button class="bgh" style="width:100%;" onclick="show('ts')">Main Menu</button>
+  </div>
+</div>
+
+<!-- ══ PATTERN ══ -->
+<div id="ps" class="screen">
+  <div class="pw">
+    <div class="sh"><div class="sl">Self Awareness</div><div class="st">Your Pattern Report</div></div>
+    <div class="as"><div class="asl">Your Attachment Style</div><div class="ast">Anxious-Avoidant</div><div class="asd">You crave deep connection but pull back when it gets real. You're drawn to people who feel emotionally unavailable — because the chase feels more familiar than the arrival.</div></div>
+    <div class="slbl">Observed Patterns</div>
+    <div class="pb">
+      <div class="pi"><div class="pd fl"></div><div><div class="pt">You consistently chose intensity over consistency in early interactions.</div><div class="ps2">Episodes 1–3 · Seen in choices toward Marco and Dominique</div></div></div>
+      <div class="pi"><div class="pd gr"></div><div><div class="pt">You chose the vulnerable response in the Episode 4 confession moment.</div><div class="ps2">Episode 4 · Secure attachment behavior</div></div></div>
+      <div class="pi"><div class="pd nt"></div><div><div class="pt">You've interacted least with Alex across your playthroughs.</div><div class="ps2">All episodes · Healthy connections can feel less exciting at first</div></div></div>
+    </div>
+    <div class="nn"><div class="nnl">Narrator's Reflection</div><div class="nnt">"You're not broken. You're just used to a certain kind of love — the one that comes with uncertainty. The question isn't whether you can love. It's whether you'll let yourself be loved simply."</div></div>
+    <button class="bs" style="width:100%;margin-bottom:.5rem;" onclick="show('hs')">← Back</button>
+    <button class="bgh" style="width:100%;" onclick="show('ts')">Main Menu</button>
+  </div>
+</div>
+
+<!-- CAST MODAL -->
+<div class="mo" id="cm3">
+  <div class="md">
+    <div class="mei" id="mei"></div>
+    <div class="mtt" id="mtt"></div><div class="mty" id="mty"></div>
+    <div class="mtx" id="mdsc"></div>
+    <div style="font-size:.68rem;letter-spacing:.2em;color:var(--rose);text-transform:uppercase;margin-bottom:.3rem;">Hidden Layer</div>
+    <div class="mtx" id="mhid"></div>
+    <div style="font-size:.68rem;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:.3rem;">What They Teach</div>
+    <div class="mtx" id="mles"></div>
+    <div class="mac"><button class="bgh" onclick="document.getElementById('cm3').classList.remove('act')">Close</button></div>
+  </div>
+</div>
+
+<!-- RESET MODAL -->
+<div class="mo" id="rm">
+  <div class="md">
+    <div class="mtt">Reset All Progress?</div>
+    <div class="mtx">This erases everything. Cannot be undone.</div>
+    <div class="mac">
+      <button class="bgh" onclick="document.getElementById('rm').classList.remove('act')">Cancel</button>
+      <button class="bp" onclick="resetAll()">Reset Everything</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════ STATE ══════════════
+let G = ld() || mkFresh();
+let chosenAv='🧑🏽', selG='', selO='', selA='', selBs1='', selBs2='', selBs3='';
+let si=0, epChoices=[], curEp=1, scenes=[];
+let speechOn=false, synth=window.speechSynthesis, speaking=false;
+let aiEnabled=true;
+
+function mkFresh(){
+  return {nm:'Player',av:'🧑🏽',gd:'',or:'',ag:'',
+    bs1:'',bs2:'',bs3:'',ex:[],run:1,hp:65,
+    e1:false,e2:false,e3:false,e4:false,e5:false,e6:false,
+    e7:false,e8:false,e9:false,e10:false,e11:false,e12:false,
+    sc:{marco:0,jade:0,riley:0,dominique:0,alex:0,sam:0},
+    e2t:'',cast4:[],ep1cast:[],ch:[],fl:[],psyLog:[]};
+}
+
+// ══════════════ SCENE BACKGROUNDS ══════════════
+// CSS gradient backgrounds per context (no external images needed — pure CSS art)
+const BG = {
+  couch:   'radial-gradient(ellipse at 40% 80%,#F5E8D0 0%,#EDD8B8 50%,#E8CCA0 100%)',
+  app:     'radial-gradient(ellipse at 60% 20%,#E8F0F8 0%,#D8E8F0 60%,#CCE0EC 100%)',
+  bar:     'radial-gradient(ellipse at 30% 70%,#F5D8B8 0%,#ECC8A0 50%,#E0B888 100%)',
+  studio:  'radial-gradient(ellipse at 70% 30%,#D8E0F0 0%,#C8D4E8 60%,#B8C8E0 100%)',
+  street:  'radial-gradient(ellipse at 50% 90%,#D8ECD8 0%,#C8E0C8 60%,#B8D4B8 100%)',
+  car:     'radial-gradient(ellipse at 50% 50%,#F0D8D8 0%,#E8C8C8 60%,#DEB8B8 100%)',
+  sunday:  'radial-gradient(ellipse at 60% 40%,#F5ECD8 0%,#EEE0C0 60%,#E8D4A8 100%)',
+  rooftop: 'radial-gradient(ellipse at 50% 10%,#D8DCF0 0%,#C8CCE8 60%,#B8C0E0 100%)',
+  cafe:    'radial-gradient(ellipse at 30% 60%,#F5E4D0 0%,#EDD4B8 60%,#E4C4A0 100%)',
+  night:   'radial-gradient(ellipse at 50% 50%,#E8E4F0 0%,#DCD8E8 60%,#D0CCE0 100%)',
+  chaos:   'radial-gradient(ellipse at 50% 50%,#F8D8D8 0%,#F0C0C0 60%,#E8A8A8 100%)',
+  warmgold:'radial-gradient(ellipse at 30% 30%,#FFF0D0 0%,#F8E4B8 60%,#F0D4A0 100%)',
+};
+
+// ══════════════ SCENE ILLUSTRATIONS (inline SVG art per bg key) ══════════════
+const SCENE_SVG = {
+  couch: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="cg" cx="40%" cy="60%"><stop offset="0%" stop-color="#F5DEB3"/><stop offset="100%" stop-color="#8B5E3C"/></radialGradient></defs>
+    <rect width="400" height="240" fill="url(#cg)"/>
+    <rect x="0" y="140" width="400" height="100" fill="#5C3A1E" opacity=".5"/>
+    <rect x="40" y="120" width="320" height="80" rx="12" fill="#7A4A2A" opacity=".8"/>
+    <rect x="40" y="110" width="80" height="90" rx="8" fill="#8B5A34"/>
+    <rect x="280" y="110" width="80" height="90" rx="8" fill="#8B5A34"/>
+    <rect x="60" y="130" width="280" height="50" rx="6" fill="#A0622A" opacity=".6"/>
+    <rect x="170" y="60" width="60" height="80" rx="4" fill="#2A1A0A" opacity=".6"/>
+    <rect x="178" y="68" width="44" height="54" rx="2" fill="#6EB3E8" opacity=".7"/>
+    <circle cx="340" cy="80" r="18" fill="#F0C060" opacity=".5"/>
+    <rect x="330" y="90" width="4" height="30" fill="#8B7355" opacity=".7"/>
+    <rect x="140" y="200" width="120" height="8" rx="4" fill="#3A2010" opacity=".3"/>
+  </svg>`,
+
+  app: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1a2a4a"/><stop offset="100%" stop-color="#0d1b2e"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#ag)"/>
+    <rect x="80" y="20" width="240" height="200" rx="20" fill="#1C2E4A" opacity=".9"/>
+    <rect x="92" y="32" width="216" height="176" rx="14" fill="#0F1E30"/>
+    <rect x="105" y="55" width="120" height="28" rx="14" fill="#2A3F5F"/>
+    <rect x="115" y="62" width="100" height="14" rx="7" fill="#3A5070" opacity=".8"/>
+    <rect x="175" y="100" width="100" height="24" rx="12" fill="#B8822A" opacity=".8"/>
+    <rect x="185" y="107" width="80" height="10" rx="5" fill="#D4A040" opacity=".7"/>
+    <rect x="105" y="140" width="110" height="24" rx="12" fill="#1E3050"/>
+    <rect x="115" y="147" width="90" height="10" rx="5" fill="#3A5A80" opacity=".7"/>
+    <circle cx="200" cy="220" r="6" fill="#2A4060"/>
+    <circle cx="185" cy="220" r="4" fill="#1C3050" opacity=".5"/>
+    <circle cx="215" cy="220" r="4" fill="#1C3050" opacity=".5"/>
+    ${[...Array(8)].map((_,i)=>`<circle cx="${30+i*50}" cy="${10+Math.sin(i)*8}" r="1" fill="#4A7AB5" opacity=".4"/>`).join('')}
+  </svg>`,
+
+  bar: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1A0A00"/><stop offset="100%" stop-color="#3D1F00"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#bg2)"/>
+    <rect x="0" y="140" width="400" height="100" fill="#2A1200" opacity=".8"/>
+    <rect x="0" y="130" width="400" height="20" rx="4" fill="#4A2800" opacity=".9"/>
+    ${[...Array(6)].map((_,i)=>`<rect x="${30+i*60}" y="60" width="12" height="70" rx="6" fill="#D4781C" opacity=".${4+i%3}"/>`).join('')}
+    ${[...Array(6)].map((_,i)=>`<ellipse cx="${36+i*60}" cy="60" rx="10" ry="16" fill="#C8943C" opacity=".5"/>`).join('')}
+    <rect x="180" y="100" width="30" height="30" rx="4" fill="#B8601A" opacity=".7"/>
+    <ellipse cx="195" cy="100" rx="12" ry="4" fill="#D4A040" opacity=".5"/>
+    ${[...Array(12)].map((_,i)=>`<circle cx="${10+i*35}" cy="10" r="${2+i%3}" fill="#D4A040" opacity=".${3+i%4}"/>`).join('')}
+    <rect x="0" y="200" width="400" height="40" fill="#1A0A00" opacity=".7"/>
+  </svg>`,
+
+  studio: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="stg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0E1520"/><stop offset="100%" stop-color="#1A2535"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#stg)"/>
+    <rect x="40" y="20" width="160" height="180" rx="4" fill="#0A1018" opacity=".9"/>
+    <rect x="50" y="30" width="140" height="160" fill="#1E3040" opacity=".5"/>
+    <polygon points="50,30 190,30 190,90 50,190" fill="#A8C4D8" opacity=".12"/>
+    <polygon points="50,90 190,30 190,90" fill="#D4A8B8" opacity=".15"/>
+    <rect x="220" y="40" width="60" height="80" rx="3" fill="#0E1A28" opacity=".8"/>
+    <circle cx="250" cy="55" r="16" fill="#8AAABA" opacity=".4"/>
+    <circle cx="250" cy="55" r="10" fill="#6A8898" opacity=".5"/>
+    <rect x="220" y="130" width="60" height="4" fill="#4A7898" opacity=".3"/>
+    <rect x="320" y="60" width="50" height="120" rx="4" fill="#1C2C3C" opacity=".6"/>
+    <rect x="5" y="0" width="2" height="240" fill="#4A7898" opacity=".2"/>
+    <rect x="395" y="0" width="2" height="240" fill="#4A7898" opacity=".2"/>
+  </svg>`,
+
+  street: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="skg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3A5A4A"/><stop offset="60%" stop-color="#1E3028"/><stop offset="100%" stop-color="#0E1A14"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#skg)"/>
+    <rect x="0" y="180" width="400" height="60" fill="#1A1A1A"/>
+    <rect x="160" y="183" width="80" height="6" rx="3" fill="#FFEE44" opacity=".5"/>
+    <rect x="0" y="175" width="400" height="8" fill="#2A2A2A"/>
+    ${[...Array(8)].map((_,i)=>`<rect x="${i*60-20}" y="60" width="14" height="115" fill="#1A2820" opacity=".8"/>`).join('')}
+    ${[...Array(8)].map((_,i)=>`<circle cx="${7+i*60-20}" cy="55" r="8" fill="#FFA040" opacity=".${5+i%4}"/>`).join('')}
+    <rect x="80" y="100" width="60" height="75" rx="2" fill="#1C2C20" opacity=".8"/>
+    <rect x="260" y="90" width="80" height="85" rx="2" fill="#1C2C20" opacity=".8"/>
+    <rect x="88" y="108" width="18" height="22" rx="1" fill="#D4A040" opacity=".4"/>
+    <rect x="114" y="108" width="18" height="22" rx="1" fill="#6A9ABA" opacity=".3"/>
+  </svg>`,
+
+  car: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="carg" cx="50%" cy="50%"><stop offset="0%" stop-color="#2A1A1A"/><stop offset="100%" stop-color="#0A0808"/></radialGradient></defs>
+    <rect width="400" height="240" fill="url(#carg)"/>
+    <rect x="0" y="100" width="400" height="140" fill="#1A0C0C" opacity=".8"/>
+    <path d="M0,120 Q200,80 400,120" stroke="#C44040" stroke-width="1" fill="none" opacity=".3"/>
+    <rect x="0" y="118" width="400" height="3" fill="#3A1C1C" opacity=".5"/>
+    <rect x="120" y="30" width="160" height="100" rx="8" fill="#1A0A0A" opacity=".9"/>
+    <rect x="130" y="40" width="140" height="70" rx="4" fill="#0A1828" opacity=".8"/>
+    <path d="M130,110 Q200,50 270,110" fill="#1E3040" opacity=".4"/>
+    <rect x="100" y="108" width="30" height="12" rx="4" fill="#E8C060" opacity=".6"/>
+    <rect x="270" y="108" width="30" height="12" rx="4" fill="#E83030" opacity=".5"/>
+    <circle cx="150" cy="130" r="20" fill="#1A0A0A" stroke="#3A2A2A" stroke-width="3"/>
+    <circle cx="250" cy="130" r="20" fill="#1A0A0A" stroke="#3A2A2A" stroke-width="3"/>
+    <path d="M0,0 L400,0 L400,30 L0,30Z" fill="#0A0408" opacity=".6"/>
+    ${[...Array(20)].map((_,i)=>`<circle cx="${Math.random()*400|0}" cy="${Math.random()*30|0}" r="1" fill="white" opacity="${.3+Math.random()*.4}"/>`).join('')}
+  </svg>`,
+
+  sunday: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="sng" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#E8C87A"/><stop offset="100%" stop-color="#C8882A"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#sng)"/>
+    <circle cx="340" cy="50" r="45" fill="#FFE090" opacity=".6"/>
+    <circle cx="340" cy="50" r="35" fill="#FFD060" opacity=".5"/>
+    <rect x="0" y="160" width="400" height="80" fill="#8B4A10" opacity=".5"/>
+    <rect x="80" y="70" width="140" height="120" rx="4" fill="#D4882A" opacity=".5"/>
+    <rect x="90" y="80" width="50" height="60" rx="3" fill="#E8C060" opacity=".4"/>
+    <rect x="150" y="80" width="60" height="40" rx="3" fill="#E8B040" opacity=".3"/>
+    <rect x="100" y="140" width="40" height="50" rx="2" fill="#C47820" opacity=".7"/>
+    <rect x="0" y="155" width="400" height="10" fill="#9B5A18" opacity=".6"/>
+    <circle cx="60" cy="100" r="30" fill="#3A6A20" opacity=".5"/>
+    <circle cx="55" cy="88" r="22" fill="#4A8A28" opacity=".4"/>
+    <rect x="56" y="128" width="8" height="32" fill="#5A3A10" opacity=".7"/>
+  </svg>`,
+
+  rooftop: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="rtg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0A0C18"/><stop offset="100%" stop-color="#1A1C30"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#rtg)"/>
+    ${[...Array(40)].map((_,i)=>`<circle cx="${Math.sin(i*37)*200+200|0}" cy="${Math.cos(i*53)*80+60|0}" r="${1+i%2}" fill="white" opacity="${.3+.6*(i%3==0?1:0)}"/>`).join('')}
+    <rect x="0" y="190" width="400" height="50" fill="#0A0C14" opacity=".9"/>
+    <rect x="0" y="185" width="400" height="8" fill="#1A1C28" opacity=".9"/>
+    <rect x="20" y="140" width="60" height="50" fill="#0E1018" opacity=".9"/>
+    <rect x="100" y="120" width="40" height="70" fill="#0E1018" opacity=".9"/>
+    <rect x="260" y="100" width="80" height="90" fill="#0E1018" opacity=".9"/>
+    <rect x="360" y="130" width="30" height="60" fill="#0E1018" opacity=".9"/>
+    <rect x="22" y="142" width="20" height="24" rx="1" fill="#D4A830" opacity=".35"/>
+    <rect x="264" y="108" width="28" height="34" rx="1" fill="#6AAAD4" opacity=".25"/>
+    <circle cx="200" cy="180" r="3" fill="#D4A830" opacity=".7"/>
+    <path d="M0,186 L400,186" stroke="#2A2C40" stroke-width="1.5" opacity=".6"/>
+  </svg>`,
+
+  cafe: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="cfg" cx="50%" cy="40%"><stop offset="0%" stop-color="#2A1800"/><stop offset="100%" stop-color="#0E0800"/></radialGradient></defs>
+    <rect width="400" height="240" fill="url(#cfg)"/>
+    <rect x="0" y="140" width="400" height="100" fill="#1A1000" opacity=".8"/>
+    <rect x="50" y="100" width="120" height="80" rx="4" fill="#1C1000" opacity=".9" stroke="#3A2800" stroke-width="1"/>
+    <rect x="60" y="112" width="40" height="56" rx="2" fill="#2A1C00" opacity=".7"/>
+    <rect x="108" y="112" width="52" height="24" rx="2" fill="#2A1C00" opacity=".5"/>
+    <rect x="230" y="90" width="130" height="90" rx="4" fill="#1C1000" opacity=".9" stroke="#3A2800" stroke-width="1"/>
+    <rect x="240" y="100" width="50" height="70" rx="2" fill="#D4A040" opacity=".18"/>
+    <rect x="298" y="100" width="52" height="30" rx="2" fill="#2A1C00" opacity=".6"/>
+    <circle cx="110" cy="86" r="18" fill="#C4841C" opacity=".4"/>
+    <ellipse cx="110" cy="86" rx="14" ry="5" fill="#D4A040" opacity=".3"/>
+    <rect x="0" y="195" width="400" height="45" fill="#100C00" opacity=".8"/>
+    ${[...Array(8)].map((_,i)=>`<circle cx="${20+i*52}" cy="12" r="6" fill="#D4A040" opacity=".${2+i%4}"/>`).join('')}
+    <path d="M0,140 L400,140" stroke="#3A2800" stroke-width="1" opacity=".4"/>
+  </svg>`,
+
+  night: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="ng" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#050810"/><stop offset="100%" stop-color="#0C1020"/></linearGradient></defs>
+    <rect width="400" height="240" fill="url(#ng)"/>
+    ${[...Array(50)].map((_,i)=>`<circle cx="${i*8+Math.sin(i)*12|0}" cy="${i*4+Math.cos(i*2)*15|0}" r="${.5+i%2}" fill="white" opacity="${.2+.6*(i%5==0?1:0)}"/>`).join('')}
+    <path d="M170,50 Q200,20 220,60 Q200,45 170,50Z" fill="white" opacity=".6"/>
+    <rect x="0" y="170" width="400" height="70" fill="#080C16" opacity=".9"/>
+    <rect x="30" y="110" width="50" height="65" fill="#0C1020" opacity=".9"/>
+    <rect x="100" y="90" width="70" height="85" fill="#0C1020" opacity=".9"/>
+    <rect x="240" y="100" width="60" height="75" fill="#0C1020" opacity=".9"/>
+    <rect x="320" y="120" width="50" height="55" fill="#0C1020" opacity=".9"/>
+    <rect x="40" y="118" width="16" height="20" fill="#D4A830" opacity=".25"/>
+    <rect x="108" y="100" width="20" height="28" fill="#6AA4D0" opacity=".2"/>
+    <rect x="248" y="112" width="18" height="22" fill="#D4A830" opacity=".2"/>
+  </svg>`,
+
+  chaos: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="chg" cx="50%" cy="50%"><stop offset="0%" stop-color="#4A0808"/><stop offset="100%" stop-color="#1A0404"/></radialGradient></defs>
+    <rect width="400" height="240" fill="url(#chg)"/>
+    <line x1="0" y1="0" x2="400" y2="240" stroke="#C43030" stroke-width="1" opacity=".15"/>
+    <line x1="400" y1="0" x2="0" y2="240" stroke="#C43030" stroke-width="1" opacity=".15"/>
+    ${[...Array(6)].map((_,i)=>`<line x1="${i*80}" y1="0" x2="${400-i*60}" y2="240" stroke="#E04040" stroke-width=".5" opacity=".1"/>`).join('')}
+    <circle cx="200" cy="120" r="80" fill="none" stroke="#C43030" stroke-width="2" opacity=".3"/>
+    <circle cx="200" cy="120" r="50" fill="none" stroke="#E05050" stroke-width="1" opacity=".2"/>
+    <text x="200" y="130" text-anchor="middle" font-size="64" opacity=".4" fill="#E04040">⚡</text>
+    <rect x="0" y="0" width="400" height="240" fill="#C43030" opacity=".04"/>
+  </svg>`,
+
+  warmgold: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="wgg" cx="40%" cy="40%"><stop offset="0%" stop-color="#5A3800"/><stop offset="100%" stop-color="#1E1200"/></radialGradient></defs>
+    <rect width="400" height="240" fill="url(#wgg)"/>
+    <circle cx="150" cy="100" r="80" fill="#D4A030" opacity=".12"/>
+    <circle cx="280" cy="160" r="60" fill="#E8C040" opacity=".08"/>
+    ${[...Array(12)].map((_,i)=>`<circle cx="${50+i*30}" cy="${30+Math.sin(i)*40}" r="${2+i%3}" fill="#D4A030" opacity="${.1+.2*(i%3==0?1:0)}"/>`).join('')}
+    <rect x="0" y="200" width="400" height="40" fill="#0E0800" opacity=".6"/>
+    <path d="M100,240 Q200,180 300,240" fill="#D4A030" opacity=".06"/>
+    <rect x="0" y="0" width="400" height="240" fill="#D4A030" opacity=".04"/>
+  </svg>`
+};
+
+function getSceneSVG(key) {
+  return SCENE_SVG[key] || SCENE_SVG.night;
+}
+
+function setBg(key){
+  const el=document.getElementById('scene-bg-img');
+  if(el) el.style.background=BG[key]||BG.night;
+  // Set scene illustration on panel bg
+  const spbg=document.getElementById('spbg');
+  if(spbg){
+    const svg=getSceneSVG(key);
+    const encoded='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    spbg.style.backgroundImage=`url("${encoded}")`;
+    spbg.style.backgroundSize='cover';
+    spbg.style.backgroundPosition='center';
+  }
+  // Set music mood based on scene
+  const mood=SCENE_MOODS[key]||'ambient';
+  setMood(mood);
+}
+
+// ══════════════ SPEECH ══════════════
+const VOICES = {
+  narrator: {pitch:1.0, rate:0.88, volume:0.9},
+  marco:    {pitch:0.82,rate:0.93,volume:1.0},
+  jade:     {pitch:1.18,rate:0.86,volume:0.9},
+  riley:    {pitch:1.12,rate:1.05,volume:1.0},
+  dominique:{pitch:0.88,rate:0.90,volume:1.0},
+  alex:     {pitch:1.0, rate:0.93,volume:0.9},
+  sam:      {pitch:1.06,rate:0.97,volume:1.0},
+  inner:    {pitch:1.25,rate:0.82,volume:0.75},
+};
+
+function speak(text, voiceKey='narrator'){
+  if(!speechOn || !synth) return;
+  synth.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const v=VOICES[voiceKey]||VOICES.narrator;
+  u.pitch=v.pitch; u.rate=v.rate; u.volume=v.volume;
+  const rateEl=document.getElementById('speech-rate');
+  if(rateEl) u.rate=v.rate*parseFloat(rateEl.value||1);
+  // Pick a voice if available
+  const voices=synth.getVoices();
+  const femaleVoices=['Samantha','Victoria','Karen','Moira','Tessa','Fiona'];
+  const maleVoices=['Daniel','Alex','Tom','Fred','Ralph'];
+  const needsFemale=['jade','riley','inner'];
+  const needsMale=['marco','dominique'];
+  if(voices.length){
+    let picked=null;
+    if(needsFemale.includes(voiceKey)){
+      picked=voices.find(v=>femaleVoices.some(n=>v.name.includes(n))||v.name.toLowerCase().includes('female'));
+    } else if(needsMale.includes(voiceKey)){
+      picked=voices.find(v=>maleVoices.some(n=>v.name.includes(n)));
+    }
+    if(!picked) picked=voices.find(v=>v.lang.startsWith('en'))||voices[0];
+    if(picked) u.voice=picked;
+  }
+  u.onstart=()=>{speaking=true;};
+  u.onend=()=>{speaking=false;};
+  synth.speak(u);
+}
+
+function toggleSpeech(){
+  speechOn=!speechOn;
+  const btn=document.getElementById('spk-btn');
+  if(btn) btn.textContent=speechOn?'🔊 ON':'🔇';
+  if(btn) btn.style.color=speechOn?'var(--gold)':'var(--muted)';
+  if(!speechOn&&synth) synth.cancel();
+}
+
+function toggleSpeechSetting(){
+  const tog=document.getElementById('voice-tog');
+  tog.classList.toggle('on');
+  speechOn=tog.classList.contains('on');
+  const btn=document.getElementById('spk-btn');
+  if(btn){btn.textContent=speechOn?'🔊 ON':'🔇';btn.style.color=speechOn?'var(--gold)':'var(--muted)';}
+}
+
+// ══════════════ WEB AUDIO MUSIC ENGINE — UPGRADED ══════════════
+let audioCtx=null, musicNodes=[], musicOn=false, currentMood='ambient';
+
+function initAudio(){
+  if(audioCtx) return;
+  try{ audioCtx=new(window.AudioContext||window.webkitAudioContext)(); }
+  catch(e){ return; }
+}
+
+// Richer procedural music — layered pads + gentle melody + bass
+const MOODS = {
+  ambient:  { pad:[220,277,330], bass:110, melody:[440,494,523,440], tempo:4200, vol:.045, wave:'sine',   filter:900,  reverb:.35 },
+  romantic: { pad:[261,330,392], bass:130, melody:[523,587,659,523], tempo:3000, vol:.05,  wave:'triangle',filter:1400, reverb:.4  },
+  tense:    { pad:[196,233,277], bass:98,  melody:[311,277,233,196], tempo:1800, vol:.055, wave:'sawtooth',filter:500,  reverb:.2  },
+  chaos:    { pad:[174,207,246], bass:87,  melody:[277,246,207,174], tempo:900,  vol:.065, wave:'square',  filter:350,  reverb:.1  },
+  warm:     { pad:[293,370,440], bass:146, melody:[587,523,440,587], tempo:3800, vol:.042, wave:'sine',    filter:1100, reverb:.45 },
+  cold:     { pad:[184,220,261], bass:92,  melody:[369,330,294,369], tempo:5000, vol:.035, wave:'triangle',filter:700,  reverb:.5  },
+};
+
+function makeReverb(ctx, duration=1.5, decay=2){
+  const len=ctx.sampleRate*duration, impulse=ctx.createBuffer(2,len,ctx.sampleRate);
+  for(let c=0;c<2;c++){
+    const ch=impulse.getChannelData(c);
+    for(let i=0;i<len;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);
+  }
+  const conv=ctx.createConvolver(); conv.buffer=impulse; return conv;
+}
+
+function startMusic(mood='ambient'){
+  if(!musicOn || !audioCtx) return;
+  stopMusic();
+  currentMood=mood;
+  const m=MOODS[mood]||MOODS.ambient;
+  const now=audioCtx.currentTime;
+
+  // Master → limiter → destination
+  const master=audioCtx.createGain();
+  master.gain.setValueAtTime(0,now);
+  master.gain.linearRampToValueAtTime(m.vol,now+2.5);
+
+  const limiter=audioCtx.createDynamicsCompressor();
+  limiter.threshold.value=-6; limiter.ratio.value=4;
+  master.connect(limiter); limiter.connect(audioCtx.destination);
+
+  // Reverb send
+  const reverb=makeReverb(audioCtx);
+  const reverbGain=audioCtx.createGain();
+  reverbGain.gain.value=m.reverb;
+  reverb.connect(reverbGain); reverbGain.connect(limiter);
+
+  // Low pass filter for warmth
+  const filter=audioCtx.createBiquadFilter();
+  filter.type='lowpass'; filter.frequency.value=m.filter;
+  filter.connect(master); filter.connect(reverb);
+
+  const nodes=[master,limiter,reverb,reverbGain,filter];
+
+  // Pad — slow attack chords
+  m.pad.forEach((freq,i)=>{
+    const osc=audioCtx.createOscillator();
+    const g=audioCtx.createGain();
+    osc.type=i===0?m.wave:'sine';
+    osc.frequency.value=freq;
+    // Slow LFO for shimmer
+    const lfo=audioCtx.createOscillator();
+    const lfog=audioCtx.createGain();
+    lfo.frequency.value=.15+i*.07; lfog.gain.value=0.8;
+    lfo.connect(lfog); lfog.connect(osc.frequency);
+    lfo.start();
+    g.gain.value=.18/(i+1);
+    osc.connect(g); g.connect(filter); osc.start();
+    nodes.push(osc,g,lfo,lfog);
+  });
+
+  // Bass — sub sine
+  const bass=audioCtx.createOscillator();
+  const bassG=audioCtx.createGain();
+  bass.type='sine'; bass.frequency.value=m.bass;
+  bassG.gain.value=.06;
+  bass.connect(bassG); bassG.connect(master); bass.start();
+  nodes.push(bass,bassG);
+
+  // Melody — gentle arpeggiated notes
+  const melodyNotes=m.melody;
+  let mIdx=0;
+  const playMelodyNote=()=>{
+    if(!musicOn||!audioCtx) return;
+    const osc=audioCtx.createOscillator();
+    const g=audioCtx.createGain();
+    osc.type='sine'; osc.frequency.value=melodyNotes[mIdx%melodyNotes.length];
+    const t=audioCtx.currentTime;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(.025,t+.08);
+    g.gain.exponentialRampToValueAtTime(.001,t+.6);
+    osc.connect(g); g.connect(filter); osc.start(t); osc.stop(t+.7);
+    mIdx++;
+    nodes.push(osc,g);
+  };
+  const melodyInterval=setInterval(()=>{if(musicOn)playMelodyNote();},m.tempo/4);
+  nodes.push({_interval:melodyInterval});
+
+  musicNodes=nodes;
+}
+
+function stopMusic(){
+  musicNodes.forEach(n=>{
+    try{
+      if(n._interval){clearInterval(n._interval);return;}
+      if(n.gain){ n.gain.setValueAtTime(n.gain.value||0,audioCtx.currentTime); n.gain.linearRampToValueAtTime(0,audioCtx.currentTime+1.2);}
+      if(n.stop) setTimeout(()=>{try{n.stop();}catch(e){}},1300);
+    }catch(e){}
+  });
+  musicNodes=[];
+}
+
+function setMood(mood){
+  if(!musicOn||currentMood===mood) return;
+  startMusic(mood);
+}
+
+function toggleMusic(){
+  initAudio();
+  musicOn=!musicOn;
+  const btn=document.getElementById('music-btn');
+  if(musicOn){
+    if(btn) btn.textContent='🎵 ON';
+    startMusic(currentMood);
+  } else {
+    if(btn) btn.textContent='🎵';
+    stopMusic();
+  }
+}
+
+// ── SOUND EFFECTS ──
+function pingSound(){
+  if(!audioCtx) return;
+  const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.frequency.value=1046; osc.type='sine';
+  g.gain.setValueAtTime(0,audioCtx.currentTime);
+  g.gain.linearRampToValueAtTime(.12,audioCtx.currentTime+.01);
+  g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.4);
+  osc.start(); osc.stop(audioCtx.currentTime+.45);
+}
+
+function choiceSound(good){
+  if(!audioCtx) return;
+  const freqs=good?[523,659,784]:[330,262,220];
+  freqs.forEach((f,i)=>{
+    const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.frequency.value=f; osc.type='sine';
+    const t=audioCtx.currentTime+i*.1;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(.09,t+.04);
+    g.gain.exponentialRampToValueAtTime(.001,t+.3);
+    osc.start(t); osc.stop(t+.35);
+  });
+}
+
+function chaosSound(){
+  if(!audioCtx) return;
+  // Low rumble + discordant hits
+  [60,90,120].forEach((f,i)=>{
+    const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+    osc.type='sawtooth'; osc.frequency.value=f+Math.random()*30;
+    osc.connect(g); g.connect(audioCtx.destination);
+    const t=audioCtx.currentTime+i*.04;
+    g.gain.setValueAtTime(.07,t); g.gain.exponentialRampToValueAtTime(.001,t+.8);
+    osc.start(t); osc.stop(t+.85);
+  });
+  [180,270,360].forEach((f,i)=>{
+    const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+    osc.type='square'; osc.frequency.value=f+Math.random()*20;
+    osc.connect(g); g.connect(audioCtx.destination);
+    const t=audioCtx.currentTime+.1+i*.06;
+    g.gain.setValueAtTime(.04,t); g.gain.exponentialRampToValueAtTime(.001,t+.4);
+    osc.start(t); osc.stop(t+.45);
+  });
+}
+
+function uiClickSound(){
+  if(!audioCtx) return;
+  const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+  osc.type='sine'; osc.frequency.value=800;
+  osc.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(.04,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.1);
+  osc.start(); osc.stop(audioCtx.currentTime+.12);
+}
+
+function heartbeatSound(){
+  if(!audioCtx) return;
+  [[55,.12],[55,.06]].forEach(([f,d],i)=>{
+    const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+    osc.type='sine'; osc.frequency.value=f;
+    osc.connect(g); g.connect(audioCtx.destination);
+    const t=audioCtx.currentTime+i*.25;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.08,t+.03);
+    g.gain.exponentialRampToValueAtTime(.001,t+d+.1);
+    osc.start(t); osc.stop(t+d+.15);
+  });
+}
+
+// Map scene types to music moods
+const SCENE_MOODS={
+  couch:'warm', app:'ambient', bar:'warm', studio:'cold',
+  street:'ambient', car:'tense', sunday:'warm', rooftop:'cold',
+  cafe:'romantic', night:'cold', chaos:'chaos', warmgold:'romantic',
+  debrief:'warm', narrator:'ambient', choice:'ambient'
+};
+
+// ══════════════ AI INNER VOICE ══════════════
+async function triggerInnerVoice(choiceText, charName, context){
+  // Alias — calls the full version
+  triggerInnerVoiceAndContinue(choiceText, charName, context);
+}
+
+async function triggerInnerVoiceAndContinue(choiceText, charName, context){
+  const iv=document.getElementById('inner-voice');
+  const ivTxt=document.getElementById('iv-txt');
+  const aiTogEl=document.getElementById('ai-tog');
+  const aiOn=!aiTogEl||aiTogEl.classList.contains('on');
+
+  if(!aiOn){
+    iv.classList.remove('act');
+    addCont();
+    return;
+  }
+
+  iv.classList.add('act');
+  ivTxt.innerHTML='<span class="iv-loading">thinking…</span>';
+
+  const prompt=`You are the player's inner voice in an interactive dating game called ENTANGLED.
+
+Player name: ${G.nm}
+Last relationship ended: ${G.bs1||'unknown'}
+Looking for: ${G.bs2||'unknown'}
+Friends describe them as: ${G.bs3||'unknown'}
+
+They just chose: "${choiceText}"
+In a conversation with: ${charName}
+Context: ${context}
+
+Respond as their immediate internal reaction.
+- 1-2 sentences MAX
+- First person, raw and honest
+- No therapy-speak — sound like a real thought
+- Match backstory tone: guarded = sharper, romantic = softer`;
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:80,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await res.json();
+    const txt=data.content?.[0]?.text||'';
+    if(txt){
+      ivTxt.textContent=txt;
+      speak(txt,'inner');
+    } else {
+      iv.classList.remove('act');
+    }
+  } catch(e){
+    iv.classList.remove('act');
+  }
+
+  // Continue button ALWAYS appears after AI responds (or fails)
+  // Player decides when to move on — not a timer
+  addCont();
+}
+
+// ══════════════ CAST DATA ══════════════
+const CAST={
+  marco:{e:'😏',n:'Marco',age:'31',t:'The Love Bomber',bg:'bar',voiceKey:'marco',
+    cold:{bg:'bar',label:'Meanwhile…',txt:'A bar. 11pm. Marco sits alone with a glass of water — not a drink.',sub:'He hasn\'t messaged anyone in weeks. He sees your profile and types anyway.'},
+    profile:{bio:'Contractor. Dog dad. I cook on Sundays. Looking for something real.',tags:['Outdoorsy','Home Cook','Recovery','Dog Dad']},
+    d:'Charismatic, romantic, overwhelming in the best way. His texts come in fast.',
+    h:'Marco is in early recovery from alcohol addiction. His intensity is replacement behavior.',
+    l:'Love bombing, addiction\'s effect on relationships, the difference between choosing someone and needing them.',
+    psy:'Love Bombing'},
+  jade:{e:'🎨',n:'Jade',age:'28',t:'The Avoidant',bg:'studio',voiceKey:'jade',
+    cold:{bg:'studio',label:'Meanwhile…',txt:'1am. Jade stares at a half-finished canvas she\'s been avoiding for a week.',sub:'She downloaded the app six times. Deleted it five. She\'s still not sure why she stayed.'},
+    profile:{bio:'Painter. Part-time insomniac. I like honest people and slow mornings.',tags:['Artist','Introvert','Night Owl','Questioning']},
+    d:'Cool, artistic, effortlessly magnetic. Never quite available.',
+    h:'Jade is quietly questioning her sexuality. Her avoidance isn\'t just a pattern.',
+    l:'Avoidant attachment, self-discovery, loving someone who is still becoming.',
+    psy:'Avoidant Attachment'},
+  riley:{e:'😄',n:'Riley',age:'26',t:'The Situationship',bg:'street',voiceKey:'riley',
+    cold:{bg:'street',label:'Meanwhile…',txt:'Riley is the funniest one in every room. Three conversations at once, everyone laughing.',sub:'After everyone logs off, Riley sits in the quiet and feels absolutely nothing.'},
+    profile:{bio:'Professional overthinker. I know every brunch spot in the city.',tags:['Foodie','Social','Fun First','Figuring It Out']},
+    d:'Funny, easy, no pressure. Always there but never fully THERE.',
+    h:'Riley\'s recreational drug use is quietly becoming something more serious.',
+    l:'Situationships, enabling vs. supporting, mistaking comfort for connection.',
+    psy:'Functional Avoidance'},
+  dominique:{e:'🔥',n:'Dominique',age:'33',t:'The Toxic Familiar',bg:'car',voiceKey:'dominique',
+    cold:{bg:'car',label:'Meanwhile…',txt:'A late night drive. No destination. Dominique turns the music up louder.',sub:'They\'ve been in love twice. Both times it ended in a fire. They think the fire is just how real feels.'},
+    profile:{bio:'I say what I mean. I feel things deeply and won\'t apologize for it.',tags:['Intense','Direct','Complex Past','Deep Feeler']},
+    d:'Feels like home immediately. Intense chemistry. You\'ve felt this before.',
+    h:'Dominique carries generational trauma and repeats cycles without realizing it.',
+    l:'Trauma bonding, generational cycles, why familiar doesn\'t always mean right.',
+    psy:'Trauma Bonding'},
+  alex:{e:'💚',n:'Alex',age:'30',t:'The Healthy One',bg:'sunday',voiceKey:'alex',
+    cold:{bg:'sunday',label:'Meanwhile…',txt:'Sunday morning. Alex makes coffee, feeds their cat, and opens the app without dread.',sub:'Two years of therapy. One very honest conversation with themselves. They\'re actually ready now.'},
+    profile:{bio:'I did the work. Now I show up, communicate, and enjoy my life.',tags:['Therapy Grad','Cat Parent','Consistent','Actually Ready']},
+    d:'No drama. Consistent. Communicates openly. You keep looking for the catch.',
+    h:'Alex previously struggled with sex and love addiction and did the real work.',
+    l:'What secure attachment actually looks like, and that healthy people have history too.',
+    psy:'Secure Attachment'},
+  sam:{e:'🌊',n:'Sam',age:'27',t:'The Wildcard',bg:'rooftop',voiceKey:'sam',
+    cold:{bg:'rooftop',label:'Meanwhile…',txt:'A rooftop. Sam watches the city and says almost nothing.',sub:'They\'re thinking about the last person who really saw them. They open the app wondering if it\'s possible again.'},
+    profile:{bio:'Fluid in most things. I ask good questions and mean them.',tags:['Sexually Fluid','Deep Conversations','Creative','Open-Minded']},
+    d:'Openly sexually fluid, confident about it, and complex in ways not immediately obvious.',
+    h:'There is no predetermined hidden layer. Sam becomes whoever your choices shape them into.',
+    l:'Communication, projection, how profoundly we affect the people we date.',
+    psy:'Mirroring & Projection'}
+};
+
+// ══════════════ EPISODE 1 ══════════════
+function mkEp1(){
+  const n=G.nm;
+  // Pick 2 characters for Ep1 — the other 4 appear in Ep3
+  const all=['marco','jade','riley','dominique','alex','sam'];
+  const shuffled=[...all].sort(()=>Math.random()-.5);
+  const ep1cast=shuffled.slice(0,2);
+  G.ep1cast=ep1cast;
+  // cast4 = all 4 remaining for ep3 group event
+  G.cast4=shuffled;
+  sv();
+
+  const sc=[];
+
+  // ── COLD OPEN ──
+  sc.push({type:'scene',bg:'couch',label:'You. Tonight.',
+    txt:`Your couch. Your phone. An app you've been avoiding.`,
+    sub:'You finally press download.',
+    speak:{who:'narrator',text:`${n}. Your couch. An app you've been avoiding for weeks. Tonight, you press download.`}});
+
+  sc.push({type:'scene',bg:'app',label:'Just like that.',
+    txt:'Your profile goes live.',
+    sub:'The first match arrives before you\'ve even set your preferences.',
+    speak:{who:'narrator',text:`Your profile goes live. The first match arrives before you've even set your preferences.`}});
+
+  // ── CHARACTER 1 ──
+  const c1=CAST[ep1cast[0]];
+  sc.push({type:'scene',bg:c1.cold.bg,label:c1.cold.label,
+    txt:c1.cold.txt,sub:c1.cold.sub,
+    speak:{who:'narrator',text:c1.cold.txt+' '+c1.cold.sub}});
+  sc.push({type:'profile',key:ep1cast[0]});
+  sc.push(...getChar1(ep1cast[0],n));
+
+  // ── NARRATOR BRIDGE ──
+  sc.push({type:'scene',bg:'night',label:'Later.',
+    txt:'You set your phone down. Pick it up again.',
+    sub:'There\'s another one.',
+    speak:{who:'narrator',text:`You set your phone down. Sit with that for a moment. Then pick it up again. There's another one.`}});
+
+  // ── CHARACTER 2 ──
+  const c2=CAST[ep1cast[1]];
+  sc.push({type:'scene',bg:c2.cold.bg,label:c2.cold.label,
+    txt:c2.cold.txt,sub:c2.cold.sub,
+    speak:{who:'narrator',text:c2.cold.txt+' '+c2.cold.sub}});
+  sc.push({type:'profile',key:ep1cast[1]});
+  sc.push(...getChar1(ep1cast[1],n));
+
+  // ── CLOSE ──
+  sc.push({type:'chaos',bg:'chaos',
+    cht:'Your phone dies. Mid-conversation with both of them.',
+    chs:'You sit in the dark and notice which conversation you\'re still thinking about.',
+    speak:{who:'narrator',text:`Your phone dies. You sit in the dark and notice which conversation you're still thinking about. That answer matters.`}});
+
+  sc.push({type:'scene',bg:'night',label:'End of the night.',
+    txt:'Two people. Two completely different feelings.',
+    sub:`One of them is already in your head, ${n}. You know which one.`,
+    speak:{who:'narrator',text:`Two people. Two completely different feelings. One of them is already in your head. You know which one.`}});
+
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+function getChar1(key,n){
+  const c=CAST[key], sc=[];
+  if(key==='marco'){
+    sc.push({type:'app',msgs:[{w:`Marco ${c.e}`,t:`Hey ${n} 👋 Your profile actually made me stop scrolling. That's rare.`}],speak:{who:'marco',text:`Hey ${n}. Your profile actually made me stop scrolling. That's rare.`},
+      ch:[{t:'That\'s sweet. What made you stop?',i:6,f:false,c:'marco'},{t:'I bet you say that to everyone.',i:3,f:false,c:'marco'},{t:'Don\'t reply. Play it cool.',i:-3,f:true,c:'marco',fb:'Playing it cool costs authenticity before anything starts.',psy:'Emotional Distancing'}]});
+    sc.push({type:'app',msgs:[{w:`Marco ${c.e}`,t:`"Honestly? You look like someone who actually has things going on. Most profiles feel like ads. Yours felt like a person."`}],speak:{who:'marco',text:`Honestly? You look like someone who actually has things going on. Most profiles feel like ads. Yours felt like a person.`},
+      ch:[{t:'Tell him something real about yourself.',i:8,f:false,c:'marco'},{t:'Keep it light. You just met.',i:0,f:false,c:'marco'},{t:'Match his energy immediately.',i:-4,f:true,c:'marco',fb:'Mirroring intensity before you know someone is how love bombing spreads to both sides.',psy:'Love Bombing — Mirroring'}]});
+  }
+  if(key==='jade'){
+    sc.push({type:'app',msgs:[{s:true,t:`New message from Jade ${c.e}`},{w:`Jade ${c.e}`,t:'you have good taste in music. that\'s rare.'}],speak:{who:'jade',text:'you have good taste in music. that\'s rare.'},
+      ch:[{t:'Thanks — what gave it away?',i:5,f:false,c:'jade'},{t:'I was starting to think you\'d never message.',i:3,f:false,c:'jade'},{t:'Reply immediately with enthusiasm.',i:-5,f:true,c:'jade',fb:'Flooding an avoidant person with enthusiasm pushes them further away.',psy:'Anxious Pursuit'}]});
+    sc.push({type:'app',msgs:[{w:`Jade ${c.e}`,t:'"I\'m not really on here much. I almost deleted the app three times this week."'}],speak:{who:'jade',text:`I'm not really on here much. I almost deleted the app three times this week.`},
+      ch:[{t:'Ask what keeps making her stay.',i:6,f:false,c:'jade'},{t:'Keep it casual.',i:2,f:false,c:'jade'},{t:'Tell her you\'re glad she stayed.',i:-3,f:true,c:'jade',fb:'Expressing relief this early gives her power before she\'s earned it.',psy:'Avoidant Hook'}]});
+  }
+  if(key==='riley'){
+    sc.push({type:'app',msgs:[{s:true,t:`New match: Riley ${c.e}`},{w:`Riley ${c.e}`,t:'ok so... coffee or drinks for a first date? asking for a friend'},{w:`Riley ${c.e}`,t:`(the friend is me. hi, ${n}.)`}],speak:{who:'riley',text:`Coffee or drinks for a first date? Asking for a friend. The friend is me. Hi, ${n}.`},
+      ch:[{t:'Coffee — low pressure.',i:5,f:false,c:'riley'},{t:'Drinks! More fun.',i:2,f:false,c:'riley'},{t:'You pick — I\'m easy either way.',i:-2,f:true,c:'riley',fb:'Always letting others decide is how you disappear before a relationship starts.',psy:'Self-Erasure'}]});
+  }
+  if(key==='dominique'){
+    sc.push({type:'app',msgs:[{s:true,t:`New match: Dominique ${c.e}`},{w:`Dominique ${c.e}`,t:`${n}. Bold profile. What's your deal?`}],speak:{who:'dominique',text:`${n}. Bold profile. What's your deal?`},
+      ch:[{t:'Give a real, direct answer.',i:7,f:false,c:'dominique'},{t:'Deflect with humor.',i:2,f:false,c:'dominique'},{t:'Match the intensity right back.',i:-4,f:true,c:'dominique',fb:'Instant intensity creates a feedback loop that becomes hard to step back from.',psy:'Intensity Escalation'}]});
+    sc.push({type:'app',msgs:[{w:`Dominique ${c.e}`,t:'"I\'ve been hurt before. Everyone on here has. I just don\'t pretend otherwise."'}],speak:{who:'dominique',text:`I've been hurt before. Everyone on here has. I just don't pretend otherwise.`},
+      ch:[{t:'Acknowledge it. Share something honest.',i:6,f:false,c:'dominique'},{t:'Keep your guard. Too early.',i:3,f:false,c:'dominique'},{t:'"You\'re different from anyone I\'ve talked to."',i:-5,f:true,c:'dominique',fb:'Saying "you\'re different" before you know them rewards intensity before it\'s earned.',psy:'Premature Idealization'}]});
+  }
+  if(key==='alex'){
+    sc.push({type:'app',msgs:[{s:true,t:`New match: Alex ${c.e}`},{w:`Alex ${c.e}`,t:`Hey ${n}! Your bio made me actually laugh. Coffee sometime? I promise I\'m less awkward in person.`}],speak:{who:'alex',text:`Hey ${n}! Your bio made me actually laugh. Coffee sometime? I promise I'm less awkward in person.`},
+      ch:[{t:'Yes — name a day that works.',i:8,f:false,c:'alex'},{t:'Maybe — keep it vague.',i:-1,f:false,c:'alex'},{t:'I\'m talking to a few people right now.',i:4,f:false,c:'alex'}]});
+  }
+  if(key==='sam'){
+    sc.push({type:'app',msgs:[{s:true,t:`New match: Sam ${c.e}`},{w:`Sam ${c.e}`,t:'real question before we do small talk —'},{w:`Sam ${c.e}`,t:`what do you actually want right now, ${n}? Not what you think you're supposed to want.`}],speak:{who:'sam',text:`Real question. What do you actually want right now, ${n}? Not what you think you're supposed to want.`},
+      ch:[{t:'Answer honestly.',i:9,f:false,c:'sam'},{t:'Ask them the same question back.',i:5,f:false,c:'sam'},{t:'Dodge with something charming.',i:-2,f:true,c:'sam',fb:'Sam gave you a chance to be real before the performance starts. You blinked.',psy:'Deflection as Armor'}]});
+  }
+  return sc;
+}
+
+// ══════════════ EPISODE 2 ══════════════
+function mkEp2(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+  sc.push({type:'scene',bg:c.bg,label:'Episode 2',txt:`You agreed to meet ${c.n}.`,sub:'First dates are a performance. The real person shows up in what they won\'t say.',speak:{who:'narrator',text:`You agreed to meet ${c.n}. First dates are a performance. The real person shows up in what they won't say.`}});
+
+  if(t==='marco'){
+    sc.push({type:'app',msgs:[{w:`Marco ${c.e}`,t:`Running late ${n} — getting you flowers, don't argue 😂`}],speak:{who:'marco',text:`Running late. Getting you flowers. Don't argue.`},ch:[{t:'Ha — I\'ll be here.',i:3,f:false,c:'marco'},{t:'You really don\'t have to.',i:5,f:false,c:'marco'},{t:'Flowers already? That\'s a lot.',i:6,f:false,c:'marco'}]});
+    sc.push({type:'scene',bg:'cafe',label:'The date.',txt:`"${n}. You look — I mean. Yeah. Hi."`,sub:'He\'s flustered. Genuinely. Charm is one thing. This is something else.',speak:{who:'marco',text:`${n}. You look... I mean. Yeah. Hi.`},ch:[{t:'Let him collect himself.',i:7,f:false,c:'marco'},{t:'Tease him gently.',i:4,f:false,c:'marco'},{t:'Immediately reassure him.',i:-3,f:true,c:'marco',fb:'Rushing to comfort his discomfort can become managing his feelings at the expense of your own.',psy:'Emotional Management'}]});
+    sc.push({type:'scene',bg:'cafe',label:'He gets honest.',txt:'"I almost cancelled. I do that — get excited then convince myself it won\'t work."',sub:'He said it casually. It wasn\'t casual.',speak:{who:'marco',text:`I almost cancelled tonight. I do that — get excited then convince myself it won't work out.`},ch:[{t:'Ask why he thinks he does that.',i:8,f:false,c:'marco'},{t:'Tell him you\'re glad he didn\'t.',i:2,f:false,c:'marco'},{t:'Laugh it off.',i:-2,f:true,c:'marco',fb:'Deflecting vulnerability signals his honesty isn\'t safe here.',psy:'Vulnerability Dismissal'}]});
+    sc.push({type:'chaos',bg:'cafe',cht:'His phone rings. Something crosses his face. He declines it.',chs:'"Sorry. My sponsor." He says it quickly and moves on.',speak:{who:'narrator',text:'His phone rings. Something crosses his face. He declines it. Sorry. My sponsor. He says it quickly and moves on.'}});
+    sc.push({type:'scene',bg:'cafe',label:'The truth.',txt:'"I\'m in recovery. I should\'ve said that upfront."',sub:'The question isn\'t whether to judge it. It\'s whether you know what it means.',speak:{who:'marco',text:`I'm in recovery. I should've said that upfront. I just didn't want it to be the first thing you saw.`},ch:[{t:'Thank him. Ask how long.',i:10,f:false,c:'marco'},{t:'Tell him it doesn\'t change anything.',i:4,f:false,c:'marco'},{t:'Go quiet.',i:-3,f:true,c:'marco',fb:'Your silence communicates something right now. He\'s watching your face.',psy:'Nonverbal Communication'}]});
+  }
+  if(t==='jade'){
+    sc.push({type:'app',msgs:[{w:`Jade ${c.e}`,t:'I\'m here. I almost walked past.'},{w:`Jade ${c.e}`,t:'This is weird right?'}],speak:{who:'jade',text:`I'm here. I almost walked past. This is weird right?`},ch:[{t:'A little weird. That\'s part of it.',i:6,f:false,c:'jade'},{t:'Not weird. Excited to meet you.',i:3,f:false,c:'jade'},{t:'Rush to take the awkward away.',i:-3,f:true,c:'jade',fb:'Managing her discomfort takes all the air out of the room.',psy:'Anxious Caretaking'}]});
+    sc.push({type:'scene',bg:'cafe',label:'At the table.',txt:'"I brought my sketchbook. I need something to do with my hands when I\'m nervous."',sub:'The coolness on the app was armor. This is what\'s underneath.',speak:{who:'jade',text:`I brought my sketchbook. I always bring it. I need something to do with my hands when I'm nervous.`},ch:[{t:'Ask to see it.',i:8,f:false,c:'jade'},{t:'Say you\'re nervous too.',i:7,f:false,c:'jade'},{t:'Tell her she doesn\'t seem nervous.',i:-4,f:true,c:'jade',fb:'Telling someone their feelings aren\'t visible means you\'re not tracking them.',psy:'Emotional Invalidation'}]});
+    sc.push({type:'chaos',bg:'cafe',cht:'Her ex walks in. Jade sees them first. She goes still.',chs:'Real life, walking into the moment. Watch what she does next.',speak:{who:'narrator',text:'Her ex walks in. Jade sees them first. She goes completely still.'}});
+    sc.push({type:'scene',bg:'cafe',label:'After.',txt:'"We were together four years. I thought I knew what I wanted. Turns out I was mostly just… certain."',sub:'She says it like she\'s been rehearsing it. Or maybe finally saying it out loud for the first time.',speak:{who:'jade',text:`We were together four years. I thought I knew exactly what I wanted. Turns out I was mostly just certain.`},ch:[{t:'"Certainty and rightness are different things."',i:10,f:false,c:'jade'},{t:'Stay quiet. Let her have it.',i:6,f:false,c:'jade'},{t:'Ask if she\'s still in love with them.',i:-5,f:true,c:'jade',fb:'Right question. Wrong moment. Timing is a form of emotional intelligence.',psy:'Emotional Timing'}]});
+  }
+  if(t==='riley'){
+    sc.push({type:'app',msgs:[{w:`Riley ${c.e}`,t:`${n}!! you're already there aren't you.`},{w:`Riley ${c.e}`,t:'one block away. I brought gum.'}],speak:{who:'riley',text:`${n}!! You're already there aren't you. One block away. I brought gum.`},ch:[{t:'Ha — already laughing.',i:5,f:false,c:'riley'},{t:'How did you know I was here.',i:6,f:false,c:'riley'},{t:'I\'m an on-time person.',i:4,f:false,c:'riley'}]});
+    sc.push({type:'scene',bg:'cafe',label:'At the table.',txt:'"I almost rescheduled. Not because of you. I just do that."',sub:'Self-awareness. Or a preview. You\'ll find out which one.',speak:{who:'riley',text:`I almost rescheduled. Not because of you. I just — I do that. I get in my head.`},ch:[{t:'"I\'m glad you didn\'t. What made you push through?"',i:7,f:false,c:'riley'},{t:'"I get it — I do it too."',i:3,f:false,c:'riley'},{t:'"Don\'t worry! I\'m not going anywhere."',i:-4,f:true,c:'riley',fb:'Reassuring someone their inconsistency is fine sets an unbalanced precedent.',psy:'Anxious Reassurance'}]});
+    sc.push({type:'chaos',bg:'cafe',cht:'Their friend group rolls past the window. Riley\'s expression shifts — just barely.',chs:'They wave them off. But you noticed.',speak:{who:'narrator',text:'Their friend group rolls past the window outside. Riley\'s expression shifts, just barely. They wave them off.'}});
+    sc.push({type:'scene',bg:'cafe',label:'Something underneath.',txt:'"I\'m in a weird place lately. I\'m fine though. I\'m really fine."',sub:'They said fine twice.',speak:{who:'riley',text:`I've just been in a weird place lately. I'm fine though. I'm really fine.`},ch:[{t:'"You don\'t have to be fine with me."',i:9,f:false,c:'riley'},{t:'Take them at their word.',i:-2,f:true,c:'riley',fb:'Taking "I\'m fine" at face value is choosing comfort over connection.',psy:'Denial Acceptance'},{t:'Change the subject.',i:4,f:false,c:'riley'}]});
+  }
+  if(t==='dominique'){
+    sc.push({type:'app',msgs:[{w:`Dominique ${c.e}`,t:'Table in the back. I don\'t sit near doors.'},{w:`Dominique ${c.e}`,t:'I ordered for you. Whiskey. You seem like a whiskey person.'}],speak:{who:'dominique',text:`Table in the back. I ordered for you. Whiskey. You seem like a whiskey person.`},ch:[{t:'I\'m actually a gin person.',i:7,f:false,c:'dominique'},{t:'How\'d you know?',i:3,f:false,c:'dominique'},{t:'You ordered for me without asking?',i:8,f:false,c:'dominique'}]});
+    sc.push({type:'scene',bg:'cafe',label:'Right away.',txt:'"You called me out on the drink. Good. I was testing you."',sub:'Testing. Already. There\'s a version of this that\'s playful.',speak:{who:'dominique',text:`You called me out on the drink thing. Good. I was testing you.`},ch:[{t:'"I don\'t do tests. I\'d rather just talk."',i:9,f:false,c:'dominique'},{t:'"Did I pass?"',i:2,f:false,c:'dominique'},{t:'Play along.',i:4,f:false,c:'dominique'}]});
+    sc.push({type:'scene',bg:'cafe',label:'Then this.',txt:'"My last relationship ended because I loved too hard. That\'s what they said."',sub:'There\'s genuine pain in it. And something else.',speak:{who:'dominique',text:`My last relationship ended because I loved too hard. That's what they said. Too intense. Too much.`},ch:[{t:'"What do you think happened?"',i:8,f:false,c:'dominique'},{t:'"Some people can\'t handle depth."',i:-4,f:true,c:'dominique',fb:'Validating their narrative about an ex reinforces a pattern where they never examine their own role.',psy:'Narrative Reinforcement'},{t:'Stay quiet.',i:5,f:false,c:'dominique'}]});
+    sc.push({type:'chaos',bg:'cafe',cht:'They get a text. Their face changes completely.',chs:'"Sorry. Family stuff." Two words. A door that closes.',speak:{who:'narrator',text:'They get a text. Their face changes completely. Sorry. Family stuff. Two words. A door that closes.'}});
+  }
+  if(t==='alex'){
+    sc.push({type:'app',msgs:[{w:`Alex ${c.e}`,t:`at the corner table — pretending to study the menu`},{w:`Alex ${c.e}`,t:'(I\'ve read it three times. 14 items.)'}],speak:{who:'alex',text:`I'm at the corner table, pretending to study the menu. I've read it three times. There are 14 items.`},ch:[{t:'Ha — walking in now.',i:6,f:false,c:'alex'},{t:'What\'s item 14?',i:8,f:false,c:'alex'},{t:'That\'s so relatable.',i:5,f:false,c:'alex'}]});
+    sc.push({type:'scene',bg:'cafe',label:'Right away.',txt:'"I\'m not going to perform on this date. I\'m just going to be myself and hope that\'s enough."',sub:'No pretense. No strategy. You almost don\'t know what to do with that.',speak:{who:'alex',text:`I want to say upfront — I'm not going to perform on this date. I'm just going to be myself and hope that's enough.`},ch:[{t:'"That\'s exactly what I want."',i:10,f:false,c:'alex'},{t:'Say the same thing back. Mean it.',i:8,f:false,c:'alex'},{t:'Feel slightly bored — expected more edge.',i:-4,f:true,c:'alex',fb:'If no drama feels like no interest, that\'s important data about what you\'ve trained yourself to chase.',psy:'Drama Dependency'}]});
+    sc.push({type:'scene',bg:'cafe',label:'A little history.',txt:'"I went through a period where I was pretty lost. Kept looking for connection in ways that weren\'t healthy."',sub:'Honest enough to matter. Not enough to overshare.',speak:{who:'alex',text:`I went through a period where I was pretty lost. Kept looking for connection in ways that weren't healthy. Took real work to understand what I actually needed.`},ch:[{t:'"That takes courage. What helped?"',i:9,f:false,c:'alex'},{t:'"We\'ve all got stuff."',i:5,f:false,c:'alex'},{t:'Feel wary about their past.',i:-3,f:true,c:'alex',fb:'Fearing someone\'s past without hearing it keeps anyone real from getting close.',psy:'Protective Avoidance'}]});
+    sc.push({type:'chaos',bg:'cafe',cht:'The fire alarm goes off. Brief, then done. Everyone laughs.',chs:`Alex catches your eye. "Well — at least we have a story." Something quiet shifts.`,speak:{who:'narrator',text:'The fire alarm goes off. Brief. Then done. Everyone laughs. Alex catches your eye.'}});
+  }
+  if(t==='sam'){
+    sc.push({type:'app',msgs:[{w:`Sam ${c.e}`,t:'I\'m here and already nervous, just saying that upfront'},{w:`Sam ${c.e}`,t:'wearing yellow. in case it helps.'}],speak:{who:'sam',text:`I'm here and already nervous, just saying that upfront. Wearing yellow. In case it helps.`},ch:[{t:'Nervous is good. Me too.',i:7,f:false,c:'sam'},{t:'Yellow it is. Almost there.',i:5,f:false,c:'sam'},{t:'I love that you said that.',i:6,f:false,c:'sam'}]});
+    sc.push({type:'scene',bg:'cafe',label:'At the table.',txt:'"I\'m fluid. I date across the spectrum. If you have questions, just ask."',sub:'Confident. Clear. No apology. This took time to get to.',speak:{who:'sam',text:`I'm fluid. I date across the spectrum and I don't explain myself unless someone asks. So if you have questions, just ask them.`},ch:[{t:'Ask one genuine question.',i:9,f:false,c:'sam'},{t:'"Doesn\'t matter to me — you\'re here."',i:5,f:false,c:'sam'},{t:'Say nothing. Not sure how you feel.',i:-2,f:true,c:'sam',fb:'Your silence communicates. Not knowing is okay — sitting in it silently is a missed moment.',psy:'Avoidance of Uncertainty'}]});
+    sc.push({type:'scene',bg:'cafe',label:'Then this.',txt:`"What's the bravest thing you've done in a relationship, ${G.nm}?"`,sub:'Not what went wrong. What\'s the bravest thing.',speak:{who:'sam',text:`What's the bravest thing you've done in a relationship?`},ch:[{t:'Answer honestly.',i:10,f:false,c:'sam'},{t:'Turn it back on them first.',i:6,f:false,c:'sam'},{t:'Deflect with something funny.',i:-3,f:true,c:'sam',fb:'Sam gave you a real moment. What you do with it tells them who you are.',psy:'Vulnerability Avoidance'}]});
+    sc.push({type:'chaos',bg:'cafe',cht:'Someone at the bar recognizes Sam. Ex, maybe. Body language says complicated.',chs:'"Sorry. Old story." They leave it there.',speak:{who:'narrator',text:'Someone at the bar recognizes Sam. Body language says complicated. Sorry. Old story. They leave it there.'}});
+  }
+  sc.push({type:'scene',bg:c.bg,label:'The end of the night.',txt:'You walk out into the night.',sub:`Whatever just happened in there — you're carrying it home with you, ${n}.`,speak:{who:'narrator',text:`You walk out into the night. Whatever just happened in there — you're carrying all of it home with you, ${n}. That's how the real entanglement begins.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 3 — THE GROUP CHAT ══════════════
+function mkEp3(){
+  const n=G.nm, t=G.e2t, tc=CAST[t];
+  // The 4 characters not met in Ep1
+  const all=['marco','jade','riley','dominique','alex','sam'];
+  const ep1cast=G.ep1cast||[];
+  const newFaces=all.filter(k=>!ep1cast.includes(k));
+  const sc=[];
+
+  sc.push({type:'scene',bg:'night',label:'Episode 3',txt:'A group event. Someone suggested it on the app.',sub:'You said yes without thinking too hard. Now everyone is in the same room.',speak:{who:'narrator',text:`A group event. Someone suggested it. Now all of them are in the same room, ${n}.`}});
+
+  sc.push({type:'scene',bg:'bar',label:'The room.',txt:'Rooftop bar. String lights. Everyone more attractive in person than their photos.',sub:'And everyone is watching everyone else.',speak:{who:'narrator',text:'A rooftop bar. String lights. Everyone more attractive in person than their photos. And everyone is watching everyone else.'}});
+
+  // Your Ep1/2 person checks in
+  sc.push({type:'app',msgs:[
+    {s:true,t:'The group chat is live.'},
+    {w:`${tc.n} ${tc.e}`,t:`${n} — you made it. I was starting to wonder.`}
+  ],speak:{who:tc.voiceKey,text:`${n}, you made it. I was starting to wonder.`},
+  ch:[
+    {t:'Smile and walk over to them.',i:6,f:false,c:t},
+    {t:'Wave from across the room. Take your time.',i:4,f:false,c:t},
+    {t:'Text back instead of going over.',i:-3,f:true,c:t,fb:'Hiding behind your phone in a social setting you chose is avoidance.',psy:'Social Avoidance'}
+  ]});
+
+  // Introduce each new face with a narrator beat before their moment
+  const moments={
+    marco:{scene:'bar',intro:'There\'s someone at the bar with a glass of water. He\'s been watching the room.',txt:'Marco raises his glass when he sees you. Like he knew you\'d come.',sub:'He looks relaxed. More relaxed than you expected.',speak:{who:'narrator',text:'Marco is at the bar with water. He raises his glass when he sees you.'},ch:[{t:'Go say hi.',i:5,f:false,c:'marco'},{t:'Acknowledge him from a distance.',i:2,f:false,c:'marco'},{t:'Pretend you didn\'t see him.',i:-4,f:true,c:'marco',fb:'Deliberate invisibility in a small room reads.',psy:'Emotional Avoidance'}]},
+    jade:{scene:'rooftop',intro:'Someone is standing near the edge of the roof. Alone. Sketching on her phone.',txt:'Jade looks like she\'s here and somewhere else entirely at the same time.',sub:'She hasn\'t noticed you yet. Or she has and is pretending.',speak:{who:'narrator',text:'Jade is near the edge, sketching on her phone. Present and somewhere else at once.'},ch:[{t:'Go stand next to her. Don\'t force it.',i:7,f:false,c:'jade'},{t:'Let her be. She\'ll come to you.',i:4,f:false,c:'jade'},{t:'Text her from across the roof.',i:-2,f:true,c:'jade',fb:'Texting someone standing twenty feet away is a mixed signal.',psy:'Indirect Communication'}]},
+    riley:{scene:'street',intro:'The loudest laugh in the room. Three conversations at once. That\'s them.',txt:'Riley is performing. You watch them perform for a full minute before they notice you.',sub:'Then they do. And the whole energy shifts.',speak:{who:'narrator',text:'Riley is at the center of three conversations, laughing loudest. You watch them perform before they notice you.'},ch:[{t:'Wait for a break and join in.',i:5,f:false,c:'riley'},{t:'Catch their eye and let them come.',i:4,f:false,c:'riley'},{t:'Jump in mid-conversation.',i:-3,f:true,c:'riley',fb:'Interrupting someone\'s performance tells them you\'re not patient.',psy:'Boundary Crossing'}]},
+    dominique:{scene:'car',intro:'They arrive last. The energy in the room shifts when they walk in.',txt:'Dominique notices that you noticed. They always do.',sub:'Three other people noticed too.',speak:{who:'narrator',text:'Dominique arrives last. The room shifts. You notice. Dominique notices you noticing.'},ch:[{t:'"You have an entrance."',i:7,f:false,c:'dominique'},{t:'Let them come to you.',i:4,f:false,c:'dominique'},{t:'Feel competitive. You were here first.',i:-4,f:true,c:'dominique',fb:'Feeling territorial about someone you\'ve never met is worth examining.',psy:'Premature Possessiveness'}]},
+    alex:{scene:'sunday',intro:'Someone finds you within five minutes. Not working the room. Just looking for you.',txt:'"I\'m bad at these but I\'m trying." Alex says it like it\'s nothing.',sub:'No performance. Just honest.',speak:{who:'alex',text:"I'm bad at these things but I'm trying."},ch:[{t:'"Me too. Let\'s be bad at it together."',i:9,f:false,c:'alex'},{t:'Introduce them to someone nearby.',i:6,f:false,c:'alex'},{t:'Feel oddly disappointed they found you so fast.',i:-3,f:true,c:'alex',fb:'If consistency feels boring, that\'s the pattern talking.',psy:'Secure Attachment Discomfort'}]},
+    sam:{scene:'rooftop',intro:'Someone materializes next to you. Mid-conversation with someone else.',txt:'"Sorry — hi. I just needed to be over here for a second."',sub:'They don\'t explain. They don\'t have to.',speak:{who:'sam',text:'Sorry — hi. I just needed to be over here for a second.'},ch:[{t:'"I\'m glad you did."',i:8,f:false,c:'sam'},{t:'Ask what\'s going on.',i:6,f:false,c:'sam'},{t:'Feel slightly used as a refuge.',i:3,f:false,c:'sam'}]}
+  };
+
+  newFaces.slice(0,4).forEach((key,idx)=>{
+    const m=moments[key];
+    if(!m) return;
+    // Narrator beat before each new person
+    sc.push({type:'scene',bg:'night',label:'',
+      txt:m.intro,sub:'',
+      speak:{who:'narrator',text:m.intro}});
+    sc.push({type:'scene',bg:m.scene,label:'',txt:m.txt,sub:m.sub,speak:m.speak,ch:m.ch});
+  });
+
+  // Group chaos
+  sc.push({type:'chaos',cht:`${tc.n} watches you talking to someone new. Their expression does something.`,chs:'Brief. They recover fast. But you both know what just happened.',speak:{who:'narrator',text:`${tc.n} watches you talk to someone new. Their expression does something brief. You both know what just happened.`}});
+
+  sc.push({type:'scene',bg:'night',label:'End of the night.',
+    txt:'You\'ve now seen all of them in the same room.',
+    sub:`That changes things, ${n}. You can feel it.`,
+    speak:{who:'narrator',text:`You've now seen all of them in the same room. That changes things, ${n}. The entanglement deepens.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 4 — CATCHING FEELINGS ══════════════
+function mkEp4(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const v=bsVoice();
+  const sc=[];
+
+  sc.push({type:'scene',bg:'warmgold',label:'Episode 4',txt:'Something shifted.',sub:'You\'re not sure when exactly. But you caught yourself thinking about them at a random moment and it surprised you.',speak:{who:'narrator',text:`Something shifted, ${n}. You caught yourself thinking about them at a moment that had nothing to do with them. That's when you know.`}});
+
+  // Different opening based on who you're with
+  const ep4openers={
+    marco:{txt:'Marco has been texting more. A lot more.',sub:'Three good morning texts this week. Each one more specific than the last.',speak:{who:'marco',text:'Good morning. I made coffee and immediately thought about whether you take it black or not. Unrelated. How are you?'}},
+    jade:{txt:'Jade went quiet for four days. Then sent you a photo.',sub:'No caption. Just a painting she finished. The colors were yours.',speak:{who:'jade',text:'finished something. thought you might want to see it.'}},
+    riley:{txt:'Riley cancelled once. Rescheduled immediately.',sub:'The reschedule was better than the original plan would have been.',speak:{who:'riley',text:'okay I know I cancelled but I have a much better idea and I promise this one is worth it'}},
+    dominique:{txt:'Dominique called instead of texting. Out of nowhere, at 11pm.',sub:'"I just wanted to hear your voice." They said it like it was nothing.',speak:{who:'dominique',text:'I just wanted to hear your voice. Is that weird? Don\'t answer that.'}},
+    alex:{txt:'Alex asked if they could cook for you.',sub:'Not a restaurant. Their place. That\'s a different kind of invitation.',speak:{who:'alex',text:`${n}, would you want to come over? I cook on Sundays. No pressure at all — but I want you to know the offer is real.`}},
+    sam:{txt:'Sam sent you a playlist.',sub:'The note just said: "for when you\'re by yourself." It was exactly right.',speak:{who:'sam',text:'made you something. no explanation needed.'}}
+  };
+  const opener=ep4openers[t]||ep4openers.marco;
+  sc.push({type:'scene',bg:c.bg,label:'This week.',txt:opener.txt,sub:opener.sub,speak:{who:c.voiceKey,text:opener.speak.text}});
+
+  sc.push({type:'app',msgs:[{w:`${c.n} ${c.e}`,t:opener.speak.text}],speak:{who:c.voiceKey,text:opener.speak.text},
+    ch:[
+      {t:'Respond warmly. Let yourself be warm.',i:9,f:false,c:t},
+      {t:'Respond but keep a little distance.',i:3,f:false,c:t},
+      {t:'Wait an hour before replying. Manage it.',i:-4,f:true,c:t,fb:'Deliberately delaying warmth to manage someone\'s expectations is a form of emotional self-protection that costs connection.',psy:'Strategic Withholding'}
+    ]});
+
+  // The feeling arrives
+  sc.push({type:'scene',bg:'warmgold',label:'The moment.',txt:`You\'re doing something completely unrelated when it lands: you like ${c.n}.`,sub:'Not the idea of them. Not the potential. Them specifically.',speak:{who:'narrator',text:`You're doing something completely ordinary when it lands: you like ${c.n}. Not the idea of them. Them specifically.`}});
+
+  sc.push({type:'scene',bg:c.bg,label:'The question.',txt:'The question isn\'t whether you have feelings. You do.',sub:'The question is what you do with that information.',speak:{who:'narrator',text:'The question isn\'t whether you have feelings. You do. The question is what you do with that information.'},
+    ch:[
+      {t:'Let yourself feel it. Stop managing it.',i:10,f:false,c:t},
+      {t:'Acknowledge it but move slowly.',i:5,f:false,c:t},
+      {t:'Talk yourself out of it. Too risky.',i:-5,f:true,c:t,fb:'Talking yourself out of real feelings to avoid risk is how people spend years in emotional holding patterns.',psy:'Emotional Suppression'}
+    ]});
+
+  // Complications — each character's pattern starts showing more
+  const complications={
+    marco:'Marco texted at 2am. He\'s been out. He says he\'s fine. He doesn\'t sound fine.',
+    jade:'Jade cancelled. Brief message. "Not tonight." No explanation. You\'ve been here before with her.',
+    riley:'Riley is "in a weird place again." You\'ve noticed it\'s becoming a recurring theme.',
+    dominique:'Dominique said something cutting in a joke. They apologized immediately. It still landed.',
+    alex:'Alex said something vulnerable and you almost flinched away from it. Notice that.',
+    sam:'Sam\'s ex texted them while you were together. They didn\'t hide it. But something shifted.'
+  };
+
+  sc.push({type:'scene',bg:c.bg,label:'But.',txt:complications[t]||'Something complicated appeared.',sub:'Feelings don\'t arrive clean. They arrive alongside everything else.',speak:{who:'narrator',text:complications[t]||'Feelings don\'t arrive clean. They arrive alongside everything else.'},
+    ch:[
+      {t:'Address it directly. Ask what\'s going on.',i:8,f:false,c:t},
+      {t:'File it away. Watch for patterns.',i:5,f:false,c:t},
+      {t:'Decide it\'s not a big deal. Move on.',i:-3,f:true,c:t,fb:'Deciding something isn\'t a big deal before you\'ve actually processed it is a closed door dressed as maturity.',psy:'Minimization'}
+    ]});
+
+  sc.push({type:'scene',bg:'warmgold',label:'End of episode.',txt:'Feelings are data.',sub:`What you do with them from here is the real story, ${n}.`,speak:{who:'narrator',text:`Feelings are data, ${n}. What you do with them from here — that's the real story.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 5 — RED FLAG OR ROSE? ══════════════
+function mkEp5(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+
+  sc.push({type:'scene',bg:'night',label:'Episode 5',txt:'Something happened.',sub:'You noticed it. Now you have to decide what to do with what you noticed.',speak:{who:'narrator',text:`Something happened, ${n}. You noticed it. Now you have to decide what to do with that.`}});
+
+  // Character-specific first red flag — fully developed
+  const flags={
+    marco:{
+      scene:'bar',
+      txt:'Marco showed up forty minutes late. He smelled like he\'d had a drink.',
+      sub:'He says it was one. He seems fine. You\'re not sure fine is the point.',
+      speak:{who:'narrator',text:'Marco showed up forty minutes late. He smelled like he\'d had a drink. He says it was one.'},
+      ch:[
+        {t:'"I need to talk about what just happened."',i:10,f:false,c:'marco'},
+        {t:'Let it go this time. Watch for next time.',i:2,f:false,c:'marco'},
+        {t:'Make a joke of it. Don\'t make it weird.',i:-6,f:true,c:'marco',fb:'Making a joke of a potential relapse to keep the mood light is enabling wearing the costume of kindness.',psy:'Enabling Behavior'},
+        {t:'End the evening early. No explanation.',i:3,f:false,c:'marco'}
+      ],
+      insight:{t:'The First Slip',x:'In recovery, one drink can be the beginning of a slide or a contained mistake. The difference isn\'t yours to determine — but your response to it IS yours. Naming it matters more than the answer.'}
+    },
+    jade:{
+      scene:'studio',
+      txt:'Jade disappeared for a week. No warning. Just silence.',
+      sub:'Then a message: "Sorry. I get like this sometimes. It\'s not about you." That last part isn\'t entirely true.',
+      speak:{who:'narrator',text:'Jade disappeared for a week. No warning. Just silence. Then: sorry, I get like this sometimes. It\'s not about you.'},
+      ch:[
+        {t:'"I need you to communicate when you need space."',i:10,f:false,c:'jade'},
+        {t:'Say it\'s okay. You understand.',i:-5,f:true,c:'jade',fb:'Saying it\'s okay when it isn\'t teaches someone they can disappear without consequence.',psy:'Accommodation of Avoidance'},
+        {t:'Ask what "like this" actually means.',i:8,f:false,c:'jade'},
+        {t:'Pull back a little yourself. Match her energy.',i:-3,f:true,c:'jade',fb:'Responding to avoidance with avoidance creates a distance competition, not a relationship.',psy:'Reactive Distancing'}
+      ],
+      insight:{t:'The Disappearing Act',x:'Avoidant people often can\'t explain why they withdraw — they just do. But that doesn\'t mean you have to accept unexplained silence as a relationship norm. Naming your needs isn\'t pressure. It\'s information.'}
+    },
+    riley:{
+      scene:'street',
+      txt:'You found something in Riley\'s bag by accident. A small bag. You know what it is.',
+      sub:'They don\'t know you saw it.',
+      speak:{who:'narrator',text:'You found something in Riley\'s bag by accident. You know what it is. They don\'t know you saw it.'},
+      ch:[
+        {t:'Bring it up directly. With care, not accusation.',i:10,f:false,c:'riley'},
+        {t:'Pretend you didn\'t see it.',i:-7,f:true,c:'riley',fb:'Pretending you didn\'t see something that concerns you is the beginning of enabling. It also costs you your integrity.',psy:'Willful Blindness'},
+        {t:'Watch more closely without saying anything yet.',i:3,f:false,c:'riley'},
+        {t:'Text a mutual friend to ask if they\'ve noticed anything.',i:-4,f:true,c:'riley',fb:'Going around someone rather than to them breaks the basic trust of a growing relationship.',psy:'Triangulation'}
+      ],
+      insight:{t:'The Thing You Saw',x:'Substance use exists on a spectrum. What you do with what you know matters. Ignoring it doesn\'t protect either of you. Neither does leading with accusation. Care means having the harder conversation.'}
+    },
+    dominique:{
+      scene:'car',
+      txt:'Dominique said something during an argument that crossed a line.',
+      sub:'They apologized within ten minutes. Beautifully. It almost made you forget what they said.',
+      speak:{who:'narrator',text:'Dominique said something during an argument that crossed a line. The apology was beautiful. Almost beautiful enough to make you forget.'},
+      ch:[
+        {t:'"The apology was good. But I still need to talk about what you said."',i:10,f:false,c:'dominique'},
+        {t:'Accept the apology. Move forward.',i:-5,f:true,c:'dominique',fb:'Accepting an apology without addressing the behavior is how cycles continue. Apologies aren\'t erasure.',psy:'Trauma Bonding Cycle'},
+        {t:'Pull back for a few days. Process it.',i:5,f:false,c:'dominique'},
+        {t:'Apologize for your part in the argument.',i:-3,f:true,c:'dominique',fb:'Taking responsibility for the entire conflict lets the person who crossed a line off the hook.',psy:'Over-Responsibility'}
+      ],
+      insight:{t:'The Cycle of Repair',x:'The most dangerous part of volatile relationships isn\'t the conflict — it\'s the repair. A beautiful apology can reset your nervous system so completely that the original wound gets buried. Don\'t bury it.'}
+    },
+    alex:{
+      scene:'sunday',
+      txt:'Alex told you they were scared. Of you. Of how much they like you.',
+      sub:'"I know that\'s not a red flag. I just needed to say it."',
+      speak:{who:'alex',text:'I\'m scared. Of how much I like you. I know that\'s not a red flag. I just needed to say it out loud.'},
+      ch:[
+        {t:'Tell them you\'re scared too.',i:10,f:false,c:'alex'},
+        {t:'Reassure them. Tell them not to be scared.',i:3,f:false,c:'alex'},
+        {t:'Feel overwhelmed by their honesty and go quiet.',i:-4,f:true,c:'alex',fb:'Going quiet when someone is vulnerable teaches them that vulnerability isn\'t safe here.',psy:'Emotional Withdrawal'},
+        {t:'Ask what being scared looks like for them.',i:8,f:false,c:'alex'}
+      ],
+      insight:{t:'This Is The Rose',x:'This episode is called "Red Flag or Rose?" Alex\'s fear IS the rose. Naming fear in a growing relationship isn\'t weakness — it\'s the exact kind of honesty that makes things real. Notice how you responded to it.'}
+    },
+    sam:{
+      scene:'rooftop',
+      txt:'Sam told you they\'re still in contact with their ex.',
+      sub:'"It\'s not romantic. But I\'m telling you because I think you should know."',
+      speak:{who:'sam',text:'I\'m still in contact with my ex. It\'s not romantic. But I\'m telling you because I think you should know.'},
+      ch:[
+        {t:'Thank them for telling you. Ask one honest question.',i:9,f:false,c:'sam'},
+        {t:'Say it\'s fine. You trust them.',i:3,f:false,c:'sam'},
+        {t:'Feel immediately insecure but hide it.',i:-4,f:true,c:'sam',fb:'Hiding insecurity doesn\'t protect you — it just means you carry it alone.',psy:'Masked Anxiety'},
+        {t:'Ask what their relationship with their ex actually looks like.',i:8,f:false,c:'sam'}
+      ],
+      insight:{t:'Proactive Honesty',x:'Sam told you something they didn\'t have to tell you. That\'s not a red flag — it\'s data about who they are. The question is whether you can hold it without it becoming a story you\'ve decided in advance.'}
+    }
+  };
+
+  const flag=flags[t]||flags.marco;
+  sc.push({type:'scene',bg:flag.scene,label:'What happened.',txt:flag.txt,sub:flag.sub,speak:flag.speak});
+  sc.push({type:'scene',bg:flag.scene,label:'',txt:'Red flag or rose?',sub:'The answer isn\'t always obvious. Sometimes what looks like a flag is a door. Sometimes what looks like a rose is a warning.',speak:{who:'narrator',text:'Red flag or rose? The answer isn\'t always obvious. Sometimes what looks like a flag is a door.'},ch:flag.ch});
+
+  // Psychology insight at a scene level (not card — spoken)
+  sc.push({type:'scene',bg:'warmgold',label:'Psychology.',txt:flag.insight.t,sub:flag.insight.x,speak:{who:'narrator',text:flag.insight.t+'. '+flag.insight.x}});
+
+  // Second beat — what they do next
+  sc.push({type:'app',msgs:[{w:`${c.n} ${c.e}`,t:'Can we talk?'}],speak:{who:c.voiceKey,text:'Can we talk?'},
+    ch:[
+      {t:'Yes. Tell me what\'s on your mind.',i:9,f:false,c:t},
+      {t:'Sure — what\'s going on?',i:6,f:false,c:t},
+      {t:'Not right now. I need some time.',i:2,f:false,c:t},
+      {t:'Seen. No reply.',i:-6,f:true,c:t,fb:'Leaving someone on read during an emotionally charged moment communicates abandonment, not space.',psy:'Emotional Abandonment'}
+    ]});
+
+  sc.push({type:'scene',bg:'night',label:'End of episode.',txt:'You\'ve seen something real now.',sub:'That\'s not a bad thing. Real is the only way through.',speak:{who:'narrator',text:`You've seen something real, ${n}. That's not a bad thing. Real is the only way through.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 6 — THE ALMOST ══════════════
+function mkEp6(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+
+  sc.push({type:'scene',bg:'warmgold',label:'Episode 6',txt:'There\'s a night that could change everything.',sub:'You don\'t know it yet. But you\'re about to.',speak:{who:'narrator',text:`There's a night that could change everything, ${n}. You don't know it yet. But you're about to.`}});
+
+  // Build-up — a perfect moment forming
+  const buildups={
+    marco:['The restaurant is perfect. He found it specifically — your kind of place, not his.','He\'s been sober for sixty days. He told you tonight. First, before anything else.'],
+    jade:['She painted something for you. A small one. She almost didn\'t bring it.','She said she\'s been thinking. That she wants to try. With you. Specifically.'],
+    riley:['For once, Riley is fully here. No phone. No working the room. Just you.','They said something they\'ve never said to anyone. You could feel the weight of it.'],
+    dominique:['The night is electric. The good version — chemistry without edges.','They looked at you like something they\'d been looking for and almost given up on.'],
+    alex:['Alex made dinner. Candlelight. No performance — just warmth made physical.','They said: "I\'m not scared anymore." You remembered when they were.'],
+    sam:['Sam took you somewhere they\'ve never taken anyone.','They said your name differently. You noticed. You think they meant you to.']
+  };
+
+  const lines=buildups[t]||buildups.marco;
+  lines.forEach((txt,i)=>{
+    sc.push({type:'scene',bg:i===0?'cafe':'warmgold',label:'',txt,sub:'',speak:{who:i===0?'narrator':c.voiceKey,text:txt}});
+  });
+
+  // The almost moment
+  sc.push({type:'scene',bg:'warmgold',label:'The moment.',txt:'Something is about to happen.',sub:'You can feel it. So can they.',speak:{who:'narrator',text:'Something is about to happen. You can feel it. So can they.'},
+    ch:[
+      {t:'Let it happen. Be present.',i:12,f:false,c:t},
+      {t:'Say how you feel. Out loud.',i:10,f:false,c:t},
+      {t:'Hesitate. The moment passes.',i:-3,f:true,c:t,fb:'Hesitation at the right moment isn\'t always fear — but it\'s worth knowing which one it is.',psy:'Approach-Avoidance'},
+      {t:'Make a joke. Lighten it.',i:-5,f:true,c:t,fb:'Deflecting intimacy with humor is a habit that can cost you the exact moments you\'ve been hoping for.',psy:'Intimacy Deflection'}
+    ]});
+
+  // THE CHAOS — real, unplanned, can\'t be avoided
+  const chaosEvents={
+    marco:'His phone rings. It\'s his sponsor. There was an incident with someone from his meeting. He has to go.',
+    jade:'Her ex shows up at the same place. Not planned. Just life being life.',
+    riley:'Riley gets a message that changes their face completely. "I have to deal with something." They leave.',
+    dominique:'They get into a fight — not with you. With themselves. Old pattern, new moment. They shut down.',
+    alex:'There\'s a family emergency. They get the call mid-sentence. They have to go. Right now.',
+    sam:'Someone from their past walks in. The history between them is visible from across the room.'
+  };
+
+  sc.push({type:'chaos',cht:chaosEvents[t]||'Something interrupts the moment.',chs:'Real life doesn\'t wait for the right time.',speak:{who:'narrator',text:chaosEvents[t]||'Real life doesn\'t wait for the right time.'}});
+
+  // Aftermath
+  sc.push({type:'scene',bg:'night',label:'After.',txt:'The almost is its own kind of thing.',sub:'Not a failure. Not a success. An unfinished sentence.',speak:{who:'narrator',text:'The almost is its own kind of thing. Not a failure. Not a success. An unfinished sentence.'},
+    ch:[
+      {t:'Text them. Keep the thread alive.',i:8,f:false,c:t},
+      {t:'Give them space. See what they do.',i:5,f:false,c:t},
+      {t:'Decide it was a sign to pull back.',i:-5,f:true,c:t,fb:'Reading a random external disruption as a sign about your relationship is magical thinking that lets fear make your decisions.',psy:'Catastrophizing'},
+      {t:'Sit with the feeling. Don\'t rush it.',i:7,f:false,c:t}
+    ]});
+
+  sc.push({type:'scene',bg:'warmgold',label:'End of Phase 2.',txt:'You\'ve been through something real.',sub:`The entanglement is no longer abstract, ${n}. Something between you has a weight now.`,speak:{who:'narrator',text:`You've been through something real, ${n}. The entanglement is no longer abstract. Something between you has weight now.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ ENGINE ══════════════
+function startEp(num){
+  initAudio();
+  if(num===1&&!G.e1){
+    curEp=1; scenes=mkEp1(); si=0; epChoices=[];
+  } else if(num===2&&G.e1&&!G.e2){
+    const s=G.sc, pool=(G.ep1cast&&G.ep1cast.length)?G.ep1cast:Object.keys(s);
+    G.e2t=pool.reduce((a,b)=>(s[a]||0)>=(s[b]||0)?a:b);
+    curEp=2; scenes=mkEp2(); si=0; epChoices=[];
+  } else if(num===3&&G.e2&&!G.e3){
+    curEp=3; scenes=mkEp3(); si=0; epChoices=[];
+  } else if(num===4&&G.e3&&!G.e4){
+    curEp=4; scenes=mkEp4(); si=0; epChoices=[];
+  } else if(num===5&&G.e4&&!G.e5){
+    curEp=5; scenes=mkEp5(); si=0; epChoices=[];
+  } else if(num===6&&G.e5&&!G.e6){
+    curEp=6; scenes=mkEp6(); si=0; epChoices=[];
+  } else if(num===7&&G.e6&&!G.e7){
+    curEp=7; scenes=mkEp7(); si=0; epChoices=[];
+  } else if(num===8&&G.e7&&!G.e8){
+    curEp=8; scenes=mkEp8(); si=0; epChoices=[];
+  } else if(num===9&&G.e8&&!G.e9){
+    curEp=9; scenes=mkEp9(); si=0; epChoices=[];
+  } else if(num===10&&G.e9&&!G.e10){
+    curEp=10; scenes=mkEp10(); si=0; epChoices=[];
+  } else if(num===11&&G.e10&&!G.e11){
+    curEp=11; scenes=mkEp11(); si=0; epChoices=[];
+  } else if(num===12&&G.e11&&!G.e12){
+    curEp=12; scenes=mkEp12(); si=0; epChoices=[];
+  } else return;
+  if(musicOn) startMusic('ambient');
+  setBg('night');
+  const phases={1:'Phase 1 — The Talking Stage',2:'Phase 1 — The Talking Stage',3:'Phase 1 — The Talking Stage',4:'Phase 2 — The Entanglement',5:'Phase 2 — The Entanglement',6:'Phase 2 — The Entanglement',7:'Phase 3 — The Unraveling',8:'Phase 3 — The Unraveling',9:'Phase 3 — The Unraveling',10:'Phase 4 — The Resolution',11:'Phase 4 — The Resolution',12:'Phase 4 — The Resolution'};
+  const titles={1:'"New App, Who Dis"',2:'"First Impressions"',3:'"The Group Chat"',4:'"Catching Feelings"',5:'"Red Flag or Rose?"',6:'"The Almost"',7:'"Patterns"',8:'"The Confession"',9:'"It All Comes Out"',10:'"The Talk"',11:'"Growth or Repeat"',12:'"Entangled or Free"'};
+  document.getElementById('ephph').textContent=phases[curEp]||`Episode ${curEp}`;
+  document.getElementById('ephtt').textContent=titles[curEp]||`Episode ${curEp}`;
+  show('eps'); renderScene();
+}
+
+function resetPanels(){
+  document.getElementById('scene-panel').classList.remove('act');
+  document.getElementById('profile-card').style.display='none';
+  document.getElementById('app-panel').style.display='none';
+  document.getElementById('chaos-panel').classList.remove('act');
+  document.getElementById('inner-voice').classList.remove('act');
+  document.getElementById('choices').innerHTML='';
+  document.getElementById('cp-label').style.display='none';
+}
+
+function renderScene(){
+  if(si>=scenes.length) return;
+  const s=scenes[si];
+  resetPanels();
+  if(s.type==='scene') rScene(s);
+  else if(s.type==='profile') rProfile(s);
+  else if(s.type==='app') rApp(s);
+  else if(s.type==='chaos') rChaos(s);
+  else if(s.type==='debrief') setTimeout(doDebrief,600);
+}
+
+function rScene(s){
+  if(s.bg) setBg(s.bg);
+  const panel=document.getElementById('scene-panel');
+  panel.classList.add('act');
+  document.getElementById('sp-label').textContent=s.label||'';
+  document.getElementById('sp-txt').textContent=s.txt||'';
+  document.getElementById('sp-sub').textContent=s.sub||'';
+  if(s.speak) speak(s.speak.text, s.speak.who||'narrator');
+  if(s.ch) setTimeout(()=>rChoices(s.ch), 800);
+  else addCont();
+}
+
+function rProfile(s){
+  const key=s.key, c=CAST[key];
+  setBg(c.cold.bg);
+  const pc=document.getElementById('profile-card');
+  const tags=c.profile.tags.map(t=>`<span class="pc-tag">${t}</span>`).join('');
+  pc.innerHTML=`
+    <div style="font-size:.66rem;letter-spacing:.35em;color:var(--rose);text-transform:uppercase;margin-bottom:.8rem;">Their Profile</div>
+    <div class="pc-header">
+      <div class="pc-av">${c.e}</div>
+      <div class="pc-info"><div class="pc-name">${c.n}</div><div class="pc-age">${c.age} · ${c.t}</div></div>
+    </div>
+    <div class="pc-bio">${c.profile.bio}</div>
+    <div class="pc-tags">${tags}</div>
+    <div class="pc-match">✓ You matched</div>
+  `;
+  pc.style.display='block';
+  speak(`${c.n}. ${c.n === 'Alex' ? 'Their' : c.n === 'Riley' || c.n === 'Sam' ? 'Their' : c.n === 'Jade' ? 'Her' : 'His'} profile says: ${c.profile.bio}`, 'narrator');
+  addCont();
+}
+
+function rApp(s){
+  if(s.bg) setBg(s.bg||'app');
+  else setBg('app');
+  document.getElementById('app-panel').style.display='block';
+  const box=document.getElementById('cms'); box.innerHTML='';
+  const typing=document.createElement('div');
+  typing.className='typing';
+  typing.innerHTML='<span></span><span></span><span></span>';
+  box.appendChild(typing);
+  setTimeout(()=>{
+    box.removeChild(typing);
+    s.msgs.forEach((m,i)=>{
+      setTimeout(()=>{
+        const d=document.createElement('div');
+        if(m.s){d.className='msys';d.textContent=m.t;}
+        else{
+          d.className='mg th';
+          d.innerHTML=`<div class="mgs">${m.w}</div><div class="mgb">${m.t}</div><div class="mgt">just now</div>`;
+          pingSound();
+        }
+        box.appendChild(d); box.scrollTop=box.scrollHeight;
+        if(!m.s && s.speak && i===s.msgs.length-1) speak(s.speak.text, s.speak.who||'narrator');
+      },i*600);
+    });
+    if(s.ch) setTimeout(()=>rChoices(s.ch), s.msgs.length*600+500);
+    else setTimeout(()=>{si++;renderScene();}, s.msgs.length*600+400);
+  },900);
+}
+
+function rChaos(s){
+  setBg('chaos');
+  // Also apply chaos illustration to scene panel bg for visual depth
+  const spbg=document.getElementById('spbg');
+  if(spbg){
+    const svg=getSceneSVG('chaos');
+    spbg.style.backgroundImage=`url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
+    spbg.style.backgroundSize='cover';
+  }
+  document.getElementById('chaos-panel').classList.add('act');
+  document.getElementById('cht2').textContent=s.cht||'';
+  document.getElementById('chs3').textContent=s.chs||'';
+  chaosSound();
+  if(s.speak) setTimeout(()=>speak(s.speak.text,'narrator'),400);
+  addCont();
+}
+
+function rChoices(choices){
+  document.getElementById('cp-label').style.display='block';
+  const box=document.getElementById('choices'); box.innerHTML='';
+  choices.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='cb';
+    b.innerHTML=`<span class="cn">${i+1}</span>${c.t}`;
+    b.onclick=()=>pick(c,b,choices);
+    box.appendChild(b);
+  });
+}
+
+function pick(c,btn,allChoices){
+  initAudio();
+  uiClickSound();
+  // Disable all choices
+  document.querySelectorAll('.cb').forEach(b=>{b.disabled=true;b.style.opacity='.4';});
+  btn.style.opacity='1';
+  btn.classList.add(c.f?'sb':c.i>=6?'sg':'sn');
+
+  // Sound effect
+  choiceSound(!c.f);
+
+  // Update score and health
+  if(c.c) G.sc[c.c]=(G.sc[c.c]||0)+Math.max(0,c.i);
+  updHP(G.hp+c.i);
+  epChoices.push({t:c.t,i:c.i,f:c.f,c:c.c,psy:c.psy||''});
+  G.ch.push({ep:curEp,t:c.t,f:c.f});
+  if(c.psy) G.psyLog=G.psyLog||[];
+
+  // Track psychology
+  if(c.f&&c.psy){
+    G.psyLog.push({ep:curEp,concept:c.psy,choice:c.t});
+  }
+
+  // Show loading state in inner voice immediately
+  const iv=document.getElementById('inner-voice');
+  const ivTxt=document.getElementById('iv-txt');
+  iv.classList.add('act');
+  ivTxt.innerHTML='<span class="iv-loading">thinking…</span>';
+
+  // Trigger AI inner voice — Continue button appears when it's done
+  const charKey=c.c||'narrator';
+  const charName=CAST[charKey]?CAST[charKey].n:charKey;
+  const context=c.fb||'a key decision moment';
+  triggerInnerVoiceAndContinue(c.t, charName, context);
+}
+
+function addCont(){
+  const box=document.getElementById('choices'); box.innerHTML='';
+  const b=document.createElement('button');
+  b.className='ctb'; b.textContent='Continue →';
+  b.onclick=()=>{si++;renderScene();};
+  box.appendChild(b);
+}
+
+// ══════════════ DEBRIEF ══════════════
+function doDebrief(){
+  setBg('warmgold');
+  const good=epChoices.filter(c=>!c.f).length, total=epChoices.length||1;
+  const score=Math.round((good/total)*100);
+  document.getElementById('del').textContent=`Episode ${curEp} Debrief`;
+  document.getElementById('srv').textContent=score;
+  setTimeout(()=>{document.getElementById('srf').style.strokeDashoffset=283-(283*score/100); heartbeatSound();},150);
+
+  // Character recaps
+  let ins=[];
+  if(curEp===1){
+    ins=(G.ep1cast&&G.ep1cast.length?G.ep1cast:G.cast4.slice(0,2)).map(key=>{
+      const c=CAST[key], sc=G.sc[key]||0;
+      const msgs={
+        marco:sc>=10?`You held your ground with Marco. The attention felt good — and you noticed something underneath it.`:`Marco's intensity pulled at you quickly. Notice how fast you wanted to match it.`,
+        jade:sc>=8?`You held your own with Jade. You didn't chase her.`:`Jade reached out on her own terms and already has mental real estate in your head.`,
+        riley:sc>=8?`You brought real presence to Riley.`:`Riley felt the easiest. Comfort isn't the same as connection.`,
+        dominique:sc>=8?`You stayed grounded with Dominique.`:`Dominique felt familiar before you even met. That recognition is worth understanding.`,
+        alex:sc>=8?`You responded well to Alex's consistency.`:`You spent the least time with Alex. Healthy connection can feel less exciting at first.`,
+        sam:sc>=8?`You showed up honestly with Sam.`:`Sam asked what you actually wanted. How honest your answer was matters.`
+      };
+      return {i:c.e,l:`${c.n} — ${c.t}`,t:msgs[key]||''};
+    });
+  } else {
+    const t=G.e2t, c=CAST[t];
+    ins=[
+      {i:c.e,l:`Your date with ${c.n}`,t:`You chose ${c.n}. The question isn't whether it was right — it's what the choice reveals.`},
+      {i:'💬',l:'How you showed up',t:good>=Math.ceil(total/2)?'You brought real presence. You asked real questions.':'You found yourself managing the conversation more than experiencing it.'},
+      {i:'⚡',l:'The chaos',t:'Something unexpected happened. Notice how you reacted — and whether that reaction is habitual.'},
+    ];
+  }
+  const list=document.getElementById('dil'); list.innerHTML='';
+  ins.forEach(v=>{
+    const d=document.createElement('div'); d.className='dic';
+    d.innerHTML=`<div class="dii">${v.i}</div><div><div class="dill">${v.l}</div><div class="dit">${v.t}</div></div>`;
+    list.appendChild(d);
+  });
+
+  // Psychology breakdown — patterns triggered during the episode
+  const psySec=document.getElementById('psy-items'); psySec.innerHTML='';
+  const flagged=epChoices.filter(c=>c.f&&c.psy);
+  if(flagged.length){
+    flagged.forEach(c=>{
+      const d=document.createElement('div'); d.className='psy-item';
+      d.innerHTML=`<div class="psy-ico">🔍</div><div><div class="psy-ttl">${c.psy}</div><div class="psy-txt">You chose: "${c.t}"</div></div>`;
+      psySec.appendChild(d);
+    });
+  } else {
+    psySec.innerHTML='<div class="psy-item"><div class="psy-ico">✓</div><div><div class="psy-txt">No significant patterns flagged this episode. You showed up clearly.</div></div></div>';
+  }
+
+  // Narrator note — backstory aware
+  const v=bsVoice();
+  document.getElementById('nnt').textContent=getNarratorNote(curEp,v);
+
+  const epTitles={1:'"New App, Who Dis"',2:'"First Impressions"',3:'"The Group Chat"',4:'"Catching Feelings"',5:'"Red Flag or Rose?"',6:'"The Almost"',7:'"Patterns"',8:'"The Confession"',9:'"It All Comes Out"',10:'"The Talk"',11:'"Growth or Repeat"',12:'"Entangled or Free"'};
+  document.getElementById('dtt').textContent=epTitles[curEp]||`Episode ${curEp}`;
+  if(curEp===1) G.e1=true;
+  if(curEp===2) G.e2=true;
+  if(curEp===3) G.e3=true;
+  if(curEp===4) G.e4=true;
+  if(curEp===5) G.e5=true;
+  if(curEp===6) G.e6=true;
+  if(curEp===7) G.e7=true;
+  if(curEp===8) G.e8=true;
+  if(curEp===9) G.e9=true;
+  if(curEp===10) G.e10=true;
+  if(curEp===11) G.e11=true;
+  if(curEp===12) G.e12=true;
+  sv(); show('ds');
+  setTimeout(()=>speak(`Episode ${curEp} complete. Score: ${score} out of 100.`,'narrator'),500);
+}
+
+function afterDebrief(){
+  updHub();
+  const unlocks={1:'ec2',2:'ec3',3:'ec4',4:'ec5',5:'ec6',6:'ec7',7:'ec8',8:'ec9',9:'ec10',10:'ec11',11:'ec12'};
+  const nxt=unlocks[curEp];
+  if(nxt){const c=document.getElementById(nxt);if(c&&c.classList.contains('lk')){c.classList.remove('lk');c.querySelector('.epst').textContent='▶';}}
+  if(curEp===12){sv();doEnding();return;}
+  sv(); show('hs'); setBg('night');
+  if(musicOn) startMusic('warm');
+}
+
+// ══════════════ HELPERS ══════════════
+function pickCast4(){
+  const all=['marco','jade','riley','dominique','alex','sam'];
+  for(let i=all.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[all[i],all[j]]=[all[j],all[i]];}
+  return all.slice(0,4);
+}
+function bsVoice(){
+  if(G.bs1==='There was a betrayal') return 'guarded';
+  if(G.bs1==='I left') return 'independent';
+  if(G.bs1==='They left') return 'healing';
+  if(G.bs2==='A distraction') return 'avoidant';
+  if(G.bs2==='Something real') return 'hopeful';
+  if(G.bs3==='The overthinker'||G.bs3==='The guarded one') return 'guarded';
+  if(G.bs3==='The romantic') return 'romantic';
+  return 'open';
+}
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if(document.activeElement) document.activeElement.blur();
+  if(synth&&id!=='eps') synth.cancel();
+}
+
+// ══════════════ EPISODE 7 — PATTERNS ══════════════
+function mkEp7(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+  sc.push({type:'scene',bg:'night',label:'Episode 7',txt:'Something keeps happening.',sub:'You\'ve noticed it. You just haven\'t named it yet.',speak:{who:'narrator',text:`Something keeps happening, ${n}. You've noticed it. You just haven't named it yet.`}});
+
+  // Pattern mirror — the game shows the player their own behavior
+  const flagCount=(G.psyLog||[]).length;
+  const topPsy=G.psyLog&&G.psyLog.length?G.psyLog[G.psyLog.length-1].concept:'Accommodation';
+
+  sc.push({type:'scene',bg:'warmgold',label:'What the game sees.',txt:`You've made ${G.ch.filter(c=>c.f).length} choices that reinforced an old pattern.`,sub:'Not a judgment. Just a mirror. What do you do with a mirror?',speak:{who:'narrator',text:`You've made ${G.ch.filter(c=>c.f).length} choices that reinforced an old pattern. Not a judgment. Just a mirror.`},
+    ch:[
+      {t:'Look honestly.',i:10,f:false,c:t},
+      {t:'Look, but explain each one away.',i:-3,f:true,c:t,fb:'Explaining away a pattern is the pattern\'s favorite defense mechanism.',psy:'Rationalization'},
+      {t:'Stop looking.',i:-5,f:true,c:t,fb:'Looking away from a pattern is still a choice — and it keeps the pattern intact.',psy:'Denial'}
+    ]});
+
+  // Character-specific pattern reflection
+  const patterns={
+    marco:{txt:'Marco has been intense lately. It feels like love. But love and need can wear the same face.',sub:'He texted you nine times yesterday. You felt warm every time.',speak:{who:'narrator',text:'Marco has been intense lately. Nine texts yesterday. You felt warm every time. Notice that.'}},
+    jade:{txt:'Jade\'s silences have started to feel like a language you\'re learning to translate.',sub:'The problem is: you\'re doing all the translating.',speak:{who:'narrator',text:'Jade\'s silences have become something you translate automatically. Notice who\'s doing the work.'}},
+    riley:{txt:'Riley is funny. Reliable at being unreliable. You\'ve started planning around their inconsistency.',sub:'That\'s not adaptability. That\'s accommodation.',speak:{who:'narrator',text:'You\'ve started planning around Riley\'s inconsistency. That adaptation is worth examining.'}},
+    dominique:{txt:'The intensity with Dominique feels like home. That\'s the thing about familiar patterns.',sub:'Home isn\'t always healthy. Sometimes it\'s just… known.',speak:{who:'narrator',text:'The intensity feels like home. Home isn\'t always healthy. Sometimes it\'s just known.'}},
+    alex:{txt:'Alex is consistent. Honest. Safe. You keep looking for what\'s wrong.',sub:'That searching might tell you more about yourself than about them.',speak:{who:'narrator',text:'Alex is consistent and safe. You keep looking for what\'s wrong. That searching is data about you.'}},
+    sam:{txt:'Sam has become who you needed them to be. That\'s what they do.',sub:'The question is whether what you needed is actually what you want.',speak:{who:'narrator',text:'Sam has become who you needed. The question is whether that\'s what you actually want.'}}
+  };
+
+  const p=patterns[t]||patterns.marco;
+  sc.push({type:'scene',bg:c.bg,label:'The pattern.',txt:p.txt,sub:p.sub,speak:p.speak,
+    ch:[
+      {t:'Name it out loud to yourself.',i:10,f:false,c:t},
+      {t:'Sit with it. No rush.',i:7,f:false,c:t},
+      {t:'Decide it\'s not a pattern. Just circumstances.',i:-6,f:true,c:t,fb:'Exceptionalism — believing your situation is uniquely exempt from patterns — is how patterns survive.',psy:'Exceptionalism'}
+    ]});
+
+  // A moment with another cast member who reflects something
+  sc.push({type:'scene',bg:'night',label:'Someone else.',txt:`You run into one of the other people from the app. Casually. Out in the world.`,sub:'They ask how things are going. You realize you don\'t know how to answer.',speak:{who:'narrator',text:`You run into one of the others from the app. They ask how things are going. You realize you don't know how to answer.`},
+    ch:[
+      {t:'"Complicated. In a way that feels real."',i:9,f:false,c:t},
+      {t:'"Good. Really good."',i:2,f:false,c:t},
+      {t:'Deflect. Change the subject.',i:-3,f:true,c:t,fb:'Deflecting when someone asks about your wellbeing keeps you from knowing the answer yourself.',psy:'Deflection as Armor'}
+    ]});
+
+  sc.push({type:'scene',bg:'warmgold',label:'End of episode.',txt:'A pattern named is a pattern you can choose.',sub:`Not a guarantee. But a possibility. That\'s more than most people get, ${n}.`,speak:{who:'narrator',text:`A pattern named is a pattern you can choose. Not a guarantee. But a possibility. That's more than most people get.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 8 — THE CONFESSION ══════════════
+function mkEp8(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+  sc.push({type:'scene',bg:'night',label:'Episode 8',txt:'Someone is about to tell you something true.',sub:'People rarely say what they mean. This time they will.',speak:{who:'narrator',text:`Someone is about to tell you something true, ${n}. People rarely say what they mean. This time they will.`}});
+
+  // The character confesses their hidden layer
+  const confessions={
+    marco:{
+      scene:'bar',
+      txt:'"I\'ve been sober for ninety days. But I almost wasn\'t last week. And I didn\'t tell you."',
+      sub:'He looks like he\'s been holding it for a while. He has.',
+      speak:{who:'marco',text:`I've been sober for ninety days. But I almost wasn't last week. And I didn't tell you.`},
+      ch:[
+        {t:'"Thank you for telling me now. What happened?"',i:10,f:false,c:'marco'},
+        {t:'Tell him you\'re glad he\'s okay.',i:6,f:false,c:'marco'},
+        {t:'Feel betrayed he kept it from you.',i:-4,f:true,c:'marco',fb:'Responding to vulnerability with betrayal is how people learn not to be vulnerable with you.',psy:'Vulnerable Dismissal'},
+        {t:'Ask if he\'s safe now.',i:8,f:false,c:'marco'}
+      ]
+    },
+    jade:{
+      scene:'studio',
+      txt:'"I think I might not be into men. I don\'t know. I\'ve never said that out loud before."',
+      sub:'She\'s shaking slightly. She means it as both a confession and a question.',
+      speak:{who:'jade',text:`I think I might not be into men. I don't know. I've never said that out loud before.`},
+      ch:[
+        {t:'Hold space. Let her breathe.',i:10,f:false,c:'jade'},
+        {t:'"Thank you for trusting me with that."',i:9,f:false,c:'jade'},
+        {t:'Ask what it means for you two.',i:-5,f:true,c:'jade',fb:'Making her disclosure about your situation is how she learns to stay silent about hard things.',psy:'Self-Centering'},
+        {t:'"That sounds like something you\'ve been carrying alone."',i:10,f:false,c:'jade'}
+      ]
+    },
+    riley:{
+      scene:'street',
+      txt:'"I can\'t always tell anymore when I\'m using to feel better or just to feel normal."',
+      sub:'It\'s the most honest thing they\'ve ever said to you. Maybe to anyone.',
+      speak:{who:'riley',text:`I can't always tell anymore when I'm using to feel better or just to feel normal.`},
+      ch:[
+        {t:'"I hear you. That matters. Will you talk to someone?"',i:10,f:false,c:'riley'},
+        {t:'Hold their hand. Stay present.',i:8,f:false,c:'riley'},
+        {t:'Promise you\'ll be there no matter what.',i:-4,f:true,c:'riley',fb:'Promising unconditional support for a substance issue without boundaries becomes enabling.',psy:'Enabling Behavior'},
+        {t:'"Thank you for trusting me with this."',i:9,f:false,c:'riley'}
+      ]
+    },
+    dominique:{
+      scene:'car',
+      txt:'"The way I grew up — the fighting, the making up after — I thought that\'s just what love was."',
+      sub:'They\'re not making excuses. They\'re finally seeing the source code.',
+      speak:{who:'dominique',text:`The way I grew up — the fighting, the making up after — I thought that's what love was supposed to feel like.`},
+      ch:[
+        {t:'"Knowing that is the beginning."',i:10,f:false,c:'dominique'},
+        {t:'Share something about your own history.',i:9,f:false,c:'dominique'},
+        {t:'"You can change that."',i:4,f:false,c:'dominique'},
+        {t:'Feel relieved. Now everything makes sense and the problems can stop.',i:-6,f:true,c:'dominique',fb:'Understanding a pattern\'s origin doesn\'t automatically end it. That work still has to be done.',psy:'Insight Without Change'}
+      ]
+    },
+    alex:{
+      scene:'sunday',
+      txt:'"I was in a relationship for two years where I put my needs last every single day. I almost disappeared."',
+      sub:'"I almost didn\'t recognize myself. That\'s why therapy. That\'s why all of it."',
+      speak:{who:'alex',text:`I was in a relationship where I put my needs last every day for two years. I almost disappeared. That's why I did the work.`},
+      ch:[
+        {t:'"I\'m glad you found your way back."',i:10,f:false,c:'alex'},
+        {t:'"What does it feel like to show up for yourself now?"',i:9,f:false,c:'alex'},
+        {t:'Feel grateful they chose to heal.',i:8,f:false,c:'alex'},
+        {t:'Wonder if you could have loved the old version of them.',i:-3,f:true,c:'alex',fb:'Wondering if you could have loved the broken version rather than honoring the healed one reveals something about what you\'re drawn to.',psy:'Drama Dependency'}
+      ]
+    },
+    sam:{
+      scene:'rooftop',
+      txt:'"I become whoever someone needs me to be. I do it automatically. I don\'t always know I\'m doing it."',
+      sub:'"With you — I\'ve been trying not to. I don\'t know if I\'ve been succeeding."',
+      speak:{who:'sam',text:`I become whoever someone needs me to be. Automatically. I don't always know I'm doing it. With you I've been trying not to.`},
+      ch:[
+        {t:'"I want to know who you actually are."',i:10,f:false,c:'sam'},
+        {t:'"You\'ve felt real to me."',i:7,f:false,c:'sam'},
+        {t:'Ask who they were being with their ex.',i:-3,f:true,c:'sam',fb:'Asking about their ex right now shifts the moment away from the vulnerability they\'re offering.',psy:'Deflection as Armor'},
+        {t:'Tell them something honest about yourself.',i:9,f:false,c:'sam'}
+      ]
+    }
+  };
+
+  const conf=confessions[t]||confessions.marco;
+  sc.push({type:'scene',bg:conf.scene,label:'What they\'ve been holding.',txt:conf.txt,sub:conf.sub,speak:conf.speak,ch:conf.ch});
+
+  // Your response and its weight
+  sc.push({type:'scene',bg:'warmgold',label:'What you do next.',txt:'Something real has been put between you now.',sub:'This moment either opens a door or closes one. Your choice.',speak:{who:'narrator',text:'Something real has been put between you now. This moment either opens a door or closes one.'},
+    ch:[
+      {t:'Stay present. Breathe. Be honest.',i:10,f:false,c:t},
+      {t:'Ask a careful question.',i:8,f:false,c:t},
+      {t:'Share something true in return.',i:10,f:false,c:t},
+      {t:'Get scared and pull back.',i:-7,f:true,c:t,fb:'Running from real intimacy is how you stay safe and alone.',psy:'Intimacy Avoidance'}
+    ]});
+
+  sc.push({type:'scene',bg:'night',label:'End of episode.',txt:'You heard something that changed things.',sub:`Good or hard — things that are real tend to change things, ${n}.`,speak:{who:'narrator',text:`You heard something that changed things. Good or hard, things that are real tend to change things, ${n}.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 9 — IT ALL COMES OUT ══════════════
+function mkEp9(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+  sc.push({type:'scene',bg:'chaos',label:'Episode 9',txt:'The crisis arrives without warning.',sub:'They all do.',speak:{who:'narrator',text:`The crisis arrives without warning, ${n}. They always do.`}});
+
+  const crises={
+    marco:{
+      chaos:{cht:'Marco relapses. He calls you from somewhere you don\'t recognize. He sounds lost.',chs:'It\'s 2am. This is the moment you didn\'t want to arrive.',speak:{who:'narrator',text:'Marco relapses. He calls you at 2am from somewhere unfamiliar. This is the moment.'}},
+      ch:[
+        {t:'Go to him. Be present. Don\'t lecture.',i:10,f:false,c:'marco'},
+        {t:'Call his sponsor first.',i:9,f:false,c:'marco'},
+        {t:'Tell him you can\'t be his person for this.',i:7,f:false,c:'marco'},
+        {t:'Promise you\'ll fix this together.',i:-6,f:true,c:'marco',fb:'Promising to fix someone\'s addiction is a burden that destroys you both.',psy:'Anxious Caretaking'}
+      ],
+      after:{txt:'"I\'m sorry. I\'m so sorry." He says it over and over.',sub:'The sorry is real. So is what happened.',speak:{who:'marco',text:`I'm sorry. I'm so sorry. I don't know what happened.`}}
+    },
+    jade:{
+      chaos:{cht:'Jade calls to say she can\'t be in a relationship. She needs to figure herself out.',chs:'She sounds certain and terrified at the same time.',speak:{who:'narrator',text:'Jade calls to say she can\'t be in a relationship. She sounds certain and terrified.'}},
+      ch:[
+        {t:'Tell her you hear her. Ask if she needs space or goodbye.',i:10,f:false,c:'jade'},
+        {t:'Say you\'ll wait.',i:-5,f:true,c:'jade',fb:'Offering to wait without a conversation about what that means is not generosity — it\'s self-abandonment.',psy:'Self-Erasure'},
+        {t:'Ask if this is about her ex.',i:4,f:false,c:'jade'},
+        {t:'"I\'m glad you told me. That took courage."',i:8,f:false,c:'jade'}
+      ],
+      after:{txt:'"It\'s not you. I mean that."',sub:'You believe her. That\'s the hard part.',speak:{who:'jade',text:`It's not you. I mean that.`}}
+    },
+    riley:{
+      chaos:{cht:'Riley can\'t hide it anymore. You find out from someone else first.',chs:'The lie of omission has a weight you can feel.',speak:{who:'narrator',text:'Riley can\'t hide it anymore. You find out from someone else first.'}},
+      ch:[
+        {t:'Call them. Be direct and compassionate.',i:10,f:false,c:'riley'},
+        {t:'Give them space to come to you.',i:5,f:false,c:'riley'},
+        {t:'Express anger. You deserved to know.',i:6,f:false,c:'riley'},
+        {t:'Pretend you didn\'t find out.',i:-8,f:true,c:'riley',fb:'Returning to the lie once you\'ve seen through it is how you become complicit in it.',psy:'Willful Blindness'}
+      ],
+      after:{txt:'"I was going to tell you. I just kept thinking one more day."',sub:'That sentence has ended a lot of things.',speak:{who:'riley',text:`I was going to tell you. I just kept thinking one more day.`}}
+    },
+    dominique:{
+      chaos:{cht:'The cycle breaks open. The fight is unlike anything before. They say something they can\'t unsay.',chs:'Then silence. Then the beautiful apology. The pattern completing itself.',speak:{who:'narrator',text:'The cycle breaks open. The fight is unlike anything before. Then silence. Then the beautiful apology.'}},
+      ch:[
+        {t:'"I need to take a week. Then we need to talk about what this is."',i:10,f:false,c:'dominique'},
+        {t:'Accept the apology and move on.',i:-6,f:true,c:'dominique',fb:'The third beautiful apology in a cycle is the most dangerous one.',psy:'Trauma Bonding Cycle'},
+        {t:'Ask what they think just happened.',i:8,f:false,c:'dominique'},
+        {t:'End it. Right now.',i:6,f:false,c:'dominique'}
+      ],
+      after:{txt:'"I don\'t want to be like this. I want to be different with you."',sub:'So does everyone who has ever been inside a cycle.',speak:{who:'dominique',text:`I don't want to be like this. I want to be different with you.`}}
+    },
+    alex:{
+      chaos:{cht:'Alex sets a boundary you didn\'t see coming.',chs:'"I need you to tell me what you want. I can\'t keep showing up to a question mark."',speak:{who:'alex',text:`I need you to tell me what you want. I can't keep showing up to a question mark.`}},
+      ch:[
+        {t:'Tell them what you want. Clearly.',i:10,f:false,c:'alex'},
+        {t:'Tell them you need more time.',i:4,f:false,c:'alex'},
+        {t:'Get defensive. This feels like pressure.',i:-6,f:true,c:'alex',fb:'Experiencing a reasonable boundary as pressure means you\'ve been used to people having none.',psy:'Boundary Aversion'},
+        {t:'"You\'re right. I\'ve been unclear and that\'s not fair."',i:10,f:false,c:'alex'}
+      ],
+      after:{txt:'"I\'m not trying to push you. I\'m just trying to protect both of us."',sub:'That\'s what healthy looks like. Notice how it lands.',speak:{who:'alex',text:`I'm not trying to push you. I'm just trying to protect both of us.`}}
+    },
+    sam:{
+      chaos:{cht:'Sam asks: "What are we doing?" And means all of it.',chs:'Not in anger. In genuine uncertainty about what you\'ve built together.',speak:{who:'sam',text:`What are we doing? Like — actually doing. Because I need to know.`}},
+      ch:[
+        {t:'Answer the question honestly and fully.',i:10,f:false,c:'sam'},
+        {t:'Ask them what they want first.',i:5,f:false,c:'sam'},
+        {t:'Say you\'ll figure it out together.',i:3,f:false,c:'sam'},
+        {t:'Realize you don\'t actually know the answer.',i:7,f:false,c:'sam'}
+      ],
+      after:{txt:'"I just need us to be honest with each other. That\'s all I\'ve ever needed."',sub:'You think about everything you\'ve not said.',speak:{who:'sam',text:`I just need us to be honest with each other. That's all I've ever needed.`}}
+    }
+  };
+
+  const crisis=crises[t]||crises.marco;
+  sc.push({type:'chaos',bg:'chaos',cht:crisis.chaos.cht,chs:crisis.chaos.chs,speak:crisis.chaos.speak});
+  sc.push({type:'scene',bg:c.bg,label:'The choice.',txt:'The moment you\'ve been building toward is here.',sub:'How you respond right now is the whole game.',speak:{who:'narrator',text:'The moment you\'ve been building toward is here. How you respond right now is the whole game.'},ch:crisis.ch});
+  sc.push({type:'scene',bg:c.bg,label:'After.',txt:crisis.after.txt,sub:crisis.after.sub,speak:crisis.after.speak});
+
+  sc.push({type:'scene',bg:'night',label:'The weight.',txt:'Something has settled. One way or another.',sub:`You know who you are in this, ${n}. The next episodes will show you what to do with that.`,speak:{who:'narrator',text:`Something has settled, ${n}. You know who you are in this. The next episodes will show you what to do with that.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 10 — THE TALK ══════════════
+function mkEp10(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+  sc.push({type:'scene',bg:'warmgold',label:'Episode 10',txt:'"We need to talk."',sub:'Four words. Everyone knows what they mean.',speak:{who:'narrator',text:`Four words. Everyone knows what they mean, ${n}.`}});
+
+  sc.push({type:'scene',bg:c.bg,label:'Defining it.',txt:`You and ${c.n} are having the conversation.`,sub:'Not the one you planned. The real one.',speak:{who:'narrator',text:`You and ${c.n} are having the conversation. Not the one you planned. The real one.`},
+    ch:[
+      {t:'Lead with what you want.',i:10,f:false,c:t},
+      {t:'Lead with what you\'ve been feeling.',i:9,f:false,c:t},
+      {t:'Ask what they want first.',i:7,f:false,c:t},
+      {t:'Wait for them to lead. Avoid going first.',i:-5,f:true,c:t,fb:'Perpetually waiting for others to lead in defining relationships leaves you permanently reactive.',psy:'Approach-Avoidance'}
+    ]});
+
+  // Character response to the DTR
+  const responses={
+    marco:{txt:'"I want this to be real. I\'m scared I\'ll mess it up. But I want it."',sub:'That\'s the most honest thing you can ask of someone.',speak:{who:'marco',text:`I want this to be real. I'm scared I'll mess it up. But I want it.`}},
+    jade:{txt:'"I don\'t know if I can give you what you deserve. But I don\'t want to stop trying."',sub:'That\'s jade being braver than she knows how to be.',speak:{who:'jade',text:`I don't know if I can give you what you deserve. But I don't want to stop trying.`}},
+    riley:{txt:'"I keep waiting to not be ready. And then I realized: I was using that to stay comfortable."',sub:'This is the most self-aware Riley has been. Honor it.',speak:{who:'riley',text:`I keep waiting to not be ready. I realized I was using that to stay comfortable.`}},
+    dominique:{txt:'"I know I\'ve been a lot. I want to do it differently. With you."',sub:'Watch whether what comes next matches this moment.',speak:{who:'dominique',text:`I know I've been a lot. I want to do it differently. With you.`}},
+    alex:{txt:'"I\'m in. I want to be in. I need to know if you\'re there too."',sub:'Clear, direct, vulnerable. Classic Alex.',speak:{who:'alex',text:`I'm in. I want to be in. I need to know if you're there too.`}},
+    sam:{txt:'"I don\'t know exactly what I am. But I know I want you to be part of whatever it is."',sub:'From Sam, that\'s as clear as it gets.',speak:{who:'sam',text:`I don't know exactly what I am. But I know I want you to be part of whatever it is.`}}
+  };
+
+  const resp=responses[t]||responses.marco;
+  sc.push({type:'scene',bg:c.bg,label:'What they say.',txt:resp.txt,sub:resp.sub,speak:resp.speak,
+    ch:[
+      {t:'Match their honesty.',i:12,f:false,c:t},
+      {t:'Ask a clarifying question.',i:7,f:false,c:t},
+      {t:'Say yes to everything without thinking.',i:-5,f:true,c:t,fb:'Agreeing to a relationship definition before you\'ve fully heard yourself is how you disappear into someone else\'s.',psy:'Self-Erasure'},
+      {t:'Be honest about your uncertainty.',i:10,f:false,c:t}
+    ]});
+
+  sc.push({type:'scene',bg:'warmgold',label:'After.',txt:'You\'ve said things that can\'t be unsaid.',sub:`That\'s not always a warning, ${n}. Sometimes it\'s just called honesty.`,speak:{who:'narrator',text:`You've said things that can't be unsaid. That's not always a warning. Sometimes it's just called honesty.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 11 — GROWTH OR REPEAT ══════════════
+function mkEp11(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const flagCount=G.ch.filter(ch=>ch.f).length;
+  const sc=[];
+  sc.push({type:'scene',bg:'night',label:'Episode 11',txt:'Two paths. You\'ve already been walking one.',sub:'The question is whether you know which one.',speak:{who:'narrator',text:`Two paths, ${n}. You've already been walking one. The question is whether you know which one.`}});
+
+  // Reflection on choices made
+  sc.push({type:'scene',bg:'warmgold',label:'The record.',txt:flagCount>4?'Your patterns showed up more than your growth this time.':'You showed up more than your patterns did.',sub:flagCount>4?'That\'s not the end. It\'s just where you are.':'That\'s something. That\'s actually something.',speak:{who:'narrator',text:flagCount>4?`Your patterns showed up more than your growth this time. That's not the end.`:`You showed up more than your patterns did. That's something.`}});
+
+  // The growth or repeat fork
+  sc.push({type:'scene',bg:c.bg,label:'The fork.',txt:`${c.n} asks: "Where do you want this to go from here?"`,sub:'The honest answer exists. You just have to let it out.',speak:{who:c.voiceKey,text:`Where do you want this to go from here? Honestly.`},
+    ch:[
+      {t:'Say exactly what you want. No hedging.',i:12,f:false,c:t},
+      {t:'Ask them what they want and sync.',i:8,f:false,c:t},
+      {t:'Give the answer you think they want to hear.',i:-8,f:true,c:t,fb:'Telling someone what they want to hear instead of what\'s true is how you build a relationship that isn\'t yours.',psy:'Pleasing Over Truth'},
+      {t:'Say you\'re still figuring it out. Honestly.',i:8,f:false,c:t}
+    ]});
+
+  // Character-specific growth moment
+  const growths={
+    marco:{txt:'Marco has been sober for four months. He starts talking about what comes next.',sub:'Not what he\'s not doing. What he\'s building.',speak:{who:'marco',text:`Four months. I've been thinking about what I actually want my life to look like.`}},
+    jade:{txt:'Jade shows you a new piece of work. She painted something about this — about becoming.',sub:'It\'s the best thing she\'s made.',speak:{who:'jade',text:`I painted something about all of this. You're kind of in it.`}},
+    riley:{txt:'Riley has been talking to someone. A real therapist. They bring it up without shame.',sub:'That\'s new. That matters.',speak:{who:'riley',text:`I started seeing someone. A therapist. I figured it was time to actually do that.`}},
+    dominique:{txt:'Dominique has been quieter. Less performance. More presence.',sub:'You don\'t know yet if it\'s real change or the calm before another storm.',speak:{who:'dominique',text:`I've been thinking about what it would mean to actually break the cycle.`}},
+    alex:{txt:'Alex makes you breakfast. Says nothing profound. Just breakfast.',sub:'That\'s the whole thing. That IS the profound thing.',speak:{who:'alex',text:`I just wanted to make you breakfast. No reason.`}},
+    sam:{txt:'Sam tells you something they\'ve never told anyone.',sub:'It\'s small. It matters enormously.',speak:{who:'sam',text:`I don't know why I'm telling you this. I just wanted you to know.`}}
+  };
+
+  const g=growths[t]||growths.marco;
+  sc.push({type:'scene',bg:c.bg,label:'Growth.',txt:g.txt,sub:g.sub,speak:g.speak,
+    ch:[
+      {t:'Receive it fully.',i:10,f:false,c:t},
+      {t:'Tell them what you see.',i:9,f:false,c:t},
+      {t:'Minimize it. Stay guarded.',i:-6,f:true,c:t,fb:'Minimizing someone\'s growth is a way of keeping them where you expect them to be.',psy:'Protective Avoidance'}
+    ]});
+
+  sc.push({type:'scene',bg:'warmgold',label:'Before the finale.',txt:'Whatever ending you\'re walking toward, you built it.',sub:`That\'s not blame, ${n}. It\'s agency. You had more of it than you knew.`,speak:{who:'narrator',text:`Whatever ending you're walking toward, you built it. That's not blame. It's agency. You had more of it than you knew.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ EPISODE 12 — ENTANGLED OR FREE ══════════════
+function mkEp12(){
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const sc=[];
+  sc.push({type:'scene',bg:'warmgold',label:'Episode 12',txt:'The finale.',sub:'Everything you\'ve chosen has brought you here.',speak:{who:'narrator',text:`Everything you've chosen has brought you here, ${n}. The finale.`}});
+
+  // Final scene with your person
+  const finales={
+    marco:{txt:'Marco is waiting. Ninety days turns into a year when you\'re not counting.',sub:'He looks at you like you\'re something he almost didn\'t believe he deserved.',speak:{who:'marco',text:`You stayed. I don't know if you know how much that meant.`}},
+    jade:{txt:'Jade is in her studio. She left the door open this time.',sub:'For you, she\'s learned to leave doors open.',speak:{who:'jade',text:`I've been thinking. And I wanted to show you what I've been thinking.`}},
+    riley:{txt:'Riley shows up. On time. Completely.',sub:'Simple. Enormous.',speak:{who:'riley',text:`I wanted to show you I can just show up. So. Here I am.`}},
+    dominique:{txt:'Dominique is different in small ways that mean everything.',sub:'Or the cycle has just gotten more sophisticated. Only time will know.',speak:{who:'dominique',text:`I'm trying. I know I don't always get it right. I'm trying.`}},
+    alex:{txt:'Alex makes you coffee. Knows how you take it.',sub:'That\'s not small. That\'s what loving someone looks like.',speak:{who:'alex',text:`I just want you to know I see you. All of it. And I'm still here.`}},
+    sam:{txt:'Sam is fully themselves today. No performance, no mirroring.',sub:'You helped them find that. They helped you find something too.',speak:{who:'sam',text:`I think I know who I am with you. That's new for me.`}}
+  };
+
+  const finale=finales[t]||finales.marco;
+  sc.push({type:'scene',bg:c.bg,label:'The end.',txt:finale.txt,sub:finale.sub,speak:finale.speak,
+    ch:[
+      {t:'Stay. Choose them consciously.',i:15,f:false,c:t},
+      {t:'Say what you love about them. Out loud.',i:12,f:false,c:t},
+      {t:'Ask where they see this going.',i:8,f:false,c:t},
+      {t:'Realize you need something different. Name it.',i:8,f:false,c:t}
+    ]});
+
+  sc.push({type:'scene',bg:'warmgold',label:'Final.',txt:`"Some patterns end here."`,sub:n+'.',speak:{who:'narrator',text:`Some patterns end here. ${n}.`}});
+  sc.push({type:'debrief'});
+  return sc;
+}
+
+// ══════════════ ENDING ENGINE ══════════════
+function calcEnding(){
+  const s=G.sc, t=G.e2t;
+  const alexScore=s.alex||0;
+  const dateScore=s[t]||0;
+  const flagCount=G.ch.filter(c=>c.f).length;
+  const totalScore=Object.values(s).reduce((a,b)=>a+b,0);
+  if(alexScore>20||(dateScore>40&&flagCount<3)) return 'healthy';
+  if(flagCount<4&&totalScore>60) return 'growth';
+  if(flagCount>=4&&dateScore>20) return 'entangled';
+  return 'pattern';
+}
+
+function doEnding(){
+  const ending=calcEnding();
+  const n=G.nm, t=G.e2t, c=CAST[t];
+  const flagCount=G.ch.filter(ch=>ch.f).length;
+  const topPatterns=(G.psyLog||[]).slice(-3).map(p=>p.concept).join(', ')||'none flagged';
+
+  const endings={
+    healthy:{
+      badge:'💚',
+      title:'Healthy Love',
+      subtitle:'You chose connection over comfort.',
+      msg:`${n}, you showed up honestly. You didn't chase intensity at the expense of truth. Whether it was with ${c.n} or in what you learned about yourself — you chose something real. That's rarer than you know.`,
+      attach:'Secure',
+      color:'var(--hg)'
+    },
+    growth:{
+      badge:'🌱',
+      title:'Growth',
+      subtitle:'You became something.',
+      msg:`${n}, you didn't get the perfect ending. But you got something more honest: growth. You made ${flagCount} choices that reinforced old patterns — and you named them. That's the work. Some patterns end here.`,
+      attach:'Anxious → Healing',
+      color:'var(--amber)'
+    },
+    entangled:{
+      badge:'🔗',
+      title:'Entangled',
+      subtitle:'Real feelings. Real patterns. Real.',
+      msg:`${n}, you stayed with someone complicated and developed real feelings. That's not failure — it's human. The patterns you ran were: ${topPatterns}. You can see them now. Seeing them is the first thing.`,
+      attach:'Anxious',
+      color:'var(--rose)'
+    },
+    pattern:{
+      badge:'🔄',
+      title:'Pattern',
+      subtitle:'You can see it now. That\'s new.',
+      msg:`${n}, this playthrough repeated something familiar. You ran ${flagCount} flagged patterns: ${topPatterns}. The cycle completed. But here\'s what\'s different: you\'re aware of it now. Awareness is the door. You decide if you walk through.`,
+      attach:'Trauma-Bonded → Aware',
+      color:'var(--burgundy)'
+    }
+  };
+
+  const e=endings[ending];
+  // Build ending screen
+  const el=document.getElementById('ending-screen');
+  el.innerHTML=`
+    <div class="ending-wrap">
+      <div class="ending-badge">${e.badge}</div>
+      <div class="ending-type" style="color:${e.color}">${e.title}</div>
+      <div class="ending-sub">${e.subtitle}</div>
+      <div class="ending-divider"></div>
+      <div class="ending-msg">${e.msg}</div>
+      <div class="ending-attach-label">Your Attachment Style This Run</div>
+      <div class="ending-attach" style="border-color:${e.color};color:${e.color}">${e.attach}</div>
+      <div class="ending-stats">
+        <div class="estat"><div class="esl">Patterns Flagged</div><div class="esv">${flagCount}</div></div>
+        <div class="estat"><div class="esl">Relationship Score</div><div class="esv">${Math.round(G.sc[t]||0)}</div></div>
+        <div class="estat"><div class="esl">Health at End</div><div class="esv">${G.hp}</div></div>
+      </div>
+      <div class="ending-tagline">"Some patterns end here."</div>
+      <button class="bp" style="width:100%;margin-bottom:.8rem;" onclick="resetAll()">Play Again →</button>
+      <button class="bs" style="width:100%;" onclick="show('hs')">Return to Hub</button>
+    </div>
+  `;
+  setBg('warmgold');
+  if(musicOn) startMusic('romantic');
+  show('ending-screen');
+  setTimeout(()=>speak(`${e.title}. ${e.msg}`,'narrator'),800);
+}
+
+// Extend narrator notes for ep 7-12
+const allNotes7to12={
+  7:{guarded:`"${G.nm}, the pattern you keep seeing isn't a flaw. It's a habit. Habits can change."`,romantic:`"You still believe love is supposed to feel like something. Patterns don't disprove that — they just show where you've been looking."`,healing:`"Seeing a pattern from the outside is different from living inside it. You're getting there."`,open:`"The mirror doesn't lie. What you do after looking in it — that's where you live."`},
+  8:{guarded:`"Someone told you something true tonight. The fact that you stayed in the room — that's growth."`,romantic:`"A confession is a gift. How you receive it tells you something about yourself."`,healing:`"${G.nm}, you heard something hard and stayed present. That's not small."`,open:`"The truth that was offered tonight — what you do with it is yours entirely."`},
+  9:{guarded:`"The crisis wasn't the end. It was the x-ray. Now you can see what's actually there."`,romantic:`"Real relationships contain real crises. What matters is what each person does when they arrive."`,healing:`"${G.nm}, you stayed present through something hard. That's what you came here to learn."`,open:`"The moment revealed something about both of you. That's not a bad thing. That's data."`},
+  10:{guarded:`"The talk happened. Something honest was said. That's all it needs to be for now."`,romantic:`"You named what you wanted. That took courage — even if it didn't feel like it."`,healing:`"${G.nm}, defining what you want is not the same as demanding it. You can do both."`,open:`"The conversation changed the shape of things. Good conversations always do."`},
+  11:{guarded:`"Growth doesn't announce itself. It just keeps showing up quietly until one day you notice."`,romantic:`"You're not the person who downloaded the app anymore. Notice what's different."`,healing:`"${G.nm}, the choices you made in the hard moments — those were you choosing differently."`,open:`"You built something this run. Even the hard parts were building material."`},
+  12:{guarded:`"This is where you landed. The next run starts from what you learned here."`,romantic:`"The ending doesn't define the story. The story defines the ending."`,healing:`"${G.nm}, you completed something. That's not nothing. That's the whole thing."`,open:`"Some patterns end here. Some continue. The difference is whether you're watching."`}
+};
+
+// Patch narrator note lookup to include ep 7-12
+const _origDebriefNotes=function(){return null;};
+function getNarratorNote(ep, voice){
+  const allNotes={1:{guarded:`"${G.nm}, being guarded kept you safe once. At some point you'll decide if it's still doing that — or just keeping you alone."`,romantic:`"You still believe in it. Don't let anyone talk you out of that. Just make sure you're seeing the people in front of you clearly."`,healing:`"The fact that you showed up at all is the whole thing."`,hopeful:`"Your hope isn't naivety. It's a choice. Keep choosing it carefully."`,avoidant:`"You told yourself it was just an app. How's that working out?"`,open:`"${G.nm}, you downloaded this looking for something. Tonight you got your first glimpse of whether you know what that is."`},2:{guarded:`"The date didn't break you. That's not the bar — but it's a start."`,romantic:`"A first date is a negotiation between who you are and who you want them to think you are."`,healing:`"${G.nm}, pay attention to how you felt in the silences. That's where the truth lives."`,hopeful:`"The chaos tonight wasn't a disruption. It was the most honest part of the evening."`,open:`"The most revealing thing wasn't who you talked to. It was how you responded when you felt seen."`},3:{guarded:`"You watched them interact with others tonight. That's real data. Use it."`,romantic:`"${G.nm}, seeing someone you like in a room full of other people is one of the most honest windows into them."`,healing:`"Group settings strip away the performance of one-on-one. What you saw tonight was close to the truth."`,open:`"You saw all of them in the same room. The one you kept looking for — that tells you something."`},4:{guarded:`"Feelings arrived. You noticed you wanted to manage them before you'd even felt them. That's the pattern."`,romantic:`"You let yourself feel something real. That's braver than most people allow themselves to be."`,healing:`"${G.nm}, catching feelings isn't a loss of control. It's a sign you're still capable of this."`,open:`"The complication that arrived alongside the feeling — notice it. Feelings and complexity always travel together."`},5:{guarded:`"You saw something. What you do with what you see is the measure of who you're becoming."`,romantic:`"This episode wasn't about a red flag or a rose. It was about whether you trust your own perception."`,healing:`"You named something that was hard to name. That's growth, even if it doesn't feel like it yet."`,open:`"${G.nm}, most people look away at this point. You didn't. That matters."`},6:{guarded:`"The almost isn't a failure. It's information about what you want — and whether you'll reach for it."`,romantic:`"Something real almost happened. The chaos that interrupted it wasn't a sign. It was just life."`,healing:`"You stayed present through the disruption. That's new. Notice it."`,open:`"${G.nm}, the unfinished sentence isn't empty. It's waiting."`},...allNotes7to12};
+  const noteSet=allNotes[ep]||allNotes[1];
+  return noteSet[voice]||noteSet.open||'"Some patterns end here."';
+}
+function updHP(v){
+  G.hp=Math.max(0,Math.min(100,Math.round(v)));
+  const f=document.getElementById('hfl');
+  if(f){
+    f.style.width=G.hp+'%';
+    if(G.hp>60) f.style.background='linear-gradient(90deg,var(--hg),var(--amber))';
+    else if(G.hp>30) f.style.background='linear-gradient(90deg,var(--amber),var(--neon))';
+    else f.style.background='linear-gradient(90deg,var(--hr),var(--neon))';
+  }
+  const h=document.getElementById('hvl'); if(h) h.textContent=G.hp;
+  const e=document.getElementById('ehp'); if(e) e.textContent=G.hp;
+}
+function updHub(){
+  document.getElementById('hnm').textContent=G.nm||'Player';
+  document.getElementById('hav').textContent=G.av||'🧑🏽';
+  document.getElementById('hrn').textContent=G.run||1;
+  updHP(G.hp);
+  // Mark completed and unlock next
+  const flags={e1:'ec1',e2:'ec2',e3:'ec3',e4:'ec4',e5:'ec5',e6:'ec6',e7:'ec7',e8:'ec8',e9:'ec9',e10:'ec10',e11:'ec11',e12:'ec12'};
+  const nexts={e1:'ec2',e2:'ec3',e3:'ec4',e4:'ec5',e5:'ec6',e6:'ec7',e7:'ec8',e8:'ec9',e9:'ec10',e10:'ec11',e11:'ec12'};
+  Object.entries(flags).forEach(([flag,id])=>{
+    if(G[flag]){
+      const c=document.getElementById(id); if(c){c.classList.add('dn');c.querySelector('.epst').textContent='✓';}
+      const nid=nexts[flag]; const n=document.getElementById(nid);
+      if(n&&n.classList.contains('lk')){n.classList.remove('lk');n.querySelector('.epst').textContent='▶';}
+    }
+  });
+  // Wire up ec7-ec12 onclick
+  for(let i=7;i<=12;i++){
+    const el=document.getElementById(`ec${i}`);
+    if(el&&!el.dataset.wired){el.onclick=()=>startEp(i);el.dataset.wired='1';}
+  }
+}
+function navH(btn,id){
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  document.getElementById('esec').style.display=id==='esec'?'block':'none';
+  document.getElementById('csec').style.display=id==='csec'?'block':'none';
+}
+function tog(btn,g){
+  const was=btn.classList.contains('sel');
+  btn.parentElement.querySelectorAll('.ob').forEach(b=>b.classList.remove('sel'));
+  if(!was){
+    btn.classList.add('sel');
+    if(g==='g') selG=btn.textContent;
+    if(g==='o') selO=btn.textContent;
+    if(g==='a') selA=btn.textContent;
+    if(g==='bs1') selBs1=btn.textContent;
+    if(g==='bs2') selBs2=btn.textContent;
+    if(g==='bs3') selBs3=btn.textContent;
+  } else {
+    if(g==='g') selG='';
+    if(g==='o') selO='';
+    if(g==='a') selA='';
+    if(g==='bs1') selBs1='';
+    if(g==='bs2') selBs2='';
+    if(g==='bs3') selBs3='';
+  }
+  btn.blur();
+}
+function pickAv(e){
+  document.querySelectorAll('.ao').forEach(a=>a.classList.remove('sel'));
+  e.classList.add('sel'); chosenAv=e.textContent; e.blur();
+}
+function showCast(k){
+  const c=CAST[k];
+  document.getElementById('mei').textContent=c.e;
+  document.getElementById('mtt').textContent=c.n;
+  document.getElementById('mty').textContent=c.t;
+  document.getElementById('mdsc').textContent=c.d;
+  document.getElementById('mhid').textContent=c.h;
+  document.getElementById('mles').textContent=c.l;
+  document.getElementById('cm3').classList.add('act');
+}
+function goCreate(){ show('cs'); }
+function goCont(){
+  if(G.nm&&G.nm!=='Player'){updHub();show('hs');}
+  else show('cs');
+}
+function finishCreate(){
+  G.nm=document.getElementById('pn').value.trim()||'Player';
+  G.av=chosenAv&&chosenAv.length>1?chosenAv:'🧑🏽';
+  G.gd=selG; G.or=selO; G.ag=selA;
+  G.bs1=selBs1; G.bs2=selBs2; G.bs3=selBs3;
+  G.ex=[...document.querySelectorAll('#ge .sel')].map(b=>b.textContent);
+  G.hp=65; G.run=(G.run||0)+1;
+  G.sc={marco:0,jade:0,riley:0,dominique:0,alex:0,sam:0};
+  G.e1=false; G.e2=false; G.e3=false; G.e4=false; G.e5=false; G.e6=false;
+  G.e7=false; G.e8=false; G.e9=false; G.e10=false; G.e11=false; G.e12=false;
+  G.ch=[]; G.fl=[]; G.psyLog=[];
+  G.cast4=[]; G.ep1cast=[];
+  updHub(); sv();
+  // Start with your couch cold open then episode 1
+  setBg('couch');
+  show('eps');
+  scenes=[
+    {type:'scene',bg:'couch',label:'You. Tonight.',txt:'Your couch. Your phone. An app you\'ve been avoiding.',sub:'You press download.',speak:{who:'narrator',text:`${G.nm}. Your couch. An app you've been avoiding. Tonight you press download.`}},
+    {type:'scene',bg:'couch',label:'',txt:'Your profile goes live.',sub:`${G.cast4.length} new matches waiting.`,speak:{who:'narrator',text:`Your profile goes live. ${G.cast4.length} new matches waiting.`}}
+  ];
+  si=0; epChoices=[];
+  document.getElementById('ephph').textContent='Phase 1 — The Talking Stage';
+  document.getElementById('ephtt').textContent='"New App, Who Dis"';
+  // After 2 opening scenes, merge with ep1
+  const rest=mkEp1(); rest.shift(); rest.shift(); // remove duplicate openers
+  scenes=[...scenes,...rest];
+  renderScene();
+}
+function resetAll(){
+  localStorage.removeItem('entangled');
+  G=mkFresh();
+  if(synth) synth.cancel();
+  stopMusic();
+  document.getElementById('rm').classList.remove('act');
+  show('ts');
+}
+function sv(){try{localStorage.setItem('entangled',JSON.stringify(G));}catch(e){}}
+function ld(){try{const s=localStorage.getItem('entangled');return s?JSON.parse(s):null;}catch(e){return null;}}
+(function(){if(G.nm&&G.nm!=='Player')updHub();})();
+</script>
+
+<!-- ══ ENDING SCREEN ══ -->
+<div id="ending-screen" class="screen" style="background:var(--bg);align-items:center;justify-content:center;padding:2rem;overflow-y:auto;"></div>
+
+<style>
+.ending-wrap{max-width:560px;width:100%;text-align:center;margin:0 auto;padding:2rem 0;}
+.ending-badge{font-size:5rem;margin-bottom:1rem;animation:fu 1s ease forwards;}
+.ending-type{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:300;letter-spacing:.05em;margin-bottom:.3rem;animation:fu 1s .2s ease both;}
+.ending-sub{font-size:.82rem;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);margin-bottom:1.5rem;animation:fu 1s .4s ease both;}
+.ending-divider{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);margin:0 auto 1.5rem;}
+.ending-msg{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:300;line-height:1.75;color:var(--text);margin-bottom:1.5rem;text-align:left;animation:fu 1s .6s ease both;}
+.ending-attach-label{font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;}
+.ending-attach{display:inline-block;padding:.4rem 1.2rem;border:1.5px solid;border-radius:20px;font-size:.88rem;font-weight:500;margin-bottom:1.5rem;}
+.ending-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;background:var(--card);border:1px solid var(--border);padding:1.2rem;}
+.estat{text-align:center;}
+.esl{font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;}
+.esv{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--amber);}
+.ending-tagline{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:var(--neon);letter-spacing:.1em;margin-bottom:2rem;text-shadow:0 0 20px rgba(232,64,106,.3);}
+</style>
+
+</body>
+</html>
