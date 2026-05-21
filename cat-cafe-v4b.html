@@ -1397,12 +1397,13 @@ function doPrestige(){
   showModal('Ascend to Legend?','The café restarts. Cats stay. +50% magic income forever.',
     [{label:'✨ Ascend',cls:'mbtn-confirm',cb:()=>{
       G.prestigeCount++;G.prestigeBonus*=1.5;
+      const pc=G.prestigeCount,pb=G.prestigeBonus;
       const cats=JSON.parse(JSON.stringify(G.catsOwned));
       const moods=JSON.parse(JSON.stringify(G.catMoods));
       const ms=JSON.parse(JSON.stringify(G.milestones||{}));
       Object.assign(G,freshState());
+      G.prestigeCount=pc;G.prestigeBonus=pb;
       G.catsOwned=cats;G.catMoods=moods;G.milestones=ms;
-      G.prestigeCount=G.prestigeCount;G.prestigeBonus=G.prestigeBonus;
       sfxSave();showNotif('✨ Ascended! +50% magic forever. The cats are unimpressed, as always.');
       syncCatSprites();updateUI();goToPage(0);
     }},'Cancel']);

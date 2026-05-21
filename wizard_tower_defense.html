@@ -261,6 +261,30 @@ function hitEnemy(e,dmg,p){
   if(p.slow)e.slow=2;
   if(p.dot)e.dot=3;
   if(e.hp<=0)killEnemy(e);
+  // Lightning chain: jump to up to p.chain additional nearby enemies
+  if(p.chain>0){
+    let chainDmg=dmg*0.6;
+    let hit=[e];
+    let src=e;
+    for(let c=0;c<p.chain;c++){
+      let next=null,bestDist=Infinity;
+      for(let en of enemies){
+        if(hit.includes(en))continue;
+        const d=Math.hypot(en.x-src.x,en.y-src.y);
+        if(d<80&&d<bestDist){bestDist=d;next=en;}
+      }
+      if(!next)break;
+      hit.push(next);
+      next.hp-=chainDmg;
+      if(p.slow)next.slow=2;
+      if(p.dot)next.dot=3;
+      // Spark particle between src and next
+      for(let i=0;i<4;i++)particles.push({x:src.x+(next.x-src.x)*Math.random(),y:src.y+(next.y-src.y)*Math.random(),vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:0.8,col:'#fbbf24',r:2});
+      if(next.hp<=0)killEnemy(next);
+      src=next;
+      chainDmg*=0.6;
+    }
+  }
 }
 
 function killEnemy(e){

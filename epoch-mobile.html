@@ -115,7 +115,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 </div>
 <script>
 const G={gold:0,stone:0,ember:0,metal:0,totalMetal:0,
-  forgeRate:1,goldRate:0,stoneRate:0,emberRate:0,
+  forgeRate:1,goldRate:0,stoneRate:0,emberRate:0,craftMult:1,
   prestige:0,prestigeMult:1,craftCounts:{},upgradeOwned:{},artifactOwned:{},
   prestigeHistory:[]};
 const SK='epoch_v1';
@@ -137,7 +137,7 @@ const UPGRADES=[
   {id:'goldvein',name:'Gold Vein',icon:'🪙',desc:'+3 gold/s passive',cost:{gold:50,ember:10},effect:()=>G.goldRate+=3},
   {id:'stonecutter',name:'Stone Cutter',icon:'🪨',desc:'+2 stone/s passive',cost:{metal:100,gold:50},effect:()=>G.stoneRate+=2},
   {id:'furnace',name:'Eternal Furnace',icon:'🔥',desc:'+3 ember/s passive',cost:{metal:200,gold:100,ember:20},effect:()=>G.emberRate+=3},
-  {id:'rune',name:'Rune Inscription',icon:'🔮',desc:'×1.5 all craft value',cost:{gold:300,ember:50},effect:()=>{}},
+  {id:'rune',name:'Rune Inscription',icon:'🔮',desc:'×1.5 all craft value',cost:{gold:300,ember:50},effect:()=>G.craftMult*=1.5},
   {id:'dragon',name:'Dragon Heart',icon:'🐉',desc:'×3 forge rate',cost:{gold:1000,ember:200},effect:()=>G.forgeRate*=3},
   {id:'time',name:'Time Crystal',icon:'💎',desc:'Auto-forge 5× /s',cost:{gold:2000,ember:500},effect:()=>{}},
 ];
@@ -224,7 +224,7 @@ function craftItem(id){
     if(r==='goldRate')G.goldRate+=v;
     else if(r==='stoneRate')G.stoneRate+=v;
     else if(r==='emberRate')G.emberRate+=v;
-    else G[r]=(G[r]||0)+v;
+    else G[r]=(G[r]||0)+Math.floor(v*G.craftMult);
   });
   showToast('⚒️ '+c.name+' crafted!');
   renderItems();updateUI();
@@ -259,7 +259,7 @@ function doPrestige(){
   G.prestigeMult=Math.pow(1.5,G.prestige);
   // Reset
   G.gold=0;G.stone=0;G.ember=0;G.metal=0;G.totalMetal=0;
-  G.forgeRate=1;G.goldRate=0;G.stoneRate=0;G.emberRate=0;
+  G.forgeRate=1;G.goldRate=0;G.stoneRate=0;G.emberRate=0;G.craftMult=1;
   G.craftCounts={};G.upgradeOwned={};
   // Re-apply artifacts
   Object.keys(G.artifactOwned).forEach(id=>{

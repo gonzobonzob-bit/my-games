@@ -194,7 +194,7 @@ function renderItems(){
   const al=document.getElementById('agent-list');
   if(al){al.innerHTML=AGENTS.map(a=>{
     const owned=!!G.agentOwned[a.id];
-    const can=!owned&&G.ev>=a.cost.ev;
+    const can=!owned&&G.ev>=a.cost.ev&&(!a.cost.intel||G.intel>=a.cost.intel)&&(!a.cost.cred||G.cred>=a.cost.cred);
     const costStr=`${fmt(a.cost.ev)} EV${a.cost.intel?` + ${fmt(a.cost.intel)} IN`:''}${a.cost.cred?` + ${fmt(a.cost.cred)} CR`:''}`;
     return `<div class="item-row ${owned?'owned':can?'can':''}" onclick="${owned?'':` buyAgent('${a.id}')`}">
       <div class="item-ico">${a.icon}</div>
@@ -231,7 +231,7 @@ function buyUpgrade(id){
 }
 function buyAgent(id){
   const a=AGENTS.find(x=>x.id===id);if(!a||G.agentOwned[id])return;
-  if(G.ev<a.cost.ev){showToast('Need more Evidence');return;}
+  if(G.ev<a.cost.ev||(a.cost.intel&&G.intel<a.cost.intel)||(a.cost.cred&&G.cred<a.cost.cred)){showToast('Not enough resources');return;}
   G.ev-=a.cost.ev;if(a.cost.intel)G.intel-=a.cost.intel;if(a.cost.cred)G.cred-=a.cost.cred;
   G.agentOwned[id]=true;a.effect();
   addLog('▶ AGENT: '+a.name+' recruited','important');

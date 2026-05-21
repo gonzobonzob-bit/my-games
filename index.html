@@ -3,34 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="theme-color" content="#04030e">
+<meta name="theme-color" content="#0b0820">
 <title>Gonzo's Game Vault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#04030e;--bg2:#07050c;--panel:#0d0b18;--border:#1a1030;--purple:#7c3aed;--gold:#d97706;--text:#e2d9f3;--muted:#4a3d6a;}
+:root{--bg:#0b0820;--bg2:#100d24;--panel:#1a1535;--border:#2e2050;--purple:#8b5cf6;--gold:#f59e0b;--text:#f0ecfb;--muted:#9580c8;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(124,58,237,0.08),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(234,88,12,0.06),transparent 50%);pointer-events:none;z-index:0;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(139,92,246,0.18),transparent 55%),radial-gradient(ellipse at 80% 100%,rgba(245,158,11,0.12),transparent 55%),radial-gradient(ellipse at 60% 50%,rgba(236,72,153,0.06),transparent 50%);pointer-events:none;z-index:0;}
 header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;border-bottom:1px solid var(--border);}
 .vault-icon{font-size:52px;display:block;margin-bottom:10px;animation:vaultFloat 3s ease-in-out infinite;}
 @keyframes vaultFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .site-title{font-family:'Cinzel',serif;font-size:28px;font-weight:900;background:linear-gradient(135deg,#c4b5fd,#f0abfc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
 .site-sub{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;}
 .header-pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
-.hpill{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:10px;color:var(--muted);}
+.hpill{background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:20px;padding:4px 12px;font-size:10px;color:#c4b5fd;}
 .stats-bar{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);position:relative;z-index:1;}
 .stat{flex:1;padding:14px 0;text-align:center;border-right:1px solid var(--border);}
 .stat:last-child{border-right:none;}
 .stat-val{font-family:'Cinzel',serif;font-size:20px;color:var(--gold);display:block;}
 .stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px;}
 .filter-bar{display:flex;gap:7px;padding:14px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;justify-content:center;position:relative;z-index:1;}
-.filter-btn{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'Nunito',sans-serif;}
+.filter-btn{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:#b8a8e0;cursor:pointer;transition:all 0.15s;font-family:'Nunito',sans-serif;}
 .filter-btn.active{background:rgba(124,58,237,0.15);border-color:var(--purple);color:#c4b5fd;}
+.filter-btn.active-complete{background:rgba(22,163,74,0.15);border-color:#16a34a;color:#4ade80;}
+.filter-btn.active-wip{background:rgba(217,119,6,0.15);border-color:#d97706;color:#fbbf24;}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:20px 16px;max-width:1100px;margin:0 auto;position:relative;z-index:1;}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;text-decoration:none;color:var(--text);display:flex;flex-direction:column;transition:transform 0.15s,border-color 0.2s,box-shadow 0.2s;}
-.card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.5);}
-.card-banner{height:88px;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative;flex-shrink:0;}
+.card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(139,92,246,0.3);}
+.card.status-complete{border-top:2px solid #16a34a;}
+.card.status-wip{border-top:2px solid #d97706;}
+.card-banner{height:110px;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative;flex-shrink:0;overflow:hidden;}
+/* === Banner scene classes === */
+/* 1. Purr & Power Co. — Sunburst */
+.banner-solar{background:linear-gradient(180deg,#050e2a 0%,#0f1e5a 50%,#1a2e7a 100%);background-color:#050e2a;}
+.banner-solar::before{content:'';position:absolute;inset:0;background:conic-gradient(from 270deg at 50% -10%,transparent 0deg,rgba(251,191,36,0.18) 8deg,transparent 16deg,transparent 22deg,rgba(251,191,36,0.12) 30deg,transparent 38deg,transparent 44deg,rgba(251,191,36,0.15) 52deg,transparent 60deg,transparent 66deg,rgba(251,191,36,0.1) 74deg,transparent 82deg,transparent 88deg,rgba(251,191,36,0.14) 96deg,transparent 104deg,transparent 110deg,rgba(251,191,36,0.11) 118deg,transparent 126deg,transparent 132deg,rgba(251,191,36,0.09) 140deg,transparent 148deg,transparent 154deg,rgba(251,191,36,0.12) 162deg,transparent 170deg,transparent 176deg,rgba(251,191,36,0.1) 184deg,transparent 192deg);}
+.banner-solar::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 55% at 50% 0%,rgba(251,191,36,0.45) 0%,rgba(245,158,11,0.2) 30%,transparent 65%);}
+/* 2. Paws & Contempt — Cozy Café */
+.banner-cafe{background:linear-gradient(160deg,#2a1200 0%,#4a1f00 40%,#3d1500 70%,#1e0d00 100%);}
+.banner-cafe::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 50%,rgba(251,191,36,0.22) 0%,rgba(217,119,6,0.12) 40%,transparent 70%);}
+.banner-cafe::after{content:'';position:absolute;left:50%;top:10%;transform:translateX(-50%);width:52%;height:75%;background:rgba(255,200,100,0.07);border-radius:6px;box-shadow:inset 0 0 20px rgba(255,200,100,0.1),inset 0 0 6px rgba(255,255,255,0.05);backdrop-filter:blur(1px);}
+/* 3. NEON DYNASTY — Cyberpunk City */
+.banner-cyber{background:#01010d;}
+.banner-cyber::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.35) 3px,rgba(0,0,0,0.35) 4px);}
+.banner-cyber::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 10%,rgba(0,255,255,0.06) 14%,transparent 15%,transparent 22%,rgba(255,0,200,0.07) 25%,transparent 27%,transparent 38%,rgba(139,92,246,0.08) 41%,transparent 43%,transparent 55%,rgba(0,255,255,0.05) 58%,transparent 60%,transparent 70%,rgba(255,0,200,0.06) 73%,transparent 75%,transparent 82%,rgba(0,255,255,0.07) 85%,transparent 87%);}
+.banner-cyber .neon-streaks{position:absolute;inset:0;overflow:hidden;}
+.banner-cyber .neon-streaks::before{content:'';position:absolute;top:0;left:13%;width:1px;height:100%;background:linear-gradient(180deg,transparent,rgba(0,255,255,0.7),rgba(0,255,255,0.3),transparent);box-shadow:0 0 6px 1px rgba(0,255,255,0.5);}
+.banner-cyber .neon-streaks::after{content:'';position:absolute;top:0;left:25%;width:1px;height:100%;background:linear-gradient(180deg,transparent,rgba(255,0,200,0.8),rgba(255,0,200,0.3),transparent);box-shadow:0 0 8px 1px rgba(255,0,200,0.6);}
+/* 4. EPOCH: The Eternal Forge — Forge Fire */
+@keyframes forgeFlicker{0%,100%{opacity:1;transform:scaleX(1)}25%{opacity:0.85;transform:scaleX(1.04)}50%{opacity:0.95;transform:scaleX(0.97)}75%{opacity:0.9;transform:scaleX(1.03)}}
+.banner-forge{background:linear-gradient(180deg,#0a0804 0%,#150b00 40%,#260d00 75%,#3d1200 100%);}
+.banner-forge::before{content:'';position:absolute;bottom:0;left:0;right:0;height:55%;background:radial-gradient(ellipse 90% 100% at 50% 100%,rgba(255,80,0,0.6) 0%,rgba(220,50,0,0.35) 35%,rgba(160,20,0,0.15) 60%,transparent 80%);animation:forgeFlicker 1.8s ease-in-out infinite;}
+.banner-forge::after{content:'';position:absolute;inset:0;background:radial-gradient(circle 18px at 20% 30%,rgba(255,120,0,0.3),transparent 60%),radial-gradient(circle 12px at 70% 50%,rgba(255,80,0,0.25),transparent 55%),radial-gradient(circle 8px at 45% 20%,rgba(255,150,0,0.2),transparent 50%),radial-gradient(circle 10px at 82% 35%,rgba(255,60,0,0.2),transparent 55%),radial-gradient(circle 6px at 33% 55%,rgba(255,100,0,0.15),transparent 50%);}
+/* 5. X-Files — Surveillance CRT */
+.banner-xfiles{background:linear-gradient(135deg,#00090200,#010f03 50%,#000a02);}
+.banner-xfiles::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.4) 2px,rgba(0,0,0,0.4) 3px);}
+.banner-xfiles::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 70% at 50% 50%,rgba(0,255,80,0.25) 0%,rgba(0,200,40,0.1) 40%,transparent 70%);}
+/* 6. Wizard's Last Stand — Arcane Arena */
+.banner-wizard{background:radial-gradient(ellipse at 50% 60%,#110a2e 0%,#07041a 60%,#030210 100%);}
+.banner-wizard::before{content:'';position:absolute;inset:0;background:radial-gradient(circle 55px at 50% 50%,rgba(139,92,246,0.28) 0%,rgba(124,58,237,0.12) 45%,transparent 70%),radial-gradient(circle 90px at 50% 50%,transparent 50%,rgba(109,40,217,0.08) 65%,transparent 80%),radial-gradient(circle 130px at 50% 50%,transparent 65%,rgba(88,28,187,0.06) 80%,transparent 95%);}
+.banner-wizard::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 46px,rgba(109,40,217,0.3) 47px,transparent 49px),radial-gradient(circle at 50% 50%,transparent 72px,rgba(109,40,217,0.2) 73px,transparent 75px),radial-gradient(circle at 50% 50%,transparent 100px,rgba(88,28,187,0.15) 101px,transparent 103px);}
+/* 7. Rift Legends — Void Rift */
+.banner-rift{background:radial-gradient(ellipse at 50% 50%,#1a004a 0%,#0d0025 50%,#03000d 100%);}
+.banner-rift::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 30% 60% at 50% 50%,rgba(167,139,250,0.4) 0%,rgba(139,92,246,0.2) 30%,transparent 65%);filter:blur(2px);}
+.banner-rift::after{content:'';position:absolute;left:50%;top:10%;bottom:10%;transform:translateX(-50%);width:2px;background:linear-gradient(180deg,transparent,rgba(196,181,253,0.9),rgba(167,139,250,1),rgba(196,181,253,0.9),transparent);box-shadow:0 0 12px 4px rgba(139,92,246,0.8),0 0 30px 8px rgba(109,40,217,0.5),0 0 60px 15px rgba(88,28,187,0.3);}
+/* 8. Entangled — Quantum Connection */
+.banner-entangled{background:linear-gradient(160deg,#06040f 0%,#0e0820 50%,#150a28 100%);}
+.banner-entangled::before{content:'';position:absolute;inset:0;background:linear-gradient(40deg,transparent 20%,rgba(168,85,247,0.06) 35%,transparent 50%),linear-gradient(140deg,transparent 25%,rgba(236,72,153,0.05) 42%,transparent 58%),linear-gradient(70deg,transparent 15%,rgba(139,92,246,0.07) 30%,transparent 45%),linear-gradient(110deg,transparent 30%,rgba(219,39,119,0.05) 50%,transparent 65%);}
+.banner-entangled::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 45% 55% at 50% 50%,rgba(236,72,153,0.22) 0%,rgba(168,85,247,0.15) 35%,transparent 65%);}
+/* 9. TERMINUS — Dark Western */
+.banner-terminus{background:linear-gradient(180deg,#0a0600 0%,#1a0e00 40%,#120900 70%,#0a0600 100%);}
+.banner-terminus::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 7px,rgba(0,0,0,0.5) 7px,rgba(0,0,0,0.5) 8px);}
+.banner-terminus::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 100% 80% at 0% 50%,rgba(0,0,0,0.7),transparent 50%),radial-gradient(ellipse 100% 80% at 100% 50%,rgba(0,0,0,0.7),transparent 50%),radial-gradient(ellipse 100% 40% at 50% 0%,rgba(0,0,0,0.5),transparent 60%),radial-gradient(ellipse 100% 40% at 50% 100%,rgba(0,0,0,0.5),transparent 60%);}
+/* Banner emoji overlay */
+.banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
 .badge-solar{background:rgba(245,158,11,0.25);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);}
 .badge-new{background:rgba(22,163,74,0.25);color:#4ade80;border:1px solid rgba(22,163,74,0.4);}
@@ -39,14 +86,18 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .badge-td{background:rgba(37,99,235,0.2);color:#93c5fd;border:1px solid rgba(37,99,235,0.35);}
 .badge-moba{background:rgba(219,39,119,0.2);color:#f9a8d4;border:1px solid rgba(219,39,119,0.35);}
 .badge-rpg{background:rgba(13,148,136,0.2);color:#5eead4;border:1px solid rgba(13,148,136,0.35);}
+.badge-vn{background:rgba(236,72,153,0.2);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);}
 .badge-dev{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);}
 .card-body{padding:12px 14px;flex:1;}
 .card-genre{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;}
 .card-title{font-family:'Cinzel',serif;font-size:15px;color:var(--text);margin-bottom:4px;}
 .card-desc{font-size:11px;color:var(--muted);line-height:1.6;}
-.card-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.play-btn{background:linear-gradient(135deg,var(--purple),#a855f7);color:white;border:none;border-radius:9px;padding:6px 16px;font-family:'Cinzel',serif;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block;}
+.card-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.play-btn{background:linear-gradient(135deg,var(--purple),#a855f7);color:white;border:none;border-radius:9px;padding:6px 16px;font-family:'Cinzel',serif;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block;flex-shrink:0;}
 .card-tech{font-size:9px;color:var(--muted);}
+.status-chip{font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;flex-shrink:0;}
+.chip-complete{background:rgba(22,163,74,0.2);color:#4ade80;border:1px solid rgba(22,163,74,0.35);}
+.chip-wip{background:rgba(217,119,6,0.2);color:#fbbf24;border:1px solid rgba(217,119,6,0.35);}
 .card[data-hidden]{display:none;}
 footer{text-align:center;padding:24px 20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);position:relative;z-index:1;}
 footer a{color:#a78bfa;text-decoration:none;}
@@ -65,9 +116,9 @@ footer a{color:#a78bfa;text-decoration:none;}
   </div>
 </header>
 <div class="stats-bar">
-  <div class="stat"><span class="stat-val" id="s-total">8</span><span class="stat-lbl">Games</span></div>
-  <div class="stat"><span class="stat-val">🐱</span><span class="stat-lbl">Cats</span></div>
-  <div class="stat"><span class="stat-val">☀️</span><span class="stat-lbl">Solar</span></div>
+  <div class="stat"><span class="stat-val" id="s-total">9</span><span class="stat-lbl">Games</span></div>
+  <div class="stat"><span class="stat-val" style="color:#4ade80;" id="s-complete">3</span><span class="stat-lbl">Complete</span></div>
+  <div class="stat"><span class="stat-val" style="color:#fbbf24;" id="s-wip">5</span><span class="stat-lbl">In Progress</span></div>
   <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Free</span></div>
 </div>
 <div class="filter-bar">
@@ -76,81 +127,93 @@ footer a{color:#a78bfa;text-decoration:none;}
   <button class="filter-btn" onclick="filterGames('td',this)">🏰 Tower Defense</button>
   <button class="filter-btn" onclick="filterGames('rpg',this)">🗡️ RPG</button>
   <button class="filter-btn" onclick="filterGames('moba',this)">⚔️ MOBA</button>
+  <button class="filter-btn" onclick="filterGames('complete',this,'complete')">✓ Complete</button>
+  <button class="filter-btn" onclick="filterGames('wip',this,'wip')">🚧 In Progress</button>
 </div>
 <div class="grid" id="game-grid">
 
-  <a class="card" href="purr-and-power-v5.html" data-tags="idle solar">
-    <div class="card-banner" style="background:linear-gradient(135deg,#0f172a,#1e3a8a);">☀️🐱<span class="card-badge badge-solar">⭐ Featured</span></div>
+  <a class="card status-complete" href="purr-and-power-v5.html" data-tags="idle solar" data-status="complete">
+    <div class="card-banner banner-solar"><span class="banner-emoji">☀️🐱</span><span class="card-badge badge-solar">⭐ Featured</span></div>
     <div class="card-body">
       <div class="card-genre">☀️ Idle Tycoon</div>
       <div class="card-title">Purr & Power Co.</div>
       <div class="card-desc">Run El Paso's most cat-friendly solar company. Real payroll, real equipment costs (Silfab panels, SolarEdge inverters, Sunmodo SMR rails), 16 staff roles, break room, top-down map.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle · Solar · El Paso · v5</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card" href="cat-cafe-v4b.html" data-tags="idle">
-    <div class="card-banner" style="background:linear-gradient(135deg,#0a0618,#16134a);">🐱☕<span class="card-badge badge-idle">Idle</span></div>
+  <a class="card status-wip" href="cat-cafe-v4b.html" data-tags="idle" data-status="wip">
+    <div class="card-banner banner-cafe"><span class="banner-emoji">🐱☕</span><span class="card-badge badge-idle">Idle</span></div>
     <div class="card-body">
       <div class="card-genre">🐱 Idle Tycoon</div>
       <div class="card-title">Paws & Contempt</div>
       <div class="card-desc">Build a cat café empire with witty sarcastic humor. 32 unique cat breeds, hire staff, upgrade your café, unlock prestige tiers. Day/night cycle, ambient sounds, 10 save slots.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle · Cat Café · PWA · v4b</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Prestige Bug</span></div>
   </a>
 
-  <a class="card" href="neon-dynasty.html" data-tags="idle">
-    <div class="card-banner" style="background:linear-gradient(135deg,#020412,#0d0836);">🏙️⚡<span class="card-badge badge-ai">AI Oracle</span></div>
+  <a class="card status-wip" href="neon-dynasty.html" data-tags="idle" data-status="wip">
+    <div class="card-banner banner-cyber"><div class="neon-streaks"></div><span class="banner-emoji">🏙️⚡</span><span class="card-badge badge-ai">AI Oracle</span></div>
     <div class="card-body">
       <div class="card-genre">🌆 Cyberpunk Tycoon</div>
       <div class="card-title">NEON DYNASTY</div>
       <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the live AI Oracle powered by Claude for real strategic advice.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Tycoon · AI Oracle · Cyberpunk</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Oracle Offline</span></div>
   </a>
 
-  <a class="card" href="epoch-mobile.html" data-tags="idle">
-    <div class="card-banner" style="background:linear-gradient(135deg,#1a0e00,#3d1f00);">⚒️🔥<span class="card-badge badge-idle">Idle</span></div>
+  <a class="card status-wip" href="epoch-mobile.html" data-tags="idle" data-status="wip">
+    <div class="card-banner banner-forge"><span class="banner-emoji">⚒️🔥</span><span class="card-badge badge-idle">Idle</span></div>
     <div class="card-body">
       <div class="card-genre">⚒️ Idle Crafting</div>
       <div class="card-title">EPOCH: The Eternal Forge</div>
       <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes, prestige to loop through time. Each age makes you stronger.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle · Crafting · Prestige</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Rune Bug</span></div>
   </a>
 
-  <a class="card" href="xfiles-pwa.html" data-tags="rpg idle">
-    <div class="card-banner" style="background:linear-gradient(135deg,#020c04,#071409);">👁️🛸<span class="card-badge badge-rpg">RPG</span></div>
+  <a class="card status-wip" href="xfiles-pwa.html" data-tags="rpg idle" data-status="wip">
+    <div class="card-banner banner-xfiles"><span class="banner-emoji">👁️🛸</span><span class="card-badge badge-rpg">RPG</span></div>
     <div class="card-body">
       <div class="card-genre">🗡️ Idle RPG</div>
       <div class="card-title">X-Files: The Truth Is Out There</div>
-      <div class="card-desc">Gather Evidence, recruit agents from Mulder to Scully, expose conspiracies from Black Oil to Majestic-12. CRT terminal aesthetic. The truth is out there.</div>
+      <div class="card-desc">Gather evidence, recruit agents from Mulder to Scully, expose conspiracies from Black Oil to Majestic-12. CRT terminal aesthetic. The truth is out there.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Idle RPG · X-Files · Conspiracy</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Cost Check Bug</span></div>
   </a>
 
-  <a class="card" href="wizard_tower_defense.html" data-tags="td">
-    <div class="card-banner" style="background:linear-gradient(135deg,#04030e,#14082a);">🧙‍♂️⚔️<span class="card-badge badge-td">Tower Defense</span></div>
+  <a class="card status-complete" href="wizard_tower_defense.html" data-tags="td" data-status="complete">
+    <div class="card-banner banner-wizard"><span class="banner-emoji">🧙‍♂️⚔️</span><span class="card-badge badge-td">Tower Defense</span></div>
     <div class="card-body">
       <div class="card-genre">🏰 Tower Defense</div>
       <div class="card-title">Wizard's Last Stand</div>
       <div class="card-desc">10 tower types — Archer, Pyromage, Frost, Storm, Venom, Cannon, Arcane, Shadow, Divine, Dragon. 12 escalating waves with bosses, fast enemies, and brutes. Protect the crystal.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">Tower Defense · 10 Towers · 12 Waves</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card" href="rift-legends.html" data-tags="moba">
-    <div class="card-banner" style="background:linear-gradient(135deg,#05030f,#1a0630);">⚔️🌀<span class="card-badge badge-moba">MOBA</span></div>
+  <a class="card status-complete" href="rift-legends.html" data-tags="moba" data-status="complete">
+    <div class="card-banner banner-rift"><span class="banner-emoji">⚔️🌀</span><span class="card-badge badge-moba">MOBA</span></div>
     <div class="card-body">
       <div class="card-genre">⚔️ Action MOBA</div>
       <div class="card-title">Rift Legends</div>
-      <div class="card-desc">Choose your champion — Warrior, Mage, Assassin, or Ranger. Mobile joystick controls, 3 abilities each, in-game shop, level up system. Wave-based combat.</div>
+      <div class="card-desc">Choose your champion — Warrior, Mage, Assassin, or Ranger. Mobile joystick controls, 3 abilities each, in-game shop, level up system. Survive 10 waves to claim victory.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="card-tech">MOBA · 4 Champions · Joystick</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <div class="card" data-tags="td" style="opacity:0.55;cursor:default;">
-    <div class="card-banner" style="background:linear-gradient(135deg,#0a0a0a,#1a0a00);">🚂💀<span class="card-badge badge-dev">In Dev</span></div>
+  <a class="card status-wip" href="entangled-index.html" data-tags="rpg" data-status="wip">
+    <div class="card-banner banner-entangled"><span class="banner-emoji">💞🔮</span><span class="card-badge badge-vn">Visual Novel</span></div>
+    <div class="card-body">
+      <div class="card-genre">💞 Visual Novel · Dating Sim</div>
+      <div class="card-title">Entangled</div>
+      <div class="card-desc">Quantum romance visual novel with branching choices, multiple endings, and an AI inner voice powered by Claude. Episodes 1–6 playable. Episodes 7–12 in development.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Eps 7–12 Missing</span></div>
+  </a>
+
+  <div class="card" data-tags="td" data-status="dev" style="opacity:0.55;cursor:default;">
+    <div class="card-banner banner-terminus"><span class="banner-emoji">🚂💀</span><span class="card-badge badge-dev">In Dev</span></div>
     <div class="card-body">
       <div class="card-genre">🏰 Tower Defense</div>
       <div class="card-title">TERMINUS: The Truth Below</div>
@@ -162,16 +225,30 @@ footer a{color:#a78bfa;text-decoration:none;}
 </div>
 <footer>Built by Gonzo · El Paso, TX 🌵 · <a href="https://github.com/gonzobonzob-bit" target="_blank">GitHub</a> · All games free · No installs · No ads</footer>
 <script>
-function filterGames(tag,btn){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+function filterGames(tag,btn,mode){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active','active-complete','active-wip'));
+  btn.classList.add(mode==='complete'?'active-complete':mode==='wip'?'active-wip':'active');
   const cards=document.querySelectorAll('.card');
-  let shown=0;
+  let shown=0,complete=0,wip=0;
   cards.forEach(c=>{
-    if(tag==='all'){c.removeAttribute('data-hidden');shown++;}
-    else{const tags=(c.dataset.tags||'').split(' ');if(tags.includes(tag)){c.removeAttribute('data-hidden');shown++;}else c.setAttribute('data-hidden','1');}
+    const tags=(c.dataset.tags||'').split(' ');
+    const status=c.dataset.status||'';
+    let visible=false;
+    if(tag==='all') visible=true;
+    else if(tag==='complete') visible=status==='complete';
+    else if(tag==='wip') visible=status==='wip';
+    else visible=tags.includes(tag);
+    if(visible){
+      c.removeAttribute('data-hidden');shown++;
+      if(status==='complete')complete++;
+      if(status==='wip')wip++;
+    } else {
+      c.setAttribute('data-hidden','1');
+    }
   });
   document.getElementById('s-total').textContent=shown;
+  document.getElementById('s-complete').textContent=complete;
+  document.getElementById('s-wip').textContent=wip;
 }
 </script>
 </body>
