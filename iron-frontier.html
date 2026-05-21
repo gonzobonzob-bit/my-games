@@ -86,6 +86,29 @@ canvas{display:block;touch-action:none;}
 .act-btn.primary{background:rgba(200,134,10,0.2);border-color:var(--gold);color:var(--gold);}
 .act-btn.hidden{display:none;}
 
+/* TOOLBAR */
+#toolbar{
+  background:rgba(26,15,0,0.97);border-top:1px solid var(--border);
+  padding:5px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;
+}
+.mode-btn{
+  background:rgba(92,61,26,0.3);border:1px solid var(--border);border-radius:10px;
+  padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:1px;
+  cursor:pointer;transition:all 0.15s;flex-shrink:0;min-width:54px;
+}
+.mode-icon{font-size:15px;}
+.mode-label{font-family:'Cinzel',serif;font-size:8px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;}
+.mode-btn.active .mode-label{color:var(--gold);}
+.mode-btn.active{background:rgba(200,134,10,0.2);border-color:var(--gold);}
+.mode-btn:active{transform:scale(0.95);}
+#mode-hint{flex:1;font-size:9px;color:var(--muted);padding:0 6px;text-align:center;line-height:1.4;}
+.zoom-btn{
+  background:rgba(92,61,26,0.3);border:1px solid var(--border);border-radius:8px;
+  width:30px;height:30px;font-size:18px;color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;
+}
+.zoom-btn:active{background:rgba(92,61,26,0.7);color:var(--gold);}
+
 /* TOAST */
 #toast{
   position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
@@ -167,6 +190,24 @@ canvas{display:block;touch-action:none;}
     <canvas id="game-canvas"></canvas>
   </div>
 
+  <div id="toolbar">
+    <button id="mode-select" class="mode-btn active" onclick="setMode('select')">
+      <span class="mode-icon">👆</span>
+      <span class="mode-label">Select</span>
+    </button>
+    <button id="mode-track" class="mode-btn" onclick="setMode('track')">
+      <span class="mode-icon">🔩</span>
+      <span class="mode-label">Track 50G</span>
+    </button>
+    <button id="mode-route" class="mode-btn" onclick="setMode('route')">
+      <span class="mode-icon">🗺</span>
+      <span class="mode-label">Route</span>
+    </button>
+    <span id="mode-hint">Tap any tile</span>
+    <button class="zoom-btn" onclick="zoomIn()">+</button>
+    <button class="zoom-btn" onclick="zoomOut()">−</button>
+  </div>
+
   <div id="info-panel">
     <div id="info-text">
       <div id="info-title">Select a Tile</div>
@@ -214,8 +255,8 @@ const SQRT3 = Math.sqrt(3);
 const MAP_RADIUS = 12;
 const TILE_PLAINS = 0, TILE_MOUNTAINS = 1, TILE_RIVER = 2, TILE_TOWN = 3, TILE_TRACK = 4;
 const TILE_H = {0:0, 1:24, 2:-8, 3:3, 4:2};
-const TILE_COLORS = {0:'#547838', 1:'#857060', 2:'#3870B8', 3:'#D99E26', 4:'#856E54'};
-const WALL_COLORS = {1:'#5a4a3a'};
+const TILE_COLORS = {0:'#547838', 1:'#9898aa', 2:'#3870B8', 3:'#D99E26', 4:'#c87830'};
+const WALL_COLORS = {1:'#62627a'};
 const TRACK_COST = 50;
 const TRAIN_COST = 500;
 const TRIP_GOLD = 120;
@@ -351,6 +392,8 @@ let nextRouteId = 0, nextTrainId = 0;
 let towns = {};
 let paused = false, gameStarted = false, victoryShown = false;
 let selectedCoord = null, routeTownA = null, routeTownB = null, pendingRouteId = null;
+let currentMode = 'select'; // 'select' | 'track' | 'route'
+let lastDragTrackHex = null;
 
 function initTowns() {
   towns = {};
@@ -636,16 +679,42 @@ function showToast(msg) {
 
 function updateInfoPanel() {
   const title = document.getElementById('info-title');
-  const sub = document.getElementById('info-sub');
+  const sub   = document.getElementById('info-sub');
   const btnTrack = document.getElementById('btn-track');
   const btnRoute = document.getElementById('btn-route');
   const btnTrain = document.getElementById('btn-train');
   const btnClear = document.getElementById('btn-clear');
   [btnTrack, btnRoute, btnTrain, btnClear].forEach(b=>b.classList.add('hidden'));
+  const hint = document.getElementById('mode-hint');
+
+  if (currentMode === 'track') {
+    hint.textContent = 'Tap or drag tiles to lay track — 50G each';
+    title.textContent = '🔩 Track Mode';
+    sub.textContent = 'Tap any non-mountain tile. Drag to lay multiple. Press T to exit.';
+    return;
+  }
+
+  if (currentMode === 'route') {
+    if (routeTownA) {
+      const ta = towns[routeTownA];
+      hint.textContent = 'Now tap the destination town';
+      title.textContent = (ta?ta.name:'Town') + ' selected';
+      sub.textContent = 'Tap another town to build the route automatically';
+      btnClear.classList.remove('hidden');
+    } else {
+      hint.textContent = 'Tap a town to start a route';
+      title.textContent = '🗺 Route Mode';
+      sub.textContent = 'Tap two towns to connect them with a rail route';
+    }
+    return;
+  }
+
+  // SELECT mode
+  hint.textContent = selectedCoord ? '' : 'Tap any tile to inspect';
 
   if (!selectedCoord && !routeTownA) {
     title.textContent = 'Select a Tile';
-    sub.textContent = 'Tap any tile to inspect or build';
+    sub.textContent = 'Use the toolbar to place track or build routes';
     return;
   }
 
@@ -661,7 +730,7 @@ function updateInfoPanel() {
   if (routeTownA && !routeTownB) {
     const ta = towns[routeTownA];
     title.textContent = (ta?ta.name:'Town') + ' selected';
-    sub.textContent = 'Now select a second town for the route';
+    sub.textContent = 'Select a second town for the route';
     btnClear.classList.remove('hidden');
     return;
   }
@@ -692,7 +761,6 @@ function updateInfoPanel() {
       title.textContent = typeNames[tile.type] || 'Tile';
       sub.textContent = 'q:'+tile.q+' r:'+tile.r + (tracks[selectedCoord]?' | Has track':'');
     }
-    // Show track button if not mountain and no track yet
     if (tile.type !== TILE_MOUNTAINS && !tracks[selectedCoord]) {
       btnTrack.classList.remove('hidden');
     }
@@ -756,6 +824,18 @@ function doClearSelection() {
   updateInfoPanel();
 }
 
+// ─── MODE & ZOOM ─────────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode-'+mode).classList.add('active');
+  if (mode !== 'route') { routeTownA = null; routeTownB = null; }
+  if (mode !== 'select') { selectedCoord = null; pendingRouteId = null; }
+  updateInfoPanel();
+}
+function zoomIn()  { camZoom = Math.min(CAM_ZOOM_MAX, camZoom*1.2); }
+function zoomOut() { camZoom = Math.max(CAM_ZOOM_MIN, camZoom/1.2); }
+
 // ─── SCREEN → HEX ────────────────────────────────────────────────────────────
 function screenToHex(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
@@ -774,27 +854,50 @@ function handleTileClick(clientX, clientY) {
   if (!tiles[k]) return;
   const tile = tiles[k];
 
-  // If both route towns are pending, clear and start fresh
-  if (routeTownA && routeTownB) {
-    routeTownA = null; routeTownB = null;
+  if (currentMode === 'track') {
+    if (tile.type === TILE_MOUNTAINS) { showToast('Cannot build on mountains'); return; }
+    if (placeTrack(q, r)) buildSortedTiles();
+    updateInfoPanel();
+    return;
   }
 
-  // If clicking a town tile
-  if (tile.type === TILE_TOWN) {
+  if (currentMode === 'route') {
+    if (tile.type !== TILE_TOWN) { showToast('Tap a town tile'); return; }
     if (!routeTownA) {
       routeTownA = k;
-      selectedCoord = null;
-      pendingRouteId = null;
+      showToast('Town selected — now tap destination');
     } else if (routeTownA === k) {
       routeTownA = null;
     } else {
       routeTownB = k;
-      selectedCoord = null;
+      const id = createRoute(routeTownA, routeTownB);
+      if (id >= 0) {
+        pendingRouteId = id;
+        routeTownA = null; routeTownB = null;
+        updateRoutePanel();
+        setMode('select');
+        showToast('Route built! Select it to buy a train.');
+      } else {
+        routeTownB = null;
+      }
+    }
+    updateInfoPanel();
+    return;
+  }
+
+  // SELECT mode
+  if (routeTownA && routeTownB) { routeTownA = null; routeTownB = null; }
+  if (tile.type === TILE_TOWN) {
+    if (!routeTownA) {
+      routeTownA = k; selectedCoord = null; pendingRouteId = null;
+    } else if (routeTownA === k) {
+      routeTownA = null;
+    } else {
+      routeTownB = k; selectedCoord = null;
     }
   } else {
     routeTownA = null; routeTownB = null;
-    selectedCoord = k;
-    pendingRouteId = null;
+    selectedCoord = k; pendingRouteId = null;
   }
   updateInfoPanel();
 }
@@ -803,7 +906,7 @@ function handleTileClick(clientX, clientY) {
 let isDragging = false, dragStartX=0, dragStartY=0, dragCamX=0, dragCamY=0, hasDragged=false;
 
 canvas.addEventListener('mousedown', e => {
-  isDragging = true; hasDragged = false;
+  isDragging = true; hasDragged = false; lastDragTrackHex = null;
   dragStartX=e.clientX; dragStartY=e.clientY;
   dragCamX=camX; dragCamY=camY;
 });
@@ -811,6 +914,15 @@ canvas.addEventListener('mousemove', e => {
   if (!isDragging) return;
   const dx=e.clientX-dragStartX, dy=e.clientY-dragStartY;
   if (Math.abs(dx)+Math.abs(dy)>4) hasDragged=true;
+  if (currentMode === 'track' && hasDragged) {
+    const {q, r} = screenToHex(e.clientX, e.clientY);
+    const k = key(q, r);
+    if (k !== lastDragTrackHex && tiles[k] && tiles[k].type !== TILE_MOUNTAINS) {
+      lastDragTrackHex = k;
+      if (placeTrack(q, r)) buildSortedTiles();
+    }
+    return;
+  }
   camX=dragCamX+dx; camY=dragCamY+dy;
 });
 canvas.addEventListener('mouseup', e => {
@@ -831,6 +943,7 @@ canvas.addEventListener('touchstart', e=>{
   e.preventDefault();
   if (e.touches.length===1) {
     touchMoved=false;
+    lastDragTrackHex = null;
     touchStart={x:e.touches[0].clientX, y:e.touches[0].clientY};
     touchCamX=camX; touchCamY=camY;
   } else if (e.touches.length===2) {
@@ -846,6 +959,15 @@ canvas.addEventListener('touchmove', e=>{
     const dx=e.touches[0].clientX-touchStart.x;
     const dy=e.touches[0].clientY-touchStart.y;
     if (Math.abs(dx)+Math.abs(dy)>4) touchMoved=true;
+    if (currentMode === 'track' && touchMoved) {
+      const {q, r} = screenToHex(e.touches[0].clientX, e.touches[0].clientY);
+      const k = key(q, r);
+      if (k !== lastDragTrackHex && tiles[k] && tiles[k].type !== TILE_MOUNTAINS) {
+        lastDragTrackHex = k;
+        if (placeTrack(q, r)) buildSortedTiles();
+      }
+      return;
+    }
     camX=touchCamX+dx; camY=touchCamY+dy;
   } else if (e.touches.length===2) {
     const dx=e.touches[0].clientX-e.touches[1].clientX;
@@ -865,8 +987,9 @@ canvas.addEventListener('touchend', e=>{
 // Keyboard
 document.addEventListener('keydown', e=>{
   if (!gameStarted) return;
-  if (e.key==='t'||e.key==='T') { if (selectedCoord) doPlaceTrack(); }
-  if (e.key==='Escape') doClearSelection();
+  if (e.key==='t'||e.key==='T') setMode(currentMode==='track'?'select':'track');
+  if (e.key==='r'||e.key==='R') setMode(currentMode==='route'?'select':'route');
+  if (e.key==='Escape') { setMode('select'); doClearSelection(); }
 });
 
 // ─── SAVE / LOAD ─────────────────────────────────────────────────────────────
