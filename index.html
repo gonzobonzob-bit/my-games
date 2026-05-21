@@ -3,35 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="theme-color" content="#0b0820">
+<meta name="theme-color" content="#7c3aed">
 <title>Gonzo's Game Vault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b0820;--bg2:#100d24;--panel:#1a1535;--border:#2e2050;--purple:#8b5cf6;--gold:#f59e0b;--text:#f0ecfb;--muted:#9580c8;}
+:root{--bg:#f5f2ff;--bg2:#ede8ff;--panel:#ffffff;--border:#ddd5f5;--purple:#7c3aed;--gold:#c2650a;--text:#1e1030;--muted:#6b5e8a;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(139,92,246,0.18),transparent 55%),radial-gradient(ellipse at 80% 100%,rgba(245,158,11,0.12),transparent 55%),radial-gradient(ellipse at 60% 50%,rgba(236,72,153,0.06),transparent 50%);pointer-events:none;z-index:0;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 10% 0%,rgba(124,58,237,0.1),transparent 50%),radial-gradient(ellipse at 90% 100%,rgba(194,101,10,0.08),transparent 50%);pointer-events:none;z-index:0;}
 header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;border-bottom:1px solid var(--border);}
 .vault-icon{font-size:52px;display:block;margin-bottom:10px;animation:vaultFloat 3s ease-in-out infinite;}
 @keyframes vaultFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.site-title{font-family:'Cinzel',serif;font-size:28px;font-weight:900;background:linear-gradient(135deg,#c4b5fd,#f0abfc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
+.site-title{font-family:'Cinzel',serif;font-size:28px;font-weight:900;background:linear-gradient(135deg,#5b21b6,#7c3aed,#c2650a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
 .site-sub{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;}
 .header-pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
-.hpill{background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:20px;padding:4px 12px;font-size:10px;color:#c4b5fd;}
+.hpill{background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#6d28d9;}
 .stats-bar{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);position:relative;z-index:1;}
 .stat{flex:1;padding:14px 0;text-align:center;border-right:1px solid var(--border);}
 .stat:last-child{border-right:none;}
-.stat-val{font-family:'Cinzel',serif;font-size:20px;color:var(--gold);display:block;}
+.stat-val{font-family:'Cinzel',serif;font-size:20px;color:var(--purple);display:block;}
 .stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px;}
 .filter-bar{display:flex;gap:7px;padding:14px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;justify-content:center;position:relative;z-index:1;}
-.filter-btn{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:#b8a8e0;cursor:pointer;transition:all 0.15s;font-family:'Nunito',sans-serif;}
-.filter-btn.active{background:rgba(124,58,237,0.15);border-color:var(--purple);color:#c4b5fd;}
-.filter-btn.active-complete{background:rgba(22,163,74,0.15);border-color:#16a34a;color:#4ade80;}
-.filter-btn.active-wip{background:rgba(217,119,6,0.15);border-color:#d97706;color:#fbbf24;}
+.filter-btn{background:#fff;border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'Nunito',sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.filter-btn:hover{border-color:var(--purple);color:var(--purple);}
+.filter-btn.active{background:var(--purple);border-color:var(--purple);color:#fff;}
+.filter-btn.active-complete{background:#16a34a;border-color:#16a34a;color:#fff;}
+.filter-btn.active-wip{background:#d97706;border-color:#d97706;color:#fff;}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:20px 16px;max-width:1100px;margin:0 auto;position:relative;z-index:1;}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;text-decoration:none;color:var(--text);display:flex;flex-direction:column;transition:transform 0.15s,border-color 0.2s,box-shadow 0.2s;}
-.card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(139,92,246,0.3);}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;text-decoration:none;color:var(--text);display:flex;flex-direction:column;transition:transform 0.15s,border-color 0.2s,box-shadow 0.2s;box-shadow:0 2px 8px rgba(124,58,237,0.06),0 1px 3px rgba(0,0,0,0.06);}
+.card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(124,58,237,0.15),0 2px 8px rgba(0,0,0,0.08);border-color:rgba(124,58,237,0.4);}
 .card.status-complete{border-top:2px solid #16a34a;}
 .card.status-wip{border-top:2px solid #d97706;}
 .card-banner{height:110px;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative;flex-shrink:0;overflow:hidden;}
@@ -76,6 +77,10 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-terminus{background:linear-gradient(180deg,#0a0600 0%,#1a0e00 40%,#120900 70%,#0a0600 100%);}
 .banner-terminus::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 7px,rgba(0,0,0,0.5) 7px,rgba(0,0,0,0.5) 8px);}
 .banner-terminus::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 100% 80% at 0% 50%,rgba(0,0,0,0.7),transparent 50%),radial-gradient(ellipse 100% 80% at 100% 50%,rgba(0,0,0,0.7),transparent 50%),radial-gradient(ellipse 100% 40% at 50% 0%,rgba(0,0,0,0.5),transparent 60%),radial-gradient(ellipse 100% 40% at 50% 100%,rgba(0,0,0,0.5),transparent 60%);}
+/* 10. Iron Frontier — Steampunk Rails */
+.banner-frontier{background:linear-gradient(180deg,#1a0c00 0%,#2e1400 45%,#3d1f00 80%,#2a1200 100%);}
+.banner-frontier::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 100%,rgba(194,101,10,0.45) 0%,rgba(160,70,5,0.2) 45%,transparent 75%),radial-gradient(ellipse 40% 30% at 50% 85%,rgba(255,150,30,0.3) 0%,transparent 60%);}
+.banner-frontier::after{content:'';position:absolute;inset:0;background:linear-gradient(160deg,transparent 30%,rgba(180,120,50,0.06) 45%,transparent 55%),linear-gradient(20deg,transparent 30%,rgba(194,101,10,0.07) 45%,transparent 55%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -86,6 +91,7 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .badge-td{background:rgba(37,99,235,0.2);color:#93c5fd;border:1px solid rgba(37,99,235,0.35);}
 .badge-moba{background:rgba(219,39,119,0.2);color:#f9a8d4;border:1px solid rgba(219,39,119,0.35);}
 .badge-rpg{background:rgba(13,148,136,0.2);color:#5eead4;border:1px solid rgba(13,148,136,0.35);}
+.badge-strategy{background:rgba(180,83,9,0.2);color:#fb923c;border:1px solid rgba(180,83,9,0.35);}
 .badge-vn{background:rgba(236,72,153,0.2);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);}
 .badge-dev{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);}
 .card-body{padding:12px 14px;flex:1;}
@@ -99,8 +105,8 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .chip-complete{background:rgba(22,163,74,0.2);color:#4ade80;border:1px solid rgba(22,163,74,0.35);}
 .chip-wip{background:rgba(217,119,6,0.2);color:#fbbf24;border:1px solid rgba(217,119,6,0.35);}
 .card[data-hidden]{display:none;}
-footer{text-align:center;padding:24px 20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);position:relative;z-index:1;}
-footer a{color:#a78bfa;text-decoration:none;}
+footer{text-align:center;padding:24px 20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);position:relative;z-index:1;background:var(--bg2);}
+footer a{color:var(--purple);text-decoration:none;}
 </style>
 </head>
 <body>
@@ -116,8 +122,8 @@ footer a{color:#a78bfa;text-decoration:none;}
   </div>
 </header>
 <div class="stats-bar">
-  <div class="stat"><span class="stat-val" id="s-total">9</span><span class="stat-lbl">Games</span></div>
-  <div class="stat"><span class="stat-val" style="color:#4ade80;" id="s-complete">3</span><span class="stat-lbl">Complete</span></div>
+  <div class="stat"><span class="stat-val" id="s-total">10</span><span class="stat-lbl">Games</span></div>
+  <div class="stat"><span class="stat-val" style="color:#16a34a;" id="s-complete">4</span><span class="stat-lbl">Complete</span></div>
   <div class="stat"><span class="stat-val" style="color:#fbbf24;" id="s-wip">5</span><span class="stat-lbl">In Progress</span></div>
   <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Free</span></div>
 </div>
@@ -127,6 +133,7 @@ footer a{color:#a78bfa;text-decoration:none;}
   <button class="filter-btn" onclick="filterGames('td',this)">🏰 Tower Defense</button>
   <button class="filter-btn" onclick="filterGames('rpg',this)">🗡️ RPG</button>
   <button class="filter-btn" onclick="filterGames('moba',this)">⚔️ MOBA</button>
+  <button class="filter-btn" onclick="filterGames('strategy',this)">🚂 Strategy</button>
   <button class="filter-btn" onclick="filterGames('complete',this,'complete')">✓ Complete</button>
   <button class="filter-btn" onclick="filterGames('wip',this,'wip')">🚧 In Progress</button>
 </div>
@@ -210,6 +217,16 @@ footer a{color:#a78bfa;text-decoration:none;}
       <div class="card-desc">Quantum romance visual novel with branching choices, multiple endings, and an AI inner voice powered by Claude. Episodes 1–6 playable. Episodes 7–12 in development.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Eps 7–12 Missing</span></div>
+  </a>
+
+  <a class="card status-complete" href="iron-frontier.html" data-tags="strategy idle" data-status="complete">
+    <div class="card-banner banner-frontier"><span class="banner-emoji">🚂⚙️</span><span class="card-badge badge-strategy">Strategy</span></div>
+    <div class="card-body">
+      <div class="card-genre">🚂 Steampunk Tycoon</div>
+      <div class="card-title">Iron Frontier</div>
+      <div class="card-desc">Build a railway empire across the wild west. Lay tracks, connect towns, run steam trains, grow populations. Isometric hex map, BFS routing, full economy system. El Paso, 1871.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
   <div class="card" data-tags="td" data-status="dev" style="opacity:0.55;cursor:default;">

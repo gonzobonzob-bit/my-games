@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Iron Frontier</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1a0f00;--panel:#2a1a05;--border:#5c3d1a;
+  --gold:#c8860a;--rust:#8b3a1a;--steam:#a0c4c8;
+  --text:#f0e0b0;--muted:#8a7050;
+}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
+canvas{display:block;touch-action:none;}
+
+/* SPLASH */
+#splash{
+  position:fixed;inset:0;
+  background:radial-gradient(ellipse at 50% 40%,#3d1e00,#0d0700);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:1000;gap:16px;padding:30px;text-align:center;
+}
+.sp-emblem{font-size:68px;filter:drop-shadow(0 0 30px #c8860aaa);animation:heroFloat 2.2s ease-in-out infinite;}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.sp-title{font-family:'Cinzel',serif;font-size:34px;font-weight:900;color:var(--gold);letter-spacing:3px;text-shadow:0 0 30px #c8860a88;}
+.sp-sub{font-size:11px;color:var(--muted);letter-spacing:4px;text-transform:uppercase;}
+.sp-desc{font-size:12px;color:var(--muted);max-width:300px;line-height:1.6;}
+.sp-btn{
+  background:linear-gradient(135deg,#8b3a1a,#c8860a);
+  border:none;border-radius:14px;padding:14px 44px;
+  font-family:'Cinzel',serif;font-size:17px;color:#f0e0b0;
+  cursor:pointer;box-shadow:0 6px 24px rgba(200,134,10,0.45);
+  transition:transform 0.15s,box-shadow 0.15s;
+}
+.sp-btn:active{transform:scale(0.96);}
+.sp-btn.disabled{opacity:0.4;cursor:default;pointer-events:none;}
+.sp-btn-outline{
+  background:transparent;border:1px solid var(--border);border-radius:14px;
+  padding:11px 36px;font-family:'Cinzel',serif;font-size:14px;color:var(--muted);
+  cursor:pointer;transition:all 0.15s;
+}
+.sp-btn-outline:active{border-color:var(--gold);color:var(--gold);}
+.sp-btn-outline.disabled{opacity:0.3;cursor:default;pointer-events:none;}
+
+/* GAME UI */
+#game-ui{position:fixed;inset:0;display:none;flex-direction:column;z-index:1;}
+#game-ui.show{display:flex;}
+
+/* HUD TOP */
+#hud-top{
+  background:rgba(26,15,0,0.97);border-bottom:1px solid var(--border);
+  padding:6px 12px;display:flex;justify-content:space-between;align-items:center;
+  flex-shrink:0;gap:8px;
+}
+.hud-item{display:flex;flex-direction:column;align-items:center;}
+.hud-label{font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.hud-val{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);}
+.hud-val.steam{color:var(--steam);}
+#pause-btn{
+  background:rgba(92,61,26,0.5);border:1px solid var(--border);border-radius:8px;
+  padding:5px 12px;font-family:'Cinzel',serif;font-size:11px;color:var(--muted);cursor:pointer;
+}
+#pause-btn:active{background:rgba(92,61,26,0.9);}
+
+/* CANVAS */
+#canvas-wrap{flex:1;position:relative;overflow:hidden;}
+#game-canvas{width:100%;height:100%;}
+
+/* INFO PANEL */
+#info-panel{
+  background:rgba(26,15,0,0.97);border-top:1px solid var(--border);
+  padding:8px 12px;display:flex;gap:8px;align-items:center;flex-shrink:0;
+  min-height:60px;flex-wrap:wrap;
+}
+#info-text{flex:1;min-width:120px;}
+#info-title{font-family:'Cinzel',serif;font-size:12px;color:var(--gold);}
+#info-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.act-btn{
+  background:rgba(139,58,26,0.3);border:1px solid var(--border);border-radius:10px;
+  padding:7px 12px;font-family:'Cinzel',serif;font-size:10px;color:var(--text);
+  cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0;
+}
+.act-btn:active{background:rgba(200,134,10,0.35);border-color:var(--gold);}
+.act-btn.primary{background:rgba(200,134,10,0.2);border-color:var(--gold);color:var(--gold);}
+.act-btn.hidden{display:none;}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:rgba(42,26,5,0.95);border:1px solid var(--border);border-radius:12px;
+  padding:10px 20px;font-family:'Cinzel',serif;font-size:13px;color:var(--text);
+  pointer-events:none;opacity:0;transition:opacity 0.3s;z-index:500;white-space:nowrap;
+}
+#toast.show{opacity:1;}
+
+/* ROUTE LIST PANEL */
+#route-panel{
+  display:none;position:fixed;top:50px;right:8px;
+  background:rgba(26,15,0,0.97);border:1px solid var(--border);border-radius:12px;
+  padding:10px;min-width:160px;max-height:220px;overflow-y:auto;z-index:50;
+}
+#route-panel.show{display:block;}
+#route-panel h4{font-family:'Cinzel',serif;font-size:11px;color:var(--gold);margin-bottom:6px;letter-spacing:1px;}
+.route-entry{font-size:10px;color:var(--muted);padding:3px 0;border-bottom:1px solid rgba(92,61,26,0.3);}
+.route-entry span{color:var(--text);}
+
+/* VICTORY */
+#victory{
+  position:fixed;inset:0;background:rgba(0,0,0,0.88);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:600;gap:14px;text-align:center;padding:30px;
+}
+#victory.show{display:flex;}
+.vic-title{font-family:'Cinzel',serif;font-size:30px;color:var(--gold);text-shadow:0 0 30px #c8860a88;}
+.vic-sub{font-size:13px;color:var(--muted);}
+
+/* PAUSE OVERLAY */
+#pause-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  display:none;align-items:center;justify-content:center;z-index:400;
+}
+#pause-overlay.show{display:flex;}
+.pause-box{
+  background:var(--panel);border:1px solid var(--border);border-radius:16px;
+  padding:30px 40px;text-align:center;display:flex;flex-direction:column;gap:14px;
+}
+.pause-box h2{font-family:'Cinzel',serif;font-size:22px;color:var(--gold);}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="sp-emblem">🚂</div>
+  <div class="sp-title">IRON FRONTIER</div>
+  <div class="sp-sub">Steampunk Railway Tycoon</div>
+  <div class="sp-desc">Build rail routes across the wild west. Run trains, earn gold, and grow your towns to a population of 10,000.</div>
+  <button class="sp-btn" onclick="newGame()">NEW GAME</button>
+  <button class="sp-btn-outline" id="continue-btn" onclick="continueGame()">CONTINUE</button>
+</div>
+
+<!-- GAME UI -->
+<div id="game-ui">
+  <div id="hud-top">
+    <div class="hud-item">
+      <div class="hud-label">Gold</div>
+      <div class="hud-val" id="hud-gold">500</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">Routes</div>
+      <div class="hud-val steam" id="hud-routes">0</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">Pop</div>
+      <div class="hud-val" id="hud-pop">600</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">Day</div>
+      <div class="hud-val" id="hud-day">1</div>
+    </div>
+    <button id="pause-btn" onclick="togglePause()">⏸</button>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="info-panel">
+    <div id="info-text">
+      <div id="info-title">Select a Tile</div>
+      <div id="info-sub">Click any tile to begin</div>
+    </div>
+    <button class="act-btn hidden" id="btn-track" onclick="doPlaceTrack()">🔩 Track — 50G</button>
+    <button class="act-btn hidden" id="btn-route" onclick="doCreateRoute()">🗺 Build Route</button>
+    <button class="act-btn primary hidden" id="btn-train" onclick="doBuyTrain()">🚂 Buy Train — 500G</button>
+    <button class="act-btn hidden" id="btn-clear" onclick="doClearSelection()">✕ Clear</button>
+  </div>
+</div>
+
+<!-- ROUTE PANEL (toggle via HUD routes click) -->
+<div id="route-panel">
+  <h4>ACTIVE ROUTES</h4>
+  <div id="route-list"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- PAUSE OVERLAY -->
+<div id="pause-overlay">
+  <div class="pause-box">
+    <h2>PAUSED</h2>
+    <button class="act-btn primary" onclick="togglePause()">RESUME</button>
+    <button class="act-btn" onclick="saveGame();showToast('Game saved!')">SAVE GAME</button>
+    <button class="act-btn" style="color:var(--rust)" onclick="goToSplash()">MAIN MENU</button>
+  </div>
+</div>
+
+<!-- VICTORY -->
+<div id="victory">
+  <div class="sp-emblem">🏆</div>
+  <div class="vic-title">EMPIRE COMPLETE!</div>
+  <div class="vic-sub" id="vic-stats"></div>
+  <button class="sp-btn" onclick="goToSplash()">MAIN MENU</button>
+</div>
+
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const HEX_SIZE = 48;
+const ISO_X = 1.0, ISO_Y = 0.5;
+const SQRT3 = Math.sqrt(3);
+const MAP_RADIUS = 12;
+const TILE_PLAINS = 0, TILE_MOUNTAINS = 1, TILE_RIVER = 2, TILE_TOWN = 3, TILE_TRACK = 4;
+const TILE_H = {0:0, 1:24, 2:-8, 3:3, 4:2};
+const TILE_COLORS = {0:'#547838', 1:'#857060', 2:'#3870B8', 3:'#D99E26', 4:'#856E54'};
+const WALL_COLORS = {1:'#5a4a3a'};
+const TRACK_COST = 50;
+const TRAIN_COST = 500;
+const TRIP_GOLD = 120;
+const DAY_DURATION = 45;
+const PASSIVE_GOLD_PER_ROUTE = 30;
+const TRAIN_SPEED = 2.0;
+const TRAIN_STOP = 3.0;
+const WIN_POP = 10000;
+const HEX_DIRS = [{q:1,r:0},{q:-1,r:0},{q:0,r:1},{q:0,r:-1},{q:1,r:-1},{q:-1,r:1}];
+const TOWN_NAMES = {
+  '5,-3':'Dustwood', '-5,3':'Ironvale',
+  '3,5':'Coppergate', '-3,-5':'Ashridge',
+  '8,0':'Boilertown', '-8,0':'Cinder Falls'
+};
+
+// ─── MATH ────────────────────────────────────────────────────────────────────
+function axialToWorld(q, r) {
+  return {x: HEX_SIZE*1.5*q, y: HEX_SIZE*(SQRT3*0.5*q + SQRT3*r)};
+}
+function toScreen(wx, wy, h=0) {
+  return {x:(wx-wy)*ISO_X, y:(wx+wy)*ISO_Y - h};
+}
+function hexToScreen(q, r, h=0) {
+  const w = axialToWorld(q,r);
+  return toScreen(w.x, w.y, h);
+}
+function fromScreen(sx, sy) {
+  const a = sx/ISO_X, b = sy/ISO_Y;
+  return {x:(a+b)/2, y:(b-a)/2};
+}
+function worldToAxial(wx, wy) {
+  const q = (2/3*wx)/HEX_SIZE;
+  const r = (-1/3*wx + SQRT3/3*wy)/HEX_SIZE;
+  return hexRound(q, r);
+}
+function hexRound(q, r) {
+  const s=-q-r;
+  let rq=Math.round(q), rr=Math.round(r), rs=Math.round(s);
+  const dq=Math.abs(rq-q), dr=Math.abs(rr-r), ds=Math.abs(rs-s);
+  if (dq>dr && dq>ds) rq=-rr-rs;
+  else if (dr>ds) rr=-rq-rs;
+  return {q:rq, r:rr};
+}
+function hexNeighbors(q, r) {
+  return HEX_DIRS.map(d=>({q:q+d.q, r:r+d.r}));
+}
+function hexDistance(a, b) {
+  return (Math.abs(a.q-b.q)+Math.abs(a.q+a.r-b.q-b.r)+Math.abs(a.r-b.r))/2;
+}
+function key(q, r) { return q+','+r; }
+function shadeColor(hex, amount) {
+  let r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  r=Math.max(0,Math.min(255,r+amount));
+  g=Math.max(0,Math.min(255,g+amount));
+  b=Math.max(0,Math.min(255,b+amount));
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+// ─── MAP GENERATION ──────────────────────────────────────────────────────────
+function generateMap() {
+  const tiles = {};
+  for (let q=-MAP_RADIUS; q<=MAP_RADIUS; q++) {
+    for (let r=-MAP_RADIUS; r<=MAP_RADIUS; r++) {
+      if (Math.abs(q+r)<=MAP_RADIUS) {
+        const v = Math.sin(q*0.31)*Math.cos(r*0.29)+Math.cos(q*0.17)*Math.sin(r*0.37);
+        let type;
+        if (v>0.55) type=TILE_MOUNTAINS;
+        else if (v<-0.45) type=TILE_RIVER;
+        else type=TILE_PLAINS;
+        tiles[key(q,r)]={type, q, r};
+      }
+    }
+  }
+  tiles['5,-3']={type:TILE_TOWN, q:5, r:-3};
+  tiles['-5,3']={type:TILE_TOWN, q:-5, r:3};
+  tiles['3,5']={type:TILE_TOWN, q:3, r:5};
+  tiles['-3,-5']={type:TILE_TOWN, q:-3, r:-5};
+  tiles['8,0']={type:TILE_TOWN, q:8, r:0};
+  tiles['-8,0']={type:TILE_TOWN, q:-8, r:0};
+  return tiles;
+}
+
+// ─── HEX DRAWING ─────────────────────────────────────────────────────────────
+function hexVerts(q, r, h=0) {
+  const w = axialToWorld(q, r);
+  const pts = [];
+  const radius = HEX_SIZE*0.93;
+  for (let i=0; i<6; i++) {
+    const angle = (Math.PI/3)*i - Math.PI/6;
+    const wpx = w.x + Math.cos(angle)*radius;
+    const wpy = w.y + Math.sin(angle)*radius;
+    pts.push(toScreen(wpx, wpy, h));
+  }
+  return pts;
+}
+function drawPolygon(ctx, pts, fillColor, strokeColor=null, lineWidth=1) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i=1; i<pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  if (fillColor){ctx.fillStyle=fillColor; ctx.fill();}
+  if (strokeColor){ctx.strokeStyle=strokeColor; ctx.lineWidth=lineWidth; ctx.stroke();}
+}
+function drawWalls(ctx, topV, baseV, wallColor) {
+  for (const i of [1,2,3]) {
+    const j=(i+1)%6;
+    drawPolygon(ctx,[topV[i],topV[j],baseV[j],baseV[i]],wallColor);
+  }
+}
+function drawTownBuilding(ctx, cx, cy) {
+  const bw=10, bh=16;
+  drawPolygon(ctx,[{x:cx,y:cy-bh},{x:cx+bw,y:cy-bh*0.5},{x:cx+bw,y:cy+bh*0.5},{x:cx,y:cy}],'#8B5E3C');
+  drawPolygon(ctx,[{x:cx,y:cy-bh},{x:cx-bw,y:cy-bh*0.5},{x:cx-bw,y:cy+bh*0.5},{x:cx,y:cy}],'#6B4020');
+  drawPolygon(ctx,[{x:cx,y:cy-bh},{x:cx+bw,y:cy-bh*0.5},{x:cx,y:cy-bh*0.3},{x:cx-bw,y:cy-bh*0.5}],'#D4822A');
+}
+function drawTrain(ctx, sx, sy, color='#c8860a') {
+  ctx.fillStyle=color;
+  ctx.fillRect(sx-10, sy-6, 20, 9);
+  ctx.fillStyle='#4a3020';
+  ctx.fillRect(sx+4, sy-12, 5, 7);
+  ctx.fillStyle='#2a1a05';
+  ctx.beginPath(); ctx.arc(sx-6, sy+4, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sx+6, sy+4, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(180,210,220,0.5)';
+  ctx.beginPath(); ctx.arc(sx+6, sy-15, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sx+10, sy-18, 3, 0, Math.PI*2); ctx.fill();
+}
+
+// ─── GAME STATE ──────────────────────────────────────────────────────────────
+let tiles = {}, tracks = {}, routes = {}, trainList = [];
+let gold = 500, day = 1, dayTimer = 0;
+let nextRouteId = 0, nextTrainId = 0;
+let towns = {};
+let paused = false, gameStarted = false, victoryShown = false;
+let selectedCoord = null, routeTownA = null, routeTownB = null, pendingRouteId = null;
+
+function initTowns() {
+  towns = {};
+  Object.entries(TOWN_NAMES).forEach(([k, name]) => {
+    const [q, r] = k.split(',').map(Number);
+    towns[k] = {name, q, r, pop:100, connected:false, deliveryScore:0};
+  });
+}
+function totalPop() { return Object.values(towns).reduce((s,t)=>s+t.pop,0); }
+
+// ─── ECONOMY ─────────────────────────────────────────────────────────────────
+function addGold(amount) { gold += amount; updateHUD(); }
+function spendGold(amount) {
+  if (gold < amount) return false;
+  gold -= amount; updateHUD(); return true;
+}
+function advanceDay() {
+  day++;
+  const routeCount = Object.keys(routes).length;
+  addGold(routeCount * PASSIVE_GOLD_PER_ROUTE);
+  // Town growth: each connected town grows by 10 + delivery score bonus
+  Object.values(towns).forEach(t => {
+    if (t.connected) {
+      t.pop += 10 + Math.floor(t.deliveryScore * 0.5);
+      t.deliveryScore = Math.max(0, t.deliveryScore - 2);
+    }
+  });
+  if (day % 5 === 0) saveGame();
+  updateHUD();
+  checkVictory();
+}
+
+// ─── BFS ─────────────────────────────────────────────────────────────────────
+function bfs(startKey, goalKey) {
+  if (!tracks[startKey] || !tracks[goalKey]) return null;
+  const visited = new Set();
+  const queue = [[startKey, [startKey]]];
+  while (queue.length) {
+    const [cur, path] = queue.shift();
+    if (cur === goalKey) return path;
+    if (visited.has(cur)) continue;
+    visited.add(cur);
+    for (const nb of (tracks[cur]?.connections||[])) {
+      if (!visited.has(nb)) queue.push([nb, [...path, nb]]);
+    }
+  }
+  return null;
+}
+
+// ─── TRACK ───────────────────────────────────────────────────────────────────
+function placeTrack(q, r) {
+  const k = key(q, r);
+  if (tracks[k]) { showToast('Track already exists here'); return false; }
+  const tile = tiles[k];
+  if (!tile) return false;
+  if (tile.type === TILE_MOUNTAINS) { showToast('Cannot place track on mountains'); return false; }
+  if (!spendGold(TRACK_COST)) { showToast('Not enough gold!'); return false; }
+  tracks[k] = {connections:[], q, r};
+  if (tile.type !== TILE_TOWN) tile.type = TILE_TRACK;
+  for (const nb of hexNeighbors(q, r)) {
+    const nk = key(nb.q, nb.r);
+    if (tracks[nk]) {
+      tracks[k].connections.push(nk);
+      tracks[nk].connections.push(k);
+    }
+  }
+  return true;
+}
+
+// ─── ROUTES & TRAINS ─────────────────────────────────────────────────────────
+function ensureTownTrack(k) {
+  if (!tracks[k]) {
+    const tile = tiles[k];
+    if (!tile) return;
+    tracks[k] = {connections:[], q:tile.q, r:tile.r};
+    for (const nb of hexNeighbors(tile.q, tile.r)) {
+      const nk = key(nb.q, nb.r);
+      if (tracks[nk]) {
+        tracks[k].connections.push(nk);
+        tracks[nk].connections.push(k);
+      }
+    }
+  }
+}
+function createRoute(keyA, keyB) {
+  ensureTownTrack(keyA);
+  ensureTownTrack(keyB);
+  const path = bfs(keyA, keyB);
+  if (!path) { showToast('No track path between towns!'); return -1; }
+  const id = nextRouteId++;
+  routes[id] = {path, stations:[keyA, keyB], trainId:-1};
+  if (towns[keyA]) towns[keyA].connected = true;
+  if (towns[keyB]) towns[keyB].connected = true;
+  updateRoutePanel();
+  updateHUD();
+  return id;
+}
+function buyTrain(routeId) {
+  if (!routes[routeId]) return false;
+  if (routes[routeId].trainId !== -1) { showToast('Route already has a train!'); return false; }
+  if (!spendGold(TRAIN_COST)) { showToast('Not enough gold!'); return false; }
+  const id = nextTrainId++;
+  const path = routes[routeId].path;
+  trainList.push({id, routeId, path, idx:0, dir:1, progress:0, stopTimer:0, state:'moving'});
+  routes[routeId].trainId = id;
+  return id;
+}
+
+// ─── TRAIN UPDATE ────────────────────────────────────────────────────────────
+function updateTrains(dt) {
+  for (const t of trainList) {
+    if (t.state === 'moving') {
+      t.progress += TRAIN_SPEED * dt;
+      while (t.progress >= 1.0 && t.state === 'moving') {
+        t.progress -= 1.0;
+        const next = t.idx + t.dir;
+        if (next < 0 || next >= t.path.length) {
+          t.dir = -t.dir;
+          t.state = 'stopped';
+          t.stopTimer = 0;
+          addGold(TRIP_GOLD);
+          showToast('+' + TRIP_GOLD + 'G — train arrived!');
+          // Boost town delivery score
+          const endKey = t.path[t.idx];
+          if (towns[endKey]) towns[endKey].deliveryScore += 5;
+        } else {
+          t.idx = next;
+          if (t.idx === 0 || t.idx === t.path.length-1) {
+            t.state = 'stopped';
+            t.stopTimer = 0;
+            addGold(TRIP_GOLD);
+            showToast('+' + TRIP_GOLD + 'G — train arrived!');
+            const endKey = t.path[t.idx];
+            if (towns[endKey]) towns[endKey].deliveryScore += 5;
+          }
+        }
+      }
+    } else if (t.state === 'stopped') {
+      t.stopTimer += dt;
+      if (t.stopTimer >= TRAIN_STOP) t.state = 'moving';
+    }
+  }
+}
+function getTrainWorldPos(t) {
+  if (t.path.length < 2) {
+    const [q,r] = t.path[0].split(',').map(Number);
+    return axialToWorld(q, r);
+  }
+  const [fq,fr] = t.path[t.idx].split(',').map(Number);
+  const nextIdx = Math.max(0, Math.min(t.path.length-1, t.idx+t.dir));
+  const [tq,tr] = t.path[nextIdx].split(',').map(Number);
+  const from = axialToWorld(fq, fr);
+  const to = axialToWorld(tq, tr);
+  const p = t.state==='stopped' ? 0 : t.progress;
+  return {x:from.x+(to.x-from.x)*p, y:from.y+(to.y-from.y)*p};
+}
+
+// ─── CAMERA ──────────────────────────────────────────────────────────────────
+let camX=0, camY=0, camZoom=1.0;
+const CAM_ZOOM_MIN=0.3, CAM_ZOOM_MAX=2.5;
+// Center on hex 0,0
+function centerCamera() {
+  const s = hexToScreen(0, 0, 0);
+  camX = -s.x; camY = -s.y;
+}
+
+// ─── CANVAS / RENDER ─────────────────────────────────────────────────────────
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  W = canvas.width = wrap.clientWidth;
+  H = canvas.height = wrap.clientHeight;
+}
+
+let sortedTiles = [];
+function buildSortedTiles() {
+  sortedTiles = Object.values(tiles).sort((a, b) => {
+    const wa = axialToWorld(a.q, a.r);
+    const wb = axialToWorld(b.q, b.r);
+    return (wa.x+wa.y)-(wb.x+wb.y);
+  });
+}
+
+function drawTile(ctx, tile) {
+  const {q, r, type} = tile;
+  const h = TILE_H[type] || 0;
+  const topV = hexVerts(q, r, h);
+  const baseV = hexVerts(q, r, 0);
+  const col = TILE_COLORS[type] || '#547838';
+  if (h > 0) {
+    const wallCol = WALL_COLORS[type] || shadeColor(col, -30);
+    drawWalls(ctx, topV, baseV, wallCol);
+  }
+  drawPolygon(ctx, topV, col, 'rgba(0,0,0,0.3)', 0.5);
+  const k = key(q, r);
+  if (k === selectedCoord) drawPolygon(ctx, topV, 'rgba(255,230,80,0.35)');
+  if (k === routeTownA) drawPolygon(ctx, topV, 'rgba(80,255,120,0.45)');
+  if (k === routeTownB) drawPolygon(ctx, topV, 'rgba(80,200,255,0.45)');
+  if (type === TILE_TOWN) {
+    const s = hexToScreen(q, r, h);
+    drawTownBuilding(ctx, s.x, s.y);
+    const town = towns[k];
+    if (town) {
+      ctx.fillStyle = '#f0e0b0';
+      ctx.font = 'bold 9px Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(town.name, s.x, s.y-22);
+      ctx.fillStyle = '#c8860a';
+      ctx.font = '8px Nunito, sans-serif';
+      ctx.fillText('Pop: '+town.pop.toLocaleString(), s.x, s.y-13);
+    }
+  }
+}
+function drawRoutes(ctx) {
+  ctx.strokeStyle = 'rgba(200,134,10,0.6)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4,4]);
+  for (const route of Object.values(routes)) {
+    for (let i=0; i<route.path.length-1; i++) {
+      const [aq,ar] = route.path[i].split(',').map(Number);
+      const [bq,br] = route.path[i+1].split(',').map(Number);
+      const sa = hexToScreen(aq, ar, 2);
+      const sb = hexToScreen(bq, br, 2);
+      ctx.beginPath(); ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y); ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+}
+
+function render() {
+  if (!gameStarted) return;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(W/2+camX, H/2+camY);
+  ctx.scale(camZoom, camZoom);
+  for (const tile of sortedTiles) drawTile(ctx, tile);
+  drawRoutes(ctx);
+  for (const t of trainList) {
+    const w = getTrainWorldPos(t);
+    const s = toScreen(w.x, w.y, 10);
+    drawTrain(ctx, s.x, s.y);
+  }
+  ctx.restore();
+}
+
+// ─── GAME LOOP ────────────────────────────────────────────────────────────────
+let lastTime = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (!gameStarted) return;
+  const dt = Math.min((ts - lastTime)/1000, 0.1);
+  lastTime = ts;
+  if (!paused) {
+    updateTrains(dt);
+    dayTimer += dt;
+    if (dayTimer >= DAY_DURATION) {
+      dayTimer -= DAY_DURATION;
+      advanceDay();
+    }
+  }
+  render();
+}
+
+// ─── HUD & UI ────────────────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('hud-gold').textContent = Math.floor(gold).toLocaleString();
+  document.getElementById('hud-routes').textContent = Object.keys(routes).length;
+  document.getElementById('hud-pop').textContent = totalPop().toLocaleString();
+  document.getElementById('hud-day').textContent = day;
+  updateInfoPanel();
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+function updateInfoPanel() {
+  const title = document.getElementById('info-title');
+  const sub = document.getElementById('info-sub');
+  const btnTrack = document.getElementById('btn-track');
+  const btnRoute = document.getElementById('btn-route');
+  const btnTrain = document.getElementById('btn-train');
+  const btnClear = document.getElementById('btn-clear');
+  [btnTrack, btnRoute, btnTrain, btnClear].forEach(b=>b.classList.add('hidden'));
+
+  if (!selectedCoord && !routeTownA) {
+    title.textContent = 'Select a Tile';
+    sub.textContent = 'Tap any tile to inspect or build';
+    return;
+  }
+
+  if (routeTownA && routeTownB) {
+    const ta = towns[routeTownA], tb = towns[routeTownB];
+    title.textContent = (ta?ta.name:'?') + ' → ' + (tb?tb.name:'?');
+    sub.textContent = 'Ready to build route between these towns';
+    btnRoute.classList.remove('hidden');
+    btnClear.classList.remove('hidden');
+    return;
+  }
+
+  if (routeTownA && !routeTownB) {
+    const ta = towns[routeTownA];
+    title.textContent = (ta?ta.name:'Town') + ' selected';
+    sub.textContent = 'Now select a second town for the route';
+    btnClear.classList.remove('hidden');
+    return;
+  }
+
+  if (pendingRouteId !== null) {
+    const route = routes[pendingRouteId];
+    if (route) {
+      const ta = towns[route.stations[0]], tb = towns[route.stations[1]];
+      title.textContent = 'Route: '+(ta?ta.name:'?')+' ↔ '+(tb?tb.name:'?');
+      sub.textContent = route.trainId === -1
+        ? 'No train — buy one to start earning'
+        : 'Train running — earning ' + TRIP_GOLD + 'G per trip';
+      if (route.trainId === -1) btnTrain.classList.remove('hidden');
+      btnClear.classList.remove('hidden');
+      return;
+    }
+  }
+
+  if (selectedCoord) {
+    const tile = tiles[selectedCoord];
+    if (!tile) return;
+    const typeNames = {0:'Plains',1:'Mountains',2:'River',3:'Town',4:'Track'};
+    const town = towns[selectedCoord];
+    if (town) {
+      title.textContent = town.name;
+      sub.textContent = 'Pop: '+town.pop.toLocaleString()+' | '+(town.connected?'Connected':'Unconnected');
+    } else {
+      title.textContent = typeNames[tile.type] || 'Tile';
+      sub.textContent = 'q:'+tile.q+' r:'+tile.r + (tracks[selectedCoord]?' | Has track':'');
+    }
+    // Show track button if not mountain and no track yet
+    if (tile.type !== TILE_MOUNTAINS && !tracks[selectedCoord]) {
+      btnTrack.classList.remove('hidden');
+    }
+    btnClear.classList.remove('hidden');
+  }
+}
+
+function updateRoutePanel() {
+  const list = document.getElementById('route-list');
+  const entries = Object.entries(routes);
+  if (!entries.length) { list.innerHTML = '<div class="route-entry" style="color:var(--muted)">No routes yet</div>'; return; }
+  list.innerHTML = entries.map(([id, route]) => {
+    const ta = towns[route.stations[0]], tb = towns[route.stations[1]];
+    const hasT = route.trainId !== -1;
+    return `<div class="route-entry" onclick="selectRoute(${id})" style="cursor:pointer">
+      <span>${ta?ta.name:'?'} ↔ ${tb?tb.name:'?'}</span><br>
+      ${hasT?'🚂 Running':'No train'}
+    </div>`;
+  }).join('');
+}
+
+function selectRoute(id) {
+  if (!routes[id]) return;
+  pendingRouteId = id;
+  selectedCoord = null; routeTownA = null; routeTownB = null;
+  updateInfoPanel();
+}
+
+// ─── INPUT ACTIONS ────────────────────────────────────────────────────────────
+function doPlaceTrack() {
+  if (!selectedCoord) return;
+  const [q, r] = selectedCoord.split(',').map(Number);
+  if (placeTrack(q, r)) {
+    showToast('Track placed! -'+TRACK_COST+'G');
+    buildSortedTiles();
+    updateInfoPanel();
+  }
+}
+function doCreateRoute() {
+  if (!routeTownA || !routeTownB) return;
+  const id = createRoute(routeTownA, routeTownB);
+  if (id >= 0) {
+    showToast('Route built! Select it to buy a train.');
+    pendingRouteId = id;
+    routeTownA = null; routeTownB = null; selectedCoord = null;
+    updateInfoPanel();
+    updateRoutePanel();
+  }
+}
+function doBuyTrain() {
+  if (pendingRouteId === null) return;
+  const tid = buyTrain(pendingRouteId);
+  if (tid !== false) {
+    showToast('Train purchased! -'+TRAIN_COST+'G');
+    updateInfoPanel();
+    updateRoutePanel();
+  }
+}
+function doClearSelection() {
+  selectedCoord = null; routeTownA = null; routeTownB = null; pendingRouteId = null;
+  updateInfoPanel();
+}
+
+// ─── SCREEN → HEX ────────────────────────────────────────────────────────────
+function screenToHex(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  // Undo camera transform
+  const cx = (px - W/2 - camX) / camZoom;
+  const cy = (py - H/2 - camY) / camZoom;
+  const w = fromScreen(cx, cy);
+  return worldToAxial(w.x, w.y);
+}
+
+function handleTileClick(clientX, clientY) {
+  const {q, r} = screenToHex(clientX, clientY);
+  const k = key(q, r);
+  if (!tiles[k]) return;
+  const tile = tiles[k];
+
+  // If both route towns are pending, clear and start fresh
+  if (routeTownA && routeTownB) {
+    routeTownA = null; routeTownB = null;
+  }
+
+  // If clicking a town tile
+  if (tile.type === TILE_TOWN) {
+    if (!routeTownA) {
+      routeTownA = k;
+      selectedCoord = null;
+      pendingRouteId = null;
+    } else if (routeTownA === k) {
+      routeTownA = null;
+    } else {
+      routeTownB = k;
+      selectedCoord = null;
+    }
+  } else {
+    routeTownA = null; routeTownB = null;
+    selectedCoord = k;
+    pendingRouteId = null;
+  }
+  updateInfoPanel();
+}
+
+// ─── MOUSE / TOUCH ────────────────────────────────────────────────────────────
+let isDragging = false, dragStartX=0, dragStartY=0, dragCamX=0, dragCamY=0, hasDragged=false;
+
+canvas.addEventListener('mousedown', e => {
+  isDragging = true; hasDragged = false;
+  dragStartX=e.clientX; dragStartY=e.clientY;
+  dragCamX=camX; dragCamY=camY;
+});
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx=e.clientX-dragStartX, dy=e.clientY-dragStartY;
+  if (Math.abs(dx)+Math.abs(dy)>4) hasDragged=true;
+  camX=dragCamX+dx; camY=dragCamY+dy;
+});
+canvas.addEventListener('mouseup', e => {
+  if (!hasDragged) handleTileClick(e.clientX, e.clientY);
+  isDragging=false;
+});
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY<0 ? 1.12 : 0.89;
+  camZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, camZoom*factor));
+},{passive:false});
+
+// Touch pan (single finger)
+let touchStart=null, touchCamX=0, touchCamY=0, touchMoved=false;
+let pinchStartDist=0, pinchStartZoom=1;
+
+canvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if (e.touches.length===1) {
+    touchMoved=false;
+    touchStart={x:e.touches[0].clientX, y:e.touches[0].clientY};
+    touchCamX=camX; touchCamY=camY;
+  } else if (e.touches.length===2) {
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    pinchStartDist=Math.hypot(dx,dy);
+    pinchStartZoom=camZoom;
+  }
+},{passive:false});
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if (e.touches.length===1 && touchStart) {
+    const dx=e.touches[0].clientX-touchStart.x;
+    const dy=e.touches[0].clientY-touchStart.y;
+    if (Math.abs(dx)+Math.abs(dy)>4) touchMoved=true;
+    camX=touchCamX+dx; camY=touchCamY+dy;
+  } else if (e.touches.length===2) {
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    const dist=Math.hypot(dx,dy);
+    camZoom=Math.max(CAM_ZOOM_MIN,Math.min(CAM_ZOOM_MAX,pinchStartZoom*dist/pinchStartDist));
+  }
+},{passive:false});
+canvas.addEventListener('touchend', e=>{
+  e.preventDefault();
+  if (e.changedTouches.length===1 && !touchMoved && touchStart) {
+    handleTileClick(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+  }
+  touchStart=null;
+},{passive:false});
+
+// Keyboard
+document.addEventListener('keydown', e=>{
+  if (!gameStarted) return;
+  if (e.key==='t'||e.key==='T') { if (selectedCoord) doPlaceTrack(); }
+  if (e.key==='Escape') doClearSelection();
+});
+
+// ─── SAVE / LOAD ─────────────────────────────────────────────────────────────
+function saveGame() {
+  const save = {
+    gold, day, dayTimer,
+    nextRouteId, nextTrainId,
+    tracks: Object.entries(tracks).map(([k,v])=>({k,q:v.q,r:v.r,connections:v.connections})),
+    routes: Object.entries(routes).map(([id,route])=>({id:+id, stations:route.stations, trainId:route.trainId, path:route.path})),
+    trains: trainList.map(t=>({...t})),
+    towns: Object.entries(towns).map(([k,t])=>({k, pop:t.pop, connected:t.connected, deliveryScore:t.deliveryScore})),
+    tileOverrides: Object.entries(tiles).filter(([,t])=>t.type===TILE_TRACK).map(([k,t])=>({k,type:t.type}))
+  };
+  localStorage.setItem('iron-frontier-save', JSON.stringify(save));
+}
+
+function hasSave() {
+  return !!localStorage.getItem('iron-frontier-save');
+}
+
+function loadGame() {
+  const raw = localStorage.getItem('iron-frontier-save');
+  if (!raw) return false;
+  try {
+    const save = JSON.parse(raw);
+    gold = save.gold; day = save.day; dayTimer = save.dayTimer||0;
+    nextRouteId = save.nextRouteId||0; nextTrainId = save.nextTrainId||0;
+    // Restore tile overrides
+    (save.tileOverrides||[]).forEach(({k,type})=>{ if (tiles[k]) tiles[k].type=type; });
+    // Restore tracks
+    tracks = {};
+    (save.tracks||[]).forEach(({k,q,r,connections})=>{ tracks[k]={connections,q,r}; });
+    // Restore routes
+    routes = {};
+    (save.routes||[]).forEach(({id,stations,trainId,path})=>{ routes[id]={path,stations,trainId}; });
+    // Restore trains
+    trainList = (save.trains||[]).map(t=>({...t}));
+    // Restore towns
+    (save.towns||[]).forEach(({k,pop,connected,deliveryScore})=>{
+      if (towns[k]) { towns[k].pop=pop; towns[k].connected=connected; towns[k].deliveryScore=deliveryScore||0; }
+    });
+    buildSortedTiles();
+    return true;
+  } catch(e) {
+    console.error('Load failed', e);
+    return false;
+  }
+}
+
+// ─── GAME START / SPLASH ─────────────────────────────────────────────────────
+function startGameUI() {
+  document.getElementById('splash').style.display='none';
+  document.getElementById('game-ui').classList.add('show');
+  gameStarted=true;
+  resizeCanvas();
+  updateHUD();
+  updateRoutePanel();
+  lastTime = performance.now();
+}
+
+function newGame() {
+  gold=500; day=1; dayTimer=0;
+  nextRouteId=0; nextTrainId=0;
+  tracks={}; routes={}; trainList=[];
+  tiles=generateMap();
+  initTowns();
+  buildSortedTiles();
+  centerCamera();
+  victoryShown=false;
+  paused=false;
+  selectedCoord=null; routeTownA=null; routeTownB=null; pendingRouteId=null;
+  startGameUI();
+  showToast('Welcome to Iron Frontier! Build tracks between towns.');
+}
+
+function continueGame() {
+  if (!hasSave()) return;
+  tiles=generateMap();
+  initTowns();
+  if (!loadGame()) { newGame(); return; }
+  centerCamera();
+  victoryShown=false;
+  paused=false;
+  selectedCoord=null; routeTownA=null; routeTownB=null; pendingRouteId=null;
+  startGameUI();
+  showToast('Game loaded! Day '+day);
+}
+
+function goToSplash() {
+  saveGame();
+  document.getElementById('game-ui').classList.remove('show');
+  document.getElementById('victory').classList.remove('show');
+  document.getElementById('pause-overlay').classList.remove('show');
+  document.getElementById('splash').style.display='flex';
+  gameStarted=false;
+  paused=false;
+  // Refresh continue button
+  document.getElementById('continue-btn').classList.toggle('disabled', !hasSave());
+}
+
+function togglePause() {
+  paused=!paused;
+  document.getElementById('pause-btn').textContent = paused?'▶':'⏸';
+  document.getElementById('pause-overlay').classList.toggle('show', paused);
+}
+
+function checkVictory() {
+  if (victoryShown) return;
+  if (totalPop() >= WIN_POP) {
+    victoryShown=true;
+    document.getElementById('vic-stats').textContent =
+      'Day '+day+' — Total Pop: '+totalPop().toLocaleString()+' — Gold: '+Math.floor(gold).toLocaleString();
+    document.getElementById('victory').classList.add('show');
+    saveGame();
+  }
+}
+
+// ─── ROUTE PANEL TOGGLE ───────────────────────────────────────────────────────
+document.getElementById('hud-routes').parentElement.style.cursor='pointer';
+document.getElementById('hud-routes').parentElement.addEventListener('click',()=>{
+  const panel = document.getElementById('route-panel');
+  panel.classList.toggle('show');
+  updateRoutePanel();
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', ()=>{ if (gameStarted) resizeCanvas(); });
+// Update continue button
+document.getElementById('continue-btn').classList.toggle('disabled', !hasSave());
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
