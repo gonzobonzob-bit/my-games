@@ -129,6 +129,16 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
   pointer-events:none;transition:opacity .12s;z-index:80;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 .tool:hover .sub{opacity:1}
 .toolsep{width:26px;height:1px;background:#2a3543;margin:3px 0;flex-shrink:0}
+/* active-tool instruction tip, anchored bottom-left of the stage */
+.toolhint{position:absolute;left:12px;bottom:12px;max-width:min(420px,52vw);z-index:30;
+  background:linear-gradient(180deg,rgba(18,26,38,.94),rgba(11,17,26,.94));border:1px solid #2f3e52;
+  border-left:3px solid var(--gold);border-radius:9px;padding:8px 12px;font-size:12px;line-height:1.45;
+  color:var(--ink);box-shadow:0 8px 22px rgba(0,0,0,.5);pointer-events:none;
+  opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}
+.toolhint.show{opacity:1;transform:translateY(0)}
+.toolhint b{color:var(--gold)}
+.toolhint .keyhint{display:inline-block;margin-left:6px;background:#0d1219;border:1px solid #34465c;
+  border-radius:4px;padding:0 5px;font-size:10px;color:var(--ink2)}
 
 /* --- stage / canvas --- */
 .stage{flex:1;position:relative;overflow:hidden;min-width:0}
@@ -382,6 +392,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
       <canvas id="map"></canvas>
       <div class="toasts" id="toasts"></div>
       <div class="maptip" id="maptip" style="opacity:0"></div>
+      <div class="toolhint" id="toolhint"></div>
       <button id="returnMapBtn" class="returnmap hidden" onclick="GroundView.exit()">← Return to Map</button>
       <div id="assistantChip" class="assistant-chip hidden">☕ Dave</div>
       <div class="overlay-ctrls" id="overlayCtrls">
@@ -1387,7 +1398,7 @@ const Render = {
   mix(a,b,t){ const A=this.hex(a),B=this.hex(b);
     return `rgb(${Math.round(U.lerp(A[0],B[0],t))},${Math.round(U.lerp(A[1],B[1],t))},${Math.round(U.lerp(A[2],B[2],t))})`; },
   daylight(){ const phase=(G.dayFrac!=null?G.dayFrac:0.5);
-    return 0.35+0.65*(Math.sin(phase*6.28-1.57)*0.5+0.5); },
+    return 0.42+0.58*(Math.sin(phase*6.28-1.57)*0.5+0.5); },
 };
 
 /* ---------------- Vehicles ---------------- */
@@ -3057,10 +3068,11 @@ Toolbar.tools=[
 
 /* ---- richer terrain palette + correct day/night brightness ---- */
 MapCanvas.PAL = {
-  plains:['#5f9248','#4a7338'], hills:['#7e7a44','#5f5a30'], mountain:['#82807c','#5e5b57'],
-  river:['#2f6f86','#234f60'], coast:['#d2bd7c','#b29a5c'], urban:['#6e737c','#52565d'],
+  plains:['#74b052','#578838'], hills:['#9c9347','#74692e'], mountain:['#8f8b85','#66625c'],
+  river:['#2f88a8','#235f79'], coast:['#e2ca80','#c6aa5e'], urban:['#767b82','#575b61'],
 };
-MapCanvas.shade = function(v,dn){ return Render.mix(v,'#0c1626',(1-dn)*0.62); };
+/* warmer, less-flat shading: gentler darkening toward a warm dusk tone instead of cold black-blue */
+MapCanvas.shade = function(v,dn){ return Render.mix(v,'#16203a',(1-dn)*0.46); };
 
 MapCanvas.tile = function(ctx,gx,gy,t,e,dn){
   const z=this.cam.zoom, hw=this.TW/2*z, hh=this.TH/2*z, eh=e*z, top=this.iso(gx,gy,e);
@@ -3225,7 +3237,23 @@ UI.bulldozeClick = function(sx,sy,hit){
   Toast.show('Bulldoze: click a built road/rail, an owned stake, or a vehicle.','info');
 };
 /* drop the old node-pair routePlan binding; selecting build tools resets the pending point */
-(function(){ const set=UI.setTool.bind(UI); UI.setTool=function(k){ UI._roadStart=null; set(k); }; })();
+(function(){ const set=UI.setTool.bind(UI); UI.setTool=function(k){ UI._roadStart=null; set(k); ToolHint.update(); }; })();
+
+/* ---- active-tool instruction tip (always shows what the selected tool does) ---- */
+const ToolHint = {
+  text:{
+    inspect:['🔍 <b>Inspect / Select</b>','Click any city, industry, vehicle or HQ to open its full details in the right panel.','V'],
+    planRoad:['🛣️ <b>Build Road</b>','Click a <b>start</b> point on the map, then an <b>end</b> point to lay a road. Cost scales with distance.','R'],
+    planRail:['🛤️ <b>Build Rail</b>','Click two points to lay rail track — gravel bed, sleepers and steel rails. Pricier than road.','T'],
+    vehicle:['🚚 <b>Buy Vehicle</b>','Opens the Fleet panel — choose a vehicle to add to your fleet (a depot/facility may be required).','B'],
+    bulldoze:['⛔ <b>Bulldoze / Divest</b>','Click a built road or rail to remove it for salvage, or a stake / vehicle to divest or retire it.','X'],
+  },
+  update(){ const el=document.getElementById('toolhint'); if(!el) return;
+    const t=this.text[UI.tool];
+    if(!t){ el.classList.remove('show'); return; }
+    el.innerHTML=t[0]+' &nbsp;'+(t[2]?'<span class="keyhint">key '+t[2]+'</span>':'')+'<br><span style="color:var(--ink2)">'+t[1]+'</span>';
+    el.classList.add('show'); },
+};
 
 
 /* ===================================================================
@@ -3433,8 +3461,12 @@ MapCanvas.draw=function(){ const ctx=this.ctx,c=this.canvas; if(!ctx) return; ct
   if(this.view.mode==='ground'){ this.drawGround3(ctx,w,h); ctx.restore(); if(window.Minimap)Minimap.draw(); return; }
   const dn=Render.daylight();
   const g=ctx.createLinearGradient(0,0,0,h);
-  g.addColorStop(0,Render.mix('#18263e','#0a1424',1-dn)); g.addColorStop(1,Render.mix('#33486a','#070d18',1-dn));
+  g.addColorStop(0,Render.mix('#3360a0','#0a1424',1-dn)); g.addColorStop(1,Render.mix('#8fb0cf','#0c1322',1-dn));
   ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  // soft warm sun glow near the horizon by day
+  if(dn>0.5){ const sg=ctx.createRadialGradient(w*0.74,h*0.16,10,w*0.74,h*0.16,h*0.8);
+    sg.addColorStop(0,'rgba(255,238,200,'+((dn-0.5)*0.5)+')'); sg.addColorStop(1,'rgba(255,238,200,0)');
+    ctx.fillStyle=sg; ctx.fillRect(0,0,w,h); }
   this.drawTiles(ctx,w,h,dn); this.drawTrees(ctx,w,h,dn); this.drawRoads(ctx);
   if(window.Overlay&&Overlay.competitor) this.drawCompOverlay(ctx);
   this.drawJobLines(ctx);
@@ -3447,7 +3479,7 @@ MapCanvas.draw=function(){ const ctx=this.ctx,c=this.canvas; if(!ctx) return; ct
   items.sort((a,b)=>a.o-b.o).forEach(it=>it.fn());
   this.drawFacilities(ctx); this.drawVehicles(ctx);
   this.drawStreetLights(ctx,w,h,dn); this.drawWeather2(ctx,w,h);
-  if(dn<0.82){ ctx.fillStyle='rgba(8,12,30,'+((0.82-dn)*0.45)+')'; ctx.fillRect(0,0,w,h); }
+  if(dn<0.82){ ctx.fillStyle='rgba(10,16,34,'+((0.82-dn)*0.30)+')'; ctx.fillRect(0,0,w,h); }
   ctx.restore(); if(window.Minimap)Minimap.draw(); };
 
 /* WebGL: facility boxes + weather already present; extend sig + buildHQ */
@@ -3516,7 +3548,7 @@ window.addEventListener('keydown',e=>{ if(UI.current!=='game')return; if(e.ctrlK
 
 /* init minimap when entering game (wrap enterGame) */
 (function(){ const oEnter=UI.enterGame.bind(UI); UI.enterGame=function(){ oEnter();
-  if(window.Minimap) Minimap.init(); Overlay.sync(); }; })();
+  if(window.Minimap) Minimap.init(); Overlay.sync(); if(window.ToolHint) ToolHint.update(); }; })();
 
 
 /* ===================================================================
