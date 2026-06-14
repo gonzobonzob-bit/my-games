@@ -3024,6 +3024,184 @@ Toolbar.tools=[
 
 
 /* ===================================================================
+   VISUAL + INTERACTION FIXES (Canvas renderer + toolbar tools)
+   Pure presentation/input — no game logic changes.
+   =================================================================== */
+
+/* ---- richer terrain palette + correct day/night brightness ---- */
+MapCanvas.PAL = {
+  plains:['#5f9248','#4a7338'], hills:['#7e7a44','#5f5a30'], mountain:['#82807c','#5e5b57'],
+  river:['#2f6f86','#234f60'], coast:['#d2bd7c','#b29a5c'], urban:['#6e737c','#52565d'],
+};
+MapCanvas.shade = function(v,dn){ return Render.mix(v,'#0c1626',(1-dn)*0.62); };
+
+MapCanvas.tile = function(ctx,gx,gy,t,e,dn){
+  const z=this.cam.zoom, hw=this.TW/2*z, hh=this.TH/2*z, eh=e*z, top=this.iso(gx,gy,e);
+  const pal=this.PAL[t]||this.PAL.plains; const sh=v=>this.shade(v,dn);
+  // elevation skirt (solid sides)
+  if(eh>1){ ctx.fillStyle=sh(Render.mix(pal[1],'#000',0.12));
+    ctx.beginPath(); ctx.moveTo(top.x-hw,top.y); ctx.lineTo(top.x,top.y+hh); ctx.lineTo(top.x,top.y+hh+eh); ctx.lineTo(top.x-hw,top.y+eh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=sh(Render.mix(pal[1],'#000',0.3));
+    ctx.beginPath(); ctx.moveTo(top.x+hw,top.y); ctx.lineTo(top.x,top.y+hh); ctx.lineTo(top.x,top.y+hh+eh); ctx.lineTo(top.x+hw,top.y+eh); ctx.closePath(); ctx.fill();
+    if(t==='mountain'){ ctx.strokeStyle='rgba(0,0,0,0.16)'; ctx.lineWidth=1;
+      for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(top.x-hw*0.7,top.y+eh*0.3*i); ctx.lineTo(top.x,top.y+hh*0.5+eh*0.3*i); ctx.stroke(); } } }
+  // top color: elevation tint + per-tile variation
+  const elevTint=U.clamp(e/30,0,1); let col=Render.mix(pal[0],'#dCEFd0',elevTint*0.28);
+  const n=this.hash(gx,gy); col=Render.mix(col,n>0.5?'#ffffff':'#000000',Math.abs(n-0.5)*0.13);
+  if(t==='river'){ const s=Math.sin(this.t*1.4+gx*0.7+gy*0.6)*0.09; col=Render.mix('#2f6f86','#86d4ec',0.22+s); }
+  if(t==='coast'){ const s=Math.sin(this.t*1.2+gx+gy)*0.05; col=Render.mix(col,'#86d4ec',0.12+s); }
+  ctx.fillStyle=sh(col);
+  ctx.beginPath(); ctx.moveTo(top.x,top.y-hh); ctx.lineTo(top.x+hw,top.y); ctx.lineTo(top.x,top.y+hh); ctx.lineTo(top.x-hw,top.y); ctx.closePath(); ctx.fill();
+  // soft AO at low edges (only faint), no harsh grid
+  if(eh>1){ ctx.strokeStyle='rgba(0,0,0,0.10)'; ctx.lineWidth=1; ctx.stroke(); }
+  // grass/dirt texture clumps
+  if((t==='plains'||t==='hills')&&z>0.5){ const r=this.srand(gx*97+gy*57);
+    ctx.fillStyle=sh(Render.mix(pal[0],'#7fae6a',0.45));
+    for(let i=0;i<4;i++){ const a=r()*6.28,d=r()*hw*0.62; ctx.fillRect(top.x+Math.cos(a)*d,top.y+Math.sin(a)*d*0.5,1.7*z,1.7*z); }
+    ctx.fillStyle=sh(Render.mix(pal[0],'#3c5e2e',0.5));
+    for(let i=0;i<2;i++){ const a=r()*6.28,d=r()*hw*0.5; ctx.fillRect(top.x+Math.cos(a)*d,top.y+Math.sin(a)*d*0.5,1.4*z,1.4*z); } }
+  if(t==='mountain'){ ctx.fillStyle=sh('#e7edf5');
+    ctx.beginPath(); ctx.moveTo(top.x,top.y-hh*0.6); ctx.lineTo(top.x+hw*0.45,top.y-hh*0.05); ctx.lineTo(top.x,top.y+hh*0.15); ctx.lineTo(top.x-hw*0.45,top.y-hh*0.05); ctx.closePath(); ctx.fill(); }
+  if((t==='river'||t==='coast')&&z>0.5){ ctx.strokeStyle='rgba(220,245,255,0.18)'; ctx.lineWidth=1;
+    const wob=Math.sin(this.t*1.6+gx+gy)*2.5*z; ctx.beginPath(); ctx.moveTo(top.x-hw*0.5,top.y+wob); ctx.lineTo(top.x+hw*0.5,top.y-wob); ctx.stroke(); }
+};
+
+MapCanvas.drawTrees = function(ctx,w,h,dn){ if(this.cam.zoom<0.42) return; const occ=new Set();
+  G.cities.forEach(c=>{for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)occ.add((c.gx+dx)+','+(c.gy+dy));}); G.industries.forEach(i=>occ.add(Math.round(i.gx)+','+Math.round(i.gy)));
+  const z=this.cam.zoom,sh=v=>this.shade(v,dn);
+  for(let y=0;y<G.world.H;y++)for(let x=0;x<G.world.W;x++){ const t=G.world.tiles[y][x]; if((t!=='plains'&&t!=='hills')||occ.has(x+','+y))continue;
+    const r=this.srand(x*733+y*131+7),nn=(r()*3|0)+(t==='hills'?1:0);
+    for(let k=0;k<nn;k++){ const gx=x-0.4+r()*0.8,gy=y-0.4+r()*0.8,e=this.elevOf(t),p=this.iso(gx,gy,e); if(p.x<-30||p.x>w+30||p.y<-40||p.y>h+40)continue;
+      const s=(0.8+r()*0.7)*z; ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(p.x+3*s,p.y+s,5*s,2*s,0,0,6.28); ctx.fill();
+      ctx.strokeStyle=sh('#5a4327'); ctx.lineWidth=1.7*s; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x,p.y-6*s); ctx.stroke();
+      ctx.fillStyle=sh(t==='hills'?'#3f6e3a':'#4f8a45'); ctx.beginPath(); ctx.arc(p.x,p.y-9*s,4.2*s,0,6.28); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x-2*s,p.y-6*s,3*s,0,6.28); ctx.fill(); ctx.beginPath(); ctx.arc(p.x+2*s,p.y-6.5*s,3*s,0,6.28); ctx.fill();
+      ctx.fillStyle=sh('#6fae5e'); ctx.beginPath(); ctx.arc(p.x-1*s,p.y-11*s,2.1*s,0,6.28); ctx.fill(); } }
+};
+
+/* brighter buildings (correct day/night) */
+MapCanvas.box = function(ctx,sx,sy,bw,bh,col,opt){ opt=opt||{}; const z=this.cam.zoom; bw*=z; bh*=z; const d=bw*0.5,dn=Render.daylight(),sh=v=>this.shade(v,dn);
+  if(opt.shadow!==false){ ctx.fillStyle='rgba(0,0,0,0.26)'; const s2=sx+bh*0.5,y2=sy+bh*0.26; ctx.beginPath(); ctx.moveTo(sx-bw,sy); ctx.lineTo(sx,sy+d); ctx.lineTo(s2,y2+d); ctx.lineTo(s2-bw,y2); ctx.closePath(); ctx.fill(); }
+  ctx.fillStyle=sh(Render.mix(col,'#000',0.32)); ctx.beginPath(); ctx.moveTo(sx-bw,sy); ctx.lineTo(sx,sy+d); ctx.lineTo(sx,sy+d-bh); ctx.lineTo(sx-bw,sy-bh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=sh(Render.mix(col,'#000',0.08)); ctx.beginPath(); ctx.moveTo(sx+bw,sy); ctx.lineTo(sx,sy+d); ctx.lineTo(sx,sy+d-bh); ctx.lineTo(sx+bw,sy-bh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=sh(Render.mix(col,'#fff',0.16)); ctx.beginPath(); ctx.moveTo(sx,sy-bh+d); ctx.lineTo(sx+bw,sy-bh); ctx.lineTo(sx,sy-bh-d); ctx.lineTo(sx-bw,sy-bh); ctx.closePath(); ctx.fill();
+  if(opt.win&&z>0.5){ const rows=Math.max(1,Math.floor(bh/(7*z))); for(let r=0;r<rows;r++)for(let cc=0;cc<2;cc++){ const wy=sy-6*z-r*7*z;
+    ctx.fillStyle=opt.lit&&((r+cc+((sx|0)%3))%2===0)?'rgba(248,220,130,0.9)':'rgba(165,195,225,0.30)'; ctx.fillRect(sx+bw*0.34+cc*bw*0.34,wy-bw*0.16*(cc+0.4),2.4*z,3.4*z); } }
+};
+
+/* ---- cities as real towns ---- */
+MapCanvas.subiso = function(c,i,j,e){ return this.iso(c.gx+i*0.26, c.gy+j*0.26, e); };
+MapCanvas.drawCity = function(ctx,c){
+  const e=this.elevOf(World.tileAt(c.gx,c.gy)), base=this.iso(c.gx,c.gy,e), z=this.cam.zoom, dn=Render.daylight();
+  const rng=this.srand((c.gx*1000+c.gy)|0), tier=U.clamp(Math.round(2+c.pop/11000),3,6), lit=dn<0.55;
+  const sh=v=>this.shade(v,dn);
+  // town ground platform (paved)
+  const spread=tier*0.26, pw=(spread*this.TW+10)*z, ph=pw*0.5;
+  ctx.fillStyle=sh('#595e57'); ctx.beginPath(); ctx.moveTo(base.x,base.y-ph); ctx.lineTo(base.x+pw,base.y); ctx.lineTo(base.x,base.y+ph); ctx.lineTo(base.x-pw,base.y); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1; ctx.stroke();
+  // street grid
+  ctx.strokeStyle='rgba(22,24,28,0.55)'; ctx.lineWidth=Math.max(1.2,2.6*z);
+  for(let i=-tier;i<=tier;i++){ let a=this.subiso(c,i,-tier,e),b=this.subiso(c,i,tier,e); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    let a2=this.subiso(c,-tier,i,e),b2=this.subiso(c,tier,i,e); ctx.beginPath(); ctx.moveTo(a2.x,a2.y); ctx.lineTo(b2.x,b2.y); ctx.stroke(); }
+  // lots: buildings + parks, painted back-to-front
+  const pal=['#7a8196','#6a7185','#888fa4','#5f6678','#9aa08e','#86756a','#7e8aa0'];
+  const cells=[]; for(let i=-tier;i<=tier;i++)for(let j=-tier;j<=tier;j++){ if(Math.abs(i)+Math.abs(j)>tier+1) continue; cells.push({i,j,o:i+j}); }
+  cells.sort((a,b)=>a.o-b.o);
+  const dens=U.clamp(c.pop/45000,0,1);
+  cells.forEach(({i,j})=>{ const r=rng(), p=this.subiso(c,i,j,e);
+    if(r<0.14){ // park
+      const s=3.4*z; ctx.fillStyle=sh('#3f7e3a'); ctx.beginPath(); ctx.moveTo(p.x,p.y-s*0.5); ctx.lineTo(p.x+s,p.y); ctx.lineTo(p.x,p.y+s*0.5); ctx.lineTo(p.x-s,p.y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=sh('#2f5f2c'); ctx.beginPath(); ctx.arc(p.x,p.y-3*z,2.1*z,0,6.28); ctx.fill();
+      ctx.fillStyle=sh('#3e7a3a'); ctx.beginPath(); ctx.arc(p.x-2.4*z,p.y-1*z,1.6*z,0,6.28); ctx.fill(); return; }
+    if(r<0.30+ (1-dens)*0.18) return; // open lot / plaza (sparser when small)
+    const bh=4+rng()*(6+dens*16)+(c.pop>25000?5:0);
+    this.box(ctx,p.x,p.y,2.2+rng()*1.3,bh,pal[(rng()*pal.length)|0],{win:true,lit}); });
+  // landmark towers for big cities
+  if(c.pop>24000){ const p=this.subiso(c,0,0,e); this.box(ctx,p.x,p.y,2.8,16+c.pop/3500,'#4a6b86',{win:true,lit}); }
+  if(c.pop>40000){ const p=this.subiso(c,1,-1,e); this.box(ctx,p.x,p.y,2.6,13+c.pop/4500,'#52607a',{win:true,lit}); }
+  // activity blip + selection
+  const pulse=(Math.sin(this.t*2+(c.life||0))+1)/2; ctx.fillStyle=`rgba(150,210,160,${0.25+pulse*0.3})`;
+  ctx.beginPath(); ctx.arc(base.x,base.y-(58+tier*4)*z,2.4*z,0,6.28); ctx.fill();
+  if(this.selected&&this.selected.id===c.id)this.ring(ctx,base.x,base.y,'#7c6cf0'); else if(this.hover&&this.hover.id===c.id)this.ring(ctx,base.x,base.y,'rgba(255,255,255,.4)');
+  this.plate(ctx,base.x,base.y-(64+tier*4)*z,c.name,'#eef3f8');
+  const bw=44*z; ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(base.x-bw/2,base.y-(56+tier*4)*z,bw,3.5*z); ctx.fillStyle='#6fd3c7'; ctx.fillRect(base.x-bw/2,base.y-(56+tier*4)*z,bw*c.trust/100,3.5*z);
+};
+
+/* ---- roads + rail with real width & texture ---- */
+MapCanvas.drawRoads = function(ctx){ const z=this.cam.zoom;
+  const segs=this.autoRoads().map(r=>({ax:r.ax,ay:r.ay,bx:r.bx,by:r.by,rail:false})).concat(G.playerRoads||[]);
+  ctx.lineCap='round';
+  segs.forEach(rd=>{ const pa=this.iso(rd.ax,rd.ay,this.elevOf(World.tileAt(rd.ax,rd.ay))+0.2), pb=this.iso(rd.bx,rd.by,this.elevOf(World.tileAt(rd.bx,rd.by))+0.2);
+    const dx=pb.x-pa.x,dy=pb.y-pa.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
+    if(rd.rail){ // ballast bed
+      ctx.strokeStyle=Render.mix('#6a5a44','#000',0.25); ctx.lineWidth=Math.max(4,10*z); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      const n=Math.max(2,Math.round(len/(6*z))); ctx.strokeStyle='#3a2c1c'; ctx.lineWidth=Math.max(1,2.2*z);
+      for(let i=0;i<n;i++){ const tt=(i+0.5)/n,cx=pa.x+dx*tt,cy=pa.y+dy*tt; ctx.beginPath(); ctx.moveTo(cx+nx*4.5*z,cy+ny*4.5*z); ctx.lineTo(cx-nx*4.5*z,cy-ny*4.5*z); ctx.stroke(); }
+      ctx.strokeStyle='#aab0ba'; ctx.lineWidth=Math.max(0.8,1.5*z);
+      [3.3,-3.3].forEach(off=>{ ctx.beginPath(); ctx.moveTo(pa.x+nx*off*z,pa.y+ny*off*z); ctx.lineTo(pb.x+nx*off*z,pb.y+ny*off*z); ctx.stroke(); });
+    } else { // road: curb + asphalt + sheen + center dashes
+      ctx.strokeStyle=Render.mix('#33363d','#000',0.2); ctx.lineWidth=Math.max(5,13*z); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      ctx.strokeStyle='#42464e'; ctx.lineWidth=Math.max(3.5,10*z); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.055)'; ctx.lineWidth=Math.max(1,3*z); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      if(z>0.42){ ctx.strokeStyle='rgba(246,222,120,0.8)'; ctx.lineWidth=Math.max(0.8,1.5*z); ctx.setLineDash([7*z,7*z]); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke(); ctx.setLineDash([]); } } });
+  ctx.lineCap='butt';
+};
+/* job lines: subtle, so roads dominate */
+MapCanvas.drawJobLines = function(ctx){ const z=this.cam.zoom; G.vehicles.forEach(v=>{ if(!v.job)return; const a=this.gpt(v.job.from),b=this.gpt(v.job.to); if(!a||!b)return;
+  const pa=this.iso(a.gx,a.gy,9),pb=this.iso(b.gx,b.gy,9); ctx.strokeStyle=v.division==='cm'?'rgba(111,211,199,0.30)':'rgba(242,193,78,0.26)'; ctx.lineWidth=1.2*z;
+  ctx.setLineDash([4*z,7*z]); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke(); ctx.setLineDash([]); }); };
+
+/* ---- WebGL renderer: screen<->grid for build tools ---- */
+MapGL.iso = function(gx,gy,elev){ const v=new THREE.Vector3(this.wx(gx),(elev||0),this.wz(gy)); v.project(this.camera);
+  const r=this.canvas.getBoundingClientRect(); return {x:(v.x*0.5+0.5)*r.width, y:(-v.y*0.5+0.5)*r.height}; };
+MapGL.unproject = function(sx,sy){ const r=this.canvas.getBoundingClientRect(); const ndc=new THREE.Vector2((sx/r.width)*2-1,-(sy/r.height)*2+1);
+  const ray=new THREE.Raycaster(); ray.setFromCamera(ndc,this.camera); const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0), pt=new THREE.Vector3();
+  if(!ray.ray.intersectPlane(plane,pt)) return {gx:G.hq.cx,gy:G.hq.cy};
+  return {gx:pt.x/this.S+(G.world.W-1)/2, gy:pt.z/this.S+(G.world.H-1)/2}; };
+
+/* ===================================================================
+   TOOLBAR — every tool triggers a real action (free-click build/bulldoze)
+   =================================================================== */
+UI.distToSeg = function(px,py,x1,y1,x2,y2){ const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy; if(l2===0)return Math.hypot(px-x1,py-y1);
+  let t=((px-x1)*dx+(py-y1)*dy)/l2; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(x1+t*dx),py-(y1+t*dy)); };
+UI.onMapClick = function(sx,sy){ const hit=Map.hitTest(sx,sy);
+  if(this.tool==='planRoad'||this.tool==='planRail'){ return this.buildPoint(Map.unproject(sx,sy), this.tool==='planRail'); }
+  if(this.tool==='bulldoze'){ return this.bulldozeClick(sx,sy,hit); }
+  if(this.tool==='vehicle'){ this.openPanel('fleet'); this.select(hit); return; }
+  this.select(hit); // inspect / default -> right sidebar
+};
+UI.buildPoint = function(g,rail){
+  const gx=Math.round(g.gx*2)/2, gy=Math.round(g.gy*2)/2;
+  if(gx<0||gy<0||gx>G.world.W-1||gy>G.world.H-1){ Toast.show('Build inside the map.','bad'); return; }
+  if(!this._roadStart){ this._roadStart={gx,gy}; Toast.show('Start placed — click again to lay the '+(rail?'rail line':'road')+'.','info'); return; }
+  const a=this._roadStart;
+  if(Math.hypot(a.gx-gx,a.gy-gy)<0.4){ this._roadStart=null; Toast.show('Pick a point further away.','bad'); return; }
+  const dist=World.distance(a.gx,a.gy,gx,gy);
+  const cost=Math.round(dist*(rail?2200:900)*(CM.permitMult?CM.permitMult():1)*(window.Econ&&Econ.active()?(G.economy.inflation||1):1));
+  if(!Money.can(cost)){ Toast.show('Need '+U.money(cost)+' to build that '+(rail?'rail line':'road')+'.','bad'); this._roadStart=null; return; }
+  Money.spend(cost,'infra'); G.playerRoads.push({ax:a.gx,ay:a.gy,bx:gx,by:gy,rail});
+  Map._auto=null; if(Map.ready&&Map.rebuild) Map.rebuild();
+  if(window.News) News.push(rail?'🛤️ New rail line laid.':'🛣️ New road laid.');
+  Toast.show((rail?'Rail line':'Road')+' built for '+U.money(cost)+'.','good');
+  this._roadStart=null; if(window.StatusBar) StatusBar.render(); this.refresh();
+};
+UI.bulldozeClick = function(sx,sy,hit){
+  // remove nearest player-built segment under the cursor
+  let bi=-1,bd=20;
+  (G.playerRoads||[]).forEach((r,i)=>{ const pa=Map.iso(r.ax,r.ay,0),pb=Map.iso(r.bx,r.by,0); const d=this.distToSeg(sx,sy,pa.x,pa.y,pb.x,pb.y); if(d<bd){bd=d;bi=i;} });
+  if(bi>=0){ const seg=G.playerRoads.splice(bi,1)[0]; Map._auto=null; if(Map.ready&&Map.rebuild) Map.rebuild();
+    Money.earn(2000,'salvage'); Toast.show('Removed a built '+(seg.rail?'rail line':'road')+'.','info'); this.refresh(); return; }
+  if(hit&&hit.kind==='industry'&&hit.ref.stake>0){ const ind=hit.ref;
+    Modal.open({ic:'⛔',title:'Divest stake?',body:`Sell your ${ind.stake}% of <b>${ind.name}</b>?`,
+      choices:[{label:'Sell',cls:'red',fn:()=>Industry.sellStake(ind.id)},{label:'Cancel',cls:'ghost',fn:()=>{}}]}); return; }
+  if(hit&&hit.kind==='vehicle'){ Fleet.retire(hit.ref.id); return; }
+  Toast.show('Bulldoze: click a built road/rail, an owned stake, or a vehicle.','info');
+};
+/* drop the old node-pair routePlan binding; selecting build tools resets the pending point */
+(function(){ const set=UI.setTool.bind(UI); UI.setTool=function(k){ UI._roadStart=null; set(k); }; })();
+
+
+/* ===================================================================
    Bootstrap
    =================================================================== */
 window.addEventListener('load',()=>{
