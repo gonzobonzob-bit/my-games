@@ -297,6 +297,27 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
   border-radius:18px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 3px 12px rgba(0,0,0,.4)}
 .assistant-chip:hover{border-color:#caa030}
 
+
+/* phase2 */
+.overlay-ctrls{position:absolute;top:8px;left:8px;z-index:55;display:flex;gap:6px}
+.ovbtn{background:rgba(20,27,38,.9);border:1px solid var(--line);color:var(--ink2);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.ovbtn:hover{border-color:#3f5168;color:#fff}
+.ovbtn.on{background:var(--gold);color:#241c00;border-color:#caa030}
+.minimap{position:absolute;right:8px;bottom:36px;z-index:55;width:190px;height:130px;border:1px solid #3a4a5e;border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;background:#0a0e14}
+@media(max-width:760px){.minimap{width:130px;height:90px}}
+.tkey{position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:800;color:#9fb0c3;background:rgba(0,0,0,.4);border-radius:3px;padding:0 3px;line-height:1.4}
+.dave-log{margin-left:6px;cursor:pointer;opacity:.8}.dave-log:hover{opacity:1}
+.newspaper{position:fixed;inset:0;z-index:130;background:rgba(4,7,11,.82);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(3px);animation:fade .3s}
+.np{background:#efe9d8;color:#1a1710;width:min(560px,94vw);border-radius:6px;padding:26px 30px;box-shadow:0 24px 70px rgba(0,0,0,.7);
+  font-family:Georgia,'Times New Roman',serif;border:1px solid #c9bfa3;max-height:90vh;overflow-y:auto;animation:pop .3s ease}
+.np-mast{text-align:center;font-size:34px;font-weight:900;letter-spacing:1px;border-bottom:3px double #1a1710;padding-bottom:8px;text-transform:uppercase}
+.np-meta{text-align:center;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:6px 0 14px;color:#5a5036}
+.np-head{font-size:30px;font-weight:900;line-height:1.1;text-align:center;margin:6px 0 10px}
+.np-img{text-align:center;font-size:46px;margin:8px 0;filter:grayscale(.3)}
+.np-sub{font-size:15px;line-height:1.65;text-align:justify;border-top:1px solid #c9bfa3;padding-top:12px}
+.np .btn{margin-top:18px;width:100%}
+
 </style>
 </head>
 <body>
@@ -362,7 +383,12 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
       <div class="toasts" id="toasts"></div>
       <div class="maptip" id="maptip" style="opacity:0"></div>
       <button id="returnMapBtn" class="returnmap hidden" onclick="GroundView.exit()">← Return to Map</button>
-      <div id="assistantChip" class="assistant-chip hidden" onclick="Assistant.toggle()">☕ Dave</div>
+      <div id="assistantChip" class="assistant-chip hidden">☕ Dave</div>
+      <div class="overlay-ctrls" id="overlayCtrls">
+        <button class="ovbtn" id="ovProfit" title="Route profitability (P)" onclick="Overlay.toggleProfit()">💰 Profit</button>
+        <button class="ovbtn" id="ovComp" title="Competitor routes & territory (L)" onclick="Overlay.toggleComp()">🏁 Rivals</button>
+      </div>
+      <canvas id="minimap" width="190" height="130" class="minimap" title="Minimap — click to jump"></canvas>
     </div>
     <div class="sidebar" id="sidebar">
       <div class="resizer" id="sideResizer"></div>
@@ -535,7 +561,8 @@ function freshState(mode){
     loan:0, loanRate:0.00018, // per day
     market:{ fuel:1, demand:1 }, deficitDays:0,
     playerRoads:[], donationStore:{ owned:false, stage:0, gx:0, gy:0, revenue:0, volume:0, lastSeen:0 },
-    assistant:{ on:false, name:'Dave' }, weather:{ type:'clear', t:0, next:6 },
+    facilities: mode==='campaign'?{}:{rail:true,sea:true,air:true}, staffRoster:[], drive:null,
+    assistant:{ on:false, name:'Dave', log:[] }, weather:{ type:'clear', t:0, next:6 },
     economy:{ inflation:1, taxAccrued:0, lastQuarter:0, insurance:0 }, permitsOwned:{},
     drivers:{ skill:1 }, newsSeq:0, news:[],
     speed:1, paused:false,
@@ -544,7 +571,7 @@ function freshState(mode){
     seenLand:false,
     cities:[], industries:[], vehicles:[], jobs:[], competitors:[], billboards:[], events:[],
     hq:{ cx:0, cy:0, levels:{}, built:[] },
-    cm:{ active:false, dept:false, budget:2000, auto:false, fleetGoal:2, completed:0, values:{} },
+    cm:{ active:false, dept:false, budget:2000, auto:false, fleetGoal:2, completed:0, values:{}, staff:[] },
     stats:{ jobsDone:0, mainDone:0, thirdDone:0, cmDone:0, earned:0, spent:0, breakdowns:0 },
     log:[], milestones:{}, nextJobAt:0, nextEventDay: U.randi(5,9),
     activeTab:'map',
@@ -2207,7 +2234,7 @@ const StatusBar = {
         <button class="sbtn ${!G.paused&&G.speed===2?'on':''}" onclick="UI.setSpeed(2)">2×</button>
         <button class="sbtn ${!G.paused&&G.speed===3?'on':''}" onclick="UI.setSpeed(3)">3×</button>
       </div>`;
-    const chip=document.getElementById('assistantChip'); if(chip){ chip.classList.toggle('hidden',!G.assistant.on); chip.textContent='☕ '+G.assistant.name+' is keeping the lights on'; }
+    const chip=document.getElementById('assistantChip'); if(chip){ chip.classList.toggle('hidden',!G.assistant.on); chip.innerHTML='<span onclick="Assistant.toggle()">☕ '+G.assistant.name+' — on the clock</span> <span class="dave-log" title="Activity log" onclick="Assistant.showLog()">📋</span>'; }
   },
 };
 
@@ -3199,6 +3226,297 @@ UI.bulldozeClick = function(sx,sy,hit){
 };
 /* drop the old node-pair routePlan binding; selecting build tools resets the pending point */
 (function(){ const set=UI.setTool.bind(UI); UI.setTool=function(k){ UI._roadStart=null; set(k); }; })();
+
+
+/* ===================================================================
+   PHASE 2 — staff, facilities, overlays, minimap, weather, drives,
+   leaderboard, dispatcher, newspapers, keyboard, tooltips.
+   Layered on top — no core logic rewrites.
+   =================================================================== */
+const NAMES_F=['Maria','James','Aisha','Diego','Nina','Omar','Sofia','Leon','Priya','Marcus','Hana','Cole','Ruth','Tariq','Elena','Sam','Yuki','Grace','Andre','Lena','Ravi','Tess','Bo','Ingrid'];
+const NAMES_L=['Vega','Okafor','Holt','Reyes','Brandt','Sato','Mireles','Kane','Patel','Nguyen','Cole','Frost','Abara','Lund','Marsh','Ortiz','Khan','Webb','Soto','Dane','Cruz','Park','Yates','Roth'];
+const ROLES_MAIN=[
+ {key:'ops',role:'Operations Manager',ic:'🧭',base:1400,desc:'Oversees all routes & logistics.'},
+ {key:'fleet',role:'Fleet Manager',ic:'🗂️',base:1100,desc:'Maintains vehicles, schedules service.'},
+ {key:'finance',role:'Finance Officer',ic:'💰',base:1200,desc:'Manages loans, taxes, reports.'},
+ {key:'dispatch',role:'Regional Dispatcher',ic:'📡',base:800,desc:'Assigns jobs per region.'},
+ {key:'mechanic',role:'Mechanic',ic:'🛠️',base:700,desc:'Repairs & maintains vehicles.'},
+ {key:'driver',role:'Driver',ic:'🚖',base:600,desc:'Operates vehicles on routes.'},
+];
+const ROLES_CM=[
+ {key:'director',role:'CM Director',ic:'💚',base:1000,desc:'Runs the division, co-manages with you.'},
+ {key:'coord',role:'Donation Coordinator',ic:'📦',base:600,desc:'Manages pickup routes & store intake.'},
+ {key:'store',role:'Store Manager',ic:'🏬',base:700,desc:'Runs the donation store & inventory.'},
+ {key:'cmdriver',role:'CM Driver',ic:'🚐',base:550,desc:'Dedicated community route driver.'},
+ {key:'volunteer',role:'Volunteer Coordinator',ic:'🙌',base:500,desc:'Organizes events & donation drives.'},
+];
+
+/* ---------------- Radio dispatcher voice ---------------- */
+const Dispatch = { say(line){ if(window.News && U.chance(0.6)) News.push('📻 Dispatch: '+line); } };
+
+/* ---------------- Staff system ---------------- */
+const Staff = {
+  roster(div){ return div==='cm'?(G.cm.staff||(G.cm.staff=[])):(G.staffRoster||(G.staffRoster=[])); },
+  gen(rd,div){ const skill=U.randi(1,5), inf=(G.economy&&G.economy.inflation)||1;
+    return {id:U.id(),key:rd.key,role:rd.role,ic:rd.ic,div,name:U.pick(NAMES_F)+' '+U.pick(NAMES_L),
+      skill,wage:Math.round(rd.base*(0.7+skill*0.13)*inf),mood:U.randi(65,85),perf:55+skill*7}; },
+  candidates(rd,div){ this._c=this._c||{}; const list=[0,1,2].map(()=>this.gen(rd,div)); list.forEach(c=>this._c[c.id]=c); return list; },
+  hire(c){ if(!c) return; this.roster(c.div).push(c); Toast.show('Hired '+c.name+' — '+c.role+'.','good'); Dispatch.say('"Welcome aboard, '+c.name.split(' ')[0]+'."'); UI.refresh(); },
+  fire(id,div){ const r=this.roster(div),i=r.findIndex(s=>s.id===id); if(i<0)return; const s=r[i]; r.splice(i,1); if(Rep)Rep.sub(0.5); Toast.show('Let '+s.name+' go.','info'); UI.refresh(); },
+  count(key,div){ return this.roster(div).filter(s=>s.key===key).length; },
+  wages(div){ return this.roster(div).reduce((a,s)=>a+s.wage,0); },
+  avgPerf(div){ const r=this.roster(div); if(!r.length) return 70; return r.reduce((a,s)=>a+s.perf*(s.mood/100),0)/r.length; },
+  mainEfficiency(){ const r=this.roster('main'); if(!r.length) return 1; return U.clamp(0.88+(this.avgPerf('main')/70)*0.22,0.85,1.32); },
+  daily(){ if(G.mode==='sandboxFree') return;
+    [['main',this.roster('main')],['cm',this.roster('cm')]].forEach(([div,r])=>{ for(let i=r.length-1;i>=0;i--){ const s=r[i];
+      s.mood=U.clamp(s.mood+(G.cash>0?0.25:-0.7)+U.rand(-0.4,0.4),0,100);
+      s.perf=U.clamp(s.perf+(s.mood>58?0.15:-0.3),20,100);
+      if(s.mood<16 && U.chance(0.05)){ News.push('🚪 '+s.name+' ('+s.role+') resigned.'); r.splice(i,1); } } });
+    const w=this.wages('main')+this.wages('cm'); if(w>0) Money.spend(Math.round(w/30),'wages',true); },
+};
+
+/* ---------------- Hiring screen ---------------- */
+const Hiring = {
+  open(div){ div=div||'main'; UI.closeModal();
+    Modal.open({ic:'🧑‍💼',title:'Hiring',body:'Build your team. Wages come out of daily operating costs — pay fairly to keep morale and performance up.',cls:'hiring',choices:[{label:'Close',cls:'ghost',fn:()=>{}}]});
+    const roles=div==='cm'?ROLES_CM:ROLES_MAIN; let h=`<div class="row" style="margin:6px 0 10px">
+      <button class="btn sm ${div==='main'?'primary':'ghost'}" onclick="Hiring.open('main')">Main Company</button>
+      <button class="btn sm ${div==='cm'?'cm':'ghost'}" onclick="Hiring.open('cm')">Community Movement</button></div>
+      <div class="muted" style="margin-bottom:8px">Monthly wage bill: <b>${U.money(Staff.wages(div))}</b> · Team: ${Staff.roster(div).length}</div>`;
+    roles.forEach(rd=>{ const hires=Staff.roster(div).filter(s=>s.key===rd.key);
+      h+=`<div class="card"><h4>${rd.ic} ${rd.role} <span class="tagchip ${hires.length?'good':''}">${hires.length}</span></h4><div class="meta">${rd.desc}</div>`;
+      hires.forEach(s=>{ h+=`<div class="kv"><span class="k">${s.name} ${'★'.repeat(s.skill)}</span><span class="v">${U.money(s.wage)}/mo · 😊${Math.round(s.mood)} · ⚡${Math.round(s.perf)} <button class="btn red sm" onclick="Staff.fire('${s.id}','${div}');Hiring.open('${div}')">Fire</button></span></div>`; });
+      h+=`<div class="row"><button class="btn green sm" onclick="Hiring.browse('${rd.key}','${div}')">+ Hire ${rd.role}</button></div></div>`; });
+    document.querySelector('#modalRoot .modal p').insertAdjacentHTML('afterend',h); },
+  browse(key,div){ const rd=(div==='cm'?ROLES_CM:ROLES_MAIN).find(r=>r.key===key); const cands=Staff.candidates(rd,div);
+    UI.closeModal(); Modal.open({ic:rd.ic,title:'Candidates — '+rd.role,body:'Three applicants. Higher skill = higher wage and performance.',choices:[{label:'← Back',cls:'ghost',fn:()=>Hiring.open(div)}]});
+    let h=''; cands.forEach(c=>{ h+=`<div class="card"><h4>${c.name} ${'★'.repeat(c.skill)}</h4><div class="meta">Skill ${c.skill}/5 · Asking ${U.money(c.wage)}/mo · starting performance ${Math.round(c.perf)}</div><div class="row"><button class="btn green sm" onclick="Hiring.pick('${c.id}','${div}')">Hire ${c.name.split(' ')[0]}</button></div></div>`; });
+    document.querySelector('#modalRoot .modal p').insertAdjacentHTML('afterend',h); },
+  pick(id,div){ Staff.hire(Staff._c&&Staff._c[id]); Hiring.open(div); },
+};
+
+/* ---------------- Physical facilities gate transport ---------------- */
+const Facilities = {
+  defs:{ rail:{name:'Rail Station',ic:'🚉',cost:180000}, sea:{name:'Sea Port',ic:'⚓',cost:520000}, air:{name:'Airport',ic:'🛫',cost:1400000} },
+  has(tier){ return tier==='road' || !!(G.facilities && G.facilities[tier]); },
+  pos(tier){ if(G.facilities&&G.facilities[tier+'Pos']) return G.facilities[tier+'Pos'];
+    const ang={rail:0.5,sea:2.3,air:3.9}[tier]||0; return {gx:G.hq.cx+Math.cos(ang)*5, gy:G.hq.cy+Math.sin(ang)*5}; },
+  build(tier){ const d=this.defs[tier]; if(!d) return; if(this.has(tier)){ Toast.show('Already built.','info'); return; }
+    if(!G.unlocked[tier]){ Toast.show('Not available yet — grow earnings to unlock '+TIER_INFO[tier].name+'.','bad'); return; }
+    if(!Money.can(d.cost)){ Toast.show('Need '+U.money(d.cost)+' to build a '+d.name+'.','bad'); return; }
+    Money.spend(d.cost,'facility'); G.facilities[tier]=true; G.facilities[tier+'Pos']=this.pos(tier);
+    if(Map.ready&&Map.rebuild) Map.rebuild();
+    Toast.show(d.name+' built — '+TIER_INFO[tier].name+' transport is online!','gold');
+    News.push('🏗️ '+d.name+' opened. '+TIER_INFO[tier].name+' fleet & contracts now available.');
+    Dispatch.say('"'+d.name+' is operational, over."'); Newspaper.maybeTier(); UI.refresh(); },
+  panelHTML(){ let h='<div class="sectitle">Transport Infrastructure</div>'+
+      '<div class="muted" style="margin-bottom:8px">Each higher transport type needs a physical hub built on the map first.</div>';
+    ['rail','sea','air'].forEach(tier=>{ const d=this.defs[tier], built=this.has(tier), un=G.unlocked[tier];
+      h+=`<div class="card"><h4>${d.ic} ${d.name} ${built?'<span class="tagchip good">built</span>':un?'':'<span class="tagchip">locked</span>'}</h4>
+        <div class="meta">Enables ${TIER_INFO[tier].name} vehicles & jobs. ${built?'Operational.':un?'Available to build.':'Unlocks at '+U.money(TIER_INFO[tier].unlock)+' earned.'}</div>
+        ${built?'':`<div class="row"><button class="btn ${un?'green':''} sm" ${un?'':'disabled'} onclick="Facilities.build('${tier}')">Build · ${U.money(d.cost)}</button></div>`}</div>`; });
+    return h; },
+};
+
+/* ---------------- Donation drives (CM) ---------------- */
+const DonationDrive = {
+  daily(){ if(!G.cm.active) return;
+    if(G.drive){ G.drive.days--; G.drive.progress=G.cm.completed-G.drive.startCompleted;
+      if(G.drive.progress>=G.drive.goal) this.succeed(); else if(G.drive.days<=0) this.fail(); return; }
+    if(U.chance(0.02)) this.launch(); },
+  launch(){ const goal=U.randi(4,9);
+    G.drive={name:U.pick(['Winter Coat Drive','Food Bank Push','School Supplies Campaign','Neighbors Helping Neighbors','Holiday Toy Collection','Shelter Restock']),
+      goal,progress:0,startCompleted:G.cm.completed,days:U.randi(8,14),reward:U.randi(30,70)};
+    News.push('💚 Donation drive: '+G.drive.name+' — '+goal+' community runs in '+G.drive.days+' days.');
+    Dispatch.say('"New community campaign just dropped, let\'s move."'); UI.refresh(); },
+  succeed(){ const d=G.drive; G.goodwill+=d.reward; if(G.mode!=='sandboxFree')Money.earn(d.reward*1000,'drive'); Rep.add(3);
+    G.cities.forEach(c=>{ if(!c.isHQ) Trust.add(c,1.5); });
+    News.push('🎉 '+d.name+' hit its goal! +'+d.reward+' goodwill.');
+    Newspaper.show('COMMUNITY RALLIES','"'+d.name+'" exceeds its goal as '+G.company+' and volunteers deliver for neighbors in need.');
+    G.drive=null; UI.refresh(); },
+  fail(){ News.push('💚 '+G.drive.name+' wrapped up short of goal — but every bit helped.'); G.drive=null; UI.refresh(); },
+  html(){ if(!G.cm.active) return '';
+    let h='<div class="sectitle">Donation Drive</div>';
+    if(G.drive){ const d=G.drive; h+=`<div class="card"><h4>💚 ${d.name}</h4><div class="meta">Goal ${d.goal} community runs · ${d.days} days left · reward +${d.reward} goodwill</div>
+      <div class="bar trust"><i style="width:${Math.min(100,d.progress/d.goal*100)}%"></i></div><div class="muted" style="margin-top:5px">${d.progress}/${d.goal} runs completed</div></div>`; }
+    else h+='<div class="card"><div class="meta">No active campaign. Drives launch periodically — run community jobs to crush their goals.</div><div class="row"><button class="btn cm sm" onclick="DonationDrive.launch()">Start a Drive Now</button></div></div>';
+    return h; },
+};
+
+/* ---------------- Reputation leaderboard ---------------- */
+const Leaderboard = {
+  compScore(cp){ return Math.round(cp.share*2 + cp.relation*0.3); },
+  html(){ const avgTrust=Math.round(G.cities.filter(c=>!c.isHQ).reduce((a,c)=>a+c.trust,0)/Math.max(1,G.cities.filter(c=>!c.isHQ).length));
+    const rows=[{name:G.company+' (You)',score:Math.round(G.reputation+avgTrust),you:true,col:'#f2c14e'}]
+      .concat(G.competitors.map(c=>({name:c.name,score:this.compScore(c)+40,col:c.color}))).sort((a,b)=>b.score-a.score);
+    let h='<div class="sectitle">Regional Standing</div>';
+    rows.forEach((r,i)=>{ h+=`<div class="kv"><span class="k">${i+1}. <span style="color:${r.col}">●</span> ${r.name}</span><span class="v">${r.score}</span></div>`; });
+    h+='<div class="sectitle">Trust by City</div>';
+    G.cities.filter(c=>!c.isHQ).sort((a,b)=>b.trust-a.trust).forEach(c=>{
+      h+=`<div class="card" style="padding:9px"><h4 style="font-size:13px">${c.name} <span class="tagchip ${c.trust>50?'good':''}">${Math.round(c.trust)}</span></h4><div class="bar trust"><i style="width:${c.trust}%"></i></div></div>`; });
+    return h; },
+};
+
+/* ---------------- Milestone newspaper ---------------- */
+const Newspaper = {
+  tiers:[{nw:500000,h:'A NAME ON THE MAP'},{nw:2000000,h:'EMPIRE RISING'},{nw:8000000,h:'A LOGISTICS POWERHOUSE'},{nw:25000000,h:'TITAN OF TRANSPORT'}],
+  maybeTier(){ const nw=Finance.netWorth(); G.milestones=G.milestones||{};
+    this.tiers.forEach((t,i)=>{ if(nw>=t.nw && !G.milestones['np'+i]){ G.milestones['np'+i]=1;
+      this.show(t.h, G.company+' crosses '+U.money(t.nw)+' in net worth, cementing its place among the region\'s great movers — and its Community Movement keeps the whole thing honest.'); } }); },
+  show(headline,body){ const ov=document.createElement('div'); ov.className='newspaper';
+    ov.innerHTML=`<div class="np"><div class="np-mast">THE DAILY LEDGER</div>
+      <div class="np-meta">Year ${1+Math.floor((G.day-1)/120)} · ${G.company}</div>
+      <div class="np-head">${headline}</div><div class="np-img">🚚📰🏙️</div>
+      <div class="np-sub">${body}</div>
+      <button class="btn primary" onclick="this.closest('.newspaper').remove()">Read all about it →</button></div>`;
+    document.body.appendChild(ov); },
+};
+
+/* ---------------- Overlays ---------------- */
+const Overlay = { profit:false, competitor:false,
+  toggleProfit(){ this.profit=!this.profit; this.sync(); Toast.show('Route profitability overlay '+(this.profit?'ON':'OFF')+'.','info'); },
+  toggleComp(){ this.competitor=!this.competitor; this.sync(); Toast.show('Competitor overlay '+(this.competitor?'ON':'OFF')+'.','info'); },
+  sync(){ const a=document.getElementById('ovProfit'),b=document.getElementById('ovComp'); if(a)a.classList.toggle('on',this.profit); if(b)b.classList.toggle('on',this.competitor); },
+};
+
+/* ---------------- Minimap ---------------- */
+const Minimap = { canvas:null, ctx:null,
+  init(){ this.canvas=document.getElementById('minimap'); if(!this.canvas) return; this.ctx=this.canvas.getContext('2d');
+    this.canvas.addEventListener('click',e=>{ const r=this.canvas.getBoundingClientRect();
+      Map.centerOn((e.clientX-r.left)/r.width*G.world.W,(e.clientY-r.top)/r.height*G.world.H); }); },
+  draw(){ if(!this.ctx||!G.world) return; const c=this.canvas,ctx=this.ctx,W=G.world.W,H=G.world.H,sw=c.width/W,sh=c.height/H;
+    const COL={plains:'#4a7a3a',hills:'#6e6a3a',mountain:'#76726c',river:'#2f6f86',coast:'#c9b46f',urban:'#6a6f78'};
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){ ctx.fillStyle=COL[G.world.tiles[y][x]]||'#3a4a3a'; ctx.fillRect(x*sw,y*sh,sw+1,sh+1); }
+    (G.playerRoads||[]).forEach(r=>{ ctx.strokeStyle=r.rail?'#9b8cf0':'#d8d2c0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(r.ax*sw,r.ay*sh); ctx.lineTo(r.bx*sw,r.by*sh); ctx.stroke(); });
+    G.cities.forEach(ct=>{ ctx.fillStyle=ct.isHQ?'#f2c14e':'#dfeaf5'; const s=ct.isHQ?4:Math.max(2,Math.round((ct.pop||9000)/12000)); ctx.fillRect(ct.gx*sw-s/2,ct.gy*sh-s/2,s,s); });
+    G.vehicles.forEach(v=>{ if(!v.job||!Map.vehPos)return; const p=Map.vehPos(v); if(p){ ctx.fillStyle=v.division==='cm'?'#6fd3c7':'#f2c14e'; ctx.fillRect(p.gx*sw-1,p.gy*sh-1,2,2);} });
+    try{ const cv=Map.unproject(Map.canvas.clientWidth/2,Map.canvas.clientHeight/2);
+      ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.2; ctx.strokeRect(cv.gx*sw-12,cv.gy*sh-9,24,18); }catch(e){} },
+};
+
+/* ===================================================================
+   Canvas renderer additions — weather, street lights, facilities, overlays
+   =================================================================== */
+MapCanvas._rng9=function(i){ const v=Math.sin(i*12.9898)*43758.5453; return v-Math.floor(v); };
+MapCanvas.drawFacilities=function(ctx){ ['rail','sea','air'].forEach(tier=>{ if(!Facilities.has(tier))return;
+  const pos=Facilities.pos(tier),p=this.iso(pos.gx,pos.gy,2),z=this.cam.zoom;
+  const col={rail:'#7d6fd0',sea:'#3f7fb5',air:'#cf6f95'}[tier];
+  this.box(ctx,p.x,p.y,7,6,col,{win:true,lit:Render.daylight()<0.55});
+  this.plate(ctx,p.x,p.y-22*z,({rail:'🚉 Rail Station',sea:'⚓ Sea Port',air:'🛫 Airport'})[tier],'#dfe9f5',true); }); };
+MapCanvas.drawStreetLights=function(ctx,w,h,dn){ if(dn>0.52) return; const a=U.clamp((0.52-dn)*2.2,0,1),z=this.cam.zoom;
+  G.cities.forEach(c=>{ const base=this.iso(c.gx,c.gy,this.elevOf(World.tileAt(c.gx,c.gy))),rng=this.srand((c.gx*7+c.gy*13)|0);
+    const tier=U.clamp(Math.round(2+c.pop/11000),3,6),n=Math.min(14,Math.round(c.pop/4500));
+    for(let i=0;i<n;i++){ const ix=(rng()*2-1)*tier*0.26, iy=(rng()*2-1)*tier*0.26, p=this.subiso(c,ix,iy,0);
+      const flick=Math.sin(this.t*7+i*2.3+c.gx) > -0.7-a*0.5 ? 1 : 0.25;
+      ctx.fillStyle='rgba(255,224,150,'+(a*0.85*flick)+')'; ctx.beginPath(); ctx.arc(p.x,p.y-2*z,2.4*z,0,6.28); ctx.fill();
+      ctx.fillStyle='rgba(255,236,180,'+(a*0.35*flick)+')'; ctx.beginPath(); ctx.arc(p.x,p.y-2*z,5*z,0,6.28); ctx.fill(); } }); };
+MapCanvas.drawWeather2=function(ctx,w,h){ const wt=(G.weather&&G.weather.type)||'clear';
+  if(wt==='rain'){ ctx.strokeStyle='rgba(175,205,238,0.45)'; ctx.lineWidth=1;
+    for(let i=0;i<140;i++){ const x=this._rng9(i)*w,y=(this._rng9(i+99)*h+this.t*700)%h; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-5,y+14); ctx.stroke(); }
+    ctx.fillStyle='rgba(40,60,90,0.10)'; ctx.fillRect(0,0,w,h); }
+  else if(wt==='snow'){ ctx.fillStyle='rgba(255,255,255,0.9)';
+    for(let i=0;i<110;i++){ const x=(this._rng9(i)*w+Math.sin(this.t+i)*12),y=(this._rng9(i+50)*h+this.t*150)%h; ctx.beginPath(); ctx.arc(x,y,1.7,0,6.28); ctx.fill(); }
+    ctx.fillStyle='rgba(255,255,255,0.07)'; ctx.fillRect(0,0,w,h); }
+  else if(wt==='fog'){ const fg=ctx.createLinearGradient(0,0,0,h); fg.addColorStop(0,'rgba(205,215,225,0.30)'); fg.addColorStop(0.6,'rgba(205,215,225,0.16)'); fg.addColorStop(1,'rgba(205,215,225,0.06)'); ctx.fillStyle=fg; ctx.fillRect(0,0,w,h); } };
+MapCanvas.drawProfitOverlay=function(ctx){ const z=this.cam.zoom; G.vehicles.forEach(v=>{ if(!v.job)return; const a=this.gpt(v.job.from),b=this.gpt(v.job.to); if(!a||!b)return;
+  const pa=this.iso(a.gx,a.gy,9),pb=this.iso(b.gx,b.gy,9); const margin=v.job.pay-World.distance(a.gx,a.gy,b.gx,b.gy)*(v.maint||100)*0.5;
+  const col=margin>v.job.pay*0.45?'#4cc88f':margin>0?'#f2c14e':'#e0625e';
+  ctx.strokeStyle=col; ctx.lineWidth=Math.max(2.5,5*z); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+  ctx.fillStyle=col; ctx.beginPath(); ctx.arc(pb.x,pb.y,3.5*z,0,6.28); ctx.fill(); }); };
+MapCanvas.drawCompOverlay=function(ctx){ const z=this.cam.zoom; G.competitors.forEach(cp=>{
+  G.industries.forEach(ind=>{ if(ind.ownerComp===cp.name){ const p=this.iso(ind.gx,ind.gy,2); ctx.fillStyle=cp.color+'33'; ctx.beginPath(); ctx.arc(p.x,p.y,44*z,0,6.28); ctx.fill(); } });
+  cp.trucks.forEach(tk=>{ const pa=this.iso(tk.ax,tk.ay,8),pb=this.iso(tk.bx,tk.by,8); ctx.strokeStyle=cp.color; ctx.lineWidth=2*z; ctx.setLineDash([5*z,4*z]); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke(); ctx.setLineDash([]); }); }); };
+
+/* full draw override that layers everything in (brighter sky too) */
+MapCanvas.draw=function(){ const ctx=this.ctx,c=this.canvas; if(!ctx) return; ctx.save(); ctx.scale(this.DPR,this.DPR);
+  const w=c.width/this.DPR,h=c.height/this.DPR; this.t+=0.016;
+  if(this.view.mode==='ground'){ this.drawGround3(ctx,w,h); ctx.restore(); if(window.Minimap)Minimap.draw(); return; }
+  const dn=Render.daylight();
+  const g=ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,Render.mix('#18263e','#0a1424',1-dn)); g.addColorStop(1,Render.mix('#33486a','#070d18',1-dn));
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  this.drawTiles(ctx,w,h,dn); this.drawTrees(ctx,w,h,dn); this.drawRoads(ctx);
+  if(window.Overlay&&Overlay.competitor) this.drawCompOverlay(ctx);
+  this.drawJobLines(ctx);
+  if(window.Overlay&&Overlay.profit) this.drawProfitOverlay(ctx);
+  const items=[]; G.industries.forEach(ind=>items.push({o:ind.gx+ind.gy,fn:()=>this.drawIndustry(ctx,ind)}));
+  G.billboards.forEach(b=>items.push({o:b.gx+b.gy+0.4,fn:()=>this.drawBillboard(ctx,b)}));
+  if(G.donationStore.owned){ const ds=G.donationStore; items.push({o:(ds.gx||G.hq.cx+5)+(ds.gy||G.hq.cy+4),fn:()=>this.drawStore(ctx)}); }
+  ['rail','sea','air'].forEach(tier=>{ if(Facilities.has(tier)){ const pos=Facilities.pos(tier); items.push({o:pos.gx+pos.gy,fn:()=>{}}); } });
+  G.cities.forEach(cy=>items.push({o:cy.gx+cy.gy,fn:()=>cy.isHQ?this.drawHQ(ctx,cy):this.drawCity(ctx,cy)}));
+  items.sort((a,b)=>a.o-b.o).forEach(it=>it.fn());
+  this.drawFacilities(ctx); this.drawVehicles(ctx);
+  this.drawStreetLights(ctx,w,h,dn); this.drawWeather2(ctx,w,h);
+  if(dn<0.82){ ctx.fillStyle='rgba(8,12,30,'+((0.82-dn)*0.45)+')'; ctx.fillRect(0,0,w,h); }
+  ctx.restore(); if(window.Minimap)Minimap.draw(); };
+
+/* WebGL: facility boxes + weather already present; extend sig + buildHQ */
+(function(){ if(typeof MapGL==='undefined')return; const oSig=MapGL.sig;
+  MapGL.sig=function(){ return oSig.call(this)+'|'+['rail','sea','air'].filter(t=>Facilities.has(t)).join(''); };
+  const oHQ=MapGL.buildHQ;
+  MapGL.buildHQ=function(){ oHQ.call(this); const g=this.groups.hq; if(!g)return; const base=this.hAt(G.hq.cx,G.hq.cy);
+    ['rail','sea','air'].forEach(tier=>{ if(!Facilities.has(tier))return; const pos=Facilities.pos(tier);
+      const col={rail:0x7d6fd0,sea:0x3f7fb5,air:0xcf6f95}[tier];
+      const m=new THREE.Mesh(new THREE.BoxGeometry(4,3.5,4),new THREE.MeshStandardMaterial({color:col,roughness:0.6}));
+      m.position.set(this.wx(pos.gx),base+1.9,this.wz(pos.gy)); m.castShadow=true; m.receiveShadow=true; g.add(m); }); };
+})();
+
+/* ===================================================================
+   Wiring — daily tick, gates, perf, Dave log, keyboard, tooltips
+   =================================================================== */
+(function(){ const oDay=Sim.advanceDay.bind(Sim); Sim.advanceDay=function(){ oDay();
+  try{ Staff.daily(); DonationDrive.daily(); Newspaper.maybeTier(); }catch(e){ console.warn('phase2 daily',e); } }; })();
+(function(){ const oP=Fleet.perfMult.bind(Fleet); Fleet.perfMult=function(){ return oP()*Staff.mainEfficiency(); };
+  const oW=Fleet.wearMult.bind(Fleet); Fleet.wearMult=function(){ const m=Staff.count('mechanic','main'); return oW()*(m>0?U.clamp(1-m*0.05,0.62,1):1); }; })();
+(function(){ const oBuy=Fleet.buy.bind(Fleet); Fleet.buy=function(tier,key,div){ if(!Facilities.has(tier)){ Toast.show('Build a '+Facilities.defs[tier].name+' first (Fleet ▸ Infrastructure).','bad'); return; } oBuy(tier,key,div); }; })();
+(function(){ const oAcc=Jobs.accept.bind(Jobs); Jobs.accept=function(id,div){ const j=G.jobs.find(x=>x.id===id); if(j&&!Facilities.has(j.tier)){ Toast.show('Need a '+Facilities.defs[j.tier].name+' for '+TIER_INFO[j.tier].name+' jobs.','bad'); return; } oAcc(id,div); }; })();
+(function(){ const oA=Assistant.daily.bind(Assistant); Assistant.daily=function(){ const b=Jobs.activeCount(); oA(); const a=Jobs.activeCount();
+  if(a>b){ G.assistant.log=G.assistant.log||[]; G.assistant.log.unshift('Day '+G.day+': took '+(a-b)+' job'+(a-b>1?'s':'')+'.'); if(G.assistant.log.length>12)G.assistant.log.pop(); } }; })();
+Assistant.showLog=function(){ const lg=(G.assistant.log&&G.assistant.log.length)? G.assistant.log.map(l=>'• '+l).join('<br>') : G.assistant.name+' hasn\'t lifted a finger yet. Shocking.';
+  Modal.open({ic:'☕',title:G.assistant.name+'\'s Activity Log',body:'<i>"'+G.assistant.name+' here. Doing the bare minimum, as promised."</i><br><br>'+lg,choices:[{label:'Close',cls:'ghost',fn:()=>{}}]}); };
+
+/* moral/flood event mixed into the event roll */
+Events.flood=function(){ const c=U.pick(G.cities.filter(x=>!x.isHQ)); if(!c) return;
+  Modal.open({ic:'🌊',title:'Flooding in '+c.name,
+    body:'Floodwaters have cut off '+c.name+'. Community Movement could reroute trucks to deliver aid right now — at a real cost to this quarter\'s profit. Your call, co-founder.',
+    choices:[
+      {label:'Send CM aid (−$30K · +trust · +goodwill)',cls:'cm',fn:()=>{ Money.spend(30000,'aid'); Trust.add(c,8); G.goodwill+=30; Rep.add(3);
+        Dispatch.say('"All CM units divert to '+c.name+'. Go, go."'); Newspaper.show('MOVERS ANSWER THE CALL',G.company+'\'s Community Movement reaches flood-stricken '+c.name+' with aid while others stayed home.'); }},
+      {label:'Protect the quarter (stay the course)',cls:'ghost',fn:()=>{ Trust.add(c,-3); Rep.sub(2); News.push('🌊 '+c.name+' weathered the flood without your help. People noticed.'); }},
+    ]}); };
+(function(){ const oRoll=Events.roll.bind(Events); Events.roll=function(){ if(U.chance(0.22)){ Events.flood(); return; } oRoll(); }; })();
+
+/* keyboard shortcuts for toolbar + overlays */
+Toolbar.keys={inspect:'V',planRoad:'R',planRail:'T',vehicle:'B',bulldoze:'X',ground:'G',center:'C',zoomIn:'+',zoomOut:'-'};
+(function(){ const oBuild=Toolbar.build.bind(Toolbar); Toolbar.build=function(){ oBuild();
+  document.querySelectorAll('.tool').forEach(el=>{ const k=Toolbar.keys[el.dataset.k]; if(k){ const s=el.querySelector('.sub'); if(s&&!/\[/.test(s.textContent)) s.textContent+=' ['+k+']';
+    const b=document.createElement('span'); b.className='tkey'; b.textContent=k; el.appendChild(b); } }); }; })();
+window.addEventListener('keydown',e=>{ if(UI.current!=='game')return; if(e.ctrlKey||e.metaKey)return; if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  const k=e.key.toLowerCase(), map={v:'inspect',r:'planRoad',t:'planRail',b:'vehicle',x:'bulldoze',g:'ground',c:'center'};
+  if(map[k]){ UI.setTool(map[k]); } else if(k==='+'||k==='='){ UI.zoomIn(); } else if(k==='-'){ UI.zoomOut(); }
+  else if(k==='p'){ Overlay.toggleProfit(); } else if(k==='l'){ Overlay.toggleComp(); } });
+
+/* tooltips on status bar stats */
+(function(){ const oR=StatusBar.render.bind(StatusBar); StatusBar.render=function(){ oR(); const sb=document.getElementById('statusbar'); if(!sb)return;
+  const tips=['In-game date','Cash on hand','Total company net worth','Outstanding loan balance','Community goodwill','Company reputation (0–100)'];
+  sb.querySelectorAll('.sb').forEach((el,i)=>{ if(tips[i]) el.title=tips[i]; }); }; })();
+
+/* panel extensions: facilities into Fleet, staff+drives+leaderboard into CM, staff into HQ */
+(function(){ const oFleet=Panels.fleet.bind(Panels); Panels.fleet=function(){ return oFleet()+Facilities.panelHTML(); }; })();
+(function(){ const oCM=Panels.cm.bind(Panels); Panels.cm=function(){ return oCM()
+  +'<div class="sectitle">Community Movement Staff</div><div class="card"><div class="meta">A separate roster with its own wage budget — Director, Coordinators, Store Manager, CM Drivers, Volunteers.</div><div class="row"><button class="btn cm sm" onclick="Hiring.open(\'cm\')">🧑‍💼 Manage CM Staff (' + (G.cm.staff?G.cm.staff.length:0) + ')</button></div></div>'
+  +DonationDrive.html()+Leaderboard.html(); }; })();
+(function(){ const oB=Panels.buildings.bind(Panels); Panels.buildings=function(){ return oB()
+  +'<div class="sectitle">Staff</div><div class="card"><div class="meta">Hire managers, dispatchers, mechanics and drivers. Better teams run faster with fewer breakdowns.</div><div class="row"><button class="btn sm" onclick="Hiring.open(\'main\')">🧑‍💼 Manage Company Staff (' + (G.staffRoster?G.staffRoster.length:0) + ')</button></div></div>'; }; })();
+
+/* menu bar: Staff + Hiring entries */
+(function(){ const comp=Menu.defs.find(m=>m.label==='Company'); if(comp){ comp.items.splice(2,0,{ic:'🧑‍💼',label:'Hire Staff…',act:()=>Hiring.open('main')}); }
+  const cm=Menu.defs.find(m=>m.label==='Community Movement'); if(cm){ cm.items.push({ic:'🧑‍💼',label:'CM Staff…',act:()=>Hiring.open('cm')},{ic:'🏆',label:'Reputation Leaderboard',act:()=>{ UI.openPanel('cm'); }}); }
+  const view=Menu.defs.find(m=>m.label==='View'); if(view){ view.items.push({ic:'💰',label:'Profit Overlay',act:()=>Overlay.toggleProfit()},{ic:'🏁',label:'Competitor Overlay',act:()=>Overlay.toggleComp()}); } })();
+
+/* init minimap when entering game (wrap enterGame) */
+(function(){ const oEnter=UI.enterGame.bind(UI); UI.enterGame=function(){ oEnter();
+  if(window.Minimap) Minimap.init(); Overlay.sync(); }; })();
 
 
 /* ===================================================================
