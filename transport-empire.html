@@ -95,6 +95,11 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
   border-bottom:1px solid #000;box-shadow:inset 0 1px 0 #2c3848;z-index:50;user-select:none;font-size:12.5px;flex-shrink:0}
 .menubar .mbrand{display:flex;align-items:center;gap:6px;padding:0 12px;font-weight:800;color:var(--gold);
   border-right:1px solid #0a0e14;letter-spacing:.3px;white-space:nowrap;font-size:12.5px;background:none;-webkit-text-fill-color:var(--gold)}
+.mainmenu-btn{position:absolute;top:3px;right:8px;z-index:95;height:24px;padding:0 12px;border-radius:7px;
+  background:linear-gradient(180deg,#f5cf6a,#e0a82e);color:#241c00;border:1px solid #caa030;font-weight:800;
+  font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,.45);letter-spacing:.3px}
+.mainmenu-btn:hover{filter:brightness(1.08)} .mainmenu-btn:active{transform:scale(.96)}
+.modal.gamemenu .choices{margin-top:14px} .modal.gamemenu .choices .btn{justify-content:flex-start;font-size:14px;padding:12px 16px}
 .menubar .mi{position:relative;display:flex;align-items:center;padding:0 12px;color:var(--ink2);cursor:pointer;white-space:nowrap}
 .menubar .mi:hover,.menubar .mi.open{background:#2a3645;color:#fff}
 .menubar .dd{position:absolute;top:30px;left:0;min-width:215px;background:#1a232f;border:1px solid #313f50;
@@ -299,12 +304,12 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
       <button class="mode-card" onclick="UI.startMode('sandboxFree')">
         <div class="ic">∞</div><span class="tag">FREEDOM</span>
         <h3>Sandbox Free</h3>
-        <p>Everything unlocked. Unlimited capital. Every industry, every vehicle, the whole map. Pure creative play.</p>
+        <p>Unlimited money. Every vehicle, industry and transport type unlocked from day one. No expenses, no loans, no financial pressure whatsoever — pure creative freedom.</p>
       </button>
       <button class="mode-card" onclick="UI.startMode('sandboxCampaign')">
         <div class="ic">🧭</div><span class="tag">OPEN</span>
         <h3>Sandbox Campaign</h3>
-        <p>The feel of the campaign with no gates. All vehicles and industries available — but you still build and grow your world.</p>
+        <p>Realistic starting capital and a living economy: income, staff, fuel, maintenance and loans all run in the background. Markets shift, cities boom and slow, and a long deficit brings real consequences. All content unlocked — but money is real.</p>
       </button>
     </div>
     <div style="text-align:center;margin-top:26px">
@@ -321,6 +326,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 
 <!-- ============ GAME (desktop sim layout) ============ -->
 <div id="game" class="screen hidden">
+  <button id="mainMenuBtn" class="mainmenu-btn" onclick="GameMenu.open()" title="Main Menu">☰ Menu</button>
   <div class="menubar" id="menubar"></div>
   <div class="workspace">
     <div class="toolbar" id="toolbar"></div>
@@ -487,6 +493,7 @@ function freshState(mode){
     cash: mode==='sandboxFree'? 50_000_000 : 250000,
     reputation: 50, goodwill: 0,
     loan:0, loanRate:0.00018, // per day
+    market:{ fuel:1, demand:1 }, deficitDays:0,
     speed:1, paused:false,
     company:"Your Company",
     unlocked: mode==='campaign' ? {road:true} : {road:true,rail:true,sea:true,air:true},
@@ -1202,7 +1209,7 @@ const Jobs = {
   // called when vehicle finishes
   complete(v){
     const j=v.job; if(!j) return;
-    let pay=j.pay*Fleet.perfMult();
+    let pay=j.pay*Fleet.perfMult()*Market.demand();
     // condition penalty
     if(v.condition<40) pay*=0.7;
     pay=Math.round(pay*Money.overheadKeep());
@@ -1282,13 +1289,16 @@ const Sim = {
       const seasonal=1+0.25*Math.sin(ind.season);
       div+=ind.output*ind.value*0.0000085*ind.stake*seasonal*ind.level; }});
     if(div>0) Money.earn(Math.round(div),'dividend');
-    // expenses: maintenance + staff overhead
-    let maint=0;
-    G.vehicles.forEach(v=>{ maint+=v.maint*Fleet.wearMult()*(v.job?1.3:1); });
-    let staff=G.vehicles.length*40 + (G.cm.dept?G.cm.budget:0);
-    Money.spend(Math.round(maint+staff),'upkeep',true);
-    // loan interest
-    if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate); G.loan+=interest; }
+    // expenses: maintenance + staff + fuel + interest (skipped entirely in Free Sandbox)
+    if(G.mode!=='sandboxFree'){
+      let maint=0; G.vehicles.forEach(v=>{ maint+=v.maint*Fleet.wearMult()*(v.job?1.3:1); });
+      let staff=G.vehicles.length*40 + (G.cm.dept?G.cm.budget:0);
+      let fuel=0;
+      if(G.mode==='sandboxCampaign'){ G.vehicles.forEach(v=>{ if(v.job) fuel+=v.cap*0.6*Market.fuel(); }); maint*=Market.fuel(); }
+      Money.spend(Math.round(maint+staff+fuel),'upkeep',true);
+      if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate); G.loan+=interest; }
+      if(G.mode==='sandboxCampaign'){ Market.tick(); Consequences.check(); }
+    }
     // vehicle aging
     G.vehicles.forEach(v=>{
       v.age++; const wear=(100/v.life)*Fleet.wearMult()*(v.job?1.6:0.5);
@@ -1305,6 +1315,7 @@ const Sim = {
     // city life: population growth in served/trusted cities
     G.cities.forEach(c=>{ if(c.isHQ) return;
       const growth=1+ (c.trust>50?0.0016:0.0004)*(c.trust/60);
+      if(c.boomDays){ const s=Math.sign(c.boomDays); c.pop=Math.round(c.pop*(1+s*0.004)); c.boomDays-=s; }
       c.pop=Math.round(c.pop*growth);
       c.trust=U.clamp(c.trust-0.05,0,100); // slow natural decay
       Trust.checkBillboard(c);
@@ -1330,8 +1341,9 @@ const Money = {
   upkeepMult(){ const l=G.hq.levels.admin; return l?HQ_BUILDINGS.admin.levels[l-1].overhead:1; },
   earn(n,src){ if(n<=0) return; G.cash+=n; G.stats.earned+=n; },
   spend(n,src,upkeep){ if(upkeep) n=Math.round(n*this.upkeepMult());
+    if(G.mode==='sandboxFree'){ G.stats.spent+=n; return; } // Free Sandbox: unlimited capital, no deduction
     G.cash-=n; G.stats.spent+=n;
-    if(G.cash<0 && G.mode!=='sandboxFree'){ Finance.handleDebt(); } },
+    if(G.cash<0 && G.mode==='campaign'){ Finance.handleDebt(); } }, // Campaign Sandbox lets cash go red on purpose
   can(n){ return G.cash>=n || G.mode==='sandboxFree'; },
 };
 // fix overheadKeep to 1 (pay unaffected; admin affects upkeep)
@@ -1350,6 +1362,47 @@ const Finance = {
     G.industries.forEach(i=>{ if(i.stake>0) v+=i.value*i.stake/100; });
     G.vehicles.forEach(vh=>{ const s=Fleet.spec(vh.tier,vh.key); v+=s.price*0.4*vh.condition/100; });
     return v; },
+};
+
+/* ---------------- Dynamic Market (Campaign Sandbox) ---------------- */
+const Market = {
+  active(){ return G.mode==='sandboxCampaign'; },
+  fuel(){ return (G.market&&G.market.fuel)||1; },
+  demand(){ return (G.market&&G.market.demand)||1; },
+  tick(){ if(!this.active()) return; const m=G.market;
+    // mean-reverting random walk
+    m.fuel = U.clamp(m.fuel + U.rand(-0.035,0.035) + (1-m.fuel)*0.03, 0.6, 1.9);
+    m.demand = U.clamp(m.demand + U.rand(-0.045,0.045) + (1-m.demand)*0.04, 0.55, 1.6);
+    // occasional market shocks
+    if(U.chance(0.035)){ const up=U.chance(0.5); m.fuel=U.clamp(m.fuel*(up?1.25:0.8),0.6,1.9);
+      Toast.show(up?'Fuel prices spike — ⛽ '+m.fuel.toFixed(2)+'×, expenses up.':'Fuel prices ease — ⛽ '+m.fuel.toFixed(2)+'×.', up?'bad':'good'); }
+    if(U.chance(0.035)){ const up=U.chance(0.5); m.demand=U.clamp(m.demand*(up?1.2:0.82),0.55,1.6);
+      Toast.show(up?'Cargo demand surges — 📦 pay '+m.demand.toFixed(2)+'×.':'Cargo demand cools — 📦 pay '+m.demand.toFixed(2)+'×.', up?'good':'bad'); }
+    // a city booms or slows
+    if(U.chance(0.05)){ const c=U.pick(G.cities.filter(x=>!x.isHQ)); if(c){ const boom=U.chance(0.55);
+      c.boomDays=(boom?1:-1)*U.randi(18,36);
+      Toast.show(c.name+(boom?' is booming — demand and growth rise.':' hits a slowdown — demand and growth dip.'), boom?'good':'info'); } }
+  },
+};
+
+/* ---------------- Financial Consequences (Campaign Sandbox) ---------------- */
+const Consequences = {
+  check(){ if(G.cash>=0){ if(G.deficitDays>0) G.deficitDays=Math.max(0,G.deficitDays-2); return; }
+    G.deficitDays=(G.deficitDays||0)+1;
+    if(G.deficitDays===2) Toast.show('⚠ Your account is in the red. Recover soon or creditors will act.','bad');
+    if(G.deficitDays>=4 && (G.deficitDays-4)%2===0) this.apply();
+  },
+  apply(){ const main=G.vehicles.filter(v=>v.division==='main').sort((a,b)=>a.condition-b.condition);
+    const opts=['rep','morale']; if(main.length>1) opts.unshift('repossess');
+    const pick=U.pick(opts);
+    if(pick==='repossess'){ const v=main.find(x=>!x.job)||main[0];
+      if(v.job){ G.jobs=G.jobs.filter(j=>j.id!==v.job.id); }
+      G.vehicles=G.vehicles.filter(x=>x.id!==v.id); Rep.sub(3);
+      Toast.show('Creditors repossessed your '+v.name+'.','bad'); }
+    else if(pick==='rep'){ Rep.sub(6); Toast.show('Missed payments damage your reputation.','bad'); }
+    else { Rep.sub(3); G.cm.budget=Math.max(0,G.cm.budget-1000);
+      Toast.show('Unpaid staff are walking out.','bad'); }
+  },
 };
 
 /* ---------------- Trust & Reputation ---------------- */
@@ -1570,10 +1623,10 @@ const Toast = {
 
 /* ---------------- Modal ---------------- */
 const Modal = {
-  open({ic,title,body,choices}){
+  open({ic,title,body,choices,cls}){
     const root=document.getElementById('modalRoot');
     const bg=document.createElement('div'); bg.className='modal-bg';
-    const m=document.createElement('div'); m.className='modal';
+    const m=document.createElement('div'); m.className='modal'+(cls?' '+cls:'');
     m.innerHTML=`${ic?`<div class="ic">${ic}</div>`:''}<h3>${title}</h3><p>${body}</p>`;
     const cw=document.createElement('div'); cw.className='choices';
     (choices||[{label:'OK',cls:'primary',fn:()=>{}}]).forEach(c=>{
@@ -1806,6 +1859,30 @@ const Menu = {
   syncEnabled(){},
 };
 
+/* ---------------- Persistent Main Menu overlay ---------------- */
+const GameMenu = {
+  open(){ Menu.closeAll(); ContextMenu.close(); if(window.Tooltip) Tooltip.hide();
+    const modeName={campaign:'Campaign',sandboxFree:'Sandbox Free',sandboxCampaign:'Sandbox Campaign'}[G.mode]||G.mode;
+    Modal.open({ic:'\u2630', title:'Game Menu',
+      body:`<b>${G.company}</b> &middot; ${modeName} &middot; Day ${G.day} &middot; Save slot ${SLOT}`,
+      cls:'gamemenu',
+      choices:[
+        {label:'\u25B6  Resume', cls:'primary', fn:()=>{}},
+        {label:'\uD83D\uDCBE  Save Game', cls:'green', fn:()=>{ if(Save.write(SLOT)) Toast.show('Game saved to slot '+SLOT+'.','good'); }},
+        {label:'\uD83D\uDCC1  Load Game', cls:'ghost', fn:()=>{ Panels.loadModal(); }},
+        {label:'\u2699\uFE0F  Settings', cls:'ghost', fn:()=>{ Panels.settingsModal(); }},
+        {label:'\uD83D\uDEAA  Return to Main Menu', cls:'red', fn:()=>{ GameMenu.confirmQuit(); }},
+      ]});
+  },
+  confirmQuit(){ Modal.open({ic:'\uD83D\uDEAA', title:'Return to Main Menu?',
+    body:'Your progress will be saved to slot '+SLOT+' before you leave.',
+    choices:[
+      {label:'Save & Quit', cls:'red', fn:()=>Panels.exitToMenu()},
+      {label:'Cancel', cls:'ghost', fn:()=>GameMenu.open()},
+    ]});
+  },
+};
+
 /* ---------------- Toolbar ---------------- */
 const Toolbar = {
   tools:[
@@ -1832,12 +1909,12 @@ const StatusBar = {
     const modeName={campaign:'Campaign',sandboxFree:'Sandbox Free',sandboxCampaign:'Sandbox Campaign'}[G.mode];
     sb.innerHTML=`
       <div class="sb"><span class="l">Date</span><span class="v">Yr ${year} · Day ${dayOfYear}</span></div>
-      <div class="sb"><span class="l">Cash</span><span class="v cash">${U.money(G.cash)}</span></div>
+      <div class="sb"><span class="l">Cash</span><span class="v cash">${G.mode==='sandboxFree'?'∞':U.money(G.cash)}</span></div>
       <div class="sb nw"><span class="l">Net Worth</span><span class="v nw">${U.money(Finance.netWorth())}</span></div>
       <div class="sb"><span class="l">Loan</span><span class="v" style="color:${G.loan>0?'var(--red)':'var(--ink2)'}">${U.money(G.loan)}</span></div>
       <div class="sb gw"><span class="l">Goodwill</span><span class="v gw">${U.int(G.goodwill)} 💚</span></div>
       <div class="sb"><span class="l">Reputation</span><span class="v rep">${Math.round(G.reputation)}</span></div>
-      <div class="sb grow">${G.company} · ${modeName} · Fleet ${Fleet.count()}/${Fleet.capacity()}</div>
+      <div class="sb grow">${G.company} · ${modeName} · Fleet ${Fleet.count()}/${Fleet.capacity()}${G.mode==='sandboxCampaign'?` · ⛽${G.market.fuel.toFixed(2)}× 📦${G.market.demand.toFixed(2)}×`:''}</div>
       <div class="sb speed">
         <button class="sbtn ${G.paused?'on':''}" onclick="UI.setSpeed(0)">⏸</button>
         <button class="sbtn ${!G.paused&&G.speed===1?'on':''}" onclick="UI.setSpeed(1)">1×</button>
@@ -2244,7 +2321,7 @@ const Panels = {
         <div class="meta">Name: <b>${G.company}</b></div>
         <div class="row"><button class="btn sm" onclick="Panels.renameModal()">Rename Company</button></div></div>
       <div class="card"><h4>ℹ️ Mode</h4>
-        <div class="meta">${({campaign:'Main Campaign — progression with story beats.',sandboxFree:'Sandbox Free — everything unlocked, unlimited capital.',sandboxCampaign:'Sandbox Campaign — open progression, all tiers available.'})[G.mode]}</div></div>
+        <div class="meta">${({campaign:'Main Campaign — progression with story beats.',sandboxFree:'Free Sandbox — unlimited money, everything unlocked, zero financial pressure.',sandboxCampaign:'Campaign Sandbox — realistic capital and a live, fluctuating economy with real consequences. All content unlocked.'})[G.mode]}</div></div>
       <div class="card"><h4>🚪 Exit</h4>
         <div class="row"><button class="btn red sm" onclick="Panels.exitToMenu()">Save & Quit to Main Menu</button></div></div>
       <div class="muted" style="text-align:center;margin-top:14px">Transport Empire v1.0</div>`;
