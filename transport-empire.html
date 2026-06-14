@@ -1619,7 +1619,7 @@ const Sim = {
       let fuel=0;
       if(G.mode==='sandboxCampaign'){ G.vehicles.forEach(v=>{ if(v.job) fuel+=v.cap*0.6*Market.fuel(); }); maint*=Market.fuel(); }
       Money.spend(Math.round(maint+staff+fuel),'upkeep',true);
-      if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate); G.loan+=interest; }
+      if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate*(window.StaffOps?StaffOps.interestMult():1)); G.loan+=interest; }
       if(G.mode==='sandboxCampaign'){ Market.tick(); Consequences.check(); }
     }
     // vehicle aging
@@ -2708,7 +2708,8 @@ const Panels = {
 const Sidebar = {
   cur:null,
   show(sel){ this.cur=sel?{kind:sel.kind,id:sel.id}:null; this.render(); },
-  refresh(){ if(this.cur) this.render(); },
+  /* always re-render — the Company Overview (cur===null) must also stay live, not freeze at day 1 */
+  refresh(){ this.render(); },
   setHead(t){ document.getElementById('sideHead').innerHTML=t; },
   render(){ const body=document.getElementById('sideBody'); if(!body) return;
     const sel=this.cur;
@@ -2859,7 +2860,7 @@ const Econ = {
     const ins=Math.round(G.vehicles.length*6*this.costMult()); if(ins>0) Money.spend(ins,'insurance',false);
     if(G.day-(e.lastQuarter||0)>=30){ e.lastQuarter=G.day;
       const profit=Math.max(0,G.stats.earned-(e._qBase||0)); e._qBase=G.stats.earned;
-      const tax=Math.round(profit*0.12); if(tax>0){ Money.spend(tax,'tax',false); News.push('🏛️ Quarterly taxes paid: '+U.money(tax)+'.'); } }
+      const tax=Math.round(profit*0.12*(window.StaffOps?StaffOps.taxMult():1)); if(tax>0){ Money.spend(tax,'tax',false); News.push('🏛️ Quarterly taxes paid: '+U.money(tax)+(window.StaffOps&&StaffOps.taxMult()<1?' (Finance Officer trimmed the bill).':'.')); } }
     e.roadCondition=U.clamp((e.roadCondition!=null?e.roadCondition:100)-0.06,35,100);
     if(G.reputation<28 && G.vehicles.length>1 && U.chance(0.03)){ const v=G.vehicles.find(x=>!x.job&&x.division==='main');
       if(v){ News.push('🚪 A driver quit over low morale.'); v.condition=Math.max(10,v.condition-15); } }
@@ -2919,7 +2920,7 @@ const DonationStore = {
     const cm=G.vehicles.filter(v=>v.division==='cm'&&v.job).length;
     ds.volume+=cm*U.rand(0.5,1.5)+U.rand(0.3,0.9);
     const st=this.STAGES[ds.stage]||this.STAGES[1];
-    if(G.mode!=='sandboxFree'){ const rev=Math.round((st.rev+ds.volume*0.35)*Econ.demandMult());
+    if(G.mode!=='sandboxFree'){ const rev=Math.round((st.rev+ds.volume*0.35)*Econ.demandMult()*(window.StaffOps?StaffOps.storeMult():1));
       ds.revenue+=rev; Money.earn(rev,'store'); }
     G.goodwill+=0.4*ds.stage;
     if(U.chance(0.05)){ const c=U.pick(G.cities.filter(x=>!x.isHQ)); if(c) Trust.add(c,0.4); } },
@@ -3310,12 +3311,33 @@ const Hiring = {
     const roles=div==='cm'?ROLES_CM:ROLES_MAIN; let h=`<div class="row" style="margin:6px 0 10px">
       <button class="btn sm ${div==='main'?'primary':'ghost'}" onclick="Hiring.open('main')">Main Company</button>
       <button class="btn sm ${div==='cm'?'cm':'ghost'}" onclick="Hiring.open('cm')">Community Movement</button></div>
-      <div class="muted" style="margin-bottom:8px">Monthly wage bill: <b>${U.money(Staff.wages(div))}</b> · Team: ${Staff.roster(div).length}</div>`;
+      <div class="muted" style="margin-bottom:8px">Monthly wage bill: <b>${U.money(Staff.wages(div))}</b> · Team: ${Staff.roster(div).length}</div>
+      ${this.effectsHTML(div)}`;
     roles.forEach(rd=>{ const hires=Staff.roster(div).filter(s=>s.key===rd.key);
       h+=`<div class="card"><h4>${rd.ic} ${rd.role} <span class="tagchip ${hires.length?'good':''}">${hires.length}</span></h4><div class="meta">${rd.desc}</div>`;
       hires.forEach(s=>{ h+=`<div class="kv"><span class="k">${s.name} ${'★'.repeat(s.skill)}</span><span class="v">${U.money(s.wage)}/mo · 😊${Math.round(s.mood)} · ⚡${Math.round(s.perf)} <button class="btn red sm" onclick="Staff.fire('${s.id}','${div}');Hiring.open('${div}')">Fire</button></span></div>`; });
       h+=`<div class="row"><button class="btn green sm" onclick="Hiring.browse('${rd.key}','${div}')">+ Hire ${rd.role}</button></div></div>`; });
     document.querySelector('#modalRoot .modal p').insertAdjacentHTML('afterend',h); },
+  /* live readout of what the hired team is actually doing — so no role is "paid for nothing" */
+  effectsHTML(div){ const S=window.StaffOps, row=(on,txt)=>`<div class="kv"><span class="k">${on?'✅':'➖'} ${txt}</span></div>`;
+    let items=[];
+    if(div==='main'){
+      const cap=S?S.dispatchCap('main'):0, ops=Staff.count('ops','main'), fin=Staff.count('finance','main'),
+        fleet=Staff.count('fleet','main'), mech=Staff.count('mechanic','main'),
+        eff=Math.round(((Staff.mainEfficiency?Staff.mainEfficiency():1)-1)*100);
+      items.push(row(cap>0, cap>0?`Dispatch auto-assigns up to <b>${cap}</b> job${cap>1?'s':''}/day`:'Hire a Dispatcher to auto-assign jobs'));
+      items.push(row(ops>0, ops>0?`Operations Manager: +<b>${ops}</b> concurrent route${ops>1?'s':''} & profit-first routing`:'No Operations Manager (smart routing off)'));
+      items.push(row(fin>0, fin>0?`Finance Officer: −<b>${Math.round((1-(S?S.taxMult():1))*100)}%</b> tax, −<b>${Math.round((1-(S?S.interestMult():1))*100)}%</b> loan interest`:'No Finance Officer (full tax & interest)'));
+      items.push(row(fleet>0||mech>0, (fleet>0||mech>0)?`Fleet/Mechanics auto-service worn trucks${mech>0?` · −${Math.round((1-U.clamp(1-mech*0.05,0.62,1))*100)}% wear`:''}`:'No Mechanics (faster wear, manual servicing)'));
+      items.push(row(eff!==0, eff>=0?`Team performance boost: <b>+${eff}%</b> speed & pay`:`Low morale drag: <b>${eff}%</b> speed & pay`));
+    } else {
+      const cap=S?S.dispatchCap('cm'):0, store=Staff.count('store','cm'), vol=Staff.count('volunteer','cm'), cmd=Staff.count('cmdriver','cm');
+      items.push(row(cap>0, cap>0?`CM dispatch auto-runs up to <b>${cap}</b> community job${cap>1?'s':''}/day`:'Hire a CM Director/Coordinator to auto-run community jobs'));
+      items.push(row(store>0, store>0?`Store Manager: +<b>${Math.round((S?S.storeMult():1)*100-100)}%</b> donation-store revenue`:'No Store Manager (base store revenue)'));
+      items.push(row(vol>0||cmd>0, (vol>0||cmd>0)?`Volunteers & CM drivers generate <b>+${(vol*0.6+cmd*0.25).toFixed(1)}</b> goodwill/day`:'No Volunteer Coordinator (no passive goodwill)'));
+    }
+    return `<div class="card" style="padding:9px;background:rgba(40,60,48,.25)"><h4 style="font-size:12px;margin-bottom:4px">📋 What your team does right now</h4>${items.join('')}</div>`;
+  },
   browse(key,div){ const rd=(div==='cm'?ROLES_CM:ROLES_MAIN).find(r=>r.key===key); const cands=Staff.candidates(rd,div);
     UI.closeModal(); Modal.open({ic:rd.ic,title:'Candidates — '+rd.role,body:'Three applicants. Higher skill = higher wage and performance.',choices:[{label:'← Back',cls:'ghost',fn:()=>Hiring.open(div)}]});
     let h=''; cands.forEach(c=>{ h+=`<div class="card"><h4>${c.name} ${'★'.repeat(c.skill)}</h4><div class="meta">Skill ${c.skill}/5 · Asking ${U.money(c.wage)}/mo · starting performance ${Math.round(c.perf)}</div><div class="row"><button class="btn green sm" onclick="Hiring.pick('${c.id}','${div}')">Hire ${c.name.split(' ')[0]}</button></div></div>`; });
@@ -3408,12 +3430,18 @@ const Overlay = { profit:false, competitor:false,
 };
 
 /* ---------------- Minimap ---------------- */
-const Minimap = { canvas:null, ctx:null,
-  init(){ this.canvas=document.getElementById('minimap'); if(!this.canvas) return; this.ctx=this.canvas.getContext('2d');
-    this.canvas.addEventListener('click',e=>{ const r=this.canvas.getBoundingClientRect();
-      Map.centerOn((e.clientX-r.left)/r.width*G.world.W,(e.clientY-r.top)/r.height*G.world.H); }); },
-  draw(){ if(!this.ctx||!G.world) return; const c=this.canvas,ctx=this.ctx,W=G.world.W,H=G.world.H,sw=c.width/W,sh=c.height/H;
-    const COL={plains:'#4a7a3a',hills:'#6e6a3a',mountain:'#76726c',river:'#2f6f86',coast:'#c9b46f',urban:'#6a6f78'};
+const Minimap = { canvas:null, ctx:null, _wired:false,
+  ensure(){ // self-healing: grab canvas + 2d context on demand (init timing was unreliable)
+    if(!this.canvas) this.canvas=document.getElementById('minimap');
+    if(this.canvas && !this.ctx){ try{ this.ctx=this.canvas.getContext('2d'); }catch(e){} }
+    if(this.canvas && !this._wired){ this._wired=true;
+      this.canvas.addEventListener('click',e=>{ const r=this.canvas.getBoundingClientRect();
+        Map.centerOn((e.clientX-r.left)/r.width*G.world.W,(e.clientY-r.top)/r.height*G.world.H); }); }
+    return !!this.ctx; },
+  init(){ this.ensure(); },
+  draw(){ if(!this.ensure()||!G.world) return; const c=this.canvas,ctx=this.ctx,W=G.world.W,H=G.world.H,sw=c.width/W,sh=c.height/H;
+    ctx.fillStyle='#10161f'; ctx.fillRect(0,0,c.width,c.height);
+    const COL={plains:'#5f9a47',hills:'#86813f',mountain:'#878379',river:'#2f86a8',coast:'#d8c074',urban:'#777c84'};
     for(let y=0;y<H;y++)for(let x=0;x<W;x++){ ctx.fillStyle=COL[G.world.tiles[y][x]]||'#3a4a3a'; ctx.fillRect(x*sw,y*sh,sw+1,sh+1); }
     (G.playerRoads||[]).forEach(r=>{ ctx.strokeStyle=r.rail?'#9b8cf0':'#d8d2c0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(r.ax*sw,r.ay*sh); ctx.lineTo(r.bx*sw,r.by*sh); ctx.stroke(); });
     G.cities.forEach(ct=>{ ctx.fillStyle=ct.isHQ?'#f2c14e':'#dfeaf5'; const s=ct.isHQ?4:Math.max(2,Math.round((ct.pop||9000)/12000)); ctx.fillRect(ct.gx*sw-s/2,ct.gy*sh-s/2,s,s); });
@@ -3498,6 +3526,63 @@ MapCanvas.draw=function(){ const ctx=this.ctx,c=this.canvas; if(!ctx) return; ct
    =================================================================== */
 (function(){ const oDay=Sim.advanceDay.bind(Sim); Sim.advanceDay=function(){ oDay();
   try{ Staff.daily(); DonationDrive.daily(); Newspaper.maybeTier(); }catch(e){ console.warn('phase2 daily',e); } }; })();
+
+/* ===================================================================
+   StaffOps — hired staff actually perform their roles each day.
+   Dispatchers dispatch; managers manage. Layered, save-safe (no-op at 0 staff).
+   =================================================================== */
+const StaffOps = {
+  // how many jobs a division's dispatch desk can push per day
+  dispatchCap(div){
+    const disp = div==='cm' ? Staff.count('coord','cm') : Staff.count('dispatch','main');
+    const lead = div==='cm' ? Staff.count('director','cm') : Staff.count('ops','main');
+    if(disp<=0 && lead<=0) return 0;
+    return disp*2 + lead;            // ~2 loads per dispatcher + 1 coordinated by the manager/director
+  },
+  autoDispatch(div){
+    const cap=this.dispatchCap(div); if(cap<=0) return;
+    const wantCommunity = div==='cm';
+    let offers=Jobs.offers().filter(o=> wantCommunity ? o.kind==='community' : o.kind!=='community');
+    if(!offers.length) return;
+    // Operations Manager / CM Director route the most profitable loads first
+    const smart = (div==='cm'?Staff.count('director','cm'):Staff.count('ops','main'))>0;
+    if(smart) offers.sort((a,b)=> b.pay-a.pay);
+    let n=0;
+    for(const o of offers){
+      if(n>=cap || Jobs.activeCount()>=Jobs.maxActive()) break;
+      if(window.Facilities && !Facilities.has(o.tier)) continue;
+      if(!Fleet.freeOfTier(o.tier,div).length) continue;
+      const before=Jobs.activeCount(); Jobs.accept(o.id,div);
+      if(Jobs.activeCount()>before) n++;
+    }
+    if(n>0){ G.staffLog=G.staffLog||[]; G.staffLog.unshift('Day '+G.day+': '+(wantCommunity?'CM ':'')+'dispatch routed '+n+' load'+(n>1?'s':'')+'.'); if(G.staffLog.length>14)G.staffLog.pop();
+      if(window.Dispatch) Dispatch.say((wantCommunity?'CM dispatch':'Dispatch')+' assigned '+n+' run'+(n>1?'s':'')+'.'); }
+  },
+  // Fleet Manager + Mechanics keep the fleet healthy without the player babysitting
+  scheduleMaintenance(){
+    const fm=Staff.count('fleet','main'), mech=Staff.count('mechanic','main');
+    if(fm<=0 && mech<=0) return;
+    const slots=fm + Math.ceil(mech/2);
+    const pool=G.vehicles.filter(v=>!v.job && (v.broken || v.condition<55)).sort((a,b)=>a.condition-b.condition);
+    for(let i=0;i<Math.min(slots,pool.length);i++){ const v=pool[i];
+      const cost=Math.round((100-v.condition)*v.maint*0.6)+200;
+      if(G.mode==='sandboxFree'||Money.can(cost)){ if(G.mode!=='sandboxFree') Money.spend(cost,'service',true); v.condition=100; v.broken=false; } }
+  },
+  daily(){ try{
+    this.autoDispatch('main'); this.autoDispatch('cm'); this.scheduleMaintenance();
+    const vol=Staff.count('volunteer','cm'); if(vol>0) G.goodwill += vol*0.6;                 // Volunteer Coordinator runs drives
+    const cmd=Staff.count('cmdriver','cm'); if(cmd>0 && G.cm && G.cm.active) G.goodwill += cmd*0.25; // CM Drivers on community routes
+  }catch(e){ console.warn('StaffOps.daily',e); } },
+  // multipliers consumed by patched core lines (safe 1.0 when nobody hired)
+  taxMult(){ return U.clamp(1 - Staff.count('finance','main')*0.07, 0.55, 1); },   // Finance Officer trims taxes
+  interestMult(){ return U.clamp(1 - Staff.count('finance','main')*0.06, 0.6, 1); }, // …and loan interest
+  storeMult(){ return 1 + Staff.count('store','cm')*0.18; },                        // Store Manager grows store revenue
+};
+/* run StaffOps before the rest of the daily systems so dispatched jobs count this day */
+(function(){ const oDay=Sim.advanceDay.bind(Sim); Sim.advanceDay=function(){ oDay();
+  try{ StaffOps.daily(); }catch(e){ console.warn('staffops day',e); } }; })();
+/* Operations Managers let you run more concurrent jobs ("oversees all routes") */
+(function(){ const oMax=Jobs.maxActive.bind(Jobs); Jobs.maxActive=function(){ return oMax()+Staff.count('ops','main'); }; })();
 (function(){ const oP=Fleet.perfMult.bind(Fleet); Fleet.perfMult=function(){ return oP()*Staff.mainEfficiency(); };
   const oW=Fleet.wearMult.bind(Fleet); Fleet.wearMult=function(){ const m=Staff.count('mechanic','main'); return oW()*(m>0?U.clamp(1-m*0.05,0.62,1):1); }; })();
 (function(){ const oBuy=Fleet.buy.bind(Fleet); Fleet.buy=function(tier,key,div){ if(!Facilities.has(tier)){ Toast.show('Build a '+Facilities.defs[tier].name+' first (Fleet ▸ Infrastructure).','bad'); return; } oBuy(tier,key,div); }; })();
@@ -3550,6 +3635,17 @@ window.addEventListener('keydown',e=>{ if(UI.current!=='game')return; if(e.ctrlK
 (function(){ const oEnter=UI.enterGame.bind(UI); UI.enterGame=function(){ oEnter();
   if(window.Minimap) Minimap.init(); Overlay.sync(); if(window.ToolHint) ToolHint.update(); }; })();
 
+
+/* ===================================================================
+   Register game singletons on window.
+   Top-level const/let are NOT properties of window, so every `if(window.X)`
+   guard in the code (minimap draw, overlays, weather, staff discounts…) was
+   silently failing. Expose them explicitly so those guards resolve.
+   =================================================================== */
+[['UI',UI],['News',News],['StatusBar',StatusBar],['WindowMgr',WindowMgr],['Tooltip',Tooltip],
+ ['Econ',Econ],['WeatherSys',WeatherSys],['Facilities',Facilities],['Dispatch',Dispatch],
+ ['Overlay',Overlay],['Minimap',Minimap],['NewsTicker',NewsTicker],['StaffOps',StaffOps],
+ ['ToolHint',ToolHint]].forEach(([k,v])=>{ try{ if(v!==undefined) window[k]=v; }catch(e){} });
 
 /* ===================================================================
    Bootstrap
