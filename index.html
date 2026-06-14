@@ -81,6 +81,10 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-frontier{background:linear-gradient(180deg,#1a0c00 0%,#2e1400 45%,#3d1f00 80%,#2a1200 100%);}
 .banner-frontier::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 100%,rgba(194,101,10,0.45) 0%,rgba(160,70,5,0.2) 45%,transparent 75%),radial-gradient(ellipse 40% 30% at 50% 85%,rgba(255,150,30,0.3) 0%,transparent 60%);}
 .banner-frontier::after{content:'';position:absolute;inset:0;background:linear-gradient(160deg,transparent 30%,rgba(180,120,50,0.06) 45%,transparent 55%),linear-gradient(20deg,transparent 30%,rgba(194,101,10,0.07) 45%,transparent 55%);}
+/* 11. Transport Empire — Isometric Freight */
+.banner-transport{background:linear-gradient(180deg,#0a0e14 0%,#10202a 45%,#16303a 80%,#0a1820 100%);}
+.banner-transport::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 38%,rgba(242,193,78,0.5) 39%,rgba(242,193,78,0.5) 41%,transparent 42%),linear-gradient(135deg,transparent 56%,rgba(111,211,199,0.4) 57%,rgba(111,211,199,0.4) 59%,transparent 60%),linear-gradient(135deg,transparent 72%,rgba(242,193,78,0.3) 73%,rgba(242,193,78,0.3) 75%,transparent 76%);}
+.banner-transport::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 100%,rgba(242,193,78,0.28) 0%,rgba(90,169,230,0.12) 45%,transparent 75%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -92,6 +96,7 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .badge-moba{background:rgba(219,39,119,0.2);color:#f9a8d4;border:1px solid rgba(219,39,119,0.35);}
 .badge-rpg{background:rgba(13,148,136,0.2);color:#5eead4;border:1px solid rgba(13,148,136,0.35);}
 .badge-strategy{background:rgba(180,83,9,0.2);color:#fb923c;border:1px solid rgba(180,83,9,0.35);}
+.badge-transport{background:rgba(242,193,78,0.2);color:#fbbf24;border:1px solid rgba(242,193,78,0.4);}
 .badge-vn{background:rgba(236,72,153,0.2);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);}
 .badge-dev{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);}
 .card-body{padding:12px 14px;flex:1;}
@@ -122,8 +127,8 @@ footer a{color:var(--purple);text-decoration:none;}
   </div>
 </header>
 <div class="stats-bar">
-  <div class="stat"><span class="stat-val" id="s-total">10</span><span class="stat-lbl">Games</span></div>
-  <div class="stat"><span class="stat-val" style="color:#16a34a;" id="s-complete">4</span><span class="stat-lbl">Complete</span></div>
+  <div class="stat"><span class="stat-val" id="s-total">11</span><span class="stat-lbl">Games</span></div>
+  <div class="stat"><span class="stat-val" style="color:#16a34a;" id="s-complete">5</span><span class="stat-lbl">Complete</span></div>
   <div class="stat"><span class="stat-val" style="color:#fbbf24;" id="s-wip">5</span><span class="stat-lbl">In Progress</span></div>
   <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Free</span></div>
 </div>
@@ -134,6 +139,7 @@ footer a{color:var(--purple);text-decoration:none;}
   <button class="filter-btn" onclick="filterGames('rpg',this)">🗡️ RPG</button>
   <button class="filter-btn" onclick="filterGames('moba',this)">⚔️ MOBA</button>
   <button class="filter-btn" onclick="filterGames('strategy',this)">🚂 Strategy</button>
+  <button class="filter-btn" onclick="filterGames('transport',this)">🚛 Transport Tycoon</button>
   <button class="filter-btn" onclick="filterGames('complete',this,'complete')">✓ Complete</button>
   <button class="filter-btn" onclick="filterGames('wip',this,'wip')">🚧 In Progress</button>
 </div>
@@ -225,6 +231,16 @@ footer a{color:var(--purple);text-decoration:none;}
       <div class="card-genre">🚂 Steampunk Tycoon</div>
       <div class="card-title">Iron Frontier</div>
       <div class="card-desc">Build a railway empire across the wild west. Lay tracks, connect towns, run steam trains, grow populations. Isometric hex map, BFS routing, full economy system. El Paso, 1871.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
+  </a>
+
+  <a class="card status-complete" href="transport-empire.html" data-tags="transport strategy idle" data-status="complete">
+    <div class="card-banner banner-transport"><span class="banner-emoji">🚚🌆</span><span class="card-badge badge-transport">Tycoon</span></div>
+    <div class="card-body">
+      <div class="card-genre">🚛 Transport Tycoon</div>
+      <div class="card-title">Transport Empire</div>
+      <div class="card-desc">From one truck to a logistics empire across road, rail, sea & air. A pseudo-3D isometric world with 28 industries to invest in or acquire, an HQ compound that physically grows, 3 rival firms, and a philanthropic Community Movement division that earns goodwill — not just money. 3 game modes, autosave, fully mobile.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>

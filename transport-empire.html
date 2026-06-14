@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Transport Empire</title>
+<style>
+:root{
+  --bg:#0a0e14; --bg2:#10161f; --panel:#161d29; --panel2:#1d2734;
+  --line:#28323f; --ink:#e8eef5; --ink2:#9fb0c3; --ink3:#6b7c91;
+  --gold:#f2c14e; --green:#4cc88f; --red:#e0625e; --blue:#5aa9e6;
+  --cm:#6fd3c7; --cm2:#2f9e8f; --acc:#7c6cf0;
+  --road:#e6a23c; --rail:#9b8cf0; --sea:#5aa9e6; --air:#e06c9f;
+  --shadow:0 8px 30px rgba(0,0,0,.45);
+  --r:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font-family:inherit;cursor:pointer;border:none;color:inherit}
+.hidden{display:none!important}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column}
+
+/* ---------- Scrollbars ---------- */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#2c3a4c;border-radius:8px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- Buttons ---------- */
+.btn{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  padding:11px 16px;border-radius:11px;font-weight:600;font-size:14px;color:var(--ink);
+  transition:transform .08s ease,border-color .15s,background .15s;display:inline-flex;
+  align-items:center;gap:8px;justify-content:center}
+.btn:hover{border-color:#3a4a5e}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(180deg,#f5cf6a,#e0a82e);color:#241c00;border-color:#caa030}
+.btn.green{background:linear-gradient(180deg,#5bd79e,#36a673);color:#06241a;border-color:#3a9a6e}
+.btn.red{background:linear-gradient(180deg,#ea726e,#c84540);color:#2a0807;border-color:#b54440}
+.btn.cm{background:linear-gradient(180deg,#7fe0d4,#2f9e8f);color:#04201d;border-color:#3aa99a}
+.btn.ghost{background:transparent;border-color:var(--line)}
+.btn.sm{padding:7px 11px;font-size:12px;border-radius:9px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.full{width:100%}
+
+/* ---------- Main Menu ---------- */
+#menu{background:
+  radial-gradient(1200px 700px at 70% -10%,rgba(124,108,240,.18),transparent),
+  radial-gradient(900px 600px at 10% 110%,rgba(111,211,199,.14),transparent),
+  linear-gradient(160deg,#0b1018,#0a0e14 60%,#070a0f);
+  justify-content:center;align-items:center;text-align:center}
+.menu-inner{width:min(560px,92vw);padding:24px}
+.logo{font-size:clamp(38px,8vw,72px);font-weight:800;letter-spacing:-2px;line-height:.95;
+  background:linear-gradient(120deg,#fff,#cfe0f2 40%,#f2c14e);-webkit-background-clip:text;
+  background-clip:text;color:transparent;filter:drop-shadow(0 4px 20px rgba(0,0,0,.5))}
+.logo small{display:block;font-size:14px;letter-spacing:6px;font-weight:600;
+  color:var(--ink3);margin-top:10px;-webkit-text-fill-color:var(--ink3)}
+.menu-sub{color:var(--ink2);margin:18px 0 30px;font-size:15px;line-height:1.5}
+.menu-btns{display:flex;flex-direction:column;gap:12px;max-width:340px;margin:0 auto}
+.menu-foot{margin-top:30px;color:var(--ink3);font-size:12px}
+.truck-anim{font-size:40px;margin-bottom:8px;animation:roll 3s ease-in-out infinite}
+@keyframes roll{0%,100%{transform:translateX(-10px)}50%{transform:translateX(10px)}}
+
+/* ---------- Mode Select ---------- */
+.modes{display:grid;gap:16px;width:min(820px,94vw);grid-template-columns:1fr 1fr 1fr}
+@media(max-width:720px){.modes{grid-template-columns:1fr}}
+.mode-card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:18px;padding:22px 20px;text-align:left;transition:transform .12s,border-color .15s,box-shadow .2s;
+  position:relative;overflow:hidden}
+.mode-card:hover{transform:translateY(-4px);border-color:#3f5168;box-shadow:var(--shadow)}
+.mode-card .ic{font-size:34px;margin-bottom:10px}
+.mode-card h3{margin:0 0 8px;font-size:19px}
+.mode-card p{margin:0;color:var(--ink2);font-size:13px;line-height:1.5}
+.mode-card .tag{position:absolute;top:14px;right:14px;font-size:10px;letter-spacing:1px;
+  padding:4px 8px;border-radius:20px;background:#222d3a;color:var(--ink2)}
+
+/* ---------- Land Purchase Cinematic ---------- */
+#land{background:#05070a;justify-content:center;align-items:center;text-align:center;
+  transition:background 2s}
+.land-stage{width:min(680px,92vw);padding:30px;opacity:0;transform:translateY(20px);
+  transition:opacity 1.6s ease,transform 1.6s ease}
+.land-stage.show{opacity:1;transform:none}
+.land-line{font-size:clamp(20px,4vw,30px);font-weight:600;line-height:1.45;color:#e8eef5;
+  text-shadow:0 2px 30px rgba(0,0,0,.8)}
+.land-sub{color:var(--ink2);font-size:15px;margin-top:18px;line-height:1.6}
+.land-acres{font-size:clamp(46px,12vw,96px);font-weight:800;color:var(--gold);
+  letter-spacing:-2px;margin:8px 0}
+.land-skip{position:fixed;bottom:24px;right:24px;font-size:12px;color:var(--ink3)}
+
+/* ---------- Game HUD ---------- */
+#game{flex-direction:column;background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(180deg,#141b26,#10161f);
+  border-bottom:1px solid var(--line);z-index:30;flex-wrap:nowrap;overflow-x:auto}
+.topbar::-webkit-scrollbar{height:0}
+.stat{display:flex;flex-direction:column;line-height:1.1;white-space:nowrap}
+.stat .l{font-size:9px;letter-spacing:.5px;color:var(--ink3);text-transform:uppercase}
+.stat .v{font-size:15px;font-weight:700}
+.stat .v.cash{color:var(--gold)} .stat .v.gw{color:var(--cm)} .stat .v.rep{color:var(--blue)}
+.topbar .brand{font-weight:800;font-size:15px;letter-spacing:-.5px;margin-right:4px;white-space:nowrap}
+.topbar .spacer{flex:1}
+.pill{background:#1c2735;border:1px solid var(--line);border-radius:20px;padding:5px 11px;
+  font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.speed-btns{display:flex;gap:4px}
+.speed-btns .btn.sm{padding:5px 9px}
+.speed-btns .on{background:var(--gold);color:#241c00;border-color:#caa030}
+
+.stage{flex:1;position:relative;overflow:hidden}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block;
+  background:radial-gradient(1000px 600px at 50% 30%,#16202c,#0a0e14)}
+.map-hint{position:absolute;bottom:74px;left:50%;transform:translateX(-50%);
+  background:rgba(10,14,20,.8);border:1px solid var(--line);border-radius:20px;padding:6px 14px;
+  font-size:12px;color:var(--ink2);pointer-events:none;backdrop-filter:blur(4px)}
+
+/* ---------- Bottom Nav ---------- */
+.bottomnav{display:flex;gap:0;background:linear-gradient(0deg,#141b26,#10161f);
+  border-top:1px solid var(--line);z-index:30}
+.navbtn{flex:1;background:transparent;padding:9px 4px 8px;display:flex;flex-direction:column;
+  align-items:center;gap:3px;color:var(--ink3);font-size:10px;font-weight:600;
+  border-top:2px solid transparent;transition:color .15s}
+.navbtn .ic{font-size:19px}
+.navbtn.on{color:var(--ink);border-top-color:var(--gold)}
+.navbtn.cm.on{border-top-color:var(--cm)}
+
+/* ---------- Slide Panels ---------- */
+.panel{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);
+  background:linear-gradient(180deg,#141b26,#11171f);border-left:1px solid var(--line);
+  z-index:40;display:flex;flex-direction:column;transform:translateX(100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-10px 0 40px rgba(0,0,0,.4)}
+.panel.open{transform:none}
+@media(max-width:560px){.panel{width:100%}}
+.panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:#141b26;z-index:2}
+.panel-head h2{margin:0;font-size:17px;flex:1}
+.panel-head .x{font-size:22px;background:transparent;color:var(--ink3);padding:0 4px}
+.panel-body{flex:1;overflow-y:auto;padding:14px 16px 30px}
+.panel-tabs{display:flex;gap:6px;padding:10px 16px 0;flex-wrap:wrap}
+.ptab{background:#1a2330;border:1px solid var(--line);border-radius:20px;padding:6px 12px;
+  font-size:12px;font-weight:600;color:var(--ink2)}
+.ptab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+/* ---------- Cards ---------- */
+.card{background:linear-gradient(180deg,#1a2330,#161d29);border:1px solid var(--line);
+  border-radius:13px;padding:13px;margin-bottom:11px}
+.card h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:7px}
+.card .meta{color:var(--ink2);font-size:12px;line-height:1.5}
+.card .row{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+.tagchip{font-size:10px;padding:3px 7px;border-radius:6px;background:#222d3a;color:var(--ink2);font-weight:600}
+.tagchip.road{background:rgba(230,162,60,.18);color:var(--road)}
+.tagchip.rail{background:rgba(155,140,240,.18);color:var(--rail)}
+.tagchip.sea{background:rgba(90,169,230,.18);color:var(--sea)}
+.tagchip.air{background:rgba(224,108,159,.18);color:var(--air)}
+.tagchip.cm{background:rgba(111,211,199,.18);color:var(--cm)}
+.tagchip.good{background:rgba(76,200,143,.18);color:var(--green)}
+.tagchip.bad{background:rgba(224,98,94,.18);color:var(--red)}
+
+.bar{height:7px;background:#10161f;border-radius:6px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#7fe0a8);border-radius:6px;transition:width .4s}
+.bar.trust>i{background:linear-gradient(90deg,var(--cm),#bdeee8)}
+.bar.cond>i{background:linear-gradient(90deg,var(--blue),#8fd0ff)}
+.bar.warn>i{background:linear-gradient(90deg,var(--red),#f0918d)}
+
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #1c2531}
+.kv:last-child{border:none} .kv .k{color:var(--ink2)} .kv .v{font-weight:700}
+.muted{color:var(--ink3);font-size:12px}
+.sectitle{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);
+  margin:16px 0 8px;font-weight:700}
+
+/* ---------- Toasts / Log ---------- */
+.toasts{position:absolute;top:54px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:92vw}
+.toast{background:rgba(20,27,38,.96);border:1px solid var(--line);border-left-width:4px;
+  border-radius:11px;padding:9px 14px;font-size:13px;box-shadow:var(--shadow);
+  animation:toastin .3s ease;max-width:90vw}
+.toast.good{border-left-color:var(--green)} .toast.bad{border-left-color:var(--red)}
+.toast.cm{border-left-color:var(--cm)} .toast.info{border-left-color:var(--blue)}
+.toast.gold{border-left-color:var(--gold)}
+@keyframes toastin{from{opacity:0;transform:translateY(-12px)}to{opacity:1}}
+
+/* ---------- Modal ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(4,7,11,.78);z-index:80;display:flex;
+  align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(3px);animation:fade .25s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:linear-gradient(180deg,#1a2330,#141b26);border:1px solid var(--line);
+  border-radius:18px;padding:24px;width:min(480px,94vw);box-shadow:var(--shadow);
+  animation:pop .3s ease;max-height:88vh;overflow-y:auto}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.modal h3{margin:0 0 6px;font-size:21px}
+.modal .ic{font-size:40px;margin-bottom:6px}
+.modal p{color:var(--ink2);line-height:1.6;font-size:14px}
+.modal .choices{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+
+/* ---------- HQ dashboard grid ---------- */
+.dash{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dash .stat-box{background:#10161f;border:1px solid var(--line);border-radius:11px;padding:11px}
+.dash .stat-box .l{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px}
+.dash .stat-box .v{font-size:18px;font-weight:800;margin-top:2px}
+
+.cmbrand{background:linear-gradient(120deg,rgba(47,158,143,.2),rgba(111,211,199,.08));
+  border:1px solid rgba(111,211,199,.3);border-radius:13px;padding:14px;margin-bottom:12px}
+.cmbrand .t{font-size:16px;font-weight:800;color:var(--cm)}
+.cmbrand .s{font-size:12px;color:var(--ink2);letter-spacing:.5px}
+
+.empty{text-align:center;color:var(--ink3);padding:30px 10px;font-size:13px}
+.flash{animation:flash 1s ease}
+@keyframes flash{0%{background:rgba(242,193,78,.25)}100%{}}
+</style>
+</head>
+<body>
+
+<!-- ============ MAIN MENU ============ -->
+<div id="menu" class="screen">
+  <div class="menu-inner">
+    <div class="truck-anim">🚚</div>
+    <div class="logo">Transport<br>Empire<small>MOVERS OF THE COMMUNITY</small></div>
+    <div class="menu-sub">From one truck and a handshake, build a logistics empire across road, rail, sea, and sky — without forgetting the people who got you there.</div>
+    <div class="menu-btns">
+      <button class="btn primary" onclick="UI.goModes()">▶ Play</button>
+      <button class="btn" id="continueBtn" onclick="UI.quickContinue()">↻ Continue</button>
+      <button class="btn ghost" onclick="UI.openLoad()">📁 Load Game</button>
+      <button class="btn ghost" onclick="UI.openSettings()">⚙ Settings</button>
+    </div>
+    <div class="menu-foot">v1.0 · A management tycoon · autosaves every 60s</div>
+  </div>
+</div>
+
+<!-- ============ MODE SELECT ============ -->
+<div id="modeSelect" class="screen hidden" style="justify-content:center;align-items:center;background:linear-gradient(160deg,#0b1018,#070a0f)">
+  <div style="width:min(820px,94vw);padding:20px">
+    <h1 style="text-align:center;font-size:30px;margin:0 0 6px">Choose Your Path</h1>
+    <p style="text-align:center;color:var(--ink2);margin:0 0 26px">Every empire starts with a single decision.</p>
+    <div class="modes">
+      <button class="mode-card" onclick="UI.startMode('campaign')">
+        <div class="ic">🌅</div><span class="tag">STORY</span>
+        <h3>Main Campaign</h3>
+        <p>Start with nothing but grit. Buy your land, run your first job, unlock road, rail, sea and air as you grow. The full journey.</p>
+      </button>
+      <button class="mode-card" onclick="UI.startMode('sandboxFree')">
+        <div class="ic">∞</div><span class="tag">FREEDOM</span>
+        <h3>Sandbox Free</h3>
+        <p>Everything unlocked. Unlimited capital. Every industry, every vehicle, the whole map. Pure creative play.</p>
+      </button>
+      <button class="mode-card" onclick="UI.startMode('sandboxCampaign')">
+        <div class="ic">🧭</div><span class="tag">OPEN</span>
+        <h3>Sandbox Campaign</h3>
+        <p>The feel of the campaign with no gates. All vehicles and industries available — but you still build and grow your world.</p>
+      </button>
+    </div>
+    <div style="text-align:center;margin-top:26px">
+      <button class="btn ghost" onclick="UI.show('menu')">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LAND PURCHASE ============ -->
+<div id="land" class="screen hidden">
+  <div class="land-stage" id="landStage"></div>
+  <button class="btn ghost sm land-skip" onclick="Land.skip()">Skip ›</button>
+</div>
+
+<!-- ============ GAME ============ -->
+<div id="game" class="screen hidden">
+  <div class="topbar" id="topbar"></div>
+  <div class="stage">
+    <canvas id="map"></canvas>
+    <div class="toasts" id="toasts"></div>
+    <div class="map-hint" id="mapHint">Tap a node to inspect · drag to pan · pinch/scroll to zoom</div>
+    <div class="panel" id="panel">
+      <div class="panel-head">
+        <h2 id="panelTitle">Panel</h2>
+        <button class="x" onclick="UI.closePanel()">✕</button>
+      </div>
+      <div id="panelTabs" class="panel-tabs"></div>
+      <div class="panel-body" id="panelBody"></div>
+    </div>
+  </div>
+  <div class="bottomnav" id="bottomnav"></div>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   TRANSPORT EMPIRE  —  single-file management tycoon
+   Systems: World/Map, HQ, Vehicles, Industry, Logistics, Community
+   Movement, Competitors, Trust/Morals, Finance, Modes, UI, Save.
+   ===================================================================== */
+
+/* ---------------- Utilities & RNG ---------------- */
+const U = {
+  money(n){ n=Math.round(n);
+    const a=Math.abs(n); let s;
+    if(a>=1e9) s='$'+(n/1e9).toFixed(2)+'B';
+    else if(a>=1e6) s='$'+(n/1e6).toFixed(2)+'M';
+    else if(a>=1e4) s='$'+(n/1e3).toFixed(1)+'K';
+    else s='$'+n.toLocaleString('en-US');
+    return s;
+  },
+  int(n){ return Math.round(n).toLocaleString('en-US'); },
+  clamp(v,a,b){ return v<a?a:v>b?b:v; },
+  lerp(a,b,t){ return a+(b-a)*t; },
+  pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; },
+  chance(p){ return Math.random()<p; },
+  rand(a,b){ return a+Math.random()*(b-a); },
+  randi(a,b){ return Math.floor(a+Math.random()*(b-a+1)); },
+  id(){ return Math.random().toString(36).slice(2,9); },
+  shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; },
+};
+
+/* ---------------- Content tables ---------------- */
+const CITY_NAMES = ["Harborline","Cedar Falls","Mount Vesper","Gladewater","Ironreach","Saltmarsh",
+  "Pinecrest","Redhollow","Aurora Bay","Stonebridge","Brackenfield","Lakemoor","Northgate",
+  "Sunderland","Drywell","Ambercoast","Foxglen","Tannersville","Highvale","Coldspring",
+  "Marrow Creek","Westbourne","Eastgate","Quarrytown","Millbrook"];
+
+const TERRAIN = {
+  plains:{name:"Plains",mult:1.0,col:"#3a5a3f",col2:"#2f4a34",ic:"🌾"},
+  urban: {name:"Urban", mult:1.15,col:"#4a4f5e",col2:"#3a3f4d",ic:"🏙️"},
+  river: {name:"River", mult:1.35,col:"#2f5a6e",col2:"#26485a",ic:"🌊"},
+  hills: {name:"Hills", mult:1.5, col:"#5a5236",col2:"#48422c",ic:"⛰️"},
+  mountain:{name:"Mountain",mult:2.0,col:"#5e5654",col2:"#4a4442",ic:"🏔️"},
+  coast: {name:"Coast", mult:1.25,col:"#3a6a72",col2:"#2e545b",ic:"🏖️"},
+};
+
+// Industry catalog — large & varied for endless play
+const INDUSTRY_TYPES = [
+  {key:"farm",name:"Grain Farm",ic:"🌾",cargo:"Grain",cat:"agri",base:140,val:90},
+  {key:"dairy",name:"Dairy Co-op",ic:"🐄",cargo:"Dairy",cat:"agri",base:160,val:110},
+  {key:"orchard",name:"Orchard",ic:"🍎",cargo:"Produce",cat:"agri",base:150,val:100},
+  {key:"vineyard",name:"Vineyard",ic:"🍇",cargo:"Wine",cat:"agri",base:230,val:170},
+  {key:"fishery",name:"Fishery",ic:"🐟",cargo:"Seafood",cat:"agri",base:210,val:150,water:true},
+  {key:"lumber",name:"Lumber Mill",ic:"🪵",cargo:"Timber",cat:"raw",base:180,val:130},
+  {key:"coal",name:"Coal Mine",ic:"⚫",cargo:"Coal",cat:"raw",base:200,val:150,hill:true},
+  {key:"iron",name:"Iron Mine",ic:"⛏️",cargo:"Ore",cat:"raw",base:240,val:190,hill:true},
+  {key:"quarry",name:"Stone Quarry",ic:"🪨",cargo:"Aggregate",cat:"raw",base:170,val:120,hill:true},
+  {key:"oil",name:"Oil Field",ic:"🛢️",cargo:"Crude",cat:"raw",base:320,val:280},
+  {key:"steel",name:"Steel Works",ic:"🏭",cargo:"Steel",cat:"heavy",base:360,val:320},
+  {key:"factory",name:"Goods Factory",ic:"🏭",cargo:"Goods",cat:"heavy",base:300,val:260},
+  {key:"auto",name:"Auto Plant",ic:"🚗",cargo:"Vehicles",cat:"heavy",base:420,val:400},
+  {key:"textile",name:"Textile Mill",ic:"🧵",cargo:"Fabric",cat:"light",base:220,val:160},
+  {key:"foodproc",name:"Food Processing",ic:"🥫",cargo:"Food",cat:"light",base:260,val:200},
+  {key:"brewery",name:"Brewery",ic:"🍺",cargo:"Beverages",cat:"light",base:240,val:180},
+  {key:"fuel",name:"Fuel Depot",ic:"⛽",cargo:"Fuel",cat:"logi",base:280,val:230},
+  {key:"warehouse",name:"Distribution Hub",ic:"📦",cargo:"Parcels",cat:"logi",base:230,val:200},
+  {key:"coldstore",name:"Cold Storage",ic:"❄️",cargo:"Frozen",cat:"logi",base:270,val:220},
+  {key:"port",name:"Container Port",ic:"⚓",cargo:"Containers",cat:"logi",base:400,val:360,water:true},
+  {key:"tech",name:"Tech Campus",ic:"💻",cargo:"Electronics",cat:"adv",base:480,val:460},
+  {key:"medical",name:"Medical Supply",ic:"💊",cargo:"Medicine",cat:"adv",base:440,val:420},
+  {key:"chem",name:"Chemical Plant",ic:"⚗️",cargo:"Chemicals",cat:"adv",base:380,val:340},
+  {key:"construct",name:"Materials Yard",ic:"🧱",cargo:"Materials",cat:"heavy",base:250,val:200},
+  {key:"paper",name:"Paper Mill",ic:"📄",cargo:"Paper",cat:"light",base:210,val:160},
+  {key:"plastic",name:"Plastics Plant",ic:"🧴",cargo:"Plastics",cat:"heavy",base:290,val:240},
+  {key:"solar",name:"Solar Array",ic:"☀️",cargo:"Power Cells",cat:"adv",base:360,val:340},
+  {key:"recycle",name:"Recycling Center",ic:"♻️",cargo:"Scrap",cat:"logi",base:190,val:150},
+];
+
+// Vehicle catalog by transport tier
+const VEHICLES = {
+  road:[
+    {key:"van",name:"Cargo Van",ic:"🚐",cap:8,speed:1.5,price:18000,maint:90,life:1100},
+    {key:"box",name:"Box Truck",ic:"🚚",cap:16,speed:1.3,price:42000,maint:160,life:1400},
+    {key:"semi",name:"Semi-Trailer",ic:"🚛",cap:34,speed:1.15,price:95000,maint:320,life:1800},
+    {key:"roadtrain",name:"Road Train",ic:"🚛",cap:60,speed:1.0,price:185000,maint:560,life:2200},
+  ],
+  rail:[
+    {key:"freight",name:"Freight Engine",ic:"🚂",cap:120,speed:1.4,price:340000,maint:900,life:3200},
+    {key:"heavy",name:"Heavy Hauler",ic:"🚆",cap:240,speed:1.25,price:680000,maint:1600,life:3600},
+    {key:"pax",name:"Passenger Line",ic:"🚄",cap:160,speed:2.0,price:520000,maint:1300,life:3400,pax:true},
+  ],
+  sea:[
+    {key:"ferry",name:"Cargo Ferry",ic:"⛴️",cap:180,speed:1.1,price:480000,maint:1400,life:4200,water:true},
+    {key:"freighter",name:"Freighter",ic:"🚢",cap:520,speed:0.9,price:1250000,maint:2800,life:5000,water:true},
+    {key:"super",name:"Super Tanker",ic:"🛳️",cap:1100,speed:0.75,price:2600000,maint:5200,life:5600,water:true},
+  ],
+  air:[
+    {key:"prop",name:"Cargo Prop",ic:"🛩️",cap:40,speed:3.0,price:780000,maint:2200,life:3000},
+    {key:"jet",name:"Freight Jet",ic:"✈️",cap:90,speed:4.2,price:1900000,maint:4400,life:3400},
+    {key:"charter",name:"Charter Liner",ic:"🛫",cap:120,speed:3.6,price:2400000,maint:5000,life:3600,pax:true},
+  ],
+};
+const TIER_ORDER=["road","rail","sea","air"];
+const TIER_INFO={
+  road:{name:"Road",ic:"🚚",col:"var(--road)",unlock:0,blurb:"Where every empire begins."},
+  rail:{name:"Rail",ic:"🚂",col:"var(--rail)",unlock:250000,blurb:"Steel arteries across the land."},
+  sea:{name:"Sea", ic:"🚢",col:"var(--sea)",unlock:900000,blurb:"Open the water, open the world."},
+  air:{name:"Air", ic:"✈️",col:"var(--air)",unlock:2500000,blurb:"The sky has no borders."},
+};
+
+// HQ buildings
+const HQ_BUILDINGS = {
+  vehicleLot:{name:"Vehicle Lot",ic:"🅿️",req:null,cost:0,desc:"Home for your fleet. The first thing you build.",
+    levels:[{cap:6},{cost:60000,cap:12},{cost:150000,cap:20},{cost:340000,cap:32}]},
+  admin:{name:"Admin Building",ic:"🏢",req:"vehicleLot",
+    desc:"Finance, contracts, oversight. Cuts overhead.",
+    levels:[{cost:75000,overhead:.95},{cost:180000,overhead:.88},{cost:400000,overhead:.8},{cost:850000,overhead:.7}]},
+  mechanics:{name:"Mechanics Shop",ic:"🔧",req:"vehicleLot",
+    desc:"Slows vehicle wear and cuts maintenance bills.",
+    levels:[{cost:90000,wear:.85},{cost:210000,wear:.72},{cost:460000,wear:.6},{cost:950000,wear:.48}]},
+  warehouse:{name:"Warehouse",ic:"🏬",req:"vehicleLot",
+    desc:"Buffer cargo for better pay and bigger contracts.",
+    levels:[{cost:80000,pay:1.06},{cost:190000,pay:1.12},{cost:420000,pay:1.2},{cost:880000,pay:1.3}]},
+  dispatch:{name:"Dispatch Center",ic:"📡",req:"admin",
+    desc:"More simultaneous active jobs and faster offers.",
+    levels:[{cost:160000,jobs:2},{cost:380000,jobs:4},{cost:780000,jobs:6}]},
+  training:{name:"Training Facility",ic:"🎓",req:"admin",
+    desc:"Better crews: more speed and fewer breakdowns.",
+    levels:[{cost:200000,perf:1.08},{cost:460000,perf:1.16},{cost:900000,perf:1.25}]},
+  cmwing:{name:"Community Movement HQ",ic:"💚",req:"admin",
+    desc:"The heart of the company. Unlocks the self-running CM department.",
+    levels:[{cost:140000,gw:1.25},{cost:320000,gw:1.5},{cost:700000,gw:2.0}]},
+  tower:{name:"Executive Tower",ic:"🏙️",req:"dispatch",
+    desc:"A landmark. Boosts company reputation and investor confidence.",
+    levels:[{cost:600000,rep:1.1},{cost:1400000,rep:1.2},{cost:3000000,rep:1.35}]},
+};
+const HQ_ORDER=["vehicleLot","admin","mechanics","warehouse","dispatch","training","cmwing","tower"];
+
+/* ---------------- Game State ---------------- */
+let G = null;          // the live game state
+let SLOT = 1;          // active save slot
+const SAVE_PREFIX = "transportEmpire.slot.";
+
+function freshState(mode){
+  return {
+    v:1, mode, day:1, started:Date.now(), lastReal:Date.now(),
+    cash: mode==='sandboxFree'? 50_000_000 : 250000,
+    reputation: 50, goodwill: 0,
+    loan:0, loanRate:0.00018, // per day
+    speed:1, paused:false,
+    company:"Your Company",
+    unlocked: mode==='campaign' ? {road:true} : {road:true,rail:true,sea:true,air:true},
+    seenLand:false,
+    cities:[], industries:[], vehicles:[], jobs:[], competitors:[], billboards:[], events:[],
+    hq:{ cx:0, cy:0, levels:{}, built:[] },
+    cm:{ active:false, dept:false, budget:2000, auto:false, fleetGoal:2, completed:0, values:{} },
+    stats:{ jobsDone:0, mainDone:0, thirdDone:0, cmDone:0, earned:0, spent:0, breakdowns:0 },
+    log:[], milestones:{}, nextJobAt:0, nextEventDay: U.randi(5,9),
+    activeTab:'map',
+  };
+}
+
+/* ---------------- Save / Load ---------------- */
+const Save = {
+  write(slot){
+    try{
+      G.lastReal=Date.now();
+      localStorage.setItem(SAVE_PREFIX+slot, JSON.stringify(G));
+      return true;
+    }catch(e){ console.warn("save failed",e); return false; }
+  },
+  read(slot){
+    try{ const s=localStorage.getItem(SAVE_PREFIX+slot); return s?JSON.parse(s):null; }
+    catch(e){ return null; }
+  },
+  meta(slot){
+    const s=this.read(slot); if(!s) return null;
+    return { mode:s.mode, day:s.day, cash:s.cash, company:s.company,
+      when:s.lastReal||s.started, rep:s.reputation };
+  },
+  delete(slot){ localStorage.removeItem(SAVE_PREFIX+slot); },
+  hasAny(){ for(let i=1;i<=3;i++) if(this.read(i)) return true; return false; },
+};
+
+/* ---------------- World Generation ---------------- */
+const World = {
+  W:24, H:18,
+  gen(){
+    const W=this.W,H=this.H;
+    // value-noise terrain field
+    const seedA=Math.random()*1000, seedB=Math.random()*1000;
+    const noise=(x,y)=>{
+      const s=Math.sin((x*0.27+seedA))*Math.cos((y*0.31+seedB))
+        + Math.sin((x*0.11-y*0.13+seedB))*0.7
+        + Math.cos((x*0.4+y*0.2+seedA))*0.5;
+      return s/2.2; // ~ -1..1
+    };
+    const tiles=[];
+    for(let y=0;y<H;y++){ const row=[];
+      for(let x=0;x<W;x++){
+        const n=noise(x,y);
+        const edge = Math.min(x,y,W-1-x,H-1-y);
+        let t;
+        if(n>0.62) t='mountain';
+        else if(n>0.34) t='hills';
+        else if(n<-0.55) t='river';
+        else if(edge<2 && U.chance(0.5)) t='coast';
+        else t='plains';
+        row.push(t);
+      }
+      tiles.push(row);
+    }
+    G.world={W,H,tiles};
+
+    // HQ near center on buildable ground
+    let cx=Math.floor(W/2), cy=Math.floor(H/2);
+    for(let r=0;r<6;r++){ if(tiles[cy][cx]!=='mountain'&&tiles[cy][cx]!=='river') break;
+      cx=U.clamp(cx+U.randi(-1,1),3,W-4); cy=U.clamp(cy+U.randi(-1,1),3,H-4); }
+    tiles[cy][cx]='urban';
+    G.hq.cx=cx; G.hq.cy=cy;
+
+    // place cities spread out
+    const names=U.shuffle(CITY_NAMES.slice());
+    const nCities = 9;
+    const spots=[];
+    let guard=0;
+    while(spots.length<nCities && guard++<2000){
+      const x=U.randi(2,W-3), y=U.randi(2,H-3);
+      if(tiles[y][x]==='mountain') continue;
+      if(Math.hypot(x-cx,y-cy)<3) continue;
+      if(spots.some(s=>Math.hypot(s.x-x,s.y-y)<3.2)) continue;
+      spots.push({x,y});
+    }
+    G.cities=spots.map((s,i)=>{
+      const terr=tiles[s.y][s.x];
+      if(terr==='plains'||terr==='hills') tiles[s.y][s.x]='urban';
+      return {
+        id:U.id(), name:names[i%names.length], gx:s.x, gy:s.y,
+        pop: U.randi(8,40)*1000, baseTerrain:terr,
+        trust: 12, need: U.rand(0.7,1.3), slots: U.randi(2,4),
+        served:0, contractsUnlocked:false, life:Math.random()*6.28,
+      };
+    });
+
+    // HQ "home city"
+    G.cities.unshift({ id:'HQ_CITY', name:'Home', gx:cx, gy:cy, pop:5000,
+      baseTerrain:'urban', trust:30, need:1, slots:0, served:0,
+      contractsUnlocked:true, life:0, isHQ:true });
+
+    // seed industries around cities
+    G.industries=[];
+    G.cities.forEach(c=>{
+      if(c.isHQ) return;
+      const n=U.randi(1,Math.min(c.slots,3));
+      for(let k=0;k<n;k++){
+        const terr=World.tileAt(c.gx,c.gy);
+        let pool=INDUSTRY_TYPES.filter(t=>{
+          if(t.water && terr!=='coast'&&terr!=='river') return false;
+          if(t.hill && terr!=='hills'&&terr!=='mountain') return false;
+          return true;
+        });
+        if(!pool.length) pool=INDUSTRY_TYPES;
+        const t=U.pick(pool);
+        // offset position around the city
+        const ang=Math.random()*6.28, rad=U.rand(0.6,1.4);
+        G.industries.push(World.makeIndustry(t,c,
+          c.gx+Math.cos(ang)*rad, c.gy+Math.sin(ang)*rad));
+      }
+    });
+
+    // competitors
+    Competitors.init();
+    // initial billboards near home
+    G.billboards=[];
+  },
+  makeIndustry(t,city,gx,gy){
+    const scale=U.rand(0.8,1.3);
+    return {
+      id:U.id(), type:t.key, name:t.name, ic:t.ic, cargo:t.cargo, cat:t.cat,
+      cityId:city.id, gx, gy,
+      output: Math.round(t.base*scale),     // cargo units/day potential
+      value: Math.round(t.val*1000*scale),  // acquisition value
+      stake:0,            // 0..100 player ownership %
+      level:1, season:Math.random()*6.28,
+      forSale:true, ownerComp:null,
+      pulse:0,
+    };
+  },
+  tileAt(gx,gy){
+    const x=U.clamp(Math.round(gx),0,G.world.W-1), y=U.clamp(Math.round(gy),0,G.world.H-1);
+    return G.world.tiles[y][x];
+  },
+  terrainMult(gx,gy){ return TERRAIN[this.tileAt(gx,gy)].mult; },
+  cityById(id){ return G.cities.find(c=>c.id===id); },
+  distance(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); },
+  // route cost factor between two grid points sampling terrain
+  routeCost(ax,ay,bx,by){
+    const steps=Math.max(2,Math.round(this.distance(ax,ay,bx,by)));
+    let m=0;
+    for(let i=0;i<=steps;i++){
+      m+=this.terrainMult(U.lerp(ax,bx,i/steps),U.lerp(ay,by,i/steps));
+    }
+    return m/(steps+1);
+  },
+};
+
+/* ---------------- Isometric Map Renderer ---------------- */
+const Map = {
+  canvas:null, ctx:null, DPR:1,
+  cam:{x:0,y:0,zoom:1}, TW:48, TH:24,
+  selected:null,           // {kind:'city'|'industry'|'hq', id}
+  drag:null, moved:false, t:0,
+  init(){
+    this.canvas=document.getElementById('map');
+    this.ctx=this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize',()=>this.resize());
+    this.bindInput();
+    this.centerOnHQ();
+  },
+  resize(){
+    const c=this.canvas; this.DPR=Math.min(2,window.devicePixelRatio||1);
+    const r=c.getBoundingClientRect();
+    c.width=Math.max(1,r.width*this.DPR); c.height=Math.max(1,r.height*this.DPR);
+  },
+  centerOnHQ(){
+    const c=this.canvas, p=this.isoRaw(G.hq.cx,G.hq.cy);
+    this.cam.zoom=Math.min(1.3, (c.width/this.DPR)/700+0.6);
+    this.cam.x=(c.width/this.DPR)/2 - p.x*this.cam.zoom;
+    this.cam.y=(c.height/this.DPR)/2 - p.y*this.cam.zoom - 40;
+  },
+  isoRaw(gx,gy){ return { x:(gx-gy)*this.TW/2, y:(gx+gy)*this.TH/2 }; },
+  iso(gx,gy,elev=0){
+    const p=this.isoRaw(gx,gy);
+    return { x:this.cam.x+p.x*this.cam.zoom, y:this.cam.y+(p.y-elev)*this.cam.zoom };
+  },
+  // invert screen -> grid (approx, ignoring elevation)
+  unproject(sx,sy){
+    const x=(sx-this.cam.x)/this.cam.zoom, y=(sy-this.cam.y)/this.cam.zoom;
+    return { gx:(x/(this.TW/2)+y/(this.TH/2))/2, gy:(y/(this.TH/2)-x/(this.TW/2))/2 };
+  },
+  elevOf(t){ return ({mountain:30,hills:12,urban:3,plains:0,coast:0,river:-5})[t]||0; },
+
+  bindInput(){
+    const c=this.canvas;
+    const getXY=e=>{ const r=c.getBoundingClientRect();
+      const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; };
+    let pinchD=0;
+    const down=e=>{ const p=getXY(e); this.drag={x:p.x,y:p.y,cx:this.cam.x,cy:this.cam.y}; this.moved=false;
+      if(e.touches&&e.touches.length===2){ pinchD=this.touchDist(e); this.drag=null; } };
+    const move=e=>{
+      if(e.touches&&e.touches.length===2){ const d=this.touchDist(e);
+        if(pinchD){ this.zoomAt(c.width/this.DPR/2,c.height/this.DPR/2, d/pinchD); pinchD=d; } e.preventDefault(); return; }
+      if(!this.drag) return; const p=getXY(e);
+      const dx=p.x-this.drag.x, dy=p.y-this.drag.y;
+      if(Math.abs(dx)+Math.abs(dy)>5) this.moved=true;
+      this.cam.x=this.drag.cx+dx; this.cam.y=this.drag.cy+dy;
+      if(e.touches) e.preventDefault();
+    };
+    const up=e=>{ if(this.drag&&!this.moved){ const p=getXY(e.changedTouches?{touches:e.changedTouches}:e);
+        this.handleTap(p.x,p.y); } this.drag=null; };
+    c.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+    c.addEventListener('touchstart',down,{passive:false});
+    c.addEventListener('touchmove',move,{passive:false});
+    c.addEventListener('touchend',up);
+    c.addEventListener('wheel',e=>{ e.preventDefault();
+      const r=c.getBoundingClientRect();
+      this.zoomAt(e.clientX-r.left,e.clientY-r.top, e.deltaY<0?1.12:0.89); },{passive:false});
+  },
+  touchDist(e){ const a=e.touches[0],b=e.touches[1]; return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); },
+  zoomAt(sx,sy,f){
+    const nz=U.clamp(this.cam.zoom*f,0.4,2.6);
+    const k=nz/this.cam.zoom;
+    this.cam.x=sx-(sx-this.cam.x)*k; this.cam.y=sy-(sy-this.cam.y)*k; this.cam.zoom=nz;
+  },
+  handleTap(sx,sy){
+    // hit test cities & industries by screen proximity
+    let best=null,bd=34;
+    G.cities.forEach(c=>{ const e=this.elevOf(World.tileAt(c.gx,c.gy));
+      const p=this.iso(c.gx,c.gy,e+16); const d=Math.hypot(p.x-sx,p.y-sy);
+      if(d<bd){ bd=d; best={kind:c.isHQ?'hq':'city',id:c.id}; } });
+    G.industries.forEach(ind=>{ const p=this.iso(ind.gx,ind.gy,8); const d=Math.hypot(p.x-sx,p.y-sy);
+      if(d<28 && d<bd){ bd=d; best={kind:'industry',id:ind.id}; } });
+    if(best){ this.selected=best; Inspector.open(best); }
+    else { this.selected=null; }
+  },
+
+  /* ---- main draw ---- */
+  draw(){
+    const ctx=this.ctx, c=this.canvas;
+    ctx.save(); ctx.scale(this.DPR,this.DPR);
+    const w=c.width/this.DPR, h=c.height/this.DPR;
+    this.t+=0.016;
+    // sky background
+    const dn=Render.daylight();
+    const g=ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0, Render.mix('#101826','#0a0e14',1-dn));
+    g.addColorStop(1, Render.mix('#0a0e14','#05070a',1-dn));
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+
+    // build draw list (painter's algorithm by gx+gy)
+    this.drawGround(ctx);
+    const items=[];
+    G.industries.forEach(ind=>items.push({o:ind.gx+ind.gy, kind:'ind', ref:ind}));
+    G.billboards.forEach(b=>items.push({o:b.gx+b.gy+0.4, kind:'bill', ref:b}));
+    G.cities.forEach(cy=>items.push({o:cy.gx+cy.gy, kind: cy.isHQ?'hq':'city', ref:cy}));
+    items.sort((a,b)=>a.o-b.o);
+
+    this.drawRoutes(ctx);
+    items.forEach(it=>{
+      if(it.kind==='ind') this.drawIndustry(ctx,it.ref);
+      else if(it.kind==='city') this.drawCity(ctx,it.ref);
+      else if(it.kind==='hq') this.drawHQ(ctx,it.ref);
+      else if(it.kind==='bill') this.drawBillboard(ctx,it.ref);
+    });
+    this.drawVehicles(ctx);
+
+    // night tint overlay
+    if(dn<0.85){ ctx.fillStyle=`rgba(6,10,30,${(0.85-dn)*0.5})`; ctx.fillRect(0,0,w,h); }
+    ctx.restore();
+  },
+
+  drawGround(ctx){
+    const W=G.world.W,H=G.world.H, tiles=G.world.tiles;
+    // cull: only draw tiles whose screen pos is near viewport
+    const w=this.canvas.width/this.DPR, h=this.canvas.height/this.DPR;
+    for(let sum=0;sum<=W+H-2;sum++){
+      for(let gx=0;gx<W;gx++){ const gy=sum-gx; if(gy<0||gy>=H) continue;
+        const t=tiles[gy][gx]; const e=this.elevOf(t);
+        const p=this.iso(gx,gy,0);
+        if(p.x<-80||p.x>w+80||p.y<-120||p.y>h+120) continue;
+        this.tile(ctx,gx,gy,t,e);
+      }
+    }
+  },
+  tile(ctx,gx,gy,t,e){
+    const z=this.cam.zoom, hw=this.TW/2*z, hh=this.TH/2*z, eh=e*z;
+    const top=this.iso(gx,gy,e);
+    const T=TERRAIN[t]; const dn=Render.daylight();
+    const shade=v=>Render.mix(v,'#05070a',1-dn*0.6);
+    // side skirt for elevation
+    if(eh>1){
+      ctx.fillStyle=shade(T.col2);
+      ctx.beginPath();
+      ctx.moveTo(top.x-hw,top.y); ctx.lineTo(top.x,top.y+hh);
+      ctx.lineTo(top.x,top.y+hh+eh); ctx.lineTo(top.x-hw,top.y+eh); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=shade(Render.mix(T.col2,'#000',0.25));
+      ctx.beginPath();
+      ctx.moveTo(top.x+hw,top.y); ctx.lineTo(top.x,top.y+hh);
+      ctx.lineTo(top.x,top.y+hh+eh); ctx.lineTo(top.x+hw,top.y+eh); ctx.closePath(); ctx.fill();
+    }
+    // top diamond
+    let col=T.col;
+    if(t==='river'||t==='coast'){ const sh=Math.sin(this.t*1.5+gx*0.6+gy*0.7)*0.06; col=Render.mix(T.col,'#7fd0e8',0.15+sh); }
+    ctx.fillStyle=shade(col);
+    ctx.beginPath();
+    ctx.moveTo(top.x,top.y-hh); ctx.lineTo(top.x+hw,top.y);
+    ctx.lineTo(top.x,top.y+hh); ctx.lineTo(top.x-hw,top.y); ctx.closePath(); ctx.fill();
+    // subtle grid line
+    ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=1; ctx.stroke();
+    // decoration: trees on hills/plains, snow caps
+    if(t==='mountain'){ ctx.fillStyle=shade('#cdd6e0'); ctx.beginPath();
+      ctx.moveTo(top.x,top.y-hh*0.5); ctx.lineTo(top.x+hw*0.4,top.y-hh*0.1);
+      ctx.lineTo(top.x,top.y+hh*0.1); ctx.lineTo(top.x-hw*0.4,top.y-hh*0.1); ctx.closePath(); ctx.fill(); }
+  },
+
+  drawRoutes(ctx){
+    // draw active job lines from each vehicle's origin to destination softly
+    G.vehicles.forEach(v=>{ if(!v.job) return;
+      const a=this.gpt(v.job.from), b=this.gpt(v.job.to); if(!a||!b) return;
+      const pa=this.iso(a.gx,a.gy,6), pb=this.iso(b.gx,b.gy,6);
+      ctx.strokeStyle = v.division==='cm' ? 'rgba(111,211,199,0.35)' : 'rgba(242,193,78,0.28)';
+      ctx.lineWidth=2*this.cam.zoom; ctx.setLineDash([6*this.cam.zoom,6*this.cam.zoom]);
+      ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke(); ctx.setLineDash([]);
+    });
+  },
+  gpt(loc){ // loc:{cityId} or {indId} or 'HQ'
+    if(loc==='HQ'||loc.hq) return {gx:G.hq.cx,gy:G.hq.cy};
+    if(loc.indId){ const i=G.industries.find(x=>x.id===loc.indId); return i?{gx:i.gx,gy:i.gy}:null; }
+    if(loc.cityId){ const c=World.cityById(loc.cityId); return c?{gx:c.gx,gy:c.gy}:null; }
+    return null;
+  },
+
+  // little iso box building
+  box(ctx,sx,sy,bw,bh,col,roof){
+    const z=this.cam.zoom; bw*=z; bh*=z; const d=bw*0.5;
+    ctx.fillStyle=Render.mix(col,'#000',0.32);  // left
+    ctx.beginPath(); ctx.moveTo(sx-bw,sy); ctx.lineTo(sx,sy+d*0.5);
+    ctx.lineTo(sx,sy+d*0.5-bh); ctx.lineTo(sx-bw,sy-bh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=Render.mix(col,'#000',0.12);  // right
+    ctx.beginPath(); ctx.moveTo(sx+bw,sy); ctx.lineTo(sx,sy+d*0.5);
+    ctx.lineTo(sx,sy+d*0.5-bh); ctx.lineTo(sx+bw,sy-bh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=roof||Render.mix(col,'#fff',0.12); // roof
+    ctx.beginPath(); ctx.moveTo(sx,sy-bh+d*0.5); ctx.lineTo(sx+bw,sy-bh);
+    ctx.lineTo(sx,sy-bh-d*0.5); ctx.lineTo(sx-bw,sy-bh); ctx.closePath(); ctx.fill();
+  },
+
+  drawCity(ctx,c){
+    const e=this.elevOf(World.tileAt(c.gx,c.gy));
+    const base=this.iso(c.gx,c.gy,e); const z=this.cam.zoom;
+    // building cluster scaled by population
+    const n=U.clamp(Math.round(2+c.pop/9000),2,7);
+    const seed=c.gx*13+c.gy*7;
+    for(let i=0;i<n;i++){
+      const a=(i/n)*6.28+seed; const r=(8+i%3*5);
+      const bx=base.x+Math.cos(a)*r*z*0.5, by=base.y+Math.sin(a)*r*z*0.25;
+      const bh=10+((seed+i*7)%5)*5 + (c.pop>25000?8:0);
+      const lit=Render.daylight()<0.6 && ((seed+i)%3===0);
+      this.box(ctx,bx,by,7,bh, lit?'#3b4254':'#444b5c', lit?'#5a6378':null);
+      if(lit){ ctx.fillStyle='rgba(242,210,120,0.85)'; ctx.fillRect(bx-2*z,by-bh*z*0.5,2*z,2*z); }
+    }
+    // selection ring
+    if(this.selected&&this.selected.id===c.id) this.ring(ctx,base.x,base.y,c.isHQ?'#f2c14e':'#7c6cf0');
+    // activity pulse
+    const pulse=(Math.sin(this.t*2+c.life)+1)/2;
+    ctx.fillStyle=`rgba(124,200,143,${0.25+pulse*0.3})`;
+    ctx.beginPath(); ctx.arc(base.x,base.y-28*z,2.5*z,0,6.28); ctx.fill();
+    // label
+    this.label(ctx,base.x,base.y-46*z, c.name, c.isHQ?'#f2c14e':'#cfe0f2', 12);
+    if(!c.isHQ){
+      // trust mini bar
+      const bw=34*z; ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(base.x-bw/2,base.y-40*z,bw,3*z);
+      ctx.fillStyle='#6fd3c7'; ctx.fillRect(base.x-bw/2,base.y-40*z,bw*c.trust/100,3*z);
+    }
+  },
+
+  drawIndustry(ctx,ind){
+    const p=this.iso(ind.gx,ind.gy,2); const z=this.cam.zoom;
+    const owned=ind.stake>=100, inv=ind.stake>0;
+    const col = owned?'#3a6a52' : inv?'#4a5a44' : ind.ownerComp?Competitors.colorOf(ind.ownerComp):'#4a4f5e';
+    this.box(ctx,p.x,p.y,8,12,col);
+    // smoke / activity when producing
+    if(inv||owned){ const s=(this.t*0.6+ind.season)%2;
+      ctx.fillStyle=`rgba(200,210,220,${0.18*(1-s/2)})`;
+      ctx.beginPath(); ctx.arc(p.x+5*z,p.y-(14+s*8)*z,(2+s*2)*z,0,6.28); ctx.fill(); }
+    // icon
+    ctx.font=`${Math.round(13*z)}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(ind.ic,p.x,p.y-9*z);
+    if(this.selected&&this.selected.id===ind.id) this.ring(ctx,p.x,p.y,'#7c6cf0');
+    if(owned){ this.label(ctx,p.x,p.y-30*z,'★ '+ind.cargo,'#f2c14e',9); }
+    else if(inv){ this.label(ctx,p.x,p.y-30*z,ind.stake+'%','#9fe0c0',9); }
+  },
+
+  drawHQ(ctx,c){
+    const base=this.iso(c.gx,c.gy,3); const z=this.cam.zoom;
+    // compound platform
+    ctx.fillStyle='rgba(20,26,36,0.55)';
+    ctx.beginPath();
+    const pw=46*z,ph=24*z;
+    ctx.moveTo(base.x,base.y-ph); ctx.lineTo(base.x+pw,base.y); ctx.lineTo(base.x,base.y+ph);
+    ctx.lineTo(base.x-pw,base.y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(242,193,78,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+    // draw built buildings around compound
+    const slots=[[-18,-2],[0,-8],[18,-2],[-9,6],[9,6],[0,10],[-20,8],[20,8]];
+    G.hq.built.forEach((bk,i)=>{
+      const s=slots[i%slots.length]; const b=HQ_BUILDINGS[bk];
+      const bx=base.x+s[0]*z, by=base.y+s[1]*z;
+      const lvl=(G.hq.levels[bk]||1);
+      const col = bk==='cmwing'?'#2f9e8f' : bk==='tower'?'#5a5f8a' : bk==='vehicleLot'?'#3a4150':'#46506a';
+      this.box(ctx,bx,by,6.5,10+lvl*4, col);
+      ctx.font=`${Math.round(11*z)}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(b.ic,bx,by-(8+lvl*2)*z);
+    });
+    if(this.selected&&this.selected.kind==='hq') this.ring(ctx,base.x,base.y,'#f2c14e');
+    this.label(ctx,base.x,base.y-54*z, G.company,'#f2c14e',13);
+    this.label(ctx,base.x,base.y-40*z, 'HEADQUARTERS','#9fb0c3',8);
+  },
+
+  drawBillboard(ctx,b){
+    const p=this.iso(b.gx,b.gy,4); const z=this.cam.zoom;
+    // posts
+    ctx.strokeStyle='#3a4150'; ctx.lineWidth=2*z;
+    ctx.beginPath(); ctx.moveTo(p.x-9*z,p.y); ctx.lineTo(p.x-9*z,p.y-16*z);
+    ctx.moveTo(p.x+9*z,p.y); ctx.lineTo(p.x+9*z,p.y-16*z); ctx.stroke();
+    // board
+    const grd=ctx.createLinearGradient(p.x-14*z,0,p.x+14*z,0);
+    if(b.cm){ grd.addColorStop(0,'#2f9e8f'); grd.addColorStop(1,'#6fd3c7'); }
+    else { grd.addColorStop(0,'#e0a82e'); grd.addColorStop(1,'#f5cf6a'); }
+    ctx.fillStyle=grd; ctx.fillRect(p.x-15*z,p.y-30*z,30*z,15*z);
+    ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.font=`bold ${Math.round(5*z)}px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(b.cm?'COMMUNITY':G.company.slice(0,12), p.x, p.y-25*z);
+    ctx.fillText(b.cm?'MOVEMENT':'EMPIRE', p.x, p.y-19*z);
+  },
+
+  drawVehicles(ctx){
+    G.vehicles.forEach(v=>{
+      if(!v.job) return;
+      const a=this.gpt(v.job.from), b=this.gpt(v.job.to); if(!a||!b) return;
+      const t=v.progress;
+      const gx=U.lerp(a.gx,b.gx,t), gy=U.lerp(a.gy,b.gy,t);
+      const p=this.iso(gx,gy,8); const z=this.cam.zoom;
+      // shadow
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath();
+      ctx.ellipse(p.x,p.y+2*z,6*z,3*z,0,0,6.28); ctx.fill();
+      // body color by tier / division
+      const cmv=v.division==='cm';
+      ctx.font=`${Math.round(14*z)}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(v.ic,p.x,p.y-6*z);
+      // CM badge
+      if(cmv){ ctx.fillStyle='#6fd3c7'; ctx.beginPath(); ctx.arc(p.x+6*z,p.y-12*z,3*z,0,6.28); ctx.fill();
+        ctx.fillStyle='#04201d'; ctx.font=`bold ${Math.round(4*z)}px sans-serif`; ctx.fillText('CM',p.x+6*z,p.y-12*z); }
+      if(v.broken){ ctx.fillStyle='#e0625e'; ctx.font=`${Math.round(9*z)}px serif`; ctx.fillText('⚠',p.x,p.y-18*z); }
+    });
+    // competitor cosmetic vehicles
+    G.competitors.forEach(cp=> cp.trucks.forEach(tk=>{
+      const p=this.iso(tk.gx,tk.gy,8); const z=this.cam.zoom;
+      ctx.fillStyle=cp.color; ctx.beginPath(); ctx.arc(p.x,p.y-4*z,3*z,0,6.28); ctx.fill();
+    }));
+  },
+
+  ring(ctx,x,y,col){
+    const z=this.cam.zoom, r=(20+Math.sin(this.t*4)*2)*z;
+    ctx.strokeStyle=col; ctx.lineWidth=2*z; ctx.beginPath(); ctx.arc(x,y,r,0,6.28); ctx.stroke();
+  },
+  label(ctx,x,y,text,col,size){
+    const z=this.cam.zoom; size=size*z; if(size<7) return;
+    ctx.font=`bold ${size}px -apple-system,sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.strokeText(text,x,y);
+    ctx.fillStyle=col; ctx.fillText(text,x,y);
+  },
+};
+
+/* ---------------- Render helpers (color, daylight) ---------------- */
+const Render = {
+  hex(c){ c=c.replace('#',''); if(c.length===3) c=c.split('').map(x=>x+x).join('');
+    return [parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)]; },
+  mix(a,b,t){ const A=this.hex(a),B=this.hex(b);
+    return `rgb(${Math.round(U.lerp(A[0],B[0],t))},${Math.round(U.lerp(A[1],B[1],t))},${Math.round(U.lerp(A[2],B[2],t))})`; },
+  daylight(){ // 0=night 1=day, cycles with day fraction
+    const f=(G.day%1)||(Map.t*0.01%1); // day advances fractionally during ticks
+    const phase=(G.dayFrac!=null?G.dayFrac:0.5);
+    return 0.35+0.65*(Math.sin(phase*6.28-1.57)*0.5+0.5);
+  },
+};
+
+/* ---------------- Vehicles ---------------- */
+const Fleet = {
+  catalog(tier){ return VEHICLES[tier]; },
+  spec(tier,key){ return VEHICLES[tier].find(v=>v.key===key); },
+  capacity(){ if(!G.hq.built.includes('vehicleLot')) return 0;
+    const lvl=G.hq.levels.vehicleLot||1; return HQ_BUILDINGS.vehicleLot.levels[lvl-1].cap; },
+  count(){ return G.vehicles.length; },
+  buy(tier,key,division){
+    const s=this.spec(tier,key); if(!s) return;
+    if(this.count()>=this.capacity()){ Toast.show('Vehicle Lot is full — upgrade it first.','bad'); return; }
+    if(G.cash<s.price){ Toast.show('Not enough cash for that vehicle.','bad'); return; }
+    Money.spend(s.price,'vehicle');
+    const v={ id:U.id(), tier, key, name:s.name, ic:s.ic, cap:s.cap, baseSpeed:s.speed,
+      maint:s.maint, life:s.life, age:0, condition:100, division:division||'main',
+      job:null, progress:0, broken:false, jobsDone:0 };
+    G.vehicles.push(v);
+    Toast.show(`Acquired ${s.name}${division==='cm'?' for Community Movement':''}.`, division==='cm'?'cm':'good');
+    if(division==='cm') G.cm.fleetGoal=Math.max(G.cm.fleetGoal,this.cmCount());
+    UI.refresh();
+  },
+  cmCount(){ return G.vehicles.filter(v=>v.division==='cm').length; },
+  retire(id){ const i=G.vehicles.findIndex(v=>v.id===id); if(i<0) return;
+    const v=G.vehicles[i]; if(v.job){ Toast.show('That vehicle is on a job.','bad'); return; }
+    const sp=this.spec(v.tier,v.key); const salvage=Math.round(sp.price*0.25*v.condition/100);
+    Money.earn(salvage,'salvage'); G.vehicles.splice(i,1);
+    Toast.show(`Retired ${v.name} for ${U.money(salvage)} salvage.`,'info'); UI.refresh(); },
+  service(id){ const v=G.vehicles.find(x=>x.id===id); if(!v) return;
+    const cost=Math.round((100-v.condition)*v.maint*0.6)+200;
+    if(G.cash<cost){ Toast.show('Not enough cash to service.','bad'); return; }
+    Money.spend(cost,'service'); v.condition=100; v.broken=false;
+    Toast.show(`${v.name} fully serviced.`,'good'); UI.refresh(); },
+  freeOfTier(tier,division){
+    return G.vehicles.filter(v=>v.tier===tier && !v.job && !v.broken
+      && (division? v.division===division : v.division==='main'));
+  },
+  // best free land/any vehicle able to take a job tier
+  pickFor(job,division){
+    let pool=this.freeOfTier(job.tier,division);
+    return pool.sort((a,b)=>b.cap-a.cap)[0]||null;
+  },
+  wearMult(){ const l=G.hq.levels.mechanics; return l?HQ_BUILDINGS.mechanics.levels[l-1].wear:1; },
+  perfMult(){ const l=G.hq.levels.training; return l?HQ_BUILDINGS.training.levels[l-1].perf:1; },
+};
+
+/* ---------------- Jobs & Logistics ---------------- */
+const Jobs = {
+  maxActive(){ const base=3; const l=G.hq.levels.dispatch; return base+(l?HQ_BUILDINGS.dispatch.levels[l-1].jobs:0); },
+  activeCount(){ return G.vehicles.filter(v=>v.job).length; },
+  offers(){ return G.jobs.filter(j=>j.status==='offer'); },
+  warehousePay(){ const l=G.hq.levels.warehouse; return l?HQ_BUILDINGS.warehouse.levels[l-1].pay:1; },
+
+  // generate a job; kind drives source/pay/trust
+  spawn(kind){
+    const ownedInd=G.industries.filter(i=>i.stake>0);
+    let from,to,fromName,toName,cargo,ic,cityTarget,pay,repImpact,tier;
+    const cities=G.cities.filter(c=>!c.isHQ);
+    const unlockedTiers=TIER_ORDER.filter(t=>G.unlocked[t]);
+
+    if(kind==='main'){
+      if(!ownedInd.length) return null;
+      const ind=U.pick(ownedInd);
+      const dest=U.pick(cities);
+      from={indId:ind.id}; to={cityId:dest.id};
+      fromName=ind.name; toName=dest.name; cargo=ind.cargo; ic=ind.ic;
+      cityTarget=dest.id;
+      const dist=World.distance(ind.gx,ind.gy,dest.gx,dest.gy);
+      tier=this.tierFor(dist,unlockedTiers,ind);
+      const stakeF=ind.stake/100;
+      pay=Math.round((ind.value*0.012 + dist*ind.output*0.5)*stakeF*this.warehousePay());
+      repImpact=1;
+    } else if(kind==='third'){
+      const a=U.pick(cities), b=U.pick(cities.filter(c=>c.id!==a.id))||a;
+      from={cityId:a.id}; to={cityId:b.id};
+      const goods=U.pick(["Furniture","Household","Equipment","Retail Stock","Machinery","Supplies","Appliances","Pallets"]);
+      fromName=a.name; toName=b.name; cargo=goods; ic="📦"; cityTarget=b.id;
+      const dist=World.distance(a.gx,a.gy,b.gx,b.gy);
+      tier=this.tierFor(dist,unlockedTiers,null);
+      pay=Math.round((600+dist*220)*U.rand(1.1,1.6)*this.warehousePay());
+      repImpact=2;
+    } else if(kind==='community'){
+      const a={gx:G.hq.cx,gy:G.hq.cy}; const b=U.pick(cities);
+      from='HQ'; to={cityId:b.id};
+      const need=U.pick(["Food Bank Delivery","School Supplies","Medical Aid","Disaster Relief","Senior Move Assist","Shelter Goods","Clinic Restock"]);
+      fromName='Home'; toName=b.name; cargo=need; ic="💚"; cityTarget=b.id;
+      const dist=World.distance(a.gx,a.gy,b.gx,b.gy);
+      tier='road';
+      pay=Math.round(180+dist*60); // lowest paying — the CM jobs
+      repImpact=3;
+    }
+    if(!tier) return null;
+    const j={ id:U.id(), kind, cargo, ic, from, to, fromName, toName, tier,
+      pay, repImpact, cityTarget, status:'offer', deadline:G.day+U.randi(6,14),
+      created:G.day };
+    return j;
+  },
+  tierFor(dist,unlocked,ind){
+    // industry on water -> sea preferred; long -> rail/air for better pay
+    let want='road';
+    if(ind && (ind.type==='port'||ind.type==='fishery') && unlocked.includes('sea')) want='sea';
+    else if(dist>11 && unlocked.includes('air') && U.chance(0.25)) want='air';
+    else if(dist>7 && unlocked.includes('rail') && U.chance(0.55)) want='rail';
+    if(!unlocked.includes(want)) want='road';
+    return want;
+  },
+  refill(){
+    // keep a pool of offers available
+    const offers=this.offers();
+    const ownedInd=G.industries.filter(i=>i.stake>0).length;
+    const wantMain=Math.min(5,ownedInd*2);
+    const haveMain=offers.filter(j=>j.kind==='main').length;
+    for(let i=haveMain;i<wantMain;i++){ const j=this.spawn('main'); if(j) G.jobs.push(j); }
+    // third party infrequent
+    if(offers.filter(j=>j.kind==='third').length<2 && U.chance(0.5)){
+      const j=this.spawn('third'); if(j) G.jobs.push(j); }
+    // community offers always available for CM
+    if(offers.filter(j=>j.kind==='community').length<3){
+      const j=this.spawn('community'); if(j) G.jobs.push(j); }
+  },
+  accept(id,division){
+    const j=G.jobs.find(x=>x.id===id); if(!j||j.status!=='offer') return;
+    if(this.activeCount()>=this.maxActive()){ Toast.show('Dispatch at capacity — upgrade Dispatch Center.','bad'); return; }
+    if(!G.unlocked[j.tier]){ Toast.show(`Requires ${TIER_INFO[j.tier].name} transport (locked).`,'bad'); return; }
+    const v=Fleet.pickFor(j,division);
+    if(!v){ Toast.show(`No free ${TIER_INFO[j.tier].name} vehicle${division==='cm'?' in CM fleet':''}.`,'bad'); return; }
+    j.status='active'; v.job=j; v.progress=0;
+    Toast.show(`${v.name} dispatched: ${j.cargo} → ${j.toName}.`, division==='cm'?'cm':'info');
+    UI.refresh();
+  },
+  // called when vehicle finishes
+  complete(v){
+    const j=v.job; if(!j) return;
+    let pay=j.pay*Fleet.perfMult();
+    // condition penalty
+    if(v.condition<40) pay*=0.7;
+    pay=Math.round(pay*Money.overheadKeep());
+    Money.earn(pay, j.kind);
+    v.job=null; v.progress=0; v.jobsDone++;
+    G.stats.jobsDone++;
+    // trust & reputation
+    const city=World.cityById(j.cityTarget);
+    if(j.kind==='main'){ G.stats.mainDone++; if(city) Trust.add(city,1.2); Rep.add(0.4); }
+    else if(j.kind==='third'){ G.stats.thirdDone++; if(city) Trust.add(city,0.8); Rep.add(1.0); }
+    else if(j.kind==='community'){ G.stats.cmDone++; G.cm.completed++;
+      if(city) Trust.add(city,3.2); Rep.add(1.4); CM.earnGoodwill(city, j.pay); }
+    // remove job record
+    G.jobs=G.jobs.filter(x=>x.id!==j.id);
+    Toast.show(`Delivered ${j.cargo} to ${j.toName} · +${U.money(pay)}`, j.kind==='community'?'cm':'good');
+    UI.refreshLight();
+  },
+  expireOld(){
+    G.jobs=G.jobs.filter(j=>{
+      if(j.status==='offer' && G.day>j.deadline) return false;
+      return true;
+    });
+  },
+};
+
+/* ---------------- The Simulation Loop ---------------- */
+const Sim = {
+  DAY_MS: 9000, acc:0, last:performance.now(), raf:null, lastSave:Date.now(),
+  start(){ this.last=performance.now(); this.lastSave=Date.now(); cancelAnimationFrame(this.raf); this.loop(); },
+  stop(){ cancelAnimationFrame(this.raf); },
+  loop(){
+    this.raf=requestAnimationFrame(()=>this.loop());
+    const now=performance.now(); let dt=now-this.last; this.last=now;
+    if(dt>250) dt=250;
+    if(G){
+      if(!G.paused){
+        const step=dt*G.speed;
+        this.acc+=step;
+        G.dayFrac=((G.dayFrac||0)+step/(this.DAY_MS*1.0))%1;
+        this.animateVehicles(step);
+        this.animateCompetitors(step);
+        while(this.acc>=this.DAY_MS){ this.acc-=this.DAY_MS; this.advanceDay(); }
+      }
+      Map.draw();
+      // realtime autosave every 60s
+      if(Date.now()-this.lastSave>60000){ this.lastSave=Date.now();
+        if(Save.write(SLOT)) Toast.show('Autosaved.','info',1200); }
+    }
+  },
+  animateVehicles(step){
+    const f=step/this.DAY_MS;
+    G.vehicles.forEach(v=>{
+      if(!v.job||v.broken) return;
+      const a=Map.gpt(v.job.from), b=Map.gpt(v.job.to); if(!a||!b){ v.job=null; return; }
+      const dist=Math.max(1,World.distance(a.gx,a.gy,b.gx,b.gy));
+      const spd=v.baseSpeed*Fleet.perfMult()*(0.6+0.4*v.condition/100);
+      v.progress += f*spd*2.2/dist;
+      if(v.progress>=1){ v.progress=1; Jobs.complete(v); }
+    });
+  },
+  animateCompetitors(step){
+    const f=step/this.DAY_MS;
+    G.competitors.forEach(cp=> cp.trucks.forEach(tk=>{
+      tk.progress=(tk.progress||0)+f*0.8/Math.max(1,tk.dist);
+      if(tk.progress>=1) Competitors.reroute(cp,tk);
+      else { tk.gx=U.lerp(tk.ax,tk.bx,tk.progress); tk.gy=U.lerp(tk.ay,tk.by,tk.progress); }
+    }));
+  },
+
+  advanceDay(){
+    G.day++;
+    // industry production & seasonal drift
+    G.industries.forEach(ind=>{ ind.season+=0.08; ind.pulse=Math.max(0,ind.pulse-0.1); });
+    // dividends from owned/invested industries
+    let div=0;
+    G.industries.forEach(ind=>{ if(ind.stake>0){
+      const seasonal=1+0.25*Math.sin(ind.season);
+      div+=ind.output*ind.value*0.0000085*ind.stake*seasonal*ind.level; }});
+    if(div>0) Money.earn(Math.round(div),'dividend');
+    // expenses: maintenance + staff overhead
+    let maint=0;
+    G.vehicles.forEach(v=>{ maint+=v.maint*Fleet.wearMult()*(v.job?1.3:1); });
+    let staff=G.vehicles.length*40 + (G.cm.dept?G.cm.budget:0);
+    Money.spend(Math.round(maint+staff),'upkeep',true);
+    // loan interest
+    if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate); G.loan+=interest; }
+    // vehicle aging
+    G.vehicles.forEach(v=>{
+      v.age++; const wear=(100/v.life)*Fleet.wearMult()*(v.job?1.6:0.5);
+      v.condition=U.clamp(v.condition-wear,0,100);
+      if(v.condition<25 && !v.broken && U.chance(0.04+(25-v.condition)*0.004)){
+        v.broken=true; G.stats.breakdowns++;
+        Toast.show(`${v.name} broke down! Service it in Mechanics.`,'bad');
+        if(v.job){ G.jobs=G.jobs.filter(x=>x.id!==v.job.id); v.job=null; }
+      }
+    });
+    // jobs lifecycle
+    Jobs.expireOld(); Jobs.refill();
+    if(G.cm.dept && G.cm.auto) CM.autoDispatch();
+    // city life: population growth in served/trusted cities
+    G.cities.forEach(c=>{ if(c.isHQ) return;
+      const growth=1+ (c.trust>50?0.0016:0.0004)*(c.trust/60);
+      c.pop=Math.round(c.pop*growth);
+      c.trust=U.clamp(c.trust-0.05,0,100); // slow natural decay
+      Trust.checkBillboard(c);
+      if(c.trust>65 && !c.contractsUnlocked){ c.contractsUnlocked=true;
+        Toast.show(`${c.name} now offers exclusive contracts!`,'cm'); }
+    });
+    // competitors
+    Competitors.tick();
+    // tier unlocks (campaign)
+    Modes.checkUnlocks();
+    // random events
+    if(G.day>=G.nextEventDay){ G.nextEventDay=G.day+U.randi(6,12); Events.roll(); }
+    UI.refreshLight();
+  },
+};
+
+/* ---------------- Money / Finance ---------------- */
+const Money = {
+  overheadKeep(){ const l=G.hq.levels.admin; const o=l?HQ_BUILDINGS.admin.levels[l-1].overhead:1;
+    return U.lerp(1,o,1) + (1-1); // admin reduces overhead -> keep more; we model as multiplier on... use simply:
+  },
+  // admin reduces upkeep, not pay; keep pay = 1. Provide overheadKeep for clarity =1; use upkeepMult for expenses.
+  upkeepMult(){ const l=G.hq.levels.admin; return l?HQ_BUILDINGS.admin.levels[l-1].overhead:1; },
+  earn(n,src){ if(n<=0) return; G.cash+=n; G.stats.earned+=n; },
+  spend(n,src,upkeep){ if(upkeep) n=Math.round(n*this.upkeepMult());
+    G.cash-=n; G.stats.spent+=n;
+    if(G.cash<0 && G.mode!=='sandboxFree'){ Finance.handleDebt(); } },
+  can(n){ return G.cash>=n || G.mode==='sandboxFree'; },
+};
+// fix overheadKeep to 1 (pay unaffected; admin affects upkeep)
+Money.overheadKeep=function(){ return 1; };
+
+const Finance = {
+  loanLimit(){ return Math.round(500000 + G.stats.earned*0.5 + G.reputation*8000); },
+  takeLoan(amt){ if(amt<=0) return; if(G.loan+amt>this.loanLimit()){ Toast.show('Loan exceeds your credit limit.','bad'); return; }
+    G.loan+=amt; Money.earn(amt,'loan'); Toast.show(`Borrowed ${U.money(amt)} (${(G.loanRate*365*100).toFixed(0)}% APR).`,'info'); UI.refresh(); },
+  repay(amt){ amt=Math.min(amt,G.loan,G.cash); if(amt<=0){ Toast.show('Nothing to repay or no cash.','bad'); return; }
+    G.loan-=amt; Money.spend(amt,'repay'); Toast.show(`Repaid ${U.money(amt)}.`,'good'); UI.refresh(); },
+  handleDebt(){ // auto bridge loan to avoid game-over (steady growth design)
+    if(G.cash<0){ const need=Math.ceil(-G.cash/10000)*10000; G.loan+=need; G.cash+=need;
+      Toast.show(`Emergency credit drawn (+${U.money(need)} debt) to keep operating.`,'bad'); } },
+  netWorth(){ let v=G.cash-G.loan;
+    G.industries.forEach(i=>{ if(i.stake>0) v+=i.value*i.stake/100; });
+    G.vehicles.forEach(vh=>{ const s=Fleet.spec(vh.tier,vh.key); v+=s.price*0.4*vh.condition/100; });
+    return v; },
+};
+
+/* ---------------- Trust & Reputation ---------------- */
+const Trust = {
+  add(city,n){ if(!city||city.isHQ) return; const g=G.cm.dept?1.15:1;
+    city.trust=U.clamp(city.trust+n*g,0,100); city.served++; },
+  checkBillboard(c){
+    const tier=Math.floor(c.trust/30); // 0,1,2,3
+    const have=G.billboards.filter(b=>b.cityId===c.id).length;
+    if(tier>have){ // raise a new billboard near the city
+      const ang=Math.random()*6.28;
+      G.billboards.push({ id:U.id(), cityId:c.id,
+        gx:c.gx+Math.cos(ang)*1.6, gy:c.gy+Math.sin(ang)*1.6, cm:have%2===0 });
+      Toast.show(`A billboard goes up near ${c.name}. The community sees you.`,'cm');
+      Rep.add(0.6);
+    }
+  },
+};
+const Rep = {
+  add(n){ const l=G.hq.levels.tower; const m=l?HQ_BUILDINGS.tower.levels[l-1].rep:1;
+    G.reputation=U.clamp(G.reputation+n*m,0,100); },
+  sub(n){ G.reputation=U.clamp(G.reputation-n,0,100); },
+};
+
+/* ---------------- Industry invest / acquire ---------------- */
+const Industry = {
+  investCost(ind,pct){ return Math.round(ind.value*pct/100 * (1.1 - ind.stake/200)); },
+  invest(id,pct){ const ind=G.industries.find(i=>i.id===id); if(!ind) return;
+    if(ind.stake+pct>100) pct=100-ind.stake;
+    if(ind.ownerComp && ind.stake===0){ Toast.show('A competitor controls this — buy them out via full acquisition.','bad'); return; }
+    const cost=this.investCost(ind,pct);
+    if(!Money.can(cost)){ Toast.show('Not enough capital to invest.','bad'); return; }
+    Money.spend(cost,'invest'); ind.stake+=pct; ind.forSale=ind.stake<100;
+    if(ind.stake>=100){ ind.ownerComp=null; Toast.show(`You now fully own ${ind.name}!`,'gold'); Rep.add(2); }
+    else Toast.show(`Invested in ${ind.name} — ${ind.stake}% stake.`,'good');
+    Jobs.refill(); UI.refresh(); },
+  acquire(id){ const ind=G.industries.find(i=>i.id===id); if(!ind) return;
+    this.invest(id,100-ind.stake); },
+  sellStake(id){ const ind=G.industries.find(i=>i.id===id); if(!ind||ind.stake<=0) return;
+    const val=Math.round(ind.value*ind.stake/100*0.85); Money.earn(val,'sell');
+    Toast.show(`Sold your ${ind.stake}% of ${ind.name} for ${U.money(val)}.`,'info');
+    ind.stake=0; ind.forSale=true; UI.refresh(); },
+};
+
+/* ---------------- Competitors (max 3) ---------------- */
+const Competitors = {
+  defs:[
+    {name:"Vanguard Freight", personality:"aggressive", color:"#e0625e", blurb:"Aggressive but fair. Respects a good operator."},
+    {name:"Greenway Collective", personality:"community", color:"#6fbf73", blurb:"Community-minded — a friendly rival to your Movement."},
+    {name:"Apex Logistics", personality:"profit", color:"#c9a227", blurb:"Pure profit. Will outbid you without blinking."},
+  ],
+  init(){
+    G.competitors=this.defs.map(d=>({ ...d, cash:U.randi(400,900)*1000, share:U.rand(8,14),
+      industries:[], trucks:[], relation:50, lastOffer:0 }));
+    // give each a couple of cosmetic trucks roaming
+    G.competitors.forEach(cp=>{ for(let i=0;i<3;i++) this.spawnTruck(cp); });
+    // each starts controlling 1 industry
+    const free=G.industries.filter(i=>i.stake===0);
+    U.shuffle(free).slice(0,3).forEach((ind,i)=>{ if(G.competitors[i]){ ind.ownerComp=G.competitors[i].name;
+      ind.forSale=true; G.competitors[i].industries.push(ind.id); } });
+  },
+  colorOf(name){ const c=G.competitors.find(x=>x.name===name); return c?c.color:'#4a4f5e'; },
+  spawnTruck(cp){ const cs=G.cities; if(cs.length<2) return;
+    const a=U.pick(cs), b=U.pick(cs.filter(c=>c.id!==a.id))||a;
+    cp.trucks.push({ ax:a.gx,ay:a.gy,bx:b.gx,by:b.gy,gx:a.gx,gy:a.gy,progress:0,
+      dist:Math.max(2,World.distance(a.gx,a.gy,b.gx,b.gy)) }); },
+  reroute(cp,tk){ const cs=G.cities; const b=U.pick(cs);
+    tk.ax=tk.bx; tk.ay=tk.by; tk.bx=b.gx; tk.by=b.gy; tk.progress=0;
+    tk.dist=Math.max(2,World.distance(tk.ax,tk.ay,tk.bx,tk.by)); },
+  tick(){
+    G.competitors.forEach(cp=>{
+      // slow steady growth, never dominate
+      cp.share=U.clamp(cp.share + (cp.share<18?U.rand(0,0.04):U.rand(-0.02,0.02)),5,22);
+      cp.cash+=cp.cash*0.0006;
+      // occasionally bid on a free industry
+      if(U.chance(0.03)){ const free=G.industries.filter(i=>i.stake===0&&!i.ownerComp);
+        if(free.length){ const ind=U.pick(free); ind.ownerComp=cp.name; ind.forSale=true;
+          cp.industries.push(ind.id); } }
+    });
+  },
+  partnership(cp){ // friendly event
+    const bonus=Math.round(U.rand(30,90)*1000);
+    Modal.open({ ic:'🤝', title:`${cp.name} reaches out`,
+      body:`"You run a tight operation. ${cp.personality==='community'?'We admire what the Movement is doing.':'Respect.'} Let's share a corridor — a joint contract. Interested?"`,
+      choices:[
+        {label:`Partner up (+${U.money(bonus)}, +relations)`, cls:'green', fn:()=>{ Money.earn(bonus,'partner'); cp.relation=U.clamp(cp.relation+15,0,100); Rep.add(2); Toast.show(`Partnership with ${cp.name} formed.`,'good'); }},
+        {label:'Politely decline', cls:'ghost', fn:()=>{ cp.relation=U.clamp(cp.relation-3,0,100); }},
+      ]});
+  },
+};
+
+/* ---------------- Community Movement ---------------- */
+const CM = {
+  found(){ G.cm.active=true; Toast.show('Community Movement founded. Movers of the Community.','cm');
+    if(!G.jobs.some(j=>j.kind==='community')) Jobs.refill(); },
+  unlockDept(){ G.cm.dept=true; G.cm.auto=true;
+    Modal.open({ic:'💚',title:'A Department Is Born',
+      body:'Community Movement is now a self-running division with its own budget and fleet. You remain co-founder and co-manager — you set the values, approve the big calls, and read the reports. The work continues even when you look away.',
+      choices:[{label:'It\'s real now.',cls:'cm',fn:()=>{}}]}); },
+  earnGoodwill(city,pay){ const wing=G.hq.levels.cmwing;
+    const m=wing?HQ_BUILDINGS.cmwing.levels[wing-1].gw:1;
+    const gw=Math.round((4+ (pay/200))*m); G.goodwill+=gw; },
+  spendGoodwill(n){ if(G.goodwill<n){ Toast.show('Not enough goodwill.','bad'); return false; }
+    G.goodwill-=n; return true; },
+  autoDispatch(){
+    if(Fleet.cmCount()===0) return;
+    const offers=G.jobs.filter(j=>j.kind==='community'&&j.status==='offer');
+    offers.forEach(j=>{ if(Fleet.freeOfTier('road','cm').length) Jobs.accept(j.id,'cm'); });
+  },
+  perks:[
+    {key:'permits',name:'Reduced Permit Costs',ic:'📋',cost:120,desc:'Cheaper HQ buildings & routes.',once:true},
+    {key:'contract',name:'City Contract',ic:'🏛️',cost:200,desc:'A guaranteed high-value civic route. (+cash now)'},
+    {key:'shield',name:'Public Support',ic:'🛡️',cost:150,desc:'The community has your back in the next scandal.',once:true},
+    {key:'access',name:'Exclusive Industry Access',ic:'🔑',cost:260,desc:'Unlock a premium industry for sale near a trusted city.'},
+  ],
+  buyPerk(key){ const p=this.perks.find(x=>x.key===key); if(!p) return;
+    if(!this.spendGoodwill(p.cost)) return;
+    G.cm.values[key]=(G.cm.values[key]||0)+1;
+    if(key==='contract'){ const amt=Math.round(U.rand(80,160)*1000); Money.earn(amt,'civic'); Toast.show(`City contract signed: +${U.money(amt)}.`,'cm'); }
+    else if(key==='shield'){ G.cm.shield=true; Toast.show('The public stands ready to support you.','cm'); }
+    else if(key==='permits'){ G.cm.permits=true; Toast.show('Permit costs reduced across the board.','cm'); }
+    else if(key==='access'){ const trusted=G.cities.filter(c=>!c.isHQ&&c.trust>40);
+      const c=trusted.length?U.pick(trusted):U.pick(G.cities.filter(x=>!x.isHQ));
+      const t=U.pick(INDUSTRY_TYPES.filter(x=>x.cat==='adv'));
+      const ang=Math.random()*6.28; const ind=World.makeIndustry(t,c,c.gx+Math.cos(ang)*1.3,c.gy+Math.sin(ang)*1.3);
+      G.industries.push(ind); Toast.show(`${t.name} near ${c.name} opened for investment.`,'cm'); }
+    UI.refresh(); },
+  permitMult(){ return G.cm.permits?0.9:1; },
+};
+
+/* ---------------- Events & Moral Choices ---------------- */
+const Events = {
+  roll(){
+    const pool=[];
+    if(G.vehicles.length>2) pool.push('badhire','accident');
+    if(G.competitors.length) pool.push('rumor','partner');
+    pool.push('moral_speed','moral_layoff','goodwill_drive','weather');
+    const e=U.pick(pool); this[e]();
+  },
+  accident(){ const v=U.pick(G.vehicles); if(!v) return;
+    Modal.open({ic:'🚧',title:'Cargo Accident',
+      body:`A ${v.name} was in a minor accident on a wet road. No one was hurt, but cargo was lost and word is spreading. How do you respond?`,
+      choices:[
+        {label:'Compensate everyone fully (−$40K, +trust)',cls:'green',fn:()=>{ Money.spend(40000,'event'); G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,1)}); Rep.add(2); }},
+        {label:'Standard insurance only (−rep)',cls:'ghost',fn:()=>{ Rep.sub(4); }},
+      ]}); },
+  badhire(){ Modal.open({ic:'⚠️',title:'A Bad Hire',
+      body:'A dispatcher was caught cutting corners on safety to hit targets. The story could become a scandal.',
+      choices:[
+        {label:'Fire them, own it publicly (+trust, −$15K)',cls:'green',fn:()=>{ Money.spend(15000,'event'); Rep.add(3); G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,0.8)}); }},
+        {label:'Quietly reassign them (risk)',cls:'ghost',fn:()=>{ if(U.chance(0.5)) this.scandal('The cover-up leaked.'); else Toast.show('It blew over... this time.','info'); }},
+      ]}); },
+  rumor(){ const cp=U.pick(G.competitors);
+    Modal.open({ic:'🗞️',title:'Competitor Rumor',
+      body:`A rumor — possibly from ${cp.name} — claims your prices gouge small towns. It's not true, but it's out there.`,
+      choices:[
+        {label:'Transparent pricing campaign (−$25K, +trust)',cls:'green',fn:()=>{ Money.spend(25000,'event'); G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,1.2)}); cp.relation=U.clamp(cp.relation-5,0,100); }},
+        {label:'Ignore it',cls:'ghost',fn:()=>{ Rep.sub(2); }},
+      ]}); },
+  partner(){ Competitors.partnership(U.pick(G.competitors)); },
+  moral_speed(){ Modal.open({ic:'⏱️',title:'A Choice On The Road',
+      body:'A major client offers a bonus to push your drivers past safe hours to hit an impossible deadline. The money is real. So is the risk.',
+      choices:[
+        {label:'Refuse — safety first (+trust, +rep)',cls:'green',fn:()=>{ Rep.add(3); G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,1)}); Toast.show('Your drivers remember this.','cm'); }},
+        {label:'Take the bonus (+$60K, −trust)',cls:'red',fn:()=>{ Money.earn(60000,'event'); Rep.sub(3); G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,-1.5)}); }},
+      ]}); },
+  moral_layoff(){ Modal.open({ic:'💼',title:'Cut Costs?',
+      body:'An advisor suggests layoffs to boost quarterly numbers. The team is loyal. The savings are tempting.',
+      choices:[
+        {label:'Keep the team (−$0, +morale)',cls:'green',fn:()=>{ Rep.add(2); Toast.show('Loyalty runs both ways.','cm'); }},
+        {label:'Trim 10% (+$45K, −rep)',cls:'red',fn:()=>{ Money.earn(45000,'event'); Rep.sub(5); }},
+      ]}); },
+  goodwill_drive(){ Modal.open({ic:'💚',title:'Community Drive',
+      body:'Volunteers want to organize a free moving day for families in need, under the Movement banner. It costs you time and fuel.',
+      choices:[
+        {label:'Sponsor it (−$20K, +goodwill, +trust)',cls:'cm',fn:()=>{ Money.spend(20000,'event'); G.goodwill+=40; G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,2)}); Rep.add(2); }},
+        {label:'Not this quarter',cls:'ghost',fn:()=>{}},
+      ]}); },
+  weather(){ Toast.show('A storm season raises maintenance costs briefly. Your mechanics earn their keep.','info');
+    G.vehicles.forEach(v=>v.condition=U.clamp(v.condition-3,0,100)); },
+  scandal(msg){ if(G.cm.shield){ G.cm.shield=false;
+      Modal.open({ic:'🛡️',title:'The Community Stands With You',
+        body:`${msg} But the goodwill you've built pays off — residents and Movement volunteers publicly defend you. The scandal fizzles.`,
+        choices:[{label:'Humbled.',cls:'cm',fn:()=>{}}]}); return; }
+    Rep.sub(8); G.cities.forEach(c=>{if(!c.isHQ)Trust.add(c,-3)});
+    Modal.open({ic:'🔥',title:'Scandal',
+      body:`${msg} Reputation and trust take a hit. Lean on Community Movement goodwill to recover — no single mistake ends what you've built.`,
+      choices:[{label:'We rebuild.',cls:'ghost',fn:()=>{}}]}); },
+};
+
+/* ---------------- Game Modes ---------------- */
+const Modes = {
+  checkUnlocks(){
+    if(G.mode!=='campaign') return;
+    TIER_ORDER.forEach(t=>{ if(!G.unlocked[t] && G.stats.earned>=TIER_INFO[t].unlock){
+      G.unlocked[t]=true;
+      Modal.open({ic:TIER_INFO[t].ic,title:`${TIER_INFO[t].name} Transport Unlocked`,
+        body:`${TIER_INFO[t].blurb} You've earned enough to expand into ${TIER_INFO[t].name.toLowerCase()} freight. New vehicles are available in your Fleet.`,
+        choices:[{label:'Expand the empire',cls:'primary',fn:()=>{ UI.openPanel('fleet'); }}]});
+    }});
+    // CM department unlock when cmwing built and enough community jobs done
+    if(G.hq.built.includes('cmwing') && !G.cm.dept && G.stats.cmDone>=5){ CM.unlockDept(); }
+  },
+};
+Money.overheadKeep=function(){ return 1; };
+
+/* ---------------- Toasts ---------------- */
+const Toast = {
+  show(msg,type='info',ttl=2600){
+    const root=document.getElementById('toasts'); if(!root) return;
+    const el=document.createElement('div'); el.className='toast '+type; el.textContent=msg;
+    root.appendChild(el);
+    setTimeout(()=>{ el.style.transition='opacity .4s'; el.style.opacity='0';
+      setTimeout(()=>el.remove(),400); }, ttl);
+    while(root.children.length>4) root.removeChild(root.firstChild);
+  },
+};
+
+/* ---------------- Modal ---------------- */
+const Modal = {
+  open({ic,title,body,choices}){
+    const root=document.getElementById('modalRoot');
+    const bg=document.createElement('div'); bg.className='modal-bg';
+    const m=document.createElement('div'); m.className='modal';
+    m.innerHTML=`${ic?`<div class="ic">${ic}</div>`:''}<h3>${title}</h3><p>${body}</p>`;
+    const cw=document.createElement('div'); cw.className='choices';
+    (choices||[{label:'OK',cls:'primary',fn:()=>{}}]).forEach(c=>{
+      const b=document.createElement('button'); b.className='btn '+(c.cls||'ghost'); b.textContent=c.label;
+      b.onclick=()=>{ bg.remove(); c.fn&&c.fn(); UI.refresh(); };
+      cw.appendChild(b);
+    });
+    m.appendChild(cw); bg.appendChild(m); root.appendChild(bg);
+  },
+};
+
+/* ---------------- Land Purchase Cinematic ---------------- */
+const Land = {
+  timers:[], idx:0,
+  lines:[
+    {h:'Some say it\'s just dirt.', s:'Fifteen acres at the edge of town. Nothing on it yet.'},
+    {h:'But you can see it.', s:'The lot where the trucks will sleep. The office light that stays on late.'},
+    {h:'You\'ve saved for this.', s:'Every odd job, every careful dollar, led here.'},
+    {acres:true},
+    {h:'The papers are on the table.', s:'A pen. Your name. A future that becomes real the moment you sign.'},
+    {h:'This is where the empire begins —', s:'and you promise yourself: you won\'t forget the people who got you here.'},
+    {sign:true},
+  ],
+  begin(){
+    UI.show('land'); this.idx=0; this.clear();
+    const land=document.getElementById('land'); land.style.background='#05070a';
+    this.step();
+  },
+  clear(){ this.timers.forEach(t=>clearTimeout(t)); this.timers=[]; },
+  step(){
+    const stage=document.getElementById('landStage');
+    if(this.idx>=this.lines.length){ this.finish(); return; }
+    const L=this.lines[this.idx];
+    stage.classList.remove('show');
+    this.timers.push(setTimeout(()=>{
+      if(L.acres){
+        stage.innerHTML=`<div class="land-sub">You are purchasing</div>
+          <div class="land-acres">15 ACRES</div>
+          <div class="land-sub">of open ground. Room for everything you'll build — and everything you'll become.</div>`;
+        document.getElementById('land').style.background='radial-gradient(900px 600px at 50% 40%,#1a2233,#05070a)';
+      } else if(L.sign){
+        stage.innerHTML=`<div class="land-line">It's yours.</div>
+          <div class="land-sub">The land is signed. The Vehicle Lot will be the first thing you build.</div>
+          <button class="btn primary" style="margin-top:24px" onclick="Land.finish()">Step onto your land →</button>`;
+        document.getElementById('land').style.background='radial-gradient(1100px 700px at 50% 30%,#243049,#070b12)';
+      } else {
+        stage.innerHTML=`<div class="land-line">${L.h}</div><div class="land-sub">${L.s}</div>`;
+      }
+      stage.classList.add('show');
+      if(!L.sign){ this.idx++; this.timers.push(setTimeout(()=>this.step(), L.acres?4200:3600)); }
+    }, 700));
+  },
+  skip(){ this.clear(); this.finish(); },
+  finish(){ this.clear(); G.seenLand=true;
+    const stage=document.getElementById('landStage'); if(stage) stage.classList.remove('show');
+    UI.enterGame();
+    setTimeout(()=>{ Toast.show('Welcome home. Build your Vehicle Lot to get rolling.','gold',4000);
+      UI.openPanel('hq'); }, 600);
+  },
+};
+
+/* ===================================================================
+   UI  —  screens, topbar, nav, panels, inspector
+   =================================================================== */
+const UI = {
+  current:'menu', panel:null, hqTab:'buildings', logTab:'main',
+
+  show(id){ ['menu','modeSelect','land','game'].forEach(s=>{
+      document.getElementById(s).classList.toggle('hidden', s!==id); });
+    this.current=id;
+    if(id==='menu') this.updateMenu();
+  },
+  updateMenu(){ const c=document.getElementById('continueBtn');
+    c.classList.toggle('hidden', !Save.hasAny()); },
+  goModes(){ this.show('modeSelect'); },
+
+  startMode(mode){
+    G=freshState(mode); SLOT=this.firstFreeSlot();
+    World.gen();
+    if(mode==='campaign'){ Land.begin(); }
+    else { G.seenLand=true; if(mode==='sandboxFree'){ this.seedSandbox(); } this.enterGame();
+      setTimeout(()=>{ if(mode==='sandboxFree') Toast.show('Sandbox Free: everything unlocked, capital unlimited.','gold',3500);
+        else Toast.show('Build your Vehicle Lot, then start shipping.','gold',3500); this.openPanel('hq'); },400); }
+  },
+  seedSandbox(){ // a couple of starter vehicles so play is instant
+    HQ.build('vehicleLot',true); HQ.build('vehicleLot',true);
+    ['box','semi'].forEach(k=>Fleet.buy('road',k,'main')); CM.found(); },
+  firstFreeSlot(){ for(let i=1;i<=3;i++) if(!Save.read(i)) return i; return 1; },
+
+  enterGame(){
+    this.show('game');
+    if(!Map.canvas) Map.init(); else { Map.resize(); Map.centerOnHQ(); }
+    this.buildNav(); this.refresh(); Sim.start();
+  },
+
+  quickContinue(){ for(let i=1;i<=3;i++){ if(Save.read(i)){ this.load(i); return; } } },
+  load(slot){ const s=Save.read(slot); if(!s){ Toast.show('Empty slot.','bad'); return; }
+    G=s; SLOT=slot;
+    if(!G.world){ Toast.show('Corrupt save.','bad'); return; }
+    G.paused=false; this.show('game');
+    if(!Map.canvas) Map.init(); else { Map.resize(); Map.centerOnHQ(); }
+    this.buildNav(); this.refresh(); Sim.start();
+    Toast.show(`Loaded — Day ${G.day}.`,'good'); this.closeModal();
+  },
+
+  /* ---- topbar ---- */
+  refresh(){ if(this.current!=='game') return; this.renderTop(); if(this.panel) this.renderPanel(); this.syncNav(); },
+  refreshLight(){ if(this.current!=='game') return; this.renderTop();
+    if(this.panel && (this.panel==='logistics'||this.panel==='cm'||this.panel==='finance'||this.hqTab==='dashboard')) this.renderPanel(); },
+  renderTop(){
+    const t=document.getElementById('topbar');
+    const spd=[1,2,3];
+    t.innerHTML=`
+      <div class="brand">🚚 ${G.company}</div>
+      <div class="stat"><span class="l">Cash</span><span class="v cash">${U.money(G.cash)}</span></div>
+      <div class="stat"><span class="l">Net Worth</span><span class="v">${U.money(Finance.netWorth())}</span></div>
+      <div class="stat"><span class="l">Goodwill</span><span class="v gw">${U.int(G.goodwill)} 💚</span></div>
+      <div class="stat"><span class="l">Reputation</span><span class="v rep">${Math.round(G.reputation)}</span></div>
+      <div class="stat"><span class="l">Day</span><span class="v">${G.day}</span></div>
+      <div class="spacer"></div>
+      <div class="speed-btns">
+        <button class="btn sm ${G.paused?'on':''}" onclick="UI.setSpeed(0)">⏸</button>
+        ${spd.map(s=>`<button class="btn sm ${!G.paused&&G.speed===s?'on':''}" onclick="UI.setSpeed(${s})">${s}×</button>`).join('')}
+      </div>`;
+  },
+  setSpeed(s){ if(s===0){ G.paused=true; } else { G.paused=false; G.speed=s; } this.renderTop(); },
+
+  /* ---- bottom nav ---- */
+  buildNav(){
+    const n=document.getElementById('bottomnav');
+    const items=[
+      {k:'map',ic:'🗺️',l:'Map'},
+      {k:'hq',ic:'🏢',l:'HQ'},
+      {k:'logistics',ic:'📱',l:'Jobs'},
+      {k:'industry',ic:'🏭',l:'Industry'},
+      {k:'cm',ic:'💚',l:'Movement',cm:true},
+      {k:'menu',ic:'☰',l:'Menu'},
+    ];
+    n.innerHTML=items.map(it=>`<button class="navbtn ${it.cm?'cm':''}" data-k="${it.k}" onclick="UI.nav('${it.k}')">
+      <span class="ic">${it.ic}</span>${it.l}</button>`).join('');
+  },
+  nav(k){ if(k==='map'){ this.closePanel(); } else this.openPanel(k); this.syncNav(); },
+  syncNav(){ document.querySelectorAll('.navbtn').forEach(b=>{
+      const k=b.dataset.k; b.classList.toggle('on', (k==='map'&&!this.panel)||k===this.panel); }); },
+
+  openPanel(key){ this.panel=key; this.renderPanel();
+    document.getElementById('panel').classList.add('open'); this.syncNav(); },
+  closePanel(){ this.panel=null; document.getElementById('panel').classList.remove('open'); this.syncNav(); },
+
+  renderPanel(){
+    const titles={hq:'Headquarters',logistics:'Logistics App',industry:'Industries & Investment',
+      cm:'Community Movement',menu:'Menu',finance:'Finance',fleet:'Fleet'};
+    document.getElementById('panelTitle').textContent=titles[this.panel]||'Panel';
+    const tabsEl=document.getElementById('panelTabs'), body=document.getElementById('panelBody');
+    tabsEl.innerHTML='';
+    let html='';
+    if(this.panel==='hq'){ this.hqTabs(tabsEl); html=Panels.hq(); }
+    else if(this.panel==='logistics'){ this.logTabs(tabsEl); html=Panels.logistics(); }
+    else if(this.panel==='industry') html=Panels.industry();
+    else if(this.panel==='cm') html=Panels.cm();
+    else if(this.panel==='finance') html=Panels.finance();
+    else if(this.panel==='fleet') html=Panels.fleet();
+    else if(this.panel==='menu') html=Panels.menu();
+    body.innerHTML=html; body.scrollTop=body._st||0;
+  },
+  hqTabs(el){ const tabs=[['buildings','Buildings'],['fleet','Fleet'],['finance','Finance'],['dashboard','Dashboard']];
+    el.innerHTML=tabs.map(t=>`<button class="ptab ${this.hqTab===t[0]?'on':''}" onclick="UI.setHqTab('${t[0]}')">${t[1]}</button>`).join(''); },
+  setHqTab(t){ this.hqTab=t; this.renderPanel(); },
+  logTabs(el){ const tabs=[['main','My Business'],['third','3rd-Party'],['community','Community'],['active','Active']];
+    el.innerHTML=tabs.map(t=>`<button class="ptab ${this.logTab===t[0]?'on':''}" onclick="UI.setLogTab('${t[0]}')">${t[1]}</button>`).join(''); },
+  setLogTab(t){ this.logTab=t; this.renderPanel(); },
+
+  closeModal(){ const r=document.getElementById('modalRoot'); if(r.lastChild) r.lastChild.remove(); },
+  openLoad(){ Panels.loadModal(); },
+  openSettings(){ Panels.settingsModal(); },
+};
+
+/* ---------------- HQ build controller ---------------- */
+const HQ = {
+  level(k){ return G.hq.levels[k]||0; },
+  isBuilt(k){ return G.hq.built.includes(k); },
+  maxed(k){ return this.level(k)>=HQ_BUILDINGS[k].levels.length; },
+  nextCost(k){ const b=HQ_BUILDINGS[k]; const lvl=this.level(k); if(lvl>=b.levels.length) return null;
+    const c=b.levels[lvl].cost||0; return Math.round(c*CM.permitMult()); },
+  reqMet(k){ const b=HQ_BUILDINGS[k]; return !b.req || this.isBuilt(b.req); },
+  build(k,free){
+    const b=HQ_BUILDINGS[k]; if(this.maxed(k)) return;
+    if(!this.reqMet(k)){ Toast.show(`Requires ${HQ_BUILDINGS[b.req].name} first.`,'bad'); return; }
+    const cost=this.nextCost(k);
+    if(!free){ if(!Money.can(cost)){ Toast.show('Not enough cash for that.','bad'); return; }
+      Money.spend(cost,'building'); }
+    const wasBuilt=this.isBuilt(k);
+    G.hq.levels[k]=this.level(k)+1;
+    if(!wasBuilt){ G.hq.built.push(k);
+      if(!free){ Toast.show(`${b.name} built! It rises on your land.`,'good'); }
+      if(k==='vehicleLot' && !free){ G.firstLot=true; }
+      if(k==='cmwing' && !G.cm.active){ CM.found(); }
+    } else if(!free){ Toast.show(`${b.name} upgraded to level ${this.level(k)}.`,'good'); }
+    if(!free){ Modes.checkUnlocks(); UI.refresh(); }
+  },
+  // aggregate effect getters used elsewhere already (admin/mechanics/etc.)
+};
+
+/* ===================================================================
+   Panels — HTML builders
+   =================================================================== */
+const Panels = {
+  /* ---------- HQ ---------- */
+  hq(){ if(UI.hqTab==='fleet') return this.fleet();
+    if(UI.hqTab==='finance') return this.finance();
+    if(UI.hqTab==='dashboard') return this.dashboard();
+    return this.buildings(); },
+
+  buildings(){
+    let h=`<div class="muted" style="margin-bottom:12px">Your 15-acre compound. Each building you raise appears on the map and strengthens the empire.</div>`;
+    if(!HQ.isBuilt('vehicleLot')){
+      h+=`<div class="card" style="border-color:#caa030">
+        <h4>🅿️ Vehicle Lot</h4>
+        <div class="meta">Home for your fleet — the very first thing every operator builds. This is where it becomes real.</div>
+        <div class="row"><button class="btn primary full" onclick="HQ.build('vehicleLot')">Break Ground — Build Vehicle Lot ($0)</button></div>
+      </div>`;
+      return h;
+    }
+    HQ_ORDER.forEach(k=>{
+      const b=HQ_BUILDINGS[k]; const lvl=HQ.level(k); const built=HQ.isBuilt(k);
+      const locked=!HQ.reqMet(k); const maxed=HQ.maxed(k); const cost=HQ.nextCost(k);
+      if(locked && !built) return; // hide until req met to reduce clutter
+      h+=`<div class="card">
+        <h4>${b.ic} ${b.name} ${built?`<span class="tagchip good">Lv ${lvl}</span>`:''}</h4>
+        <div class="meta">${b.desc}</div>
+        ${this.bldEffect(k,lvl)}
+        <div class="row">
+        ${maxed?`<span class="tagchip good">Fully upgraded</span>`
+          :`<button class="btn ${built?'':'green'} sm" onclick="HQ.build('${k}')">${built?`Upgrade → Lv ${lvl+1}`:'Build'} · ${U.money(cost)}</button>`}
+        </div></div>`;
+    });
+    // locked previews
+    HQ_ORDER.forEach(k=>{ const b=HQ_BUILDINGS[k];
+      if(!HQ.reqMet(k) && !HQ.isBuilt(k)){
+        h+=`<div class="card" style="opacity:.55"><h4>${b.ic} ${b.name} 🔒</h4>
+          <div class="meta">${b.desc}<br><span class="muted">Requires ${HQ_BUILDINGS[b.req].name}.</span></div></div>`;
+      }});
+    return h;
+  },
+  bldEffect(k,lvl){
+    if(!lvl) return '';
+    const L=HQ_BUILDINGS[k].levels[lvl-1]; const parts=[];
+    if(L.cap) parts.push(`Fleet capacity ${L.cap}`);
+    if(L.overhead) parts.push(`Upkeep ×${L.overhead}`);
+    if(L.wear) parts.push(`Wear ×${L.wear}`);
+    if(L.pay) parts.push(`Job pay ×${L.pay}`);
+    if(L.jobs) parts.push(`+${L.jobs} active jobs`);
+    if(L.perf) parts.push(`Performance ×${L.perf}`);
+    if(L.gw) parts.push(`Goodwill ×${L.gw}`);
+    if(L.rep) parts.push(`Reputation ×${L.rep}`);
+    return parts.length?`<div class="row"><span class="tagchip">${parts.join('</span><span class="tagchip">')}</span></div>`:'';
+  },
+
+  dashboard(){
+    const s=G.stats;
+    const owned=G.industries.filter(i=>i.stake>=100).length;
+    const inv=G.industries.filter(i=>i.stake>0&&i.stake<100).length;
+    return `
+      <div class="dash">
+        <div class="stat-box"><div class="l">Net Worth</div><div class="v" style="color:var(--gold)">${U.money(Finance.netWorth())}</div></div>
+        <div class="stat-box"><div class="l">Total Earned</div><div class="v" style="color:var(--green)">${U.money(s.earned)}</div></div>
+        <div class="stat-box"><div class="l">Fleet</div><div class="v">${Fleet.count()} / ${Fleet.capacity()}</div></div>
+        <div class="stat-box"><div class="l">Reputation</div><div class="v" style="color:var(--blue)">${Math.round(G.reputation)}/100</div></div>
+        <div class="stat-box"><div class="l">Owned Industry</div><div class="v">${owned}</div></div>
+        <div class="stat-box"><div class="l">Investments</div><div class="v">${inv}</div></div>
+        <div class="stat-box"><div class="l">Jobs Completed</div><div class="v">${U.int(s.jobsDone)}</div></div>
+        <div class="stat-box"><div class="l">Community Jobs</div><div class="v" style="color:var(--cm)">${U.int(s.cmDone)}</div></div>
+      </div>
+      <div class="sectitle">Transport Network</div>
+      ${TIER_ORDER.map(t=>{ const u=G.unlocked[t]; const n=G.vehicles.filter(v=>v.tier===t).length;
+        return `<div class="kv"><span class="k">${TIER_INFO[t].ic} ${TIER_INFO[t].name}</span><span class="v">${u?`${n} vehicles`:`🔒 unlock at ${U.money(TIER_INFO[t].unlock)} earned`}</span></div>`; }).join('')}
+      <div class="sectitle">Company</div>
+      <div class="kv"><span class="k">Breakdowns survived</span><span class="v">${s.breakdowns}</span></div>
+      <div class="kv"><span class="k">Billboards raised</span><span class="v">${G.billboards.length}</span></div>
+      <div class="kv"><span class="k">Day</span><span class="v">${G.day}</span></div>`;
+  },
+
+  /* ---------- Fleet ---------- */
+  fleet(){
+    let h='';
+    if(!HQ.isBuilt('vehicleLot')) return `<div class="empty">Build the Vehicle Lot in HQ ▸ Buildings before acquiring vehicles.</div>`;
+    h+=`<div class="muted" style="margin-bottom:8px">Fleet ${Fleet.count()}/${Fleet.capacity()} · Upgrade the Vehicle Lot for more room.</div>`;
+    // owned vehicles
+    h+=`<div class="sectitle">Your Fleet</div>`;
+    if(!G.vehicles.length) h+=`<div class="empty">No vehicles yet. Buy one below to start hauling.</div>`;
+    G.vehicles.forEach(v=>{
+      const cls=v.condition<30?'warn':'cond';
+      h+=`<div class="card">
+        <h4>${v.ic} ${v.name} <span class="tagchip ${v.tier}">${TIER_INFO[v.tier].name}</span>
+          ${v.division==='cm'?'<span class="tagchip cm">CM</span>':''}
+          ${v.broken?'<span class="tagchip bad">BROKEN</span>':v.job?'<span class="tagchip">on job</span>':'<span class="tagchip good">idle</span>'}</h4>
+        <div class="meta">Cap ${v.cap} · Age ${v.age}d · ${v.jobsDone} jobs done</div>
+        <div class="bar ${cls}"><i style="width:${v.condition}%"></i></div>
+        <div class="row">
+          <button class="btn sm" onclick="Fleet.service('${v.id}')">🔧 Service ${U.money(Math.round((100-v.condition)*v.maint*0.6)+200)}</button>
+          <button class="btn sm red" onclick="Fleet.retire('${v.id}')">Retire</button>
+        </div></div>`;
+    });
+    // buy section per unlocked tier
+    h+=`<div class="sectitle">Acquire Vehicles</div>`;
+    TIER_ORDER.forEach(tier=>{ if(!G.unlocked[tier]){
+        h+=`<div class="card" style="opacity:.5"><h4>${TIER_INFO[tier].ic} ${TIER_INFO[tier].name} 🔒</h4>
+          <div class="meta">Unlocks at ${U.money(TIER_INFO[tier].unlock)} total earned. ${TIER_INFO[tier].blurb}</div></div>`;
+        return; }
+      Fleet.catalog(tier).forEach(s=>{
+        h+=`<div class="card"><h4>${s.ic} ${s.name} <span class="tagchip ${tier}">${TIER_INFO[tier].name}</span></h4>
+          <div class="meta">Cap ${s.cap} · Speed ${s.speed.toFixed(2)} · Maint ${U.money(s.maint)}/day</div>
+          <div class="row">
+            <button class="btn green sm" onclick="Fleet.buy('${tier}','${s.key}','main')">Buy · ${U.money(s.price)}</button>
+            <button class="btn cm sm" onclick="Fleet.buy('${tier}','${s.key}','cm')">Buy for CM</button>
+          </div></div>`;
+      });
+    });
+    return h;
+  },
+
+  /* ---------- Logistics App ---------- */
+  logistics(){
+    const tab=UI.logTab;
+    let h=`<div class="card" style="background:linear-gradient(120deg,#1d2734,#161d29)">
+      <h4>📱 Dispatch · ${Jobs.activeCount()}/${Jobs.maxActive()} active</h4>
+      <div class="meta">Accept a job to auto-dispatch your best free vehicle. Longer routes need higher tiers.</div></div>`;
+    if(tab==='active'){
+      const act=G.vehicles.filter(v=>v.job);
+      if(!act.length) h+=`<div class="empty">No active deliveries. Accept jobs from the other tabs.</div>`;
+      act.forEach(v=>{ const j=v.job;
+        h+=`<div class="card"><h4>${j.ic} ${j.cargo} <span class="tagchip ${j.tier}">${TIER_INFO[j.tier].name}</span>${j.kind==='community'?'<span class="tagchip cm">CM</span>':''}</h4>
+          <div class="meta">${j.fromName} → ${j.toName} · ${v.ic} ${v.name}</div>
+          <div class="bar"><i style="width:${Math.round(v.progress*100)}%"></i></div>
+          <div class="row"><span class="tagchip good">+${U.money(j.pay)} on delivery</span></div></div>`; });
+      return h;
+    }
+    const offers=Jobs.offers().filter(j=> tab==='main'?j.kind==='main': tab==='third'?j.kind==='third':j.kind==='community');
+    if(tab==='main' && !G.industries.some(i=>i.stake>0))
+      h+=`<div class="empty">You ship your <b>own</b> goods here. Invest in an industry (Industry tab) to generate cargo.</div>`;
+    if(!offers.length && !(tab==='main'&&!G.industries.some(i=>i.stake>0)))
+      h+=`<div class="empty">No ${tab==='community'?'community ':tab==='third'?'third-party ':''}offers right now. They refresh as days pass.</div>`;
+    offers.forEach(j=>{
+      const canTier=G.unlocked[j.tier];
+      h+=`<div class="card">
+        <h4>${j.ic} ${j.cargo} <span class="tagchip ${j.tier}">${TIER_INFO[j.tier].name}</span>
+          ${j.kind==='community'?'<span class="tagchip cm">community</span>':j.kind==='third'?'<span class="tagchip">3rd-party</span>':''}</h4>
+        <div class="meta">${j.fromName} → ${j.toName}<br>Pay <b style="color:var(--gold)">${U.money(j.pay)}</b> · by Day ${j.deadline} · +${j.repImpact} rep/trust</div>
+        <div class="row">
+          ${canTier?`<button class="btn green sm" onclick="Jobs.accept('${j.id}','${j.kind==='community'&&G.cm.dept?'cm':'main'}')">Accept</button>`
+            :`<span class="tagchip bad">needs ${TIER_INFO[j.tier].name} 🔒</span>`}
+          ${j.kind==='community'&&Fleet.cmCount()?`<button class="btn cm sm" onclick="Jobs.accept('${j.id}','cm')">Send CM Fleet</button>`:''}
+        </div></div>`;
+    });
+    return h;
+  },
+
+  /* ---------- Industry ---------- */
+  industry(){
+    const list=G.industries.slice().sort((a,b)=>(b.stake)-(a.stake)||a.name.localeCompare(b.name));
+    let h=`<div class="muted" style="margin-bottom:10px">Invest for a revenue share, or acquire fully to generate cargo for your own routes. ${G.industries.filter(i=>i.stake>0).length} held.</div>`;
+    list.forEach(ind=>{
+      const city=World.cityById(ind.cityId);
+      const owned=ind.stake>=100, inv=ind.stake>0;
+      const comp=ind.ownerComp;
+      h+=`<div class="card">
+        <h4>${ind.ic} ${ind.name} ${owned?'<span class="tagchip good">OWNED</span>':inv?`<span class="tagchip cm">${ind.stake}%</span>`:comp?`<span class="tagchip bad">${comp.split(' ')[0]}</span>`:''}</h4>
+        <div class="meta">Cargo: ${ind.cargo} · near ${city?city.name:'?'}<br>Output ${ind.output}/day · Value ${U.money(ind.value)}</div>
+        ${inv?`<div class="row"><span class="tagchip">Daily dividend ≈ ${U.money(Math.round(ind.output*ind.value*0.0000085*ind.stake*ind.level))}</span></div>`:''}
+        <div class="row">`;
+      if(!owned){
+        if(!inv && !comp) h+=`<button class="btn sm green" onclick="Industry.invest('${ind.id}',25)">Invest 25% · ${U.money(Industry.investCost(ind,25))}</button>`;
+        h+=`<button class="btn sm primary" onclick="Industry.acquire('${ind.id}')">${comp?'Buy Out':'Acquire 100%'} · ${U.money(Industry.investCost(ind,100-ind.stake))}</button>`;
+      }
+      if(inv) h+=`<button class="btn sm red" onclick="Industry.sellStake('${ind.id}')">Sell stake</button>`;
+      h+=`</div></div>`;
+    });
+    return h;
+  },
+
+  /* ---------- Community Movement ---------- */
+  cm(){
+    let h=`<div class="cmbrand"><div class="t">💚 Community Movement</div>
+      <div class="s">MOVERS OF THE COMMUNITY</div></div>`;
+    if(!G.cm.active){
+      h+=`<div class="card"><div class="meta">Community Movement is a division of your company devoted to the lowest-paid, highest-need jobs — the ones nobody else will run. It earns <b>goodwill</b>, not just money.</div>
+        <div class="row"><button class="btn cm full" onclick="CM.found()">Found Community Movement</button></div></div>`;
+      return h;
+    }
+    h+=`<div class="dash">
+      <div class="stat-box"><div class="l">Goodwill</div><div class="v" style="color:var(--cm)">${U.int(G.goodwill)} 💚</div></div>
+      <div class="stat-box"><div class="l">Community Jobs</div><div class="v">${U.int(G.cm.completed)}</div></div>
+      <div class="stat-box"><div class="l">CM Fleet</div><div class="v">${Fleet.cmCount()}</div></div>
+      <div class="stat-box"><div class="l">Status</div><div class="v" style="font-size:14px">${G.cm.dept?'Self-running':'Side hustle'}</div></div>
+    </div>`;
+    if(!G.cm.dept){
+      h+=`<div class="card"><div class="meta">As a side hustle you dispatch CM jobs by hand (Jobs ▸ Community). Build the <b>Community Movement HQ</b> wing and complete 5 community jobs to unlock a self-running department.</div>
+      <div class="row"><span class="tagchip ${HQ.isBuilt('cmwing')?'good':''}">CM HQ ${HQ.isBuilt('cmwing')?'built':'not built'}</span><span class="tagchip ${G.stats.cmDone>=5?'good':''}">${Math.min(G.stats.cmDone,5)}/5 jobs</span></div></div>`;
+    } else {
+      h+=`<div class="card"><h4>Department Management</h4>
+        <div class="meta">You remain co-founder & co-manager. Set the budget and let the team run, or steer manually.</div>
+        <div class="row">
+          <button class="btn sm ${G.cm.auto?'cm':'ghost'}" onclick="G.cm.auto=!G.cm.auto;UI.refresh()">${G.cm.auto?'● Auto-dispatch ON':'○ Auto-dispatch OFF'}</button>
+        </div>
+        <div class="kv"><span class="k">Monthly staff budget</span><span class="v">${U.money(G.cm.budget)}</span></div>
+        <div class="row">
+          <button class="btn sm" onclick="G.cm.budget=Math.max(0,G.cm.budget-1000);UI.refresh()">−$1K</button>
+          <button class="btn sm" onclick="G.cm.budget+=1000;UI.refresh()">+$1K</button>
+        </div></div>`;
+    }
+    h+=`<div class="sectitle">Spend Goodwill</div>`;
+    CM.perks.forEach(p=>{ const bought=p.once&&G.cm.values[p.key];
+      h+=`<div class="card"><h4>${p.ic} ${p.name} ${bought?'<span class="tagchip good">active</span>':''}</h4>
+        <div class="meta">${p.desc}</div>
+        <div class="row"><button class="btn cm sm" ${bought?'disabled':''} onclick="CM.buyPerk('${p.key}')">${bought?'Owned':`Spend ${p.cost} 💚`}</button></div></div>`; });
+    h+=`<div class="sectitle">Add CM Vehicles</div>
+      <div class="muted" style="margin-bottom:8px">CM vehicles wear a distinct livery and the CM badge on the map.</div>`;
+    Fleet.catalog('road').slice(0,2).forEach(s=>{
+      h+=`<div class="card"><h4>${s.ic} ${s.name} <span class="tagchip cm">CM</span></h4>
+        <div class="meta">Cap ${s.cap} · ${U.money(s.price)}</div>
+        <div class="row"><button class="btn cm sm" onclick="Fleet.buy('road','${s.key}','cm')">Buy for CM · ${U.money(s.price)}</button></div></div>`; });
+    return h;
+  },
+
+  /* ---------- Finance ---------- */
+  finance(){
+    const s=G.stats;
+    return `
+      <div class="dash">
+        <div class="stat-box"><div class="l">Cash</div><div class="v" style="color:var(--gold)">${U.money(G.cash)}</div></div>
+        <div class="stat-box"><div class="l">Net Worth</div><div class="v">${U.money(Finance.netWorth())}</div></div>
+        <div class="stat-box"><div class="l">Loan Balance</div><div class="v" style="color:var(--red)">${U.money(G.loan)}</div></div>
+        <div class="stat-box"><div class="l">Credit Limit</div><div class="v">${U.money(Finance.loanLimit())}</div></div>
+      </div>
+      <div class="sectitle">Loans · ${(G.loanRate*365*100).toFixed(0)}% APR</div>
+      <div class="card">
+        <div class="row">
+          <button class="btn sm" onclick="Finance.takeLoan(50000)">Borrow $50K</button>
+          <button class="btn sm" onclick="Finance.takeLoan(250000)">Borrow $250K</button>
+          <button class="btn sm" onclick="Finance.takeLoan(1000000)">Borrow $1M</button>
+        </div>
+        <div class="row">
+          <button class="btn sm green" onclick="Finance.repay(50000)">Repay $50K</button>
+          <button class="btn sm green" onclick="Finance.repay(G.loan)">Repay All</button>
+        </div>
+      </div>
+      <div class="sectitle">Lifetime Ledger</div>
+      <div class="kv"><span class="k">Total earned</span><span class="v" style="color:var(--green)">${U.money(s.earned)}</span></div>
+      <div class="kv"><span class="k">Total spent</span><span class="v" style="color:var(--red)">${U.money(s.spent)}</span></div>
+      <div class="kv"><span class="k">Main-business jobs</span><span class="v">${U.int(s.mainDone)}</span></div>
+      <div class="kv"><span class="k">Third-party jobs</span><span class="v">${U.int(s.thirdDone)}</span></div>
+      <div class="kv"><span class="k">Community jobs</span><span class="v">${U.int(s.cmDone)}</span></div>
+      <div class="sectitle">Competitors</div>
+      ${G.competitors.map(c=>`<div class="card"><h4><span style="color:${c.color}">●</span> ${c.name}</h4>
+        <div class="meta">${c.blurb}<br>Market share ${c.share.toFixed(1)}% · Relations ${Math.round(c.relation)}/100</div></div>`).join('')}`;
+  },
+
+  /* ---------- Menu panel ---------- */
+  menu(){
+    return `
+      <div class="card"><h4>💾 Save</h4>
+        <div class="meta">Autosaves every 60s to slot ${SLOT}. You can also save now.</div>
+        <div class="row"><button class="btn green sm" onclick="if(Save.write(SLOT))Toast.show('Saved to slot ${SLOT}.','good')">Save Now</button>
+        <button class="btn sm" onclick="Panels.saveAsModal()">Save to Slot…</button></div></div>
+      <div class="card"><h4>📁 Load</h4>
+        <div class="row"><button class="btn sm" onclick="Panels.loadModal()">Load a Game</button></div></div>
+      <div class="card"><h4>🏷️ Company</h4>
+        <div class="meta">Name: <b>${G.company}</b></div>
+        <div class="row"><button class="btn sm" onclick="Panels.renameModal()">Rename Company</button></div></div>
+      <div class="card"><h4>ℹ️ Mode</h4>
+        <div class="meta">${({campaign:'Main Campaign — progression with story beats.',sandboxFree:'Sandbox Free — everything unlocked, unlimited capital.',sandboxCampaign:'Sandbox Campaign — open progression, all tiers available.'})[G.mode]}</div></div>
+      <div class="card"><h4>🚪 Exit</h4>
+        <div class="row"><button class="btn red sm" onclick="Panels.exitToMenu()">Save & Quit to Main Menu</button></div></div>
+      <div class="muted" style="text-align:center;margin-top:14px">Transport Empire v1.0</div>`;
+  },
+
+  /* ---------- Modals ---------- */
+  loadModal(){
+    let rows='';
+    for(let i=1;i<=3;i++){ const m=Save.meta(i);
+      rows+=`<div class="card"><h4>Slot ${i}</h4>`;
+      if(m){ rows+=`<div class="meta">${m.company} · ${({campaign:'Campaign',sandboxFree:'Sandbox Free',sandboxCampaign:'Sandbox Campaign'})[m.mode]||m.mode} · Day ${m.day} · ${U.money(m.cash)}</div>
+        <div class="row"><button class="btn green sm" onclick="UI.load(${i})">Load</button>
+        <button class="btn red sm" onclick="Save.delete(${i});Panels.loadModal();">Delete</button></div>`; }
+      else rows+=`<div class="meta muted">Empty</div>`;
+      rows+=`</div>`;
+    }
+    Modal.open({ic:'📁',title:'Load Game',body:'Choose a save slot.',choices:[{label:'Close',cls:'ghost',fn:()=>{}}]});
+    const m=document.querySelector('#modalRoot .modal');
+    m.querySelector('p').insertAdjacentHTML('afterend',rows);
+  },
+  saveAsModal(){ let rows='';
+    for(let i=1;i<=3;i++){ const m=Save.meta(i);
+      rows+=`<div class="card"><h4>Slot ${i}</h4><div class="meta">${m?`${m.company} · Day ${m.day}`:'Empty'}</div>
+        <div class="row"><button class="btn green sm" onclick="SLOT=${i};Save.write(${i});Toast.show('Saved to slot ${i}.','good');UI.closeModal();">Save Here</button></div></div>`; }
+    Modal.open({ic:'💾',title:'Save to Slot',body:'',choices:[{label:'Close',cls:'ghost',fn:()=>{}}]});
+    document.querySelector('#modalRoot .modal p').insertAdjacentHTML('afterend',rows);
+  },
+  renameModal(){
+    Modal.open({ic:'🏷️',title:'Rename Company',body:'What will history remember you as?',
+      choices:[{label:'Cancel',cls:'ghost',fn:()=>{}}]});
+    const p=document.querySelector('#modalRoot .modal p');
+    p.insertAdjacentHTML('afterend',`<input id="coName" maxlength="20" value="${G.company}" style="width:100%;padding:11px;border-radius:10px;background:#10161f;border:1px solid var(--line);color:var(--ink);font-size:15px;margin-top:6px">
+      <button class="btn primary full" style="margin-top:10px" onclick="G.company=document.getElementById('coName').value.trim()||'Your Company';UI.closeModal();UI.refresh();">Save Name</button>`);
+  },
+  settingsModal(){
+    Modal.open({ic:'⚙️',title:'Settings',
+      body:'Transport Empire runs locally in your browser. Saves live in this device\'s storage.',
+      choices:[
+        {label:'Clear ALL saves',cls:'red',fn:()=>{ for(let i=1;i<=3;i++)Save.delete(i); Toast.show('All saves cleared.','info'); UI.updateMenu(); }},
+        {label:'Close',cls:'ghost',fn:()=>{}},
+      ]});
+  },
+  exitToMenu(){ Save.write(SLOT); Sim.stop(); UI.panel=null;
+    document.getElementById('panel').classList.remove('open'); UI.show('menu');
+    Toast.show('Saved.','good'); },
+};
+
+/* ---------------- Inspector (map node tap) ---------------- */
+const Inspector = {
+  open(sel){
+    if(sel.kind==='hq'){ UI.openPanel('hq'); UI.setHqTab('buildings'); return; }
+    if(sel.kind==='city'){ const c=World.cityById(sel.id); this.city(c); return; }
+    if(sel.kind==='industry'){ UI.openPanel('industry'); return; }
+  },
+  city(c){
+    const inds=G.industries.filter(i=>i.cityId===c.id);
+    Modal.open({ic:'🏙️',title:c.name,
+      body:`Population <b>${U.int(c.pop)}</b> · Terrain ${TERRAIN[c.baseTerrain].name}<br>
+        Community Trust <b style="color:var(--cm)">${Math.round(c.trust)}/100</b> ${c.contractsUnlocked?'· ⭐ exclusive contracts':''}<br>
+        ${inds.length?inds.map(i=>`${i.ic} ${i.name}${i.stake>0?` (${i.stake}%)`:''}`).join(' · '):'No nearby industries.'}`,
+      choices:[
+        {label:'Open Industries',cls:'ghost',fn:()=>UI.openPanel('industry')},
+        {label:'Close',cls:'ghost',fn:()=>{}},
+      ]});
+  },
+};
+
+/* ===================================================================
+   Bootstrap
+   =================================================================== */
+window.addEventListener('load',()=>{
+  UI.updateMenu();
+  // keyboard: space pause, 1/2/3 speed
+  window.addEventListener('keydown',e=>{ if(UI.current!=='game') return;
+    if(e.code==='Space'){ e.preventDefault(); UI.setSpeed(G.paused?G.speed||1:0); }
+    if(e.key==='1') UI.setSpeed(1); if(e.key==='2') UI.setSpeed(2); if(e.key==='3') UI.setSpeed(3);
+    if(e.key==='Escape') UI.closePanel();
+  });
+  // save on unload
+  window.addEventListener('beforeunload',()=>{ if(G&&UI.current==='game') Save.write(SLOT); });
+});
+
+</script>
+</body>
+</html>
