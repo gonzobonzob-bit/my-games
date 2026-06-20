@@ -67,7 +67,7 @@ harmonizes with the palette.
 - **Pause overlay** reachable any time (button + `Esc`): Resume / Save / Main Menu.
 - Single self-contained `index.html`; registered as a card in `my-games/index.html`.
 
-Save key: `plate-empire-save-v1`.
+Save key: `plate-empire-save-v2`.
 
 ## Localization
 **English-only** for now. Do NOT add Spanish text. A Spanish pass is deferred to

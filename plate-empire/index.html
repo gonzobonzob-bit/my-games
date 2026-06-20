@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#1C1A18">
-<title>Plate Empire — Food Truck</title>
+<title>Plate Empire</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -255,6 +255,77 @@ nav{flex:1;padding:10px 0;}
 .ms-row.achieved .ms-name{color:var(--sage);}
 .ms-row.current{border-left:3px solid var(--brass);padding-left:8px;background:rgba(192,138,62,0.06);border-radius:4px;}
 
+/* 2.5D scene layer */
+#scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.scene-steam{position:absolute;width:6px;height:6px;border-radius:50%;background:rgba(239,230,216,0.25);
+  animation:steamRise 2.5s ease-in infinite;opacity:0;}
+@keyframes steamRise{0%{opacity:0;transform:translateY(0) scale(1)}30%{opacity:0.6}100%{opacity:0;transform:translateY(-80px) scale(2.5)}}
+.scene-glow{position:absolute;bottom:20%;left:50%;width:120px;height:40px;transform:translateX(-50%);
+  background:radial-gradient(ellipse,rgba(255,180,60,0.15),transparent 70%);
+  animation:kitchenGlow 3s ease-in-out infinite alternate;}
+@keyframes kitchenGlow{from{opacity:0.5}to{opacity:1}}
+.scene-customer{position:absolute;bottom:15%;width:16px;height:28px;border-radius:8px 8px 4px 4px;
+  background:rgba(239,230,216,0.2);opacity:0;transition:opacity .6s;}
+.scene-customer.active{opacity:1;}
+.scene-lights{position:absolute;top:12%;left:10%;right:10%;height:2px;
+  background:repeating-linear-gradient(90deg,transparent,transparent 30px,rgba(255,200,80,0.4) 32px,transparent 34px);
+  filter:drop-shadow(0 0 4px rgba(255,200,80,0.3));}
+
+/* customer type badges on tickets */
+.ticket .t-type{position:absolute;top:2px;right:4px;font-size:8px;font-weight:800;padding:1px 4px;
+  border-radius:3px;letter-spacing:0.3px;text-transform:uppercase;}
+.ticket.critic .t-type{background:rgba(139,92,246,0.2);color:#a78bfa;}
+.ticket.regular .t-type{background:rgba(107,142,90,0.2);color:var(--sage);}
+.ticket.impatient .t-type{background:rgba(181,69,58,0.2);color:var(--alert);}
+.ticket.critic{border-top-color:#8b5cf6;}
+.ticket.impatient{border-top-color:var(--alert);}
+.ticket.regular{border-top-color:var(--sage);}
+
+/* upgrades */
+.upgrade-card{display:flex;align-items:center;gap:12px;padding:12px;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:8px;margin-bottom:10px;}
+.upgrade-card .u-icon{font-size:24px;flex:0 0 auto;}
+.upgrade-card .u-info{flex:1;}
+.upgrade-card .u-name{font-weight:700;font-size:13px;}
+.upgrade-card .u-effect{font-family:var(--mono);font-size:10px;color:var(--sage);margin-top:2px;}
+.upgrade-card.owned{opacity:0.65;border-color:var(--sage);}
+.upgrade-card.owned .u-name::after{content:' ✓';color:var(--sage);}
+
+/* achievements */
+.ach-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;}
+.ach-row:last-child{border-bottom:none;}
+.ach-row .ach-icon{font-size:20px;width:28px;text-align:center;filter:grayscale(1);opacity:0.4;}
+.ach-row.unlocked .ach-icon{filter:none;opacity:1;}
+.ach-row .ach-name{font-weight:700;}
+.ach-row .ach-desc{font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+/* event banner */
+#event-banner{position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:45;
+  background:rgba(192,138,62,0.95);color:#1c1a18;padding:8px 24px;border-radius:8px;
+  font-family:var(--disp);font-weight:800;font-size:16px;text-transform:uppercase;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);animation:eventPop .4s ease;pointer-events:none;}
+@keyframes eventPop{from{transform:translateX(-50%) scale(0.7);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+
+/* tutorial */
+.tut-highlight{position:relative;z-index:55;box-shadow:0 0 0 4px var(--brass),0 0 20px rgba(192,138,62,0.4);}
+#tutorial{position:fixed;z-index:54;pointer-events:none;}
+.tut-tip{position:fixed;z-index:56;background:var(--panel);border:1px solid var(--brass);border-radius:10px;
+  padding:16px 20px;max-width:300px;box-shadow:0 12px 30px rgba(0,0,0,0.6);pointer-events:auto;}
+.tut-tip p{font-size:13px;margin-bottom:10px;}
+.tut-tip button{background:var(--brass);color:#1c1a18;border:none;border-radius:6px;padding:8px 16px;
+  font-weight:700;font-size:12px;cursor:pointer;}
+
+/* tier upgrade overlay */
+.tier-up-title{font-family:var(--disp);font-weight:900;font-size:36px;text-align:center;
+  color:var(--brass);text-transform:uppercase;margin-bottom:6px;}
+.tier-up-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px;}
+
+/* victory */
+.victory-title{font-family:var(--disp);font-weight:900;font-size:48px;text-align:center;
+  background:linear-gradient(135deg,#C08A3E,#E8C078,#C08A3E);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;text-transform:uppercase;margin-bottom:6px;}
+.victory-sub{text-align:center;color:var(--cream);font-size:14px;margin-bottom:20px;}
+
 /* reduce-motion: honor the Settings toggle */
 body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
   animation-duration:0.001s !important;transition-duration:0.001s !important;}
@@ -269,8 +340,18 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
 </head>
 <body>
 
-<!-- ============ BACKDROP (atmospheric, behind everything) ============ -->
+<!-- ============ BACKDROP + 2.5D SCENE ============ -->
 <div id="backdrop"></div>
+<div id="scene">
+  <div class="scene-lights"></div>
+  <div class="scene-glow"></div>
+  <div class="scene-customer" style="left:25%" id="sc1"></div>
+  <div class="scene-customer" style="left:40%" id="sc2"></div>
+  <div class="scene-customer" style="left:55%" id="sc3"></div>
+  <div class="scene-customer" style="left:70%" id="sc4"></div>
+  <div class="scene-customer" style="left:82%" id="sc5"></div>
+</div>
+<div id="event-banner" class="hidden"></div>
 
 <!-- ============ MAIN MENU ============ -->
 <div id="main-menu" class="overlay">
@@ -373,168 +454,256 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
   </div>
 </div>
 
+<!-- ============ TIER UPGRADE ============ -->
+<div id="tier-up" class="overlay hidden">
+  <div class="card">
+    <div class="tier-up-title" id="tu-title">Upgrade Available</div>
+    <div class="tier-up-sub" id="tu-sub"></div>
+    <div class="run-stats" id="tu-stats"></div>
+    <button class="menu-btn primary" id="tu-accept">Upgrade Now</button>
+    <button class="menu-btn" id="tu-later">Not Yet</button>
+  </div>
+</div>
+
+<!-- ============ VICTORY ============ -->
+<div id="victory" class="overlay hidden">
+  <div class="card">
+    <div class="victory-title">Victory!</div>
+    <div class="victory-sub">You built a restaurant empire from a humble food truck.</div>
+    <div class="run-stats" id="vic-stats"></div>
+    <button class="menu-btn primary" id="vic-continue">Keep Playing</button>
+    <button class="menu-btn" id="vic-menu">Main Menu</button>
+  </div>
+</div>
+
+<!-- ============ TUTORIAL ============ -->
+<div id="tutorial" class="hidden">
+  <div class="tut-tip" id="tut-tip" style="top:120px;left:50%;transform:translateX(-50%)">
+    <p id="tut-text"></p>
+    <button id="tut-next">Got it</button>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
 /* =================================================================
-   PLATE EMPIRE — game logic
-   Sections:
-     A. Config / constants     B. State + persistence
-     C. Boot / menu flow        D. Views (render)
-     E. Ticket system           F. Economy + day cycle
-     G. Game loop               H. Pause / settings / toasts
-     I. Wiring
+   PLATE EMPIRE — full game
+   A. Config   B. State   C. Boot   D. Views   E. Staff/Upgrades
+   F. Tickets  G. Economy H. Loop   I. UI      J. SFX  K. Wire
    ================================================================= */
 
-/* ---------- A. Config / constants ---------- */
-const SAVE_KEY = 'plate-empire-save-v1';
+/* ---------- A. Config ---------- */
+const SAVE_KEY = 'plate-empire-save-v2';
 const AUTOSAVE_MS = 30000;
 
-/* Hardcoded food-truck menu (3-5 dishes for v1). */
-const DISHES = [
-  { id:'burger',  name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.png',  price:9,  rep:2, life:12000 },
-  { id:'tacos',   name:'Street Tacos',        icon:'assets/dish-street-tacos.png',        price:7,  rep:2, life:11000 },
-  { id:'fries',   name:'Loaded Fries',        icon:'assets/dish-loaded-fries.png',        price:6,  rep:1, life:10000 },
-  { id:'burrito', name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.png', price:10, rep:3, life:13000 },
-  { id:'elote',   name:'Elote',               icon:'assets/dish-elote.png',               price:5,  rep:1, life:9000  },
+const TIERS = [
+  {id:'truck',  name:'Food Truck',   loc:'El Paso Food Truck',       bg:'assets/backdrop.png',       unlockRep:0,  unlockCash:0,     dayLen:90000,  railCap:6},
+  {id:'diner',  name:'Diner',        loc:"Gonzo's Diner",            bg:'assets/backdrop-diner.png', unlockRep:60, unlockCash:500,   dayLen:100000, railCap:8},
+  {id:'bistro', name:'Bistro',       loc:'Mesa Bistro',              bg:'assets/backdrop-bistro.png',unlockRep:60, unlockCash:2000,  dayLen:110000, railCap:8},
+  {id:'fine',   name:'Fine Dining',  loc:'Estrella Fine Dining',     bg:'assets/backdrop-fine.png',  unlockRep:70, unlockCash:8000,  dayLen:120000, railCap:10},
+  {id:'resort', name:'Resort',       loc:'The Grand Plata Resort',   bg:'assets/backdrop-resort.png',unlockRep:80, unlockCash:25000, dayLen:130000, railCap:12},
 ];
-const dishById = id => DISHES.find(d => d.id === id);
 
-/* Ticket pacing presets (ms between spawns). */
-const PACE = { relaxed:5200, normal:3600, rush:2400 };
+const ALL_DISHES = [
+  {id:'burger',  tier:0, name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.png',  price:9,  rep:2, life:12000},
+  {id:'tacos',   tier:0, name:'Street Tacos',       icon:'assets/dish-street-tacos.png',        price:7,  rep:2, life:11000},
+  {id:'fries',   tier:0, name:'Loaded Fries',       icon:'assets/dish-loaded-fries.png',        price:6,  rep:1, life:10000},
+  {id:'burrito', tier:0, name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.png', price:10, rep:3, life:13000},
+  {id:'elote',   tier:0, name:'Elote',              icon:'assets/dish-elote.png',               price:5,  rep:1, life:9000},
+  {id:'cfs',     tier:1, name:'Chicken Fried Steak',icon:'assets/dish-chicken-fried-steak.png', price:14, rep:3, life:14000},
+  {id:'pancakes',tier:1, name:'Pancake Stack',      icon:'assets/dish-pancakes.png',            price:8,  rep:2, life:10000},
+  {id:'club',    tier:1, name:'Club Sandwich',      icon:'assets/dish-club-sandwich.png',       price:11, rep:2, life:11000},
+  {id:'shake',   tier:1, name:'Milkshake',          icon:'assets/dish-milkshake.png',           price:7,  rep:1, life:9000},
+  {id:'meatloaf',tier:1, name:'Meatloaf Plate',     icon:'assets/dish-meatloaf.png',            price:13, rep:3, life:13000},
+  {id:'salmon',  tier:2, name:'Grilled Salmon',     icon:'assets/dish-salmon.png',              price:22, rep:4, life:15000},
+  {id:'carbonara',tier:2,name:'Pasta Carbonara',    icon:'assets/dish-carbonara.png',           price:18, rep:3, life:13000},
+  {id:'caesar',  tier:2, name:'Caesar Salad',       icon:'assets/dish-caesar.png',              price:14, rep:2, life:11000},
+  {id:'brulee',  tier:2, name:'Crème Brûlée',       icon:'assets/dish-brulee.png',              price:12, rep:3, life:12000},
+  {id:'wine',    tier:2, name:'House Wine',          icon:'assets/dish-wine.png',                price:16, rep:2, life:10000},
+  {id:'filet',   tier:3, name:'Filet Mignon',       icon:'assets/dish-filet.png',               price:45, rep:5, life:18000},
+  {id:'lobster', tier:3, name:'Lobster Tail',        icon:'assets/dish-lobster.png',             price:50, rep:5, life:20000},
+  {id:'risotto', tier:3, name:'Truffle Risotto',     icon:'assets/dish-risotto.png',             price:35, rep:4, life:16000},
+  {id:'tasting', tier:3, name:'Tasting Plate',       icon:'assets/dish-tasting.png',             price:60, rep:6, life:22000},
+  {id:'champagne',tier:3,name:'Champagne',          icon:'assets/dish-champagne.png',           price:30, rep:3, life:12000},
+  {id:'wagyu',   tier:4, name:'Wagyu A5',            icon:'assets/dish-wagyu.png',               price:90, rep:7, life:24000},
+  {id:'sushi',   tier:4, name:'Omakase Sushi',       icon:'assets/dish-sushi.png',               price:75, rep:6, life:22000},
+  {id:'paella',  tier:4, name:'Seafood Paella',      icon:'assets/dish-paella.png',              price:55, rep:5, life:18000},
+  {id:'souffle', tier:4, name:'Chocolate Soufflé',   icon:'assets/dish-souffle.png',             price:40, rep:4, life:16000},
+  {id:'cocktail',tier:4, name:'Craft Cocktail',      icon:'assets/dish-cocktail.png',            price:25, rep:3, life:12000},
+];
+function dishById(id){ return ALL_DISHES.find(d=>d.id===id); }
+function tierDishes(t){ return ALL_DISHES.filter(d=>d.tier===t); }
+function curTier(){ return TIERS[S.tier]||TIERS[0]; }
 
-const MISS_REP = -3;          // reputation lost on an expired ticket
-const DAY_LENGTH_MS = 90000;  // length of one service day
-const RAIL_SLOT = 152;        // px horizontal spacing per ticket
+const PACE = {relaxed:5200, normal:3600, rush:2400};
+const MISS_REP = -3;
+const RAIL_SLOT = 152;
+
+const ALL_STAFF = [
+  {id:'cook2',tier:0,name:'Maria',role:'Assistant Cook',icon:'👩‍🍳',cost:100,salary:5,effect:'+2s ticket time',ticketBonus:2000},
+  {id:'cook3',tier:0,name:'Carlos',role:'Line Cook',icon:'👨‍🍳',cost:200,salary:8,effect:'+2 rail capacity',railBonus:2},
+  {id:'waitress',tier:1,name:'Sofia',role:'Waitress',icon:'💁‍♀️',cost:300,salary:12,effect:'+1s ticket time',ticketBonus:1000},
+  {id:'dishwasher',tier:1,name:'Miguel',role:'Dishwasher',icon:'🧹',cost:200,salary:8,effect:'+1 rail capacity',railBonus:1},
+  {id:'sous',tier:1,name:'Diego',role:'Sous Chef',icon:'👨‍🍳',cost:500,salary:15,effect:'+3s ticket time',ticketBonus:3000},
+  {id:'sommelier',tier:2,name:'Claire',role:'Sommelier',icon:'🍷',cost:800,salary:20,effect:'+2s ticket time',ticketBonus:2000},
+  {id:'hostess',tier:2,name:'Ana',role:'Hostess',icon:'💁‍♀️',cost:600,salary:15,effect:'+2 rail capacity',railBonus:2},
+  {id:'executive',tier:3,name:'Chef Pierre',role:'Executive Chef',icon:'👨‍🍳',cost:2000,salary:40,effect:'+4s ticket time',ticketBonus:4000},
+  {id:'maitre',tier:3,name:'François',role:"Maître d'",icon:'🤵',cost:1500,salary:30,effect:'+3 rail capacity',railBonus:3},
+  {id:'gm',tier:4,name:'Victoria',role:'General Manager',icon:'👩‍💼',cost:5000,salary:60,effect:'+5s ticket time',ticketBonus:5000},
+  {id:'concierge',tier:4,name:'James',role:'Concierge',icon:'🤵‍♂️',cost:3000,salary:40,effect:'+4 rail capacity',railBonus:4},
+];
+
+const UPGRADES = [
+  {id:'grill',icon:'🔥',name:'Better Grill',cost:150,effect:'+1s ticket time',ticketBonus:1000},
+  {id:'sign',icon:'💡',name:'Neon Sign',cost:200,effect:'+1 rep per serve',repBonus:1},
+  {id:'fridge',icon:'❄️',name:'Walk-In Fridge',cost:350,effect:'+2 rail capacity',railBonus:2},
+  {id:'espresso',icon:'☕',name:'Espresso Machine',cost:500,effect:'+2s ticket time',ticketBonus:2000},
+  {id:'decor',icon:'🎨',name:'Ambiance Upgrade',cost:800,effect:'Tips +50%',tipMult:1.5},
+  {id:'kitchen',icon:'🍳',name:'Pro Kitchen',cost:1500,effect:'+3s ticket time',ticketBonus:3000},
+  {id:'valet',icon:'🚗',name:'Valet Service',cost:3000,effect:'+3 rail capacity',railBonus:3},
+  {id:'cellar',icon:'🍷',name:'Wine Cellar',cost:5000,effect:'+2 rep per serve',repBonus:2},
+];
+
+const REP_MILESTONES = [
+  {rep:0,name:'Unknown',icon:'❓'},
+  {rep:20,name:'Local Spot',icon:'📍'},
+  {rep:40,name:'Neighborhood Fave',icon:'⭐'},
+  {rep:60,name:'City Buzz',icon:'🔥'},
+  {rep:80,name:'Legendary',icon:'👑'},
+];
+
+const ACHIEVEMENTS = [
+  {id:'first_serve',name:'First Order',desc:'Serve your first ticket',icon:'🎫',check:s=>s.served>=1},
+  {id:'serve_50',name:'Line Cook',desc:'Serve 50 orders',icon:'👨‍🍳',check:s=>s.served>=50},
+  {id:'serve_200',name:'Kitchen Master',desc:'Serve 200 orders',icon:'⭐',check:s=>s.served>=200},
+  {id:'serve_500',name:'Service Legend',desc:'Serve 500 orders',icon:'🏆',check:s=>s.served>=500},
+  {id:'streak_5',name:'Hot Streak',desc:'Hit a 5x streak',icon:'🔥',check:(s,b)=>b.streak>=5},
+  {id:'streak_10',name:'Unstoppable',desc:'Hit a 10x streak',icon:'💥',check:(s,b)=>b.streak>=10},
+  {id:'cash_1k',name:'First Grand',desc:'Reach $1,000 cash',icon:'💰',check:s=>s.cash>=1000},
+  {id:'cash_10k',name:'Big Money',desc:'Reach $10,000 cash',icon:'💎',check:s=>s.cash>=10000},
+  {id:'cash_50k',name:'Mogul',desc:'Reach $50,000 cash',icon:'🏦',check:s=>s.cash>=50000},
+  {id:'rep_100',name:'Perfect Rep',desc:'Reach 100 reputation',icon:'💯',check:s=>s.rep>=100},
+  {id:'tier_1',name:'Moving Up',desc:'Upgrade to Diner',icon:'🍽️',check:s=>s.tier>=1},
+  {id:'tier_2',name:'Getting Fancy',desc:'Upgrade to Bistro',icon:'🥂',check:s=>s.tier>=2},
+  {id:'tier_3',name:'Fine Dining',desc:'Upgrade to Fine Dining',icon:'✨',check:s=>s.tier>=3},
+  {id:'tier_4',name:'Empire Complete',desc:'Reach Resort tier',icon:'🏖️',check:s=>s.tier>=4},
+  {id:'day_20',name:'Veteran',desc:'Survive 20 days',icon:'📅',check:s=>s.day>=20},
+];
+
+const EVENTS = [
+  {id:'rush',name:'Lunch Rush!',desc:'Double ticket speed for this day',dur:1,apply:r=>{r.eventPaceMult=0.5},icon:'⚡'},
+  {id:'critic',name:'Food Critic Visit!',desc:'Rep gains doubled this day',dur:1,apply:r=>{r.eventRepMult=2},icon:'📰'},
+  {id:'rain',name:'Rainy Day',desc:'Fewer customers, but bigger tips',dur:1,apply:r=>{r.eventPaceMult=1.5;r.eventTipMult=2},icon:'🌧️'},
+  {id:'festival',name:'Street Festival!',desc:'Max rail capacity +3 today',dur:1,apply:r=>{r.eventRailBonus=3},icon:'🎉'},
+];
+
+const CUSTOMER_TYPES = [
+  {id:'normal',weight:60,label:'',tipMult:1,repMult:1,lifeMult:1},
+  {id:'regular',weight:15,label:'Regular',tipMult:1.5,repMult:1.5,lifeMult:1.2,cls:'regular'},
+  {id:'critic',weight:10,label:'Critic',tipMult:1,repMult:3,lifeMult:0.8,cls:'critic'},
+  {id:'impatient',weight:15,label:'Rush',tipMult:0.5,repMult:1,lifeMult:0.6,cls:'impatient'},
+];
+
+const TUTORIAL_STEPS = [
+  {text:'Welcome to Plate Empire! Tickets appear on the rail above — click them before time runs out to serve orders and earn cash.',pos:'top:120px;left:50%;transform:translateX(-50%)'},
+  {text:'Keep your reputation up! Missing orders costs rep. Hit zero and it\'s game over.',pos:'top:120px;left:50%;transform:translateX(-50%)'},
+  {text:'Use the sidebar to check your staff, finances, and community standing. Hire crew, buy upgrades, and climb the tiers!',pos:'top:180px;left:50%;transform:translateX(-50%)'},
+];
 
 /* ---------- B. State + persistence ---------- */
-const STAFF_DEFS = [
-  { id:'cook2', name:'Maria', role:'Assistant Cook', icon:'👩‍🍳', cost:100, salary:5, effect:'+2s ticket time', ticketBonus:2000 },
-  { id:'cook3', name:'Carlos', role:'Line Cook',     icon:'👨‍🍳', cost:200, salary:8, effect:'+1 rail capacity', railBonus:2 },
-];
-const REP_MILESTONES = [
-  { rep:0,  name:'Unknown',           icon:'❓' },
-  { rep:20, name:'Local Spot',        icon:'📍' },
-  { rep:40, name:'Neighborhood Fave', icon:'⭐' },
-  { rep:60, name:'City Buzz',         icon:'🔥' },
-  { rep:80, name:'Legendary',         icon:'👑' },
-];
-
-const defaultState = () => ({
-  cash: 50,
-  rep: 70,
-  day: 1,
-  served: 0,
-  missed: 0,
-  dayMsLeft: DAY_LENGTH_MS,
-  log: [],
-  settings: { sfx:true, reduceMotion:false, pace:'normal' },
-  staff: [],
-  finances: { totalEarnings:0, totalTips:0, totalBonuses:0, staffCost:0, history:[] },
-  bestDay: { served:0, earnings:0, tips:0, streak:0 },
+const defaultState = ()=>({
+  cash:50, rep:70, day:1, served:0, missed:0, tier:0,
+  dayMsLeft:TIERS[0].dayLen,
+  log:[], staff:[], upgrades:[], achievements:[],
+  settings:{sfx:true,reduceMotion:false,pace:'normal'},
+  finances:{totalEarnings:0,totalTips:0,totalBonuses:0,staffCost:0,history:[]},
+  bestDay:{served:0,earnings:0,tips:0,streak:0},
+  tutDone:false, victoryShown:false,
 });
 
-let S = defaultState();      // persisted game state
-let view = 'overview';       // active sidebar view
-let running = false;         // is a game session active (vs menu)
-let paused = false;          // is the pause overlay up
-
-/* live (non-persisted) runtime */
-const RT = { tickets:[], nextId:1, spawnAcc:0, lastT:0, raf:0, autosaveTimer:0,
-  streak:0, bestStreak:0, dayServed:0, dayMissed:0, dayEarnings:0, dayTips:0 };
+let S=defaultState(), view='overview', running=false, paused=false;
+const RT={tickets:[],nextId:1,spawnAcc:0,lastT:0,raf:0,autosaveTimer:0,
+  streak:0,bestStreak:0,dayServed:0,dayMissed:0,dayEarnings:0,dayTips:0,
+  eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null,tutStep:0};
 
 function save(reason){
-  try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ ...S, _ts:Date.now() }));
-    if(reason) toast('Game saved', 'good');
-    return true;
-  }catch(e){
-    console.error('save failed', e);
-    if(reason) toast('Save failed — storage blocked', 'bad');
-    return false;
-  }
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify({...S,_ts:Date.now()}));
+    if(reason) toast('Game saved','good'); return true;
+  }catch(e){ if(reason) toast('Save failed','bad'); return false; }
 }
 function loadSave(){
-  try{
-    const raw = localStorage.getItem(SAVE_KEY);
-    if(!raw) return null;
-    const data = JSON.parse(raw);
-    if(typeof data.cash !== 'number') return null;
-    return data;
-  }catch(e){ console.error('load failed', e); return null; }
+  try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null;
+    const d=JSON.parse(r); return typeof d.cash==='number'?d:null;
+  }catch(e){ return null; }
 }
 function hasSave(){ return !!loadSave(); }
 
-/* ---------- C. Boot / menu flow ---------- */
+/* ---------- C. Boot ---------- */
 function showMenu(){
-  running = false; paused = false;
-  cancelAnimationFrame(RT.raf);
-  clearInterval(RT.autosaveTimer);
-  el('#game').classList.add('hidden');
-  el('#pause').classList.add('hidden');
-  el('#settings').classList.add('hidden');
-  el('#day-summary').classList.add('hidden');
+  running=false; paused=false;
+  cancelAnimationFrame(RT.raf); clearInterval(RT.autosaveTimer);
+  ['#game','#pause','#settings','#day-summary','#tier-up','#victory','#game-over','#tutorial'].forEach(s=>el(s).classList.add('hidden'));
   el('#main-menu').classList.remove('hidden');
-  const sv = loadSave();
-  el('#btn-continue').disabled = !sv;
-  el('#cont-label').textContent = sv ? `Continue — Day ${sv.day} · $${sv.cash}` : 'Continue';
+  const sv=loadSave();
+  el('#btn-continue').disabled=!sv;
+  el('#cont-label').textContent=sv?`Continue — ${TIERS[sv.tier||0].name} Day ${sv.day} · $${sv.cash}`:'Continue';
 }
-
 function newGame(){
-  S = defaultState();
-  startSession();
-  save();
-  pushLog('Opened for business. Day 1.', 'good');
+  S=defaultState(); startSession(); save();
+  pushLog('Opened for business. Day 1.','good');
+  if(!S.tutDone) startTutorial();
 }
-
 function continueGame(){
-  const data = loadSave();
-  if(!data){ toast('No save found', 'bad'); return; }
-  S = { ...defaultState(), ...data };
-  startSession();
-  pushLog('Resumed service.', '');
+  const d=loadSave(); if(!d){toast('No save found','bad');return;}
+  S={...defaultState(),...d,finances:{...defaultState().finances,...(d.finances||{})},
+    bestDay:{...defaultState().bestDay,...(d.bestDay||{})},
+    settings:{...defaultState().settings,...(d.settings||{})}};
+  if(!S.staff) S.staff=[];
+  if(!S.upgrades) S.upgrades=[];
+  if(!S.achievements) S.achievements=[];
+  startSession(); pushLog('Resumed service.','');
 }
-
 function startSession(){
-  running = true; paused = false;
-  RT.tickets = []; RT.nextId = 1; RT.spawnAcc = 0; RT.lastT = performance.now();
-  el('#main-menu').classList.add('hidden');
-  el('#settings').classList.add('hidden');
-  el('#pause').classList.add('hidden');
-  el('#game').classList.remove('hidden');
+  running=true; paused=false;
+  Object.assign(RT,{tickets:[],nextId:1,spawnAcc:0,lastT:performance.now(),
+    streak:0,bestStreak:0,dayServed:0,dayMissed:0,dayEarnings:0,dayTips:0,
+    eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null});
+  el('#main-menu').classList.add('hidden'); el('#settings').classList.add('hidden');
+  el('#pause').classList.add('hidden'); el('#game').classList.remove('hidden');
   el('#rail-track').querySelectorAll('.ticket').forEach(n=>n.remove());
-  setView('overview');
-  syncSettingsUI();
-  document.body.classList.toggle('reduce-motion', !!S.settings.reduceMotion);
-  renderHUD();
-  startLoop();
+  applyTierVisuals();
+  setView('overview'); syncSettingsUI();
+  document.body.classList.toggle('reduce-motion',!!S.settings.reduceMotion);
+  renderHUD(); startLoop();
   clearInterval(RT.autosaveTimer);
-  RT.autosaveTimer = setInterval(()=>{ if(running) save(); }, AUTOSAVE_MS);
+  RT.autosaveTimer=setInterval(()=>{if(running) save();},AUTOSAVE_MS);
+}
+function applyTierVisuals(){
+  const t=curTier();
+  el('#backdrop').style.backgroundImage=`url('${t.bg}')`;
+  el('.tier').textContent='▸ '+t.loc;
+  document.title='Plate Empire — '+t.name;
 }
 
 /* ---------- D. Views ---------- */
-function setView(v){
-  view = v;
-  els('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
-  renderView();
-}
-
+function setView(v){ view=v; els('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); renderView(); }
 function renderView(){
-  const host = el('#view');
-  if(view==='overview') host.innerHTML = tplOverview();
-  else if(view==='menu') host.innerHTML = tplMenu();
-  else if(view==='staff') host.innerHTML = tplStaff();
-  else if(view==='finance') host.innerHTML = tplFinance();
-  else if(view==='community') host.innerHTML = tplCommunity();
+  const h=el('#view');
+  if(view==='overview') h.innerHTML=tplOverview();
+  else if(view==='menu') h.innerHTML=tplMenu();
+  else if(view==='staff') h.innerHTML=tplStaff();
+  else if(view==='finance') h.innerHTML=tplFinance();
+  else if(view==='community') h.innerHTML=tplCommunity();
   if(view==='overview') renderLog();
-  if(view==='staff') wireHire();
+  if(view==='staff') wireHireAndUpgrade();
 }
 
 function tplOverview(){
-  return `
-  <div class="panel">
-    <h2>Service <span class="accent">Overview</span></h2>
-    <div class="sub">Click tickets on the rail above before their timer runs out. Each fill pays out and nudges your reputation.</div>
+  const ev=RT.activeEvent;
+  return `${ev?'<div class="panel" style="border-left:3px solid var(--brass)"><h2>'+ev.icon+' <span class="accent">'+ev.name+'</span></h2><div class="sub">'+ev.desc+'</div></div>':''}
+  <div class="panel"><h2>Service <span class="accent">Overview</span></h2>
+    <div class="sub">Click tickets on the rail before their timer runs out.</div>
     <div class="grid-2">
       <div class="metric"><div class="k">Orders served</div><div class="v" id="m-served">${S.served}</div></div>
       <div class="metric"><div class="k">Orders missed</div><div class="v" id="m-missed">${S.missed}</div></div>
@@ -542,65 +711,59 @@ function tplOverview(){
       <div class="metric"><div class="k">Day timer</div><div class="v"><span id="m-day-timer">${Math.ceil(S.dayMsLeft/1000)}</span><small>s left</small></div></div>
       <div class="metric"><div class="k">Streak</div><div class="v" id="m-streak">${RT.streak}</div></div>
       <div class="metric"><div class="k">Tips today</div><div class="v">$<span id="m-tips">${RT.dayTips}</span></div></div>
-    </div>
-  </div>
-  <div class="panel">
-    <h2>Service <span class="accent">Log</span></h2>
-    <div class="log" id="log"></div>
-  </div>`;
+    </div></div>
+  <div class="panel"><h2>Service <span class="accent">Log</span></h2><div class="log" id="log"></div></div>`;
 }
 
 function tplMenu(){
-  const rows = DISHES.map(d=>`
-    <div class="dish-row">
-      <img src="${d.icon}" alt="${d.name}">
-      <div>
-        <div class="dn">${d.name}</div>
-        <div class="dd">timer ${Math.round(d.life/1000)}s</div>
-      </div>
-      <div class="dp"><div class="price">$${d.price}</div><div class="rep">+${d.rep} rep</div></div>
-    </div>`).join('');
-  return `
-  <div class="panel">
-    <h2>Truck <span class="accent">Menu</span></h2>
-    <div class="sub">Your hardcoded food-truck lineup for this tier. Tickets are drawn from these dishes.</div>
-    ${rows}
-  </div>`;
+  const dishes=tierDishes(S.tier);
+  const rows=dishes.map(d=>`<div class="dish-row"><img src="${d.icon}" alt="${d.name}">
+    <div><div class="dn">${d.name}</div><div class="dd">timer ${Math.round(d.life/1000)}s</div></div>
+    <div class="dp"><div class="price">$${d.price}</div><div class="rep">+${d.rep} rep</div></div></div>`).join('');
+  const nextT=TIERS[S.tier+1];
+  const canUp=nextT && S.rep>=nextT.unlockRep && S.cash>=nextT.unlockCash;
+  const upInfo=nextT?`<div class="panel"><h2>Next <span class="accent">Tier</span></h2>
+    <div class="sub">${nextT.name} — requires ${nextT.unlockRep} rep & $${nextT.unlockCash} cash</div>
+    <button class="menu-btn ${canUp?'primary':''}" id="btn-tier-up" ${canUp?'':'disabled'}>
+      ${canUp?'Upgrade to '+nextT.name:'Not yet qualified'}</button></div>`:'';
+  return `<div class="panel"><h2>${curTier().name} <span class="accent">Menu</span></h2>
+    <div class="sub">Your current lineup. Tickets are drawn from these dishes.</div>${rows}</div>${upInfo}`;
 }
 
 function tplStaff(){
-  const you = `<div class="staff-card">
-    <div class="s-icon">🧑‍🍳</div>
+  const available=ALL_STAFF.filter(s=>s.tier<=S.tier);
+  const you=`<div class="staff-card"><div class="s-icon">🧑‍🍳</div>
     <div class="s-info"><div class="s-name">You</div><div class="s-role">Head Cook · Owner</div>
     <div class="s-effect">Always on duty</div></div></div>`;
-  const hires = STAFF_DEFS.map(s=>{
-    const hired = S.staff.includes(s.id);
-    if(hired) return `<div class="staff-card">
-      <div class="s-icon">${s.icon}</div>
+  const hires=available.map(s=>{
+    const hired=S.staff.includes(s.id);
+    if(hired) return `<div class="staff-card"><div class="s-icon">${s.icon}</div>
       <div class="s-info"><div class="s-name">${s.name}</div><div class="s-role">${s.role}</div>
-      <div class="s-effect">${s.effect}</div><div class="s-cost">$${s.salary}/day salary</div></div></div>`;
-    return `<div class="staff-card">
-      <div class="s-icon" style="opacity:0.4">${s.icon}</div>
+      <div class="s-effect">${s.effect}</div><div class="s-cost">$${s.salary}/day</div></div></div>`;
+    return `<div class="staff-card"><div class="s-icon" style="opacity:0.4">${s.icon}</div>
       <div class="s-info"><div class="s-name">${s.name}</div><div class="s-role">${s.role}</div>
       <div class="s-effect">${s.effect} · $${s.salary}/day</div></div>
       <button class="hire-btn" data-hire="${s.id}" ${S.cash<s.cost?'disabled':''}>Hire $${s.cost}</button></div>`;
   }).join('');
-  return `<div class="panel">
-    <h2>Truck <span class="accent">Staff</span></h2>
-    <div class="sub">Your food-truck crew. Hire help to handle the rush.</div>
-    ${you}${hires}
-  </div>`;
+  const upgrades=UPGRADES.map(u=>{
+    const owned=S.upgrades.includes(u.id);
+    return `<div class="upgrade-card ${owned?'owned':''}"><div class="u-icon">${u.icon}</div>
+      <div class="u-info"><div class="u-name">${u.name}</div><div class="u-effect">${u.effect}</div></div>
+      ${owned?'':`<button class="hire-btn" data-upgrade="${u.id}" ${S.cash<u.cost?'disabled':''}>$${u.cost}</button>`}</div>`;
+  }).join('');
+  return `<div class="panel"><h2>${curTier().name} <span class="accent">Staff</span></h2>
+    <div class="sub">Your crew. Hire help to handle the rush.</div>${you}${hires}</div>
+    <div class="panel"><h2><span class="accent">Upgrades</span></h2>
+    <div class="sub">Equipment and improvements.</div>${upgrades}</div>`;
 }
 
 function tplFinance(){
-  const f = S.finances;
-  const net = f.totalEarnings + f.totalTips + f.totalBonuses - f.staffCost;
-  const hist = (f.history||[]).slice(-10).reverse().map(h=>
+  const f=S.finances, net=f.totalEarnings+f.totalTips+f.totalBonuses-f.staffCost;
+  const hist=(f.history||[]).slice(-10).reverse().map(h=>
     `<div class="fin-row"><span>Day ${h.day}</span><span class="pos">+$${h.earned}</span>
     <span class="pos">+$${h.tips} tips</span><span class="neg">-$${h.staff} staff</span></div>`
-  ).join('') || '<div class="fin-row" style="color:var(--muted)">No history yet</div>';
-  return `<div class="panel">
-    <h2>Truck <span class="accent">Finance</span></h2>
+  ).join('')||'<div class="fin-row" style="color:var(--muted)">No history yet</div>';
+  return `<div class="panel"><h2><span class="accent">Finance</span></h2>
     <div class="sub">Cash flow at a glance.</div>
     <div class="grid-2">
       <div class="metric"><div class="k">Total earnings</div><div class="v" style="color:var(--sage)">$${f.totalEarnings}</div></div>
@@ -608,188 +771,185 @@ function tplFinance(){
       <div class="metric"><div class="k">Streak bonuses</div><div class="v" style="color:var(--brass)">$${f.totalBonuses}</div></div>
       <div class="metric"><div class="k">Staff costs</div><div class="v" style="color:var(--alert)">$${f.staffCost}</div></div>
     </div>
-    <div style="margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted)">Net profit: <b style="color:var(--${net>=0?'sage':'alert'})">$${net}</b></div>
-  </div>
-  <div class="panel">
-    <h2>Daily <span class="accent">History</span></h2>
-    ${hist}
-  </div>`;
+    <div style="margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted)">Net profit: <b style="color:var(--${net>=0?'sage':'alert'})">$${net}</b></div></div>
+  <div class="panel"><h2>Daily <span class="accent">History</span></h2>${hist}</div>`;
 }
 
 function tplCommunity(){
-  const curMs = REP_MILESTONES.slice().reverse().find(m=>S.rep>=m.rep) || REP_MILESTONES[0];
-  const nextMs = REP_MILESTONES.find(m=>m.rep>S.rep);
-  const rows = REP_MILESTONES.map(m=>{
-    const achieved = S.rep >= m.rep;
-    const current = m === curMs;
-    return `<div class="ms-row ${achieved?'achieved':''} ${current?'current':''}">
-      <div class="ms-icon">${achieved?'✓':m.icon}</div>
-      <div class="ms-name">${m.name}</div>
+  const curMs=REP_MILESTONES.slice().reverse().find(m=>S.rep>=m.rep)||REP_MILESTONES[0];
+  const nextMs=REP_MILESTONES.find(m=>m.rep>S.rep);
+  const msRows=REP_MILESTONES.map(m=>{
+    const ach=S.rep>=m.rep, cur=m===curMs;
+    return `<div class="ms-row ${ach?'achieved':''} ${cur?'current':''}">
+      <div class="ms-icon">${ach?'✓':m.icon}</div><div class="ms-name">${m.name}</div>
       <div class="ms-req">${m.rep} rep</div></div>`;
   }).join('');
-  const best = S.bestDay;
-  return `<div class="panel">
-    <h2>Community <span class="accent">Standing</span></h2>
+  const best=S.bestDay;
+  const achRows=ACHIEVEMENTS.map(a=>{
+    const unlocked=S.achievements.includes(a.id);
+    return `<div class="ach-row ${unlocked?'unlocked':''}">
+      <div class="ach-icon">${a.icon}</div><div><div class="ach-name">${a.name}</div>
+      <div class="ach-desc">${a.desc}</div></div></div>`;
+  }).join('');
+  return `<div class="panel"><h2>Community <span class="accent">Standing</span></h2>
     <div class="sub">Your reputation in the neighborhood.</div>
     <div class="grid-2">
       <div class="metric"><div class="k">Current standing</div><div class="v" style="font-size:18px">${curMs.icon} ${curMs.name}</div></div>
       <div class="metric"><div class="k">${nextMs?'Next milestone':'Max reached'}</div>
-        <div class="v" style="font-size:18px">${nextMs?nextMs.icon+' '+nextMs.name+' ('+nextMs.rep+')':'👑 Legendary'}</div></div>
-    </div>
-  </div>
-  <div class="panel">
-    <h2><span class="accent">Milestones</span></h2>
-    ${rows}
-  </div>
-  <div class="panel">
-    <h2>Best <span class="accent">Day</span></h2>
-    <div class="sub">Your personal records.</div>
+        <div class="v" style="font-size:18px">${nextMs?nextMs.icon+' '+nextMs.name+' ('+nextMs.rep+')':'👑 Legendary'}</div></div></div></div>
+  <div class="panel"><h2><span class="accent">Milestones</span></h2>${msRows}</div>
+  <div class="panel"><h2>Best <span class="accent">Day</span></h2><div class="sub">Personal records.</div>
     <div class="grid-2">
       <div class="metric"><div class="k">Most served</div><div class="v">${best.served}</div></div>
       <div class="metric"><div class="k">Best earnings</div><div class="v" style="color:var(--sage)">$${best.earnings}</div></div>
       <div class="metric"><div class="k">Best tips</div><div class="v" style="color:var(--sage)">$${best.tips}</div></div>
-      <div class="metric"><div class="k">Longest streak</div><div class="v" style="color:var(--brass)">${best.streak}x</div></div>
-    </div>
-  </div>`;
+      <div class="metric"><div class="k">Longest streak</div><div class="v" style="color:var(--brass)">${best.streak}x</div></div></div></div>
+  <div class="panel"><h2><span class="accent">Achievements</span></h2>
+    <div class="sub">${S.achievements.length}/${ACHIEVEMENTS.length} unlocked</div>${achRows}</div>`;
 }
 
-/* ---------- E. Staff helpers ---------- */
+/* ---------- E. Staff + Upgrades ---------- */
 function staffBonus(key){
-  return (S.staff||[]).reduce((sum,id)=>{
-    const def = STAFF_DEFS.find(s=>s.id===id);
-    return sum + (def && def[key] ? def[key] : 0);
-  }, 0);
+  let sum=(S.staff||[]).reduce((s,id)=>{const d=ALL_STAFF.find(x=>x.id===id);return s+(d&&d[key]?d[key]:0);},0);
+  sum+=(S.upgrades||[]).reduce((s,id)=>{const d=UPGRADES.find(x=>x.id===id);return s+(d&&d[key]?d[key]:0);},0);
+  return sum;
 }
 function dailySalary(){
-  return (S.staff||[]).reduce((sum,id)=>{
-    const def = STAFF_DEFS.find(s=>s.id===id);
-    return sum + (def ? def.salary : 0);
-  }, 0);
+  return (S.staff||[]).reduce((s,id)=>{const d=ALL_STAFF.find(x=>x.id===id);return s+(d?d.salary:0);},0);
 }
-function wireHire(){
-  els('[data-hire]').forEach(b=>b.addEventListener('click', ()=>{
-    const def = STAFF_DEFS.find(s=>s.id===b.dataset.hire);
-    if(!def || S.cash < def.cost || S.staff.includes(def.id)) return;
-    S.cash -= def.cost;
-    S.staff.push(def.id);
-    renderHUD();
-    renderView();
-    pushLog(`Hired ${def.name} (${def.role})`, 'good');
-    toast(`${def.name} joined the crew!`, 'good');
-    sfx('hire');
-    save();
+function tipMultiplier(){
+  let m=RT.eventTipMult;
+  (S.upgrades||[]).forEach(id=>{const u=UPGRADES.find(x=>x.id===id);if(u&&u.tipMult) m*=u.tipMult;});
+  return m;
+}
+function repBonusFromUpgrades(){
+  return (S.upgrades||[]).reduce((s,id)=>{const u=UPGRADES.find(x=>x.id===id);return s+(u&&u.repBonus?u.repBonus:0);},0);
+}
+function wireHireAndUpgrade(){
+  els('[data-hire]').forEach(b=>b.addEventListener('click',()=>{
+    const def=ALL_STAFF.find(s=>s.id===b.dataset.hire);
+    if(!def||S.cash<def.cost||S.staff.includes(def.id)) return;
+    S.cash-=def.cost; S.staff.push(def.id);
+    renderHUD(); renderView();
+    pushLog(`Hired ${def.name} (${def.role})`,'good');
+    toast(`${def.name} joined the crew!`,'good'); sfx('hire'); save();
   }));
+  els('[data-upgrade]').forEach(b=>b.addEventListener('click',()=>{
+    const def=UPGRADES.find(u=>u.id===b.dataset.upgrade);
+    if(!def||S.cash<def.cost||S.upgrades.includes(def.id)) return;
+    S.cash-=def.cost; S.upgrades.push(def.id);
+    renderHUD(); renderView();
+    pushLog(`Bought ${def.name}`,'good');
+    toast(`${def.name} installed!`,'good'); sfx('hire'); save();
+  }));
+  const tuBtn=el('#btn-tier-up');
+  if(tuBtn) tuBtn.addEventListener('click',()=>showTierUpgrade());
 }
 
-/* ---------- F. Ticket system ---------- */
+/* ---------- F. Tickets ---------- */
+function pickCustomer(){
+  const total=CUSTOMER_TYPES.reduce((s,c)=>s+c.weight,0);
+  let r=Math.random()*total;
+  for(const c of CUSTOMER_TYPES){ r-=c.weight; if(r<=0) return c; }
+  return CUSTOMER_TYPES[0];
+}
 function spawnTicket(){
-  const maxCap = 6 + staffBonus('railBonus');
-  if(RT.tickets.length >= maxCap) return;
-  const dish = DISHES[Math.floor(Math.random()*DISHES.length)];
-  const bonus = staffBonus('ticketBonus');
-  const t = { id:RT.nextId++, dishId:dish.id, life:dish.life+bonus, left:dish.life+bonus };
+  const maxCap=curTier().railCap+staffBonus('railBonus')+RT.eventRailBonus;
+  if(RT.tickets.length>=maxCap) return;
+  const dishes=tierDishes(S.tier);
+  const dish=dishes[Math.floor(Math.random()*dishes.length)];
+  const cust=pickCustomer();
+  const bonus=staffBonus('ticketBonus');
+  const life=Math.round((dish.life+bonus)*cust.lifeMult);
+  const t={id:RT.nextId++,dishId:dish.id,life:life,left:life,cust:cust};
   RT.tickets.push(t);
-  const track = el('#rail-track');
-  const node = document.createElement('div');
-  node.className = 'ticket';
-  node.dataset.id = t.id;
-  node.style.left = '100%';
-  node.innerHTML = `
-    <div class="t-head">
-      <img class="t-icon" src="${dish.icon}" alt="">
-      <span class="t-name">${dish.name}</span>
-      <span class="t-price">$${dish.price}</span>
-    </div>
+  const track=el('#rail-track');
+  const node=document.createElement('div');
+  node.className='ticket'+(cust.cls?' '+cust.cls:'');
+  node.dataset.id=t.id;
+  node.style.left='100%';
+  node.innerHTML=`${cust.label?'<span class="t-type">'+cust.label+'</span>':''}
+    <div class="t-head"><img class="t-icon" src="${dish.icon}" alt="">
+      <span class="t-name">${dish.name}</span><span class="t-price">$${dish.price}</span></div>
     <div class="t-bar-wrap"><div class="t-bar"></div></div>
     <div class="t-foot"><span>#${String(t.id).padStart(3,'0')}</span><span class="t-time">${Math.ceil(t.left/1000)}s</span></div>`;
-  node.addEventListener('click', ()=>fulfill(t.id));
+  node.addEventListener('click',()=>fulfill(t.id));
   track.appendChild(node);
-  el('#rail-empty').style.display = 'none';
+  el('#rail-empty').style.display='none';
   layoutTickets();
+  updateScene();
 }
-
 function layoutTickets(){
-  RT.tickets.forEach((t,i)=>{
-    const node = ticketNode(t.id);
-    if(node) node.style.left = (i*RAIL_SLOT + 12) + 'px';
-  });
-  el('#rail-count').textContent = RT.tickets.length + ' active';
-  el('#rail-empty').style.display = RT.tickets.length ? 'none' : 'flex';
+  RT.tickets.forEach((t,i)=>{const n=ticketNode(t.id);if(n) n.style.left=(i*RAIL_SLOT+12)+'px';});
+  el('#rail-count').textContent=RT.tickets.length+' active';
+  el('#rail-empty').style.display=RT.tickets.length?'none':'flex';
 }
-
-function ticketNode(id){ return el(`.ticket[data-id="${id}"]`); }
+function ticketNode(id){return el(`.ticket[data-id="${id}"]`);}
 
 function fulfill(id){
-  const idx = RT.tickets.findIndex(t=>t.id===id);
-  if(idx<0) return;
-  const t = RT.tickets[idx];
-  const dish = dishById(t.dishId);
-  const tipChance = S.rep / 100;
-  const tip = Math.random() < tipChance ? Math.ceil(dish.price * 0.2) : 0;
-  S.cash += dish.price + tip;
-  S.rep = clamp(S.rep + dish.rep, 0, 100);
-  S.served++;
-  RT.streak++;
-  if(RT.streak > RT.bestStreak) RT.bestStreak = RT.streak;
-  RT.dayServed++;
-  RT.dayEarnings += dish.price;
-  RT.dayTips += tip;
-  const node = ticketNode(id);
-  if(node){ node.classList.add('fulfilled'); setTimeout(()=>node.remove(), 360); }
-  RT.tickets.splice(idx,1);
-  layoutTickets();
-  renderHUD();
-  let streakBonus = 0;
-  if(RT.streak === 5){ streakBonus = 10; }
-  else if(RT.streak === 10){ streakBonus = 25; }
-  else if(RT.streak > 0 && RT.streak % 10 === 0){ streakBonus = 25; }
-  if(streakBonus){ S.cash += streakBonus; RT.dayEarnings += streakBonus; }
-  S.finances.totalEarnings += dish.price;
-  S.finances.totalTips += tip;
-  S.finances.totalBonuses += streakBonus;
-  const tipMsg = tip ? ` · +$${tip} tip` : '';
-  pushLog(`Served ${dish.name} · +$${dish.price}${tipMsg} · +${dish.rep} rep`, 'good');
-  if(streakBonus) toast(`${RT.streak}x streak! +$${streakBonus} bonus!`, 'good');
-  else if(RT.streak >= 3) toast(`${RT.streak}x streak!`, 'good');
-  sfx('serve');
+  const idx=RT.tickets.findIndex(t=>t.id===id); if(idx<0) return;
+  const t=RT.tickets[idx], dish=dishById(t.dishId), cust=t.cust||CUSTOMER_TYPES[0];
+  const tipBase=Math.ceil(dish.price*0.2);
+  const tipChance=S.rep/100*cust.tipMult*tipMultiplier();
+  const tip=Math.random()<Math.min(tipChance,0.95)?tipBase:0;
+  const extraRep=repBonusFromUpgrades();
+  const repGain=Math.round((dish.rep+extraRep)*cust.repMult*RT.eventRepMult);
+  S.cash+=dish.price+tip; S.rep=clamp(S.rep+repGain,0,100); S.served++;
+  RT.streak++; if(RT.streak>RT.bestStreak) RT.bestStreak=RT.streak;
+  RT.dayServed++; RT.dayEarnings+=dish.price; RT.dayTips+=tip;
+  const node=ticketNode(id);
+  if(node){node.classList.add('fulfilled');setTimeout(()=>node.remove(),360);}
+  RT.tickets.splice(idx,1); layoutTickets(); renderHUD(); updateScene();
+  let sb=0;
+  if(RT.streak===5) sb=10; else if(RT.streak>0&&RT.streak%10===0) sb=25;
+  if(sb){S.cash+=sb;RT.dayEarnings+=sb;}
+  S.finances.totalEarnings+=dish.price; S.finances.totalTips+=tip; S.finances.totalBonuses+=sb;
+  const tm=tip?` · +$${tip} tip`:'';
+  pushLog(`Served ${dish.name} · +$${dish.price}${tm} · +${repGain} rep`,'good');
+  if(sb) toast(`${RT.streak}x streak! +$${sb} bonus!`,'good');
+  else if(RT.streak>=3) toast(`${RT.streak}x streak!`,'good');
+  sfx('serve'); checkAchievements();
 }
-
 function expire(id){
-  const idx = RT.tickets.findIndex(t=>t.id===id);
-  if(idx<0) return;
-  const t = RT.tickets[idx];
-  const dish = dishById(t.dishId);
-  S.rep = clamp(S.rep + MISS_REP, 0, 100);
-  S.missed++;
-  RT.streak = 0;
-  RT.dayMissed++;
-  const node = ticketNode(id);
-  if(node){ node.classList.add('missed'); setTimeout(()=>node.remove(), 420); }
-  RT.tickets.splice(idx,1);
-  layoutTickets();
-  renderHUD();
-  pushLog(`Missed ${dish.name} · ${MISS_REP} rep`, 'bad');
-  sfx('miss');
-  if(S.rep <= 0) gameOver();
+  const idx=RT.tickets.findIndex(t=>t.id===id); if(idx<0) return;
+  const t=RT.tickets[idx], dish=dishById(t.dishId), cust=t.cust||CUSTOMER_TYPES[0];
+  const repLoss=cust.id==='critic'?MISS_REP*2:MISS_REP;
+  S.rep=clamp(S.rep+repLoss,0,100); S.missed++; RT.streak=0; RT.dayMissed++;
+  const node=ticketNode(id);
+  if(node){node.classList.add('missed');setTimeout(()=>node.remove(),420);}
+  RT.tickets.splice(idx,1); layoutTickets(); renderHUD(); updateScene();
+  pushLog(`Missed ${dish.name} · ${repLoss} rep`,'bad'); sfx('miss');
+  if(S.rep<=0) gameOver();
 }
 
 /* ---------- G. Economy + day cycle ---------- */
+function rollEvent(){
+  RT.eventPaceMult=1;RT.eventRepMult=1;RT.eventTipMult=1;RT.eventRailBonus=0;RT.activeEvent=null;
+  if(S.day>1&&Math.random()<0.3){
+    const ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
+    RT.activeEvent=ev; ev.apply(RT);
+    const banner=el('#event-banner');
+    banner.textContent=ev.icon+' '+ev.name;
+    banner.classList.remove('hidden');
+    setTimeout(()=>banner.classList.add('hidden'),3000);
+    pushLog(ev.name+' — '+ev.desc,'good');
+  }
+}
 function endDay(){
-  paused = true;
-  const perfect = RT.dayMissed === 0 && RT.dayServed > 0;
-  if(perfect){ S.rep = clamp(S.rep + 5, 0, 100); }
-  const sal = dailySalary();
-  S.cash -= sal;
-  S.finances.staffCost += sal;
-  if(!S.finances.history) S.finances.history = [];
-  S.finances.history.push({ day:S.day, earned:RT.dayEarnings, tips:RT.dayTips, staff:sal });
-  if(S.finances.history.length > 30) S.finances.history.shift();
-  if(RT.dayServed > S.bestDay.served) S.bestDay.served = RT.dayServed;
-  if(RT.dayEarnings > S.bestDay.earnings) S.bestDay.earnings = RT.dayEarnings;
-  if(RT.dayTips > S.bestDay.tips) S.bestDay.tips = RT.dayTips;
-  if(RT.bestStreak > S.bestDay.streak) S.bestDay.streak = RT.bestStreak;
-  el('#ds-title').textContent = perfect ? `Day ${S.day} — Perfect Service!` : `Day ${S.day} Complete`;
-  el('#ds-stats').innerHTML = `
+  paused=true;
+  const perfect=RT.dayMissed===0&&RT.dayServed>0;
+  if(perfect) S.rep=clamp(S.rep+5,0,100);
+  const sal=dailySalary();
+  S.cash-=sal; S.finances.staffCost+=sal;
+  if(!S.finances.history) S.finances.history=[];
+  S.finances.history.push({day:S.day,earned:RT.dayEarnings,tips:RT.dayTips,staff:sal});
+  if(S.finances.history.length>30) S.finances.history.shift();
+  if(RT.dayServed>S.bestDay.served) S.bestDay.served=RT.dayServed;
+  if(RT.dayEarnings>S.bestDay.earnings) S.bestDay.earnings=RT.dayEarnings;
+  if(RT.dayTips>S.bestDay.tips) S.bestDay.tips=RT.dayTips;
+  if(RT.bestStreak>S.bestDay.streak) S.bestDay.streak=RT.bestStreak;
+  el('#ds-title').textContent=perfect?`Day ${S.day} — Perfect Service!`:`Day ${S.day} Complete`;
+  el('#ds-stats').innerHTML=`
     <div><span>Orders served</span><b>${RT.dayServed}</b></div>
     <div><span>Orders missed</span><b>${RT.dayMissed}</b></div>
     <div><span>Earnings</span><b>$${RT.dayEarnings}</b></div>
@@ -797,222 +957,220 @@ function endDay(){
     ${sal?'<div><span>Staff salary</span><b style="color:var(--alert)">-$'+sal+'</b></div>':''}
     <div><span>Best streak</span><b>${RT.bestStreak}x</b></div>
     <div><span>Reputation</span><b>${S.rep}/100</b></div>
-    ${perfect ? '<div><span>Perfect service bonus</span><b>+5 rep</b></div>' : ''}`;
+    ${perfect?'<div><span>Perfect service bonus</span><b>+5 rep</b></div>':''}`;
   el('#day-summary').classList.remove('hidden');
-  S.day++;
-  S.dayMsLeft = DAY_LENGTH_MS;
-  RT.dayServed = 0; RT.dayMissed = 0; RT.dayEarnings = 0; RT.dayTips = 0;
-  RT.streak = 0; RT.bestStreak = 0;
-  RT.tickets.forEach(t=>{ const n=ticketNode(t.id); if(n) n.remove(); });
-  RT.tickets = [];
-  layoutTickets();
-  renderHUD();
-  sfx('dayEnd');
+  S.day++; S.dayMsLeft=curTier().dayLen;
+  RT.dayServed=0;RT.dayMissed=0;RT.dayEarnings=0;RT.dayTips=0;RT.streak=0;RT.bestStreak=0;
+  RT.tickets.forEach(t=>{const n=ticketNode(t.id);if(n) n.remove();});
+  RT.tickets=[]; layoutTickets(); renderHUD(); sfx('dayEnd');
+  checkAchievements(); save();
+}
+function gameOver(){
+  running=false; cancelAnimationFrame(RT.raf); clearInterval(RT.autosaveTimer);
+  el('#go-stats').innerHTML=`
+    <div><span>Tier reached</span><b>${curTier().name}</b></div>
+    <div><span>Days survived</span><b>${S.day}</b></div>
+    <div><span>Total served</span><b>${S.served}</b></div>
+    <div><span>Final cash</span><b>$${S.cash}</b></div>`;
+  el('#game-over').classList.remove('hidden');
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+}
+
+function showTierUpgrade(){
+  const next=TIERS[S.tier+1]; if(!next) return;
+  paused=true;
+  el('#tu-title').textContent='Upgrade to '+next.name;
+  el('#tu-sub').textContent=next.loc+' — a whole new menu, bigger kitchen, more customers.';
+  el('#tu-stats').innerHTML=`
+    <div><span>Cost</span><b>$${next.unlockCash}</b></div>
+    <div><span>New dishes</span><b>${tierDishes(S.tier+1).length}</b></div>
+    <div><span>Rail capacity</span><b>${next.railCap}+ slots</b></div>
+    <div><span>Day length</span><b>${Math.round(next.dayLen/1000)}s</b></div>`;
+  el('#tier-up').classList.remove('hidden');
+}
+function doTierUpgrade(){
+  const next=TIERS[S.tier+1]; if(!next) return;
+  S.cash-=next.unlockCash; S.tier++; S.rep=50;
+  el('#tier-up').classList.add('hidden');
+  applyTierVisuals(); renderHUD(); renderView();
+  pushLog(`Upgraded to ${curTier().name}!`,'good');
+  toast(`Welcome to ${curTier().loc}!`,'good');
+  sfx('hire'); paused=false; RT.lastT=performance.now();
+  checkAchievements();
+  if(S.tier>=4&&!S.victoryShown) showVictory();
   save();
 }
 
-function gameOver(){
-  running = false;
-  cancelAnimationFrame(RT.raf);
-  clearInterval(RT.autosaveTimer);
-  el('#go-stats').innerHTML = `
-    <div><span>Days survived</span><b>${S.day}</b></div>
+function showVictory(){
+  S.victoryShown=true; paused=true;
+  el('#vic-stats').innerHTML=`
+    <div><span>Total days</span><b>${S.day}</b></div>
     <div><span>Total served</span><b>${S.served}</b></div>
-    <div><span>Total missed</span><b>${S.missed}</b></div>
-    <div><span>Final cash</span><b>$${S.cash}</b></div>`;
-  el('#game-over').classList.remove('hidden');
-  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+    <div><span>Total cash earned</span><b>$${S.finances.totalEarnings+S.finances.totalTips+S.finances.totalBonuses}</b></div>
+    <div><span>Achievements</span><b>${S.achievements.length}/${ACHIEVEMENTS.length}</b></div>`;
+  el('#victory').classList.remove('hidden');
 }
 
-/* ---------- G. Game loop ---------- */
-function startLoop(){
-  cancelAnimationFrame(RT.raf);
-  RT.lastT = performance.now();
-  const step = (now)=>{
-    const dt = Math.min(now - RT.lastT, 250); // clamp big gaps (tab switch)
-    RT.lastT = now;
-    if(running && !paused){
-      tick(dt);
+function checkAchievements(){
+  let newAch=false;
+  ACHIEVEMENTS.forEach(a=>{
+    if(!S.achievements.includes(a.id)&&a.check(S,S.bestDay)){
+      S.achievements.push(a.id); newAch=true;
+      toast(`${a.icon} ${a.name} unlocked!`,'good');
     }
-    RT.raf = requestAnimationFrame(step);
-  };
-  RT.raf = requestAnimationFrame(step);
+  });
+  if(newAch) save();
 }
 
+/* ---------- H. Game loop ---------- */
+function startLoop(){
+  cancelAnimationFrame(RT.raf); RT.lastT=performance.now();
+  const step=now=>{
+    const dt=Math.min(now-RT.lastT,250); RT.lastT=now;
+    if(running&&!paused) tick(dt);
+    RT.raf=requestAnimationFrame(step);
+  };
+  RT.raf=requestAnimationFrame(step);
+}
 function tick(dt){
-  // spawn cadence — gets tighter as days progress, capped at rush pace
-  RT.spawnAcc += dt;
-  const base = PACE[S.settings.pace] || PACE.normal;
-  const dayScale = Math.max(0.6, 1 - (S.day - 1) * 0.04);
-  const interval = Math.max(PACE.rush, base * dayScale);
-  if(RT.spawnAcc >= interval){ RT.spawnAcc = 0; spawnTicket(); }
-
-  // ticket countdowns
+  RT.spawnAcc+=dt;
+  const base=PACE[S.settings.pace]||PACE.normal;
+  const dayScale=Math.max(0.6,1-(S.day-1)*0.04);
+  const interval=Math.max(PACE.rush,base*dayScale*RT.eventPaceMult);
+  if(RT.spawnAcc>=interval){RT.spawnAcc=0;spawnTicket();}
   for(let i=RT.tickets.length-1;i>=0;i--){
-    const t = RT.tickets[i];
-    t.left -= dt;
-    const node = ticketNode(t.id);
+    const t=RT.tickets[i]; t.left-=dt;
+    const node=ticketNode(t.id);
     if(node){
-      const frac = Math.max(0, t.left/t.life);
-      const bar = node.querySelector('.t-bar');
-      if(bar) bar.style.width = (frac*100)+'%';
-      node.classList.toggle('warn', frac<=0.5 && frac>0.25);
-      node.classList.toggle('urgent', frac<=0.25);
-      const tm = node.querySelector('.t-time');
-      if(tm) tm.textContent = Math.ceil(Math.max(0,t.left)/1000)+'s';
+      const frac=Math.max(0,t.left/t.life);
+      const bar=node.querySelector('.t-bar'); if(bar) bar.style.width=(frac*100)+'%';
+      node.classList.toggle('warn',frac<=0.5&&frac>0.25);
+      node.classList.toggle('urgent',frac<=0.25);
+      const tm=node.querySelector('.t-time'); if(tm) tm.textContent=Math.ceil(Math.max(0,t.left)/1000)+'s';
     }
     if(t.left<=0) expire(t.id);
   }
-
-  // day clock
-  S.dayMsLeft -= dt;
+  S.dayMsLeft-=dt;
   if(S.dayMsLeft<=0) endDay();
-  if(view==='overview'){
-    const dtv = el('#m-day-timer'); if(dtv) dtv.textContent = Math.ceil(Math.max(0,S.dayMsLeft)/1000);
-  }
+  if(view==='overview'){const dtv=el('#m-day-timer');if(dtv) dtv.textContent=Math.ceil(Math.max(0,S.dayMsLeft)/1000);}
 }
 
-/* ---------- H. Pause / settings / toasts / render ---------- */
+/* ---------- I. UI ---------- */
 function renderHUD(){
-  el('#hud-cash').textContent = '$'+S.cash;
-  el('#hud-rep').textContent = S.rep;
-  el('#hud-rep-bar').style.width = S.rep+'%';
-  el('#hud-day').textContent = S.day;
-  const repStat = el('.stat.rep');
-  if(repStat) repStat.classList.toggle('danger', S.rep <= 20 && S.rep > 0);
-  const streakEl = el('#hud-streak');
-  if(streakEl){
-    streakEl.textContent = RT.streak;
-    streakEl.closest('.stat').classList.toggle('hot', RT.streak >= 3);
-  }
+  el('#hud-cash').textContent='$'+S.cash;
+  el('#hud-rep').textContent=S.rep;
+  el('#hud-rep-bar').style.width=S.rep+'%';
+  el('#hud-day').textContent=S.day;
+  const repStat=el('.stat.rep');
+  if(repStat) repStat.classList.toggle('danger',S.rep<=20&&S.rep>0);
+  const streakEl=el('#hud-streak');
+  if(streakEl){streakEl.textContent=RT.streak;streakEl.closest('.stat').classList.toggle('hot',RT.streak>=3);}
   if(view==='overview'){
-    setText('#m-served', S.served); setText('#m-missed', S.missed);
-    setText('#m-cash', S.cash); setText('#m-streak', RT.streak);
-    setText('#m-tips', RT.dayTips);
+    setText('#m-served',S.served);setText('#m-missed',S.missed);
+    setText('#m-cash',S.cash);setText('#m-streak',RT.streak);setText('#m-tips',RT.dayTips);
   }
 }
-
-function pushLog(msg, kind){
-  S.log.unshift({ msg, kind, t:Date.now() });
-  if(S.log.length>40) S.log.length = 40;
-  renderLog();
-}
-function renderLog(){
-  const box = el('#log'); if(!box) return;
-  box.innerHTML = S.log.map(e=>`<div class="${e.kind||''}">${e.msg}</div>`).join('');
-}
-
-function openPause(){ if(!running) return; paused = true; el('#pause').classList.remove('hidden'); }
-function closePause(){ paused = false; el('#pause').classList.add('hidden'); RT.lastT = performance.now(); }
-
+function pushLog(msg,kind){S.log.unshift({msg,kind,t:Date.now()});if(S.log.length>40) S.log.length=40;renderLog();}
+function renderLog(){const box=el('#log');if(!box) return;box.innerHTML=S.log.map(e=>`<div class="${e.kind||''}">${e.msg}</div>`).join('');}
+function openPause(){if(!running) return;paused=true;el('#pause').classList.remove('hidden');}
+function closePause(){paused=false;el('#pause').classList.add('hidden');RT.lastT=performance.now();}
 function syncSettingsUI(){
-  els('.toggle').forEach(t=>{
-    const key = t.dataset.set;
-    t.classList.toggle('on', !!S.settings[key]);
-  });
-  const pace = el('#set-pace'); if(pace) pace.value = S.settings.pace;
+  els('.toggle').forEach(t=>{t.classList.toggle('on',!!S.settings[t.dataset.set]);});
+  const p=el('#set-pace');if(p) p.value=S.settings.pace;
+}
+function toast(msg,kind){
+  const n=document.createElement('div');n.className='toast '+(kind||'');n.textContent=msg;
+  el('#toasts').appendChild(n);setTimeout(()=>n.remove(),2500);
+}
+function updateScene(){
+  for(let i=1;i<=5;i++){const c=el('#sc'+i);if(c) c.classList.toggle('active',RT.tickets.length>=i);}
+  const glow=el('.scene-glow');
+  if(glow) glow.style.opacity=RT.tickets.length>0?'1':'0.3';
+}
+function addSteam(){
+  const scene=el('#scene');if(!scene) return;
+  const s=document.createElement('div');s.className='scene-steam';
+  s.style.left=(45+Math.random()*10)+'%';s.style.bottom=(35+Math.random()*10)+'%';
+  s.style.animationDelay=(Math.random()*2)+'s';
+  scene.appendChild(s);setTimeout(()=>s.remove(),3000);
 }
 
-function toast(msg, kind){
-  const box = el('#toasts');
-  const n = document.createElement('div');
-  n.className = 'toast '+(kind||'');
-  n.textContent = msg;
-  box.appendChild(n);
-  setTimeout(()=>n.remove(), 2500);
+/* ---------- Tutorial ---------- */
+function startTutorial(){
+  RT.tutStep=0; showTutStep();
+}
+function showTutStep(){
+  if(RT.tutStep>=TUTORIAL_STEPS.length){
+    el('#tutorial').classList.add('hidden');S.tutDone=true;save();return;
+  }
+  const step=TUTORIAL_STEPS[RT.tutStep];
+  el('#tut-text').textContent=step.text;
+  el('#tut-tip').style.cssText=step.pos;
+  el('#tutorial').classList.remove('hidden');
 }
 
-/* ---------- SFX (Web Audio beeps) ---------- */
+/* ---------- J. SFX ---------- */
 let audioCtx;
 function sfx(name){
   if(!S.settings.sfx) return;
-  if(!audioCtx) try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.connect(g); g.connect(audioCtx.destination);
-  const now = audioCtx.currentTime;
-  g.gain.setValueAtTime(0.08, now);
-  if(name==='serve'){
-    o.type='sine'; o.frequency.setValueAtTime(660,now); o.frequency.setValueAtTime(880,now+0.06);
-    g.gain.exponentialRampToValueAtTime(0.001,now+0.15); o.start(now); o.stop(now+0.15);
-  } else if(name==='miss'){
-    o.type='sawtooth'; o.frequency.setValueAtTime(220,now); o.frequency.setValueAtTime(140,now+0.15);
-    g.gain.exponentialRampToValueAtTime(0.001,now+0.2); o.start(now); o.stop(now+0.2);
-  } else if(name==='hire'){
-    o.type='sine'; o.frequency.setValueAtTime(440,now); o.frequency.setValueAtTime(660,now+0.08); o.frequency.setValueAtTime(880,now+0.16);
-    g.gain.exponentialRampToValueAtTime(0.001,now+0.25); o.start(now); o.stop(now+0.25);
-  } else if(name==='dayEnd'){
-    o.type='triangle'; o.frequency.setValueAtTime(523,now); o.frequency.setValueAtTime(659,now+0.12); o.frequency.setValueAtTime(784,now+0.24);
-    g.gain.exponentialRampToValueAtTime(0.001,now+0.4); o.start(now); o.stop(now+0.4);
-  } else { o.disconnect(); return; }
+  if(!audioCtx) try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.connect(g);g.connect(audioCtx.destination);
+  const now=audioCtx.currentTime; g.gain.setValueAtTime(0.08,now);
+  if(name==='serve'){o.type='sine';o.frequency.setValueAtTime(660,now);o.frequency.setValueAtTime(880,now+0.06);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.15);o.start(now);o.stop(now+0.15);
+  }else if(name==='miss'){o.type='sawtooth';o.frequency.setValueAtTime(220,now);o.frequency.setValueAtTime(140,now+0.15);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.2);o.start(now);o.stop(now+0.2);
+  }else if(name==='hire'){o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.setValueAtTime(660,now+0.08);o.frequency.setValueAtTime(880,now+0.16);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.25);o.start(now);o.stop(now+0.25);
+  }else if(name==='dayEnd'){o.type='triangle';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(659,now+0.12);o.frequency.setValueAtTime(784,now+0.24);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.4);o.start(now);o.stop(now+0.4);
+  }else{o.disconnect();}
 }
 
 /* ---------- helpers ---------- */
-function el(s){ return document.querySelector(s); }
-function els(s){ return Array.from(document.querySelectorAll(s)); }
-function setText(s,v){ const n=el(s); if(n) n.textContent=v; }
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function el(s){return document.querySelector(s);}
+function els(s){return Array.from(document.querySelectorAll(s));}
+function setText(s,v){const n=el(s);if(n) n.textContent=v;}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 
-/* ---------- I. Wiring ---------- */
+/* ---------- K. Wiring ---------- */
 function wire(){
-  // main menu
-  el('#btn-new').addEventListener('click', newGame);
-  el('#btn-continue').addEventListener('click', continueGame);
-  el('#btn-settings').addEventListener('click', ()=>{ el('#main-menu').classList.add('hidden'); el('#settings').classList.remove('hidden'); });
-  // Settings is reachable from the main menu only in v1 → always return there.
-  el('#settings-back').addEventListener('click', ()=>{
-    el('#settings').classList.add('hidden');
-    el('#main-menu').classList.remove('hidden');
-  });
-
-  // settings controls
-  els('.toggle').forEach(t=>t.addEventListener('click', ()=>{
-    const key = t.dataset.set;
-    S.settings[key] = !S.settings[key];
-    t.classList.toggle('on', S.settings[key]);
-    if(key==='reduceMotion') document.body.classList.toggle('reduce-motion', S.settings.reduceMotion);
+  el('#btn-new').addEventListener('click',newGame);
+  el('#btn-continue').addEventListener('click',continueGame);
+  el('#btn-settings').addEventListener('click',()=>{el('#main-menu').classList.add('hidden');el('#settings').classList.remove('hidden');});
+  el('#settings-back').addEventListener('click',()=>{el('#settings').classList.add('hidden');el('#main-menu').classList.remove('hidden');});
+  els('.toggle').forEach(t=>t.addEventListener('click',()=>{
+    const key=t.dataset.set;S.settings[key]=!S.settings[key];t.classList.toggle('on',S.settings[key]);
+    if(key==='reduceMotion') document.body.classList.toggle('reduce-motion',S.settings.reduceMotion);
   }));
-  el('#set-pace').addEventListener('change', e=>{ S.settings.pace = e.target.value; });
-
-  // sidebar nav
-  els('.nav-item').forEach(b=>b.addEventListener('click', ()=>setView(b.dataset.view)));
-
-  // save + pause
-  el('#btn-save').addEventListener('click', ()=>save(true));
-  el('#btn-pause').addEventListener('click', openPause);
-  el('#btn-pause-side').addEventListener('click', openPause);
-  el('#pause-resume').addEventListener('click', closePause);
-  el('#pause-save').addEventListener('click', ()=>save(true));
-  el('#pause-menu').addEventListener('click', ()=>{ save(); showMenu(); });
-  el('#btn-main-menu').addEventListener('click', ()=>{ save(); showMenu(); });
-
-  // keyboard: Esc toggles pause during play
-  document.addEventListener('keydown', e=>{
-    if(e.key==='Escape' && running){
-      if(paused) closePause(); else openPause();
-    }
+  el('#set-pace').addEventListener('change',e=>{S.settings.pace=e.target.value;});
+  els('.nav-item').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+  el('#btn-save').addEventListener('click',()=>save(true));
+  el('#btn-pause').addEventListener('click',openPause);
+  el('#btn-pause-side').addEventListener('click',openPause);
+  el('#pause-resume').addEventListener('click',closePause);
+  el('#pause-save').addEventListener('click',()=>save(true));
+  el('#pause-menu').addEventListener('click',()=>{save();showMenu();});
+  el('#btn-main-menu').addEventListener('click',()=>{save();showMenu();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&running){if(paused)closePause();else openPause();}});
+  el('#ds-continue').addEventListener('click',()=>{
+    el('#day-summary').classList.add('hidden');paused=false;RT.lastT=performance.now();
+    rollEvent();
+    pushLog(`Day ${S.day} — fresh service!`,'good');toast(`Day ${S.day} — let's go!`,'good');
   });
-
-  // day summary continue
-  el('#ds-continue').addEventListener('click', ()=>{
-    el('#day-summary').classList.add('hidden');
-    paused = false;
-    RT.lastT = performance.now();
-    pushLog(`Day ${S.day} — fresh service!`, 'good');
-    toast(`Day ${S.day} — let's go!`, 'good');
-  });
-
-  // game over
-  el('#go-new').addEventListener('click', ()=>{ el('#game-over').classList.add('hidden'); newGame(); });
-  el('#go-menu').addEventListener('click', ()=>{ el('#game-over').classList.add('hidden'); showMenu(); });
-
-  // save on tab hide
-  document.addEventListener('visibilitychange', ()=>{ if(document.hidden && running) save(); });
-
+  el('#go-new').addEventListener('click',()=>{el('#game-over').classList.add('hidden');newGame();});
+  el('#go-menu').addEventListener('click',()=>{el('#game-over').classList.add('hidden');showMenu();});
+  el('#tu-accept').addEventListener('click',doTierUpgrade);
+  el('#tu-later').addEventListener('click',()=>{el('#tier-up').classList.add('hidden');paused=false;RT.lastT=performance.now();});
+  el('#vic-continue').addEventListener('click',()=>{el('#victory').classList.add('hidden');paused=false;RT.lastT=performance.now();});
+  el('#vic-menu').addEventListener('click',()=>{el('#victory').classList.add('hidden');save();showMenu();});
+  el('#tut-next').addEventListener('click',()=>{RT.tutStep++;showTutStep();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&running) save();});
+  setInterval(addSteam,1500);
   showMenu();
 }
-
-document.addEventListener('DOMContentLoaded', wire);
+document.addEventListener('DOMContentLoaded',wire);
 </script>
 </body>
 </html>
