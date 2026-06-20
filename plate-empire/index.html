@@ -129,6 +129,9 @@ nav{flex:1;padding:10px 0;}
 .stat .v{font-family:var(--disp);font-weight:800;font-size:26px;line-height:1;margin-top:3px;}
 .stat.cash .v{color:var(--sage);}
 .stat.rep .v{color:var(--brass);}
+.stat.rep.danger{animation:repPulse 1s ease infinite;}
+.stat.rep.danger .v{color:var(--alert);}
+@keyframes repPulse{0%,100%{border-color:var(--line)}50%{border-color:var(--alert)}}
 .stat.day .v{color:var(--cream);}
 .rep-bar{height:6px;margin-top:7px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden;}
 .rep-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--alert),var(--brass),var(--sage));border-radius:3px;}
@@ -243,7 +246,7 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
     <div class="menu-logo">Plate<br><em>Empire</em></div>
     <div class="menu-tag">FOOD-TRUCK TIER · v1</div>
     <button class="menu-btn primary" id="btn-new">New Game</button>
-    <button class="menu-btn" id="btn-continue">Continue</button>
+    <button class="menu-btn" id="btn-continue"><span id="cont-label">Continue</span></button>
     <button class="menu-btn" id="btn-settings">Settings</button>
   </div>
 </div>
@@ -290,6 +293,7 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
     <div class="side-foot">
       <button id="btn-save">Save</button>
       <button id="btn-pause-side">Pause</button>
+      <button id="btn-main-menu">Menu</button>
     </div>
   </aside>
 
@@ -422,8 +426,11 @@ function showMenu(){
   el('#game').classList.add('hidden');
   el('#pause').classList.add('hidden');
   el('#settings').classList.add('hidden');
+  el('#day-summary').classList.add('hidden');
   el('#main-menu').classList.remove('hidden');
-  el('#btn-continue').disabled = !hasSave();
+  const sv = loadSave();
+  el('#btn-continue').disabled = !sv;
+  el('#cont-label').textContent = sv ? `Continue — Day ${sv.day} · $${sv.cash}` : 'Continue';
 }
 
 function newGame(){
@@ -483,6 +490,8 @@ function tplOverview(){
       <div class="metric"><div class="k">Orders missed</div><div class="v" id="m-missed">${S.missed}</div></div>
       <div class="metric"><div class="k">Cash on hand</div><div class="v">$<span id="m-cash">${S.cash}</span></div></div>
       <div class="metric"><div class="k">Day timer</div><div class="v"><span id="m-day-timer">${Math.ceil(S.dayMsLeft/1000)}</span><small>s left</small></div></div>
+      <div class="metric"><div class="k">Streak</div><div class="v" id="m-streak">${RT.streak}</div></div>
+      <div class="metric"><div class="k">Tips today</div><div class="v">$<span id="m-tips">${RT.dayTips}</span></div></div>
     </div>
   </div>
   <div class="panel">
@@ -573,9 +582,15 @@ function fulfill(id){
   RT.tickets.splice(idx,1);
   layoutTickets();
   renderHUD();
+  let streakBonus = 0;
+  if(RT.streak === 5){ streakBonus = 10; }
+  else if(RT.streak === 10){ streakBonus = 25; }
+  else if(RT.streak > 0 && RT.streak % 10 === 0){ streakBonus = 25; }
+  if(streakBonus){ S.cash += streakBonus; RT.dayEarnings += streakBonus; }
   const tipMsg = tip ? ` · +$${tip} tip` : '';
   pushLog(`Served ${dish.name} · +$${dish.price}${tipMsg} · +${dish.rep} rep`, 'good');
-  if(RT.streak >= 3) toast(`${RT.streak}x streak!`, 'good');
+  if(streakBonus) toast(`${RT.streak}x streak! +$${streakBonus} bonus!`, 'good');
+  else if(RT.streak >= 3) toast(`${RT.streak}x streak!`, 'good');
 }
 
 function expire(id){
@@ -599,14 +614,17 @@ function expire(id){
 /* ---------- F. Economy + day cycle ---------- */
 function endDay(){
   paused = true;
-  el('#ds-title').textContent = `Day ${S.day} Complete`;
+  const perfect = RT.dayMissed === 0 && RT.dayServed > 0;
+  if(perfect){ S.rep = clamp(S.rep + 5, 0, 100); }
+  el('#ds-title').textContent = perfect ? `Day ${S.day} — Perfect Service!` : `Day ${S.day} Complete`;
   el('#ds-stats').innerHTML = `
     <div><span>Orders served</span><b>${RT.dayServed}</b></div>
     <div><span>Orders missed</span><b>${RT.dayMissed}</b></div>
     <div><span>Earnings</span><b>$${RT.dayEarnings}</b></div>
     <div><span>Tips earned</span><b>$${RT.dayTips}</b></div>
     <div><span>Best streak</span><b>${RT.bestStreak}x</b></div>
-    <div><span>Reputation</span><b>${S.rep}/100</b></div>`;
+    <div><span>Reputation</span><b>${S.rep}/100</b></div>
+    ${perfect ? '<div><span>Perfect service bonus</span><b>+5 rep</b></div>' : ''}`;
   el('#day-summary').classList.remove('hidden');
   S.day++;
   S.dayMsLeft = DAY_LENGTH_MS;
@@ -647,9 +665,11 @@ function startLoop(){
 }
 
 function tick(dt){
-  // spawn cadence
+  // spawn cadence — gets tighter as days progress, capped at rush pace
   RT.spawnAcc += dt;
-  const interval = PACE[S.settings.pace] || PACE.normal;
+  const base = PACE[S.settings.pace] || PACE.normal;
+  const dayScale = Math.max(0.6, 1 - (S.day - 1) * 0.04);
+  const interval = Math.max(PACE.rush, base * dayScale);
   if(RT.spawnAcc >= interval){ RT.spawnAcc = 0; spawnTicket(); }
 
   // ticket countdowns
@@ -683,13 +703,17 @@ function renderHUD(){
   el('#hud-rep').textContent = S.rep;
   el('#hud-rep-bar').style.width = S.rep+'%';
   el('#hud-day').textContent = S.day;
+  const repStat = el('.stat.rep');
+  if(repStat) repStat.classList.toggle('danger', S.rep <= 20 && S.rep > 0);
   const streakEl = el('#hud-streak');
   if(streakEl){
     streakEl.textContent = RT.streak;
     streakEl.closest('.stat').classList.toggle('hot', RT.streak >= 3);
   }
   if(view==='overview'){
-    setText('#m-served', S.served); setText('#m-missed', S.missed); setText('#m-cash', S.cash);
+    setText('#m-served', S.served); setText('#m-missed', S.missed);
+    setText('#m-cash', S.cash); setText('#m-streak', RT.streak);
+    setText('#m-tips', RT.dayTips);
   }
 }
 
@@ -760,6 +784,7 @@ function wire(){
   el('#pause-resume').addEventListener('click', closePause);
   el('#pause-save').addEventListener('click', ()=>save(true));
   el('#pause-menu').addEventListener('click', ()=>{ save(); showMenu(); });
+  el('#btn-main-menu').addEventListener('click', ()=>{ save(); showMenu(); });
 
   // keyboard: Esc toggles pause during play
   document.addEventListener('keydown', e=>{
