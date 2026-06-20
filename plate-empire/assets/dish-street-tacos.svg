@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plate Empire dish icon (PLACEHOLDER) — Street Tacos -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect x="2" y="2" width="116" height="116" rx="22" fill="#262320"/>
+  <rect x="2" y="2" width="116" height="116" rx="22" fill="none" stroke="#C08A3E" stroke-width="3"/>
+  <g>
+    <!-- back taco -->
+    <path d="M30 78 Q60 40 90 78 Z" fill="#e8c074"/>
+    <path d="M34 78 Q60 50 86 78 Z" fill="#5a3a22"/>
+    <rect x="40" y="66" width="40" height="6" rx="3" fill="#6B8E5A"/>
+    <circle cx="48" cy="72" r="3" fill="#B5453A"/><circle cx="62" cy="70" r="3" fill="#EFE6D8"/><circle cx="74" cy="73" r="3" fill="#B5453A"/>
+  </g>
+  <!-- front taco -->
+  <path d="M24 92 Q52 58 80 92 Z" fill="#f0cd82"/>
+  <path d="M29 92 Q52 66 75 92 Z" fill="#6a4528"/>
+  <rect x="34" y="80" width="36" height="6" rx="3" fill="#8aa86f"/>
+  <circle cx="42" cy="86" r="3" fill="#B5453A"/><circle cx="54" cy="84" r="3" fill="#EFE6D8"/><circle cx="66" cy="87" r="3" fill="#B5453A"/>
+</svg>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plate Empire dish icon (PLACEHOLDER) — Loaded Fries -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect x="2" y="2" width="116" height="116" rx="22" fill="#262320"/>
+  <rect x="2" y="2" width="116" height="116" rx="22" fill="none" stroke="#C08A3E" stroke-width="3"/>
+  <!-- carton -->
+  <path d="M38 64 h44 l-6 38 h-32 Z" fill="#B5453A"/>
+  <rect x="36" y="58" width="48" height="10" rx="3" fill="#9c3a30"/>
+  <!-- fries -->
+  <g fill="#e8c074" stroke="#c99a44" stroke-width="1.5">
+    <rect x="44" y="30" width="7" height="34" rx="2"/>
+    <rect x="54" y="24" width="7" height="40" rx="2"/>
+    <rect x="64" y="28" width="7" height="36" rx="2"/>
+    <rect x="73" y="34" width="7" height="30" rx="2"/>
+  </g>
+  <!-- cheese drizzle + chile -->
+  <path d="M40 60 q10 8 20 2 q12 7 22 -1 l-2 8 q-10 5 -20 0 q-10 5 -20 -1 Z" fill="#e8a14a"/>
+  <circle cx="50" cy="72" r="3" fill="#6B8E5A"/><circle cx="64" cy="74" r="3" fill="#6B8E5A"/><circle cx="72" cy="70" r="2.5" fill="#8aa86f"/>
+</svg>

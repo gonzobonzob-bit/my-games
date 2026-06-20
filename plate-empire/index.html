@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#1C1A18">
+<title>Plate Empire — Food Truck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =================================================================
+   PLATE EMPIRE — v1 (food-truck tier)
+   Single-file build. Sections below:
+     1. Tokens / theme        2. Layout shell
+     3. Backdrop + ticket rail 4. Sidebar + HUD
+     5. Panels                 6. Overlays (menu/pause/settings)
+     7. Toasts                 8. Responsive
+   ================================================================= */
+
+/* ---------- 1. Tokens / theme ---------- */
+:root{
+  --bg:#1C1A18;          /* app background */
+  --panel:#262320;       /* panel surface  */
+  --panel-2:#2f2b27;     /* raised surface */
+  --brass:#C08A3E;       /* primary accent */
+  --brass-dim:#8a6330;
+  --cream:#EFE6D8;       /* ticket cream / text on dark */
+  --sage:#6B8E5A;        /* success */
+  --alert:#B5453A;       /* miss / danger */
+  --line:#3a342d;        /* hairline borders */
+  --muted:#9c907d;       /* secondary text */
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --disp:'Big Shoulders Display','Arial Narrow',sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg);color:var(--cream);font-family:var(--body);
+  overflow:hidden;-webkit-font-smoothing:antialiased;
+}
+button{font-family:var(--body);cursor:pointer;}
+.hidden{display:none !important;}
+
+/* ---------- 2. Layout shell ---------- */
+#game{position:fixed;inset:0;display:grid;
+  grid-template-columns:220px 1fr;
+  grid-template-rows:auto 1fr;
+  grid-template-areas:"rail rail" "side main";
+}
+/* ---------- 3. Backdrop + ticket rail ---------- */
+#backdrop{position:fixed;inset:0;z-index:0;
+  background:#1C1A18 url('assets/backdrop.svg') center/cover no-repeat;
+}
+#backdrop::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(28,26,24,0.35),rgba(28,26,24,0.78));}
+
+#rail{grid-area:rail;position:relative;z-index:5;
+  height:96px;background:rgba(20,18,16,0.92);
+  border-bottom:2px solid var(--brass-dim);
+  display:flex;align-items:stretch;gap:0;overflow:hidden;backdrop-filter:blur(2px);}
+.rail-label{flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;
+  padding:0 16px;border-right:1px solid var(--line);background:rgba(0,0,0,0.25);}
+.rail-label b{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:0.5px;color:var(--brass);text-transform:uppercase;}
+.rail-label span{font-family:var(--mono);font-size:10px;color:var(--muted);}
+#rail-track{position:relative;flex:1;overflow:hidden;}
+.rail-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:1px;}
+
+/* ticket card */
+.ticket{position:absolute;top:10px;width:140px;height:76px;
+  background:var(--cream);color:#241f18;border-radius:4px;
+  box-shadow:0 6px 16px rgba(0,0,0,0.5);cursor:pointer;
+  display:flex;flex-direction:column;overflow:hidden;
+  border-top:4px solid var(--brass);
+  transition:transform .12s ease, box-shadow .12s ease;
+  font-family:var(--mono);
+  /* serrated bottom edge like a kitchen ticket */
+  -webkit-mask:radial-gradient(4px 4px at 8px 100%,transparent 98%,#000) repeat-x bottom/16px 8px;
+  mask:radial-gradient(4px 4px at 8px 100%,transparent 98%,#000) repeat-x bottom/16px 8px;
+}
+.ticket:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 10px 22px rgba(0,0,0,0.6);}
+.ticket .t-head{display:flex;align-items:center;gap:6px;padding:4px 7px 2px;}
+.ticket .t-icon{width:26px;height:26px;flex:0 0 auto;}
+.ticket .t-name{font-size:10px;font-weight:600;line-height:1.05;letter-spacing:-0.2px;}
+.ticket .t-price{margin-left:auto;font-size:11px;font-weight:600;color:var(--brass-dim);}
+.ticket .t-bar-wrap{height:6px;margin:3px 7px 0;background:rgba(0,0,0,0.12);border-radius:3px;overflow:hidden;}
+.ticket .t-bar{height:100%;width:100%;background:var(--sage);border-radius:3px;}
+.ticket .t-foot{font-size:9px;color:#7a6f5c;padding:2px 7px;display:flex;justify-content:space-between;}
+.ticket.urgent .t-bar{background:var(--alert);}
+.ticket.warn .t-bar{background:var(--brass);}
+.ticket.fulfilled{animation:pop .35s ease forwards;pointer-events:none;}
+.ticket.missed{animation:miss .4s ease forwards;pointer-events:none;}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.12);box-shadow:0 0 0 3px var(--sage)}100%{transform:scale(0.6);opacity:0}}
+@keyframes miss{0%{transform:translateY(0)}100%{transform:translateY(40px) rotate(6deg);opacity:0}}
+
+/* ---------- 4. Sidebar + HUD ---------- */
+#side{grid-area:side;position:relative;z-index:4;
+  background:rgba(20,18,16,0.92);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;backdrop-filter:blur(2px);}
+.brand{padding:16px 16px 12px;border-bottom:1px solid var(--line);}
+.brand h1{font-family:var(--disp);font-weight:900;font-size:26px;line-height:0.92;color:var(--cream);text-transform:uppercase;letter-spacing:0.5px;}
+.brand h1 em{color:var(--brass);font-style:normal;}
+.brand .tier{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:1px;}
+nav{flex:1;padding:10px 0;}
+.nav-item{display:flex;align-items:center;gap:11px;width:100%;
+  background:none;border:none;color:var(--muted);
+  padding:11px 16px;font-size:13px;font-weight:600;text-align:left;
+  border-left:3px solid transparent;transition:all .12s;}
+.nav-item .ic{width:18px;text-align:center;font-size:15px;}
+.nav-item:hover{color:var(--cream);background:rgba(192,138,62,0.07);}
+.nav-item.active{color:var(--cream);background:rgba(192,138,62,0.12);border-left-color:var(--brass);}
+.nav-item .soon{margin-left:auto;font-family:var(--mono);font-size:8px;color:var(--brass-dim);
+  border:1px solid var(--brass-dim);border-radius:3px;padding:1px 4px;letter-spacing:0.5px;}
+.side-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;}
+.side-foot button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--cream);
+  border-radius:5px;padding:8px;font-size:11px;font-weight:600;}
+.side-foot button:hover{border-color:var(--brass);color:var(--brass);}
+
+/* main column */
+#main{grid-area:main;position:relative;z-index:3;overflow:auto;padding:16px 18px 28px;}
+
+/* HUD stat strip */
+#hud{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.stat{background:rgba(38,35,32,0.86);border:1px solid var(--line);border-radius:7px;
+  padding:10px 14px;min-width:120px;backdrop-filter:blur(2px);}
+.stat .k{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.stat .v{font-family:var(--disp);font-weight:800;font-size:26px;line-height:1;margin-top:3px;}
+.stat.cash .v{color:var(--sage);}
+.stat.rep .v{color:var(--brass);}
+.stat.day .v{color:var(--cream);}
+.rep-bar{height:6px;margin-top:7px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden;}
+.rep-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--alert),var(--brass),var(--sage));border-radius:3px;}
+.pause-btn{margin-left:auto;align-self:center;background:var(--panel-2);border:1px solid var(--line);
+  color:var(--cream);border-radius:7px;padding:11px 18px;font-weight:700;font-size:13px;}
+.pause-btn:hover{border-color:var(--brass);color:var(--brass);}
+
+/* ---------- 5. Panels ---------- */
+.panel{background:rgba(38,35,32,0.9);border:1px solid var(--line);border-radius:9px;
+  padding:16px 18px;margin-bottom:14px;backdrop-filter:blur(2px);}
+.panel h2{font-family:var(--disp);font-weight:800;font-size:20px;text-transform:uppercase;
+  letter-spacing:0.5px;color:var(--cream);margin-bottom:3px;}
+.panel h2 .accent{color:var(--brass);}
+.panel .sub{font-size:12px;color:var(--muted);margin-bottom:14px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.metric{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:12px;}
+.metric .k{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.metric .v{font-family:var(--disp);font-weight:800;font-size:24px;margin-top:4px;}
+.metric .v small{font-size:13px;color:var(--muted);font-family:var(--mono);font-weight:400;}
+
+/* menu list (dishes) */
+.dish-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);}
+.dish-row:last-child{border-bottom:none;}
+.dish-row img{width:46px;height:46px;flex:0 0 auto;border-radius:8px;}
+.dish-row .dn{font-weight:700;font-size:14px;}
+.dish-row .dd{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;}
+.dish-row .dp{margin-left:auto;text-align:right;}
+.dish-row .dp .price{font-family:var(--disp);font-weight:800;font-size:20px;color:var(--sage);}
+.dish-row .dp .rep{font-family:var(--mono);font-size:10px;color:var(--brass);}
+
+/* event log */
+.log{font-family:var(--mono);font-size:11px;max-height:150px;overflow:auto;}
+.log div{padding:3px 0;border-bottom:1px dashed var(--line);color:var(--muted);}
+.log .good{color:var(--sage);}
+.log .bad{color:var(--alert);}
+
+/* coming-soon stub */
+.stub{text-align:center;padding:48px 20px;color:var(--muted);}
+.stub .big{font-family:var(--disp);font-weight:800;font-size:40px;color:var(--brass-dim);text-transform:uppercase;letter-spacing:2px;}
+.stub p{font-size:13px;margin-top:8px;}
+
+/* ---------- 6. Overlays ---------- */
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:rgba(15,13,11,0.86);backdrop-filter:blur(4px);}
+.overlay .card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--brass);
+  border-radius:12px;padding:30px 34px;width:min(440px,92vw);box-shadow:0 24px 60px rgba(0,0,0,0.6);}
+.menu-logo{font-family:var(--disp);font-weight:900;font-size:54px;line-height:0.9;text-transform:uppercase;letter-spacing:1px;text-align:center;}
+.menu-logo em{color:var(--brass);font-style:normal;}
+.menu-tag{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;margin:6px 0 26px;letter-spacing:2px;}
+.menu-btn{display:block;width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--cream);
+  border-radius:8px;padding:14px;font-size:15px;font-weight:700;margin-bottom:10px;transition:all .12s;}
+.menu-btn:hover:not(:disabled){border-color:var(--brass);color:var(--brass);transform:translateY(-1px);}
+.menu-btn.primary{background:var(--brass);color:#1c1a18;border-color:var(--brass);}
+.menu-btn.primary:hover{background:#d6a052;}
+.menu-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.overlay h3{font-family:var(--disp);font-weight:800;font-size:30px;text-transform:uppercase;text-align:center;margin-bottom:18px;}
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px;}
+.set-row:last-of-type{border-bottom:none;}
+.toggle{width:48px;height:26px;border-radius:13px;background:var(--line);border:none;position:relative;transition:background .15s;}
+.toggle.on{background:var(--sage);}
+.toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--cream);transition:left .15s;}
+.toggle.on i{left:25px;}
+.back-link{display:block;text-align:center;margin-top:18px;color:var(--muted);font-size:12px;background:none;border:none;width:100%;}
+.back-link:hover{color:var(--brass);}
+
+/* ---------- 7. Toasts ---------- */
+#toasts{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;}
+.toast{background:rgba(20,18,16,0.95);border:1px solid var(--line);border-left:3px solid var(--brass);
+  border-radius:6px;padding:9px 16px;font-family:var(--mono);font-size:12px;color:var(--cream);
+  box-shadow:0 8px 20px rgba(0,0,0,0.5);animation:toastIn .25s ease, toastOut .3s ease 2.1s forwards;}
+.toast.good{border-left-color:var(--sage);}
+.toast.bad{border-left-color:var(--alert);}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-8px)}}
+
+/* ---------- 8. Responsive (mobile = secondary) ---------- */
+@media (max-width:760px){
+  #game{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;
+    grid-template-areas:"rail" "side" "main";}
+  #side{flex-direction:row;flex-wrap:wrap;align-items:center;}
+  .brand{flex:1 1 100%;}
+  nav{display:flex;flex:1 1 100%;overflow-x:auto;padding:6px;}
+  .nav-item{border-left:none;border-bottom:3px solid transparent;white-space:nowrap;padding:9px 12px;}
+  .nav-item.active{border-left:none;border-bottom-color:var(--brass);}
+  .nav-item .soon{display:none;}
+  .side-foot{flex:1 1 100%;}
+  .grid-2{grid-template-columns:1fr;}
+  .menu-logo{font-size:40px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ BACKDROP (atmospheric, behind everything) ============ -->
+<div id="backdrop"></div>
+
+<!-- ============ MAIN MENU ============ -->
+<div id="main-menu" class="overlay">
+  <div class="card">
+    <div class="menu-logo">Plate<br><em>Empire</em></div>
+    <div class="menu-tag">FOOD-TRUCK TIER · v1</div>
+    <button class="menu-btn primary" id="btn-new">New Game</button>
+    <button class="menu-btn" id="btn-continue">Continue</button>
+    <button class="menu-btn" id="btn-settings">Settings</button>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div id="settings" class="overlay hidden">
+  <div class="card">
+    <h3>Settings</h3>
+    <div class="set-row"><span>Sound effects</span><button class="toggle on" data-set="sfx"><i></i></button></div>
+    <div class="set-row"><span>Reduce motion</span><button class="toggle" data-set="reduceMotion"><i></i></button></div>
+    <div class="set-row"><span>Ticket pace</span>
+      <select id="set-pace" style="background:var(--panel-2);color:var(--cream);border:1px solid var(--line);border-radius:5px;padding:6px 8px;font-family:var(--mono);font-size:12px;">
+        <option value="relaxed">Relaxed</option>
+        <option value="normal" selected>Normal</option>
+        <option value="rush">Rush</option>
+      </select>
+    </div>
+    <button class="back-link" id="settings-back">← Back</button>
+  </div>
+</div>
+
+<!-- ============ GAME ============ -->
+<div id="game" class="hidden">
+
+  <!-- order-ticket rail -->
+  <div id="rail">
+    <div class="rail-label"><b>Orders</b><span id="rail-count">0 active</span></div>
+    <div id="rail-track"><div class="rail-empty" id="rail-empty">Waiting for customers…</div></div>
+  </div>
+
+  <!-- sidebar -->
+  <aside id="side">
+    <div class="brand">
+      <h1>Plate<em> Empire</em></h1>
+      <div class="tier">▸ El Paso Food Truck</div>
+    </div>
+    <nav id="nav">
+      <button class="nav-item active" data-view="overview"><span class="ic">▦</span>Overview</button>
+      <button class="nav-item" data-view="menu"><span class="ic">🍽</span>Menu</button>
+      <button class="nav-item" data-view="staff"><span class="ic">👤</span>Staff<span class="soon">SOON</span></button>
+      <button class="nav-item" data-view="finance"><span class="ic">$</span>Finance<span class="soon">SOON</span></button>
+      <button class="nav-item" data-view="community"><span class="ic">♥</span>Community<span class="soon">SOON</span></button>
+    </nav>
+    <div class="side-foot">
+      <button id="btn-save">Save</button>
+      <button id="btn-pause-side">Pause</button>
+    </div>
+  </aside>
+
+  <!-- main column -->
+  <main id="main">
+    <div id="hud">
+      <div class="stat cash"><div class="k">Cash</div><div class="v" id="hud-cash">$0</div></div>
+      <div class="stat rep"><div class="k">Reputation</div><div class="v" id="hud-rep">0</div>
+        <div class="rep-bar"><i id="hud-rep-bar" style="width:0%"></i></div></div>
+      <div class="stat day"><div class="k">Day</div><div class="v" id="hud-day">1</div></div>
+      <button class="pause-btn" id="btn-pause">⏸ Pause</button>
+    </div>
+    <div id="view"><!-- active view rendered here --></div>
+  </main>
+</div>
+
+<!-- ============ PAUSE ============ -->
+<div id="pause" class="overlay hidden">
+  <div class="card">
+    <h3>Paused</h3>
+    <button class="menu-btn primary" id="pause-resume">Resume</button>
+    <button class="menu-btn" id="pause-save">Save Game</button>
+    <button class="menu-btn" id="pause-menu">Main Menu</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* =================================================================
+   PLATE EMPIRE — game logic
+   Sections:
+     A. Config / constants     B. State + persistence
+     C. Boot / menu flow        D. Views (render)
+     E. Ticket system           F. Economy + day cycle
+     G. Game loop               H. Pause / settings / toasts
+     I. Wiring
+   ================================================================= */
+
+/* ---------- A. Config / constants ---------- */
+const SAVE_KEY = 'plate-empire-save-v1';
+const AUTOSAVE_MS = 30000;
+
+/* Hardcoded food-truck menu (3-5 dishes for v1). */
+const DISHES = [
+  { id:'burger',  name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.svg',  price:9,  rep:2, life:12000 },
+  { id:'tacos',   name:'Street Tacos',        icon:'assets/dish-street-tacos.svg',        price:7,  rep:2, life:11000 },
+  { id:'fries',   name:'Loaded Fries',        icon:'assets/dish-loaded-fries.svg',        price:6,  rep:1, life:10000 },
+  { id:'burrito', name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.svg', price:10, rep:3, life:13000 },
+  { id:'elote',   name:'Elote',               icon:'assets/dish-elote.svg',               price:5,  rep:1, life:9000  },
+];
+const dishById = id => DISHES.find(d => d.id === id);
+
+/* Ticket pacing presets (ms between spawns). */
+const PACE = { relaxed:5200, normal:3600, rush:2400 };
+
+const MISS_REP = -3;          // reputation lost on an expired ticket
+const DAY_LENGTH_MS = 90000;  // length of one service day
+const RAIL_SLOT = 152;        // px horizontal spacing per ticket
+
+/* ---------- B. State + persistence ---------- */
+const defaultState = () => ({
+  cash: 50,
+  rep: 70,
+  day: 1,
+  served: 0,
+  missed: 0,
+  dayMsLeft: DAY_LENGTH_MS,
+  log: [],
+  settings: { sfx:true, reduceMotion:false, pace:'normal' },
+});
+
+let S = defaultState();      // persisted game state
+let view = 'overview';       // active sidebar view
+let running = false;         // is a game session active (vs menu)
+let paused = false;          // is the pause overlay up
+
+/* live (non-persisted) runtime */
+const RT = { tickets:[], nextId:1, spawnAcc:0, lastT:0, raf:0, autosaveTimer:0 };
+
+function save(reason){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ ...S, _ts:Date.now() }));
+    if(reason) toast('Game saved', 'good');
+    return true;
+  }catch(e){
+    console.error('save failed', e);
+    if(reason) toast('Save failed — storage blocked', 'bad');
+    return false;
+  }
+}
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const data = JSON.parse(raw);
+    if(typeof data.cash !== 'number') return null;
+    return data;
+  }catch(e){ console.error('load failed', e); return null; }
+}
+function hasSave(){ return !!loadSave(); }
+
+/* ---------- C. Boot / menu flow ---------- */
+function showMenu(){
+  running = false; paused = false;
+  cancelAnimationFrame(RT.raf);
+  clearInterval(RT.autosaveTimer);
+  el('#game').classList.add('hidden');
+  el('#pause').classList.add('hidden');
+  el('#settings').classList.add('hidden');
+  el('#main-menu').classList.remove('hidden');
+  el('#btn-continue').disabled = !hasSave();
+}
+
+function newGame(){
+  S = defaultState();
+  startSession();
+  save();
+  pushLog('Opened for business. Day 1.', 'good');
+}
+
+function continueGame(){
+  const data = loadSave();
+  if(!data){ toast('No save found', 'bad'); return; }
+  S = { ...defaultState(), ...data };
+  startSession();
+  pushLog('Resumed service.', '');
+}
+
+function startSession(){
+  running = true; paused = false;
+  RT.tickets = []; RT.nextId = 1; RT.spawnAcc = 0; RT.lastT = performance.now();
+  el('#main-menu').classList.add('hidden');
+  el('#settings').classList.add('hidden');
+  el('#pause').classList.add('hidden');
+  el('#game').classList.remove('hidden');
+  el('#rail-track').querySelectorAll('.ticket').forEach(n=>n.remove());
+  setView('overview');
+  syncSettingsUI();
+  renderHUD();
+  startLoop();
+  clearInterval(RT.autosaveTimer);
+  RT.autosaveTimer = setInterval(()=>{ if(running) save(); }, AUTOSAVE_MS);
+}
+
+/* ---------- D. Views ---------- */
+function setView(v){
+  view = v;
+  els('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  renderView();
+}
+
+function renderView(){
+  const host = el('#view');
+  if(view==='overview') host.innerHTML = tplOverview();
+  else if(view==='menu') host.innerHTML = tplMenu();
+  else host.innerHTML = tplStub(view);
+  if(view==='overview') renderLog();
+}
+
+function tplOverview(){
+  return `
+  <div class="panel">
+    <h2>Service <span class="accent">Overview</span></h2>
+    <div class="sub">Click tickets on the rail above before their timer runs out. Each fill pays out and nudges your reputation.</div>
+    <div class="grid-2">
+      <div class="metric"><div class="k">Orders served</div><div class="v" id="m-served">${S.served}</div></div>
+      <div class="metric"><div class="k">Orders missed</div><div class="v" id="m-missed">${S.missed}</div></div>
+      <div class="metric"><div class="k">Cash on hand</div><div class="v">$<span id="m-cash">${S.cash}</span></div></div>
+      <div class="metric"><div class="k">Day timer</div><div class="v"><span id="m-day-timer">${Math.ceil(S.dayMsLeft/1000)}</span><small>s left</small></div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Service <span class="accent">Log</span></h2>
+    <div class="log" id="log"></div>
+  </div>`;
+}
+
+function tplMenu(){
+  const rows = DISHES.map(d=>`
+    <div class="dish-row">
+      <img src="${d.icon}" alt="${d.name}">
+      <div>
+        <div class="dn">${d.name}</div>
+        <div class="dd">timer ${Math.round(d.life/1000)}s</div>
+      </div>
+      <div class="dp"><div class="price">$${d.price}</div><div class="rep">+${d.rep} rep</div></div>
+    </div>`).join('');
+  return `
+  <div class="panel">
+    <h2>Truck <span class="accent">Menu</span></h2>
+    <div class="sub">Your hardcoded food-truck lineup for this tier. Tickets are drawn from these dishes.</div>
+    ${rows}
+  </div>`;
+}
+
+function tplStub(name){
+  const titles = { staff:'Staff', finance:'Finance', community:'Community' };
+  return `<div class="panel"><div class="stub">
+    <div class="big">${titles[name]||name}</div>
+    <p>Coming soon — unlocks in a later build pass.</p>
+  </div></div>`;
+}
+
+/* ---------- E. Ticket system ---------- */
+function spawnTicket(){
+  if(RT.tickets.length >= 6) return;        // rail capacity
+  const dish = DISHES[Math.floor(Math.random()*DISHES.length)];
+  const t = { id:RT.nextId++, dishId:dish.id, life:dish.life, left:dish.life };
+  RT.tickets.push(t);
+  const track = el('#rail-track');
+  const node = document.createElement('div');
+  node.className = 'ticket';
+  node.dataset.id = t.id;
+  node.style.left = '100%';
+  node.innerHTML = `
+    <div class="t-head">
+      <img class="t-icon" src="${dish.icon}" alt="">
+      <span class="t-name">${dish.name}</span>
+      <span class="t-price">$${dish.price}</span>
+    </div>
+    <div class="t-bar-wrap"><div class="t-bar"></div></div>
+    <div class="t-foot"><span>#${String(t.id).padStart(3,'0')}</span><span class="t-time">${Math.ceil(t.left/1000)}s</span></div>`;
+  node.addEventListener('click', ()=>fulfill(t.id));
+  track.appendChild(node);
+  el('#rail-empty').style.display = 'none';
+  layoutTickets();
+}
+
+function layoutTickets(){
+  RT.tickets.forEach((t,i)=>{
+    const node = ticketNode(t.id);
+    if(node) node.style.left = (i*RAIL_SLOT + 12) + 'px';
+  });
+  el('#rail-count').textContent = RT.tickets.length + ' active';
+  el('#rail-empty').style.display = RT.tickets.length ? 'none' : 'flex';
+}
+
+function ticketNode(id){ return el(`.ticket[data-id="${id}"]`); }
+
+function fulfill(id){
+  const idx = RT.tickets.findIndex(t=>t.id===id);
+  if(idx<0) return;
+  const t = RT.tickets[idx];
+  const dish = dishById(t.dishId);
+  S.cash += dish.price;
+  S.rep = clamp(S.rep + dish.rep, 0, 100);
+  S.served++;
+  const node = ticketNode(id);
+  if(node){ node.classList.add('fulfilled'); setTimeout(()=>node.remove(), 360); }
+  RT.tickets.splice(idx,1);
+  layoutTickets();
+  renderHUD();
+  pushLog(`Served ${dish.name} · +$${dish.price} · +${dish.rep} rep`, 'good');
+}
+
+function expire(id){
+  const idx = RT.tickets.findIndex(t=>t.id===id);
+  if(idx<0) return;
+  const t = RT.tickets[idx];
+  const dish = dishById(t.dishId);
+  S.rep = clamp(S.rep + MISS_REP, 0, 100);
+  S.missed++;
+  const node = ticketNode(id);
+  if(node){ node.classList.add('missed'); setTimeout(()=>node.remove(), 420); }
+  RT.tickets.splice(idx,1);
+  layoutTickets();
+  renderHUD();
+  pushLog(`Missed ${dish.name} · ${MISS_REP} rep`, 'bad');
+}
+
+/* ---------- F. Economy + day cycle ---------- */
+function endDay(){
+  S.day++;
+  S.dayMsLeft = DAY_LENGTH_MS;
+  pushLog(`Day ${S.day-1} closed — served ${S.served}, missed ${S.missed}.`, '');
+  toast(`Day ${S.day} — fresh service!`, 'good');
+  save();
+}
+
+/* ---------- G. Game loop ---------- */
+function startLoop(){
+  cancelAnimationFrame(RT.raf);
+  RT.lastT = performance.now();
+  const step = (now)=>{
+    const dt = Math.min(now - RT.lastT, 250); // clamp big gaps (tab switch)
+    RT.lastT = now;
+    if(running && !paused){
+      tick(dt);
+    }
+    RT.raf = requestAnimationFrame(step);
+  };
+  RT.raf = requestAnimationFrame(step);
+}
+
+function tick(dt){
+  // spawn cadence
+  RT.spawnAcc += dt;
+  const interval = PACE[S.settings.pace] || PACE.normal;
+  if(RT.spawnAcc >= interval){ RT.spawnAcc = 0; spawnTicket(); }
+
+  // ticket countdowns
+  for(let i=RT.tickets.length-1;i>=0;i--){
+    const t = RT.tickets[i];
+    t.left -= dt;
+    const node = ticketNode(t.id);
+    if(node){
+      const frac = Math.max(0, t.left/t.life);
+      const bar = node.querySelector('.t-bar');
+      if(bar) bar.style.width = (frac*100)+'%';
+      node.classList.toggle('warn', frac<=0.5 && frac>0.25);
+      node.classList.toggle('urgent', frac<=0.25);
+      const tm = node.querySelector('.t-time');
+      if(tm) tm.textContent = Math.ceil(Math.max(0,t.left)/1000)+'s';
+    }
+    if(t.left<=0) expire(t.id);
+  }
+
+  // day clock
+  S.dayMsLeft -= dt;
+  if(S.dayMsLeft<=0) endDay();
+  if(view==='overview'){
+    const dtv = el('#m-day-timer'); if(dtv) dtv.textContent = Math.ceil(Math.max(0,S.dayMsLeft)/1000);
+  }
+}
+
+/* ---------- H. Pause / settings / toasts / render ---------- */
+function renderHUD(){
+  el('#hud-cash').textContent = '$'+S.cash;
+  el('#hud-rep').textContent = S.rep;
+  el('#hud-rep-bar').style.width = S.rep+'%';
+  el('#hud-day').textContent = S.day;
+  if(view==='overview'){
+    setText('#m-served', S.served); setText('#m-missed', S.missed); setText('#m-cash', S.cash);
+  }
+}
+
+function pushLog(msg, kind){
+  S.log.unshift({ msg, kind, t:Date.now() });
+  if(S.log.length>40) S.log.length = 40;
+  renderLog();
+}
+function renderLog(){
+  const box = el('#log'); if(!box) return;
+  box.innerHTML = S.log.map(e=>`<div class="${e.kind||''}">${e.msg}</div>`).join('');
+}
+
+function openPause(){ if(!running) return; paused = true; el('#pause').classList.remove('hidden'); }
+function closePause(){ paused = false; el('#pause').classList.add('hidden'); RT.lastT = performance.now(); }
+
+function syncSettingsUI(){
+  els('.toggle').forEach(t=>{
+    const key = t.dataset.set;
+    t.classList.toggle('on', !!S.settings[key]);
+  });
+  const pace = el('#set-pace'); if(pace) pace.value = S.settings.pace;
+}
+
+function toast(msg, kind){
+  const box = el('#toasts');
+  const n = document.createElement('div');
+  n.className = 'toast '+(kind||'');
+  n.textContent = msg;
+  box.appendChild(n);
+  setTimeout(()=>n.remove(), 2500);
+}
+
+/* ---------- helpers ---------- */
+function el(s){ return document.querySelector(s); }
+function els(s){ return Array.from(document.querySelectorAll(s)); }
+function setText(s,v){ const n=el(s); if(n) n.textContent=v; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+/* ---------- I. Wiring ---------- */
+function wire(){
+  // main menu
+  el('#btn-new').addEventListener('click', newGame);
+  el('#btn-continue').addEventListener('click', continueGame);
+  el('#btn-settings').addEventListener('click', ()=>{ el('#main-menu').classList.add('hidden'); el('#settings').classList.remove('hidden'); });
+  // Settings is reachable from the main menu only in v1 → always return there.
+  el('#settings-back').addEventListener('click', ()=>{
+    el('#settings').classList.add('hidden');
+    el('#main-menu').classList.remove('hidden');
+  });
+
+  // settings controls
+  els('.toggle').forEach(t=>t.addEventListener('click', ()=>{
+    const key = t.dataset.set;
+    S.settings[key] = !S.settings[key];
+    t.classList.toggle('on', S.settings[key]);
+  }));
+  el('#set-pace').addEventListener('change', e=>{ S.settings.pace = e.target.value; });
+
+  // sidebar nav
+  els('.nav-item').forEach(b=>b.addEventListener('click', ()=>setView(b.dataset.view)));
+
+  // save + pause
+  el('#btn-save').addEventListener('click', ()=>save(true));
+  el('#btn-pause').addEventListener('click', openPause);
+  el('#btn-pause-side').addEventListener('click', openPause);
+  el('#pause-resume').addEventListener('click', closePause);
+  el('#pause-save').addEventListener('click', ()=>save(true));
+  el('#pause-menu').addEventListener('click', ()=>{ save(); showMenu(); });
+
+  // keyboard: Esc toggles pause during play
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape' && running){
+      if(paused) closePause(); else openPause();
+    }
+  });
+
+  // save on tab hide
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden && running) save(); });
+
+  showMenu();
+}
+
+document.addEventListener('DOMContentLoaded', wire);
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plate Empire dish icon (PLACEHOLDER) — Carne Asada Burrito -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect x="2" y="2" width="116" height="116" rx="22" fill="#262320"/>
+  <rect x="2" y="2" width="116" height="116" rx="22" fill="none" stroke="#C08A3E" stroke-width="3"/>
+  <!-- burrito body -->
+  <rect x="30" y="44" width="60" height="40" rx="20" fill="#f0cd82" transform="rotate(-18 60 64)"/>
+  <rect x="30" y="44" width="60" height="40" rx="20" fill="none" stroke="#d9b066" stroke-width="2" transform="rotate(-18 60 64)"/>
+  <!-- folded end -->
+  <path d="M72 40 l18 10 l-8 16 Z" fill="#e8c074" stroke="#d9b066" stroke-width="2"/>
+  <!-- open end with filling -->
+  <ellipse cx="38" cy="78" rx="14" ry="12" fill="#e3c178" transform="rotate(-18 38 78)"/>
+  <g transform="rotate(-18 38 78)">
+    <rect x="28" y="70" width="20" height="5" rx="2" fill="#5a3a22"/>
+    <rect x="28" y="76" width="20" height="4" rx="2" fill="#6B8E5A"/>
+    <rect x="28" y="81" width="20" height="4" rx="2" fill="#B5453A"/>
+  </g>
+</svg>
