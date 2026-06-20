@@ -51,7 +51,7 @@ button{font-family:var(--body);cursor:pointer;}
 }
 /* ---------- 3. Backdrop + ticket rail ---------- */
 #backdrop{position:fixed;inset:0;z-index:0;
-  background:#1C1A18 url('assets/backdrop.svg') center/cover no-repeat;
+  background:#1C1A18 url('assets/backdrop.png') center/cover no-repeat;
 }
 #backdrop::after{content:'';position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(28,26,24,0.35),rgba(28,26,24,0.78));}
@@ -360,11 +360,11 @@ const AUTOSAVE_MS = 30000;
 
 /* Hardcoded food-truck menu (3-5 dishes for v1). */
 const DISHES = [
-  { id:'burger',  name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.svg',  price:9,  rep:2, life:12000 },
-  { id:'tacos',   name:'Street Tacos',        icon:'assets/dish-street-tacos.svg',        price:7,  rep:2, life:11000 },
-  { id:'fries',   name:'Loaded Fries',        icon:'assets/dish-loaded-fries.svg',        price:6,  rep:1, life:10000 },
-  { id:'burrito', name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.svg', price:10, rep:3, life:13000 },
-  { id:'elote',   name:'Elote',               icon:'assets/dish-elote.svg',               price:5,  rep:1, life:9000  },
+  { id:'burger',  name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.png',  price:9,  rep:2, life:12000 },
+  { id:'tacos',   name:'Street Tacos',        icon:'assets/dish-street-tacos.png',        price:7,  rep:2, life:11000 },
+  { id:'fries',   name:'Loaded Fries',        icon:'assets/dish-loaded-fries.png',        price:6,  rep:1, life:10000 },
+  { id:'burrito', name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.png', price:10, rep:3, life:13000 },
+  { id:'elote',   name:'Elote',               icon:'assets/dish-elote.png',               price:5,  rep:1, life:9000  },
 ];
 const dishById = id => DISHES.find(d => d.id === id);
 

@@ -15,8 +15,9 @@ served via GitHub Pages.
 plate-empire/
   index.html            # the whole game — inline CSS + JS, organized in sections
   assets/               # baked static art (NO live generation at runtime)
-    backdrop.svg        # isometric establishing-shot (food-truck scene)
-    dish-*.svg          # 5 menu dish icons
+    backdrop.png        # isometric establishing-shot (food-truck scene, Firefly)
+    dish-*.png          # 5 menu dish icons (Firefly)
+    *.svg.placeholder   # original hand-built SVG placeholders (kept for reference)
   CLAUDE.md             # this file
 ```
 `index.html` is a single self-contained file (inline CSS/JS) to match the existing
@@ -78,12 +79,9 @@ final draft and must be **confirmed before** starting.
 - **MANDATE:** generate with Adobe's **commercially-friendly / licensed**
   generative model only — never an experimental / non-commercial model. If that
   option is not selectable, **stop and ask** — do not guess.
-- **Current state:** the connected Adobe MCP exposes only image-*editing* tools
-  (adjust / blur / mask / vectorize / stock-license), with no text-to-image
-  generator offering model selection. Per the mandate, the v1 assets in `/assets`
-  are **hand-built SVG placeholders** standing in for the real commercial render.
-  Replacing them is purely additive — drop new files into `/assets` and keep the
-  same filenames (or update the `DISHES[].icon` paths and `#backdrop` URL).
+- **Current state:** v1 assets replaced with Firefly-generated PNGs (retrieved
+  via `asset_search` with `entityScope: GenAIAsset`). The original hand-built
+  SVG placeholders are kept as `*.svg.placeholder` files for reference.
 - Never call generation APIs live during gameplay — all art is baked static files.
 
 ## Stop condition (this pass)
