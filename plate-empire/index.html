@@ -809,6 +809,7 @@ function renderView(){
   if(view==='floor') renderFloor();
   if(view==='overview') renderLog();
   if(view==='staff') wireHireAndUpgrade();
+  if(view==='menu'){const tuBtn=el('#btn-tier-up');if(tuBtn) tuBtn.addEventListener('click',()=>showTierUpgrade());}
 }
 
 function tplOverview(){
