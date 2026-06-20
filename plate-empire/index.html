@@ -165,50 +165,61 @@ nav{flex:1;padding:10px 0;}
 
 /* ---------- 4b. Restaurant floor ---------- */
 #floor{position:relative;width:100%;height:100%;min-height:400px;overflow:hidden;}
-.floor-table{position:absolute;width:64px;height:48px;border-radius:6px;
-  background:rgba(60,52,42,0.6);border:1px solid rgba(192,138,62,0.2);
-  box-shadow:0 4px 8px rgba(0,0,0,0.3);transition:box-shadow .2s;}
-.floor-table.occupied{border-color:rgba(192,138,62,0.4);}
-.floor-chair{position:absolute;width:14px;height:14px;border-radius:50%;
-  background:rgba(80,70,58,0.5);border:1px solid rgba(100,90,75,0.3);}
-.floor-chair.top{top:-10px;left:50%;transform:translateX(-50%);}
-.floor-chair.bottom{bottom:-10px;left:50%;transform:translateX(-50%);}
-.floor-chair.left{left:-10px;top:50%;transform:translateY(-50%);}
-.floor-chair.right{right:-10px;top:50%;transform:translateY(-50%);}
 
-.cust-sprite{position:absolute;width:28px;height:38px;z-index:10;transition:all .6s ease;cursor:pointer;}
-.cust-sprite .cust-body{width:28px;height:28px;border-radius:50%;font-size:20px;line-height:28px;
-  text-align:center;background:rgba(40,35,30,0.7);border:2px solid rgba(192,138,62,0.3);
-  box-shadow:0 2px 8px rgba(0,0,0,0.4);}
-.cust-sprite:hover .cust-body{border-color:var(--brass);box-shadow:0 0 12px rgba(192,138,62,0.4);}
-.cust-sprite.served .cust-body{border-color:var(--sage);}
-.cust-sprite.angry .cust-body{border-color:var(--alert);}
-.cust-patience{width:28px;height:3px;border-radius:2px;background:rgba(0,0,0,0.4);margin-top:2px;overflow:hidden;}
+/* tables — isometric wooden look */
+.floor-table{position:absolute;width:72px;height:42px;z-index:5;}
+.floor-table .tbl-top{width:72px;height:34px;border-radius:8px;
+  background:linear-gradient(135deg,#5c4a38 0%,#7a6350 40%,#5c4a38 100%);
+  border:2px solid rgba(100,80,60,0.6);box-shadow:0 4px 8px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.08);
+  position:relative;}
+.floor-table .tbl-top::after{content:'';position:absolute;inset:4px;border-radius:4px;
+  border:1px solid rgba(255,255,255,0.04);}
+.floor-table .tbl-leg{position:absolute;bottom:-6px;width:6px;height:10px;
+  background:linear-gradient(180deg,#4a3c2e,#3a2e22);border-radius:0 0 2px 2px;}
+.floor-table .tbl-leg.l{left:10px;}.floor-table .tbl-leg.r{right:10px;}
+.floor-table.occupied .tbl-top{box-shadow:0 4px 12px rgba(0,0,0,0.5),0 0 8px rgba(192,138,62,0.15),inset 0 1px 0 rgba(255,255,255,0.08);}
+
+/* chairs — padded seats */
+.floor-chair{position:absolute;z-index:4;}
+.floor-chair .chr-seat{width:20px;height:18px;border-radius:4px;
+  background:linear-gradient(135deg,#8b4040,#a65050);border:1px solid rgba(60,30,30,0.4);
+  box-shadow:0 2px 4px rgba(0,0,0,0.3);}
+.floor-chair .chr-back{width:20px;height:6px;border-radius:3px 3px 0 0;
+  background:linear-gradient(180deg,#6b3030,#8b4040);border:1px solid rgba(60,30,30,0.4);border-bottom:none;}
+.floor-chair.top{top:-22px;left:50%;transform:translateX(-50%);}
+.floor-chair.top .chr-back{transform:rotate(180deg);margin-top:0;}
+.floor-chair.bottom{bottom:-22px;left:50%;transform:translateX(-50%);}
+
+/* customer sprites — SVG people */
+.cust-sprite{position:absolute;z-index:10;cursor:pointer;transition:opacity .4s;}
+.cust-sprite:hover{filter:brightness(1.2);}
+.cust-sprite.served{opacity:0;transition:opacity .5s;}
+.cust-sprite.angry{filter:saturate(0.3) brightness(0.7);opacity:0;transition:opacity .5s;}
+.cust-sprite svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.4));}
+.cust-patience{width:40px;height:4px;border-radius:2px;background:rgba(0,0,0,0.5);margin:2px auto 0;
+  overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,0.3);}
 .cust-patience i{display:block;height:100%;border-radius:2px;
   background:linear-gradient(90deg,var(--alert),var(--brass),var(--sage));transition:width .3s;}
 
+/* order bubble */
 .order-bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
   background:rgba(38,35,32,0.95);border:1px solid var(--brass);border-radius:8px;
-  padding:4px;white-space:nowrap;pointer-events:none;z-index:12;
-  box-shadow:0 4px 12px rgba(0,0,0,0.5);animation:bubblePop .3s ease;}
+  padding:5px;white-space:nowrap;pointer-events:none;z-index:12;
+  box-shadow:0 4px 12px rgba(0,0,0,0.6);animation:bubblePop .3s ease;}
 .order-bubble::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-top-color:var(--brass);}
-.order-bubble img{width:32px;height:32px;border-radius:4px;display:block;}
-.order-bubble .bubble-price{font-family:var(--mono);font-size:9px;color:var(--brass);text-align:center;margin-top:1px;}
+  border:6px solid transparent;border-top-color:var(--brass);}
+.order-bubble img{width:36px;height:36px;border-radius:5px;display:block;}
+.order-bubble .bubble-price{font-family:var(--mono);font-size:9px;color:var(--brass);text-align:center;margin-top:2px;}
 @keyframes bubblePop{from{transform:translateX(-50%) scale(0.5);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
 
-.cust-sprite.walking{animation:custWalk 0.6s steps(2) infinite;}
-@keyframes custWalk{0%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-.cust-sprite.eating .cust-body{animation:custEat 1s ease infinite;}
-@keyframes custEat{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-
+/* serve effect */
 .serve-fx{position:absolute;pointer-events:none;z-index:15;font-family:var(--disp);font-weight:800;
-  font-size:16px;color:var(--sage);animation:serveFx .8s ease forwards;}
-@keyframes serveFx{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-40px)}}
+  font-size:18px;color:var(--sage);text-shadow:0 1px 4px rgba(0,0,0,0.5);animation:serveFx .8s ease forwards;}
+@keyframes serveFx{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-50px) scale(1.3)}}
 
-.floor-door{position:absolute;bottom:5%;left:50%;transform:translateX(-50%);
+.floor-door{position:absolute;bottom:3%;left:50%;transform:translateX(-50%);z-index:3;
   font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;
-  text-transform:uppercase;opacity:0.5;}
+  text-transform:uppercase;opacity:0.4;}
 
 /* ---------- 5. Panels ---------- */
 .panel{background:rgba(38,35,32,0.9);border:1px solid var(--line);border-radius:9px;
@@ -670,11 +681,11 @@ const REP_MILESTONES = [
 
 const CUST_FACES = ['😊','😄','🙂','😋','🤩','😎','🧑','👩','👨','👴','👵','🧒','👩‍🦰','👨‍🦱','👩‍🦳','👨‍🦳'];
 const TABLE_LAYOUTS = [
-  [{x:25,y:55},{x:60,y:55},{x:42,y:30},{x:15,y:30},{x:70,y:30},{x:42,y:75}],
-  [{x:15,y:30},{x:40,y:30},{x:65,y:30},{x:15,y:55},{x:40,y:55},{x:65,y:55},{x:28,y:78},{x:55,y:78}],
-  [{x:12,y:25},{x:35,y:25},{x:58,y:25},{x:80,y:25},{x:12,y:50},{x:35,y:50},{x:58,y:50},{x:80,y:50}],
-  [{x:10,y:22},{x:30,y:22},{x:50,y:22},{x:70,y:22},{x:10,y:48},{x:30,y:48},{x:50,y:48},{x:70,y:48},{x:25,y:74},{x:55,y:74}],
-  [{x:8,y:20},{x:25,y:20},{x:42,y:20},{x:59,y:20},{x:76,y:20},{x:8,y:45},{x:25,y:45},{x:42,y:45},{x:59,y:45},{x:76,y:45},{x:20,y:72},{x:50,y:72}],
+  [{x:20,y:45},{x:55,y:45},{x:37,y:22},{x:10,y:22},{x:65,y:22},{x:37,y:68}],
+  [{x:12,y:22},{x:38,y:22},{x:64,y:22},{x:12,y:48},{x:38,y:48},{x:64,y:48},{x:25,y:72},{x:52,y:72}],
+  [{x:10,y:20},{x:33,y:20},{x:56,y:20},{x:78,y:20},{x:10,y:46},{x:33,y:46},{x:56,y:46},{x:78,y:46}],
+  [{x:8,y:18},{x:28,y:18},{x:48,y:18},{x:68,y:18},{x:8,y:42},{x:28,y:42},{x:48,y:42},{x:68,y:42},{x:22,y:66},{x:52,y:66}],
+  [{x:6,y:16},{x:23,y:16},{x:40,y:16},{x:57,y:16},{x:74,y:16},{x:6,y:40},{x:23,y:40},{x:40,y:40},{x:57,y:40},{x:74,y:40},{x:18,y:64},{x:48,y:64}],
 ];
 
 const ACHIEVEMENTS = [
@@ -922,6 +933,43 @@ function tplCommunity(){
 }
 
 /* ---------- D2. Floor view ---------- */
+const SKIN_TONES=['#f5d0a9','#d4a574','#c68642','#8d5524','#6b3a1f','#f0c8a0','#e0b090','#b07040'];
+const HAIR_COLORS=['#2c1810','#4a3228','#8b6914','#c4a35a','#d44e28','#1a1a2e','#666','#f5e6ca'];
+const SHIRT_COLORS=['#c04040','#4060c0','#40a060','#c0a040','#8050a0','#c06030','#3090a0','#606060'];
+const HAIR_STYLES=['buzz','short','long','ponytail','curly','bald'];
+
+function buildCustSVG(seed){
+  const r=s=>{let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);};
+  const pick=(arr,n)=>arr[n%arr.length];
+  const h=r(seed+'');
+  const skin=pick(SKIN_TONES,h);
+  const hair=pick(HAIR_COLORS,h>>3);
+  const shirt=pick(SHIRT_COLORS,h>>6);
+  const style=pick(HAIR_STYLES,h>>9);
+  const w=40,ht=56;
+  let hairPath='';
+  if(style==='buzz') hairPath=`<ellipse cx="20" cy="12" rx="9" ry="8" fill="${hair}"/>`;
+  else if(style==='short') hairPath=`<ellipse cx="20" cy="11" rx="10" ry="9" fill="${hair}"/>`;
+  else if(style==='long') hairPath=`<path d="M10 14 Q10 4 20 3 Q30 4 30 14 L30 24 Q30 26 28 26 L12 26 Q10 26 10 24Z" fill="${hair}"/>`;
+  else if(style==='ponytail') hairPath=`<ellipse cx="20" cy="11" rx="10" ry="9" fill="${hair}"/><ellipse cx="20" cy="4" rx="3" ry="5" fill="${hair}"/>`;
+  else if(style==='curly') hairPath=`<ellipse cx="20" cy="12" rx="11" ry="10" fill="${hair}" opacity="0.9"/><circle cx="13" cy="8" r="3" fill="${hair}"/><circle cx="27" cy="8" r="3" fill="${hair}"/><circle cx="20" cy="5" r="3" fill="${hair}"/>`;
+  return `<svg width="${w}" height="${ht}" viewBox="0 0 ${w} ${ht}" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="20" cy="52" rx="10" ry="3" fill="rgba(0,0,0,0.2)"/>
+    <rect x="12" y="30" width="16" height="20" rx="3" fill="${shirt}"/>
+    <rect x="12" y="30" width="16" height="6" rx="2" fill="${shirt}" opacity="0.8"/>
+    <rect x="6" y="32" width="8" height="4" rx="2" fill="${shirt}"/>
+    <rect x="26" y="32" width="8" height="4" rx="2" fill="${shirt}"/>
+    <rect x="14" y="48" width="5" height="6" rx="1" fill="#3a3530"/>
+    <rect x="21" y="48" width="5" height="6" rx="1" fill="#3a3530"/>
+    ${hairPath}
+    <ellipse cx="20" cy="16" rx="9" ry="10" fill="${skin}"/>
+    <circle cx="16" cy="15" r="1.5" fill="#2a2420"/>
+    <circle cx="24" cy="15" r="1.5" fill="#2a2420"/>
+    <ellipse cx="20" cy="20" rx="2.5" ry="1" fill="${skin}" opacity="0.7"/>
+    <path d="M17 22 Q20 24 23 22" stroke="#2a2420" stroke-width="0.8" fill="none"/>
+  </svg>`;
+}
+
 function tplFloor(){
   return '<div id="floor"><div class="floor-door">▼ entrance ▼</div></div>';
 }
@@ -932,7 +980,9 @@ function renderFloor(){
     const t=document.createElement('div');
     t.className='floor-table';t.id='tbl-'+i;
     t.style.left=pos.x+'%';t.style.top=pos.y+'%';
-    t.innerHTML='<div class="floor-chair top"></div><div class="floor-chair bottom"></div>';
+    t.innerHTML=`<div class="tbl-top"></div><div class="tbl-leg l"></div><div class="tbl-leg r"></div>
+      <div class="floor-chair top"><div class="chr-back"></div><div class="chr-seat"></div></div>
+      <div class="floor-chair bottom"><div class="chr-seat"></div><div class="chr-back"></div></div>`;
     floor.appendChild(t);
   });
   RT.tickets.forEach(t=>{
@@ -947,11 +997,10 @@ function renderCustSprite(t){
   const dish=dishById(t.dishId);
   const sp=document.createElement('div');
   sp.className='cust-sprite'; sp.id='cust-'+t.id;
-  sp.style.left=pos.x+'%'; sp.style.top=(pos.y-12)+'%';
-  const cust=t.cust||CUSTOMER_TYPES[0];
+  sp.style.left=(pos.x-2)+'%'; sp.style.top=(pos.y-16)+'%';
   sp.innerHTML=`<div class="order-bubble"><img src="${dish.icon}" alt="${dish.name}">
     <div class="bubble-price">$${dish.price}</div></div>
-    <div class="cust-body">${t.face}</div>
+    ${buildCustSVG(t.id+''+(t.face||''))}
     <div class="cust-patience"><i style="width:100%"></i></div>`;
   sp.addEventListener('click',()=>fulfill(t.id));
   floor.appendChild(sp);
@@ -959,18 +1008,18 @@ function renderCustSprite(t){
 }
 function removeCustSprite(id, happy){
   const sp=el('#cust-'+id); if(!sp) return;
-  sp.classList.add(happy?'served':'angry');
   if(happy){
     const fx=document.createElement('div');fx.className='serve-fx';
     fx.textContent='+$'; fx.style.left=sp.style.left; fx.style.top=sp.style.top;
     const floor=el('#floor');if(floor) floor.appendChild(fx);
     setTimeout(()=>fx.remove(),800);
   }
+  sp.classList.add(happy?'served':'angry');
   setTimeout(()=>{
     sp.remove();
     const t=RT.tickets.find(x=>x.id===id)||RT._lastRemoved;
     if(t&&t.tableIdx!=null){const tbl=el('#tbl-'+t.tableIdx);if(tbl) tbl.classList.remove('occupied');}
-  },500);
+  },600);
 }
 function updateCustPatience(t){
   const bar=document.querySelector('#cust-'+t.id+' .cust-patience i');
