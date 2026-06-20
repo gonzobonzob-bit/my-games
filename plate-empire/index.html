@@ -191,15 +191,25 @@ nav{flex:1;padding:10px 0;}
 .floor-chair.bottom{bottom:-22px;left:50%;transform:translateX(-50%);}
 
 /* customer sprites — SVG people */
-.cust-sprite{position:absolute;z-index:10;cursor:pointer;transition:opacity .4s;}
+.cust-sprite{position:absolute;z-index:10;cursor:pointer;
+  transition:left 1s ease-in-out, top 1s ease-in-out, opacity .5s;}
 .cust-sprite:hover{filter:brightness(1.2);}
-.cust-sprite.served{opacity:0;transition:opacity .5s;}
-.cust-sprite.angry{filter:saturate(0.3) brightness(0.7);opacity:0;transition:opacity .5s;}
+.cust-sprite.walking-in{animation:custBob .4s steps(2) infinite;}
+.cust-sprite.served{pointer-events:none;}
+.cust-sprite.angry{pointer-events:none;filter:saturate(0.3) brightness(0.7);}
+.cust-sprite.exiting{opacity:0;pointer-events:none;transition:left 1s ease-in-out,top 1s ease-in-out,opacity .6s .8s;}
 .cust-sprite svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.4));}
+@keyframes custBob{0%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .cust-patience{width:40px;height:4px;border-radius:2px;background:rgba(0,0,0,0.5);margin:2px auto 0;
   overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,0.3);}
 .cust-patience i{display:block;height:100%;border-radius:2px;
   background:linear-gradient(90deg,var(--alert),var(--brass),var(--sage));transition:width .3s;}
+
+/* staff on floor */
+.staff-sprite{position:absolute;z-index:8;pointer-events:none;opacity:0.85;}
+.staff-sprite svg{display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));}
+.staff-sprite .staff-label{font-family:var(--mono);font-size:8px;color:var(--brass);
+  text-align:center;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,0.6);}
 
 /* order bubble */
 .order-bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
@@ -1029,6 +1039,49 @@ function buildCustSVG(seed){
 function tplFloor(){
   return '<div id="floor"><div class="floor-door">▼ entrance ▼</div></div>';
 }
+const STAFF_POSITIONS=[
+  {x:88,y:30},{x:88,y:50},{x:88,y:70},{x:88,y:18},{x:88,y:85},
+  {x:92,y:40},{x:92,y:60},{x:92,y:25},{x:92,y:75},{x:92,y:48},{x:92,y:55}
+];
+const STAFF_SHIRT_COLORS={cook:'#f0f0f0',waitress:'#3a3a3a',host:'#2a2a5a',chef:'#f0f0f0',manager:'#1a1a3a',sommelier:'#2a0a1a'};
+function staffShirtColor(def){
+  if(def.role.includes('Cook')||def.role.includes('Chef')) return '#f0f0f0';
+  if(def.role.includes('Wait')||def.role.includes('Host')) return '#2a2a3a';
+  if(def.role.includes('Sommelier')) return '#3a0a1a';
+  return '#1a1a3a';
+}
+function buildStaffSVG(def){
+  const shirt=staffShirtColor(def);
+  const skin=SKIN_TONES[Math.abs(def.name.charCodeAt(0)*7)%SKIN_TONES.length];
+  const hair=HAIR_COLORS[Math.abs(def.name.charCodeAt(1)||65)*3%HAIR_COLORS.length];
+  return `<svg width="36" height="52" viewBox="0 0 40 56" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="20" cy="52" rx="10" ry="3" fill="rgba(0,0,0,0.2)"/>
+    <rect x="12" y="30" width="16" height="20" rx="3" fill="${shirt}"/>
+    <rect x="6" y="32" width="8" height="4" rx="2" fill="${shirt}"/>
+    <rect x="26" y="32" width="8" height="4" rx="2" fill="${shirt}"/>
+    <rect x="14" y="48" width="5" height="6" rx="1" fill="#1a1a1a"/>
+    <rect x="21" y="48" width="5" height="6" rx="1" fill="#1a1a1a"/>
+    <ellipse cx="20" cy="12" rx="10" ry="9" fill="${hair}"/>
+    <ellipse cx="20" cy="16" rx="9" ry="10" fill="${skin}"/>
+    <circle cx="16" cy="15" r="1.5" fill="#2a2420"/>
+    <circle cx="24" cy="15" r="1.5" fill="#2a2420"/>
+    <path d="M17 21 Q20 23 23 21" stroke="#2a2420" stroke-width="0.8" fill="none"/>
+    ${def.role.includes('Chef')||def.role.includes('Cook')?'<ellipse cx="20" cy="5" rx="8" ry="5" fill="#f8f8f0" opacity="0.9"/>':''}
+  </svg>`;
+}
+function renderStaffOnFloor(){
+  els('.staff-sprite').forEach(e=>e.remove());
+  const floor=el('#floor'); if(!floor) return;
+  (S.staff||[]).forEach((id,i)=>{
+    const def=ALL_STAFF.find(s=>s.id===id); if(!def) return;
+    const pos=STAFF_POSITIONS[i%STAFF_POSITIONS.length];
+    const sp=document.createElement('div');
+    sp.className='staff-sprite'; sp.id='staff-'+id;
+    sp.style.left=pos.x+'%'; sp.style.top=pos.y+'%';
+    sp.innerHTML=buildStaffSVG(def)+`<div class="staff-label">${def.name}</div>`;
+    floor.appendChild(sp);
+  });
+}
 function renderFloor(){
   const floor=el('#floor'); if(!floor) return;
   const tables=TABLE_LAYOUTS[S.tier]||TABLE_LAYOUTS[0];
@@ -1041,6 +1094,7 @@ function renderFloor(){
       <div class="floor-chair bottom"><div class="chr-seat"></div><div class="chr-back"></div></div>`;
     floor.appendChild(t);
   });
+  renderStaffOnFloor();
   RT.tickets.forEach(t=>{
     if(t.tableIdx!=null) renderCustSprite(t);
   });
@@ -1052,14 +1106,22 @@ function renderCustSprite(t){
   const existing=el('#cust-'+t.id);if(existing) return;
   const dish=dishById(t.dishId);
   const sp=document.createElement('div');
-  sp.className='cust-sprite'; sp.id='cust-'+t.id;
-  sp.style.left=(pos.x-2)+'%'; sp.style.top=(pos.y-16)+'%';
-  sp.innerHTML=`<div class="order-bubble"><img src="${dish.icon}" alt="${dish.name}">
+  sp.className='cust-sprite walking-in'; sp.id='cust-'+t.id;
+  sp.style.left='48%'; sp.style.top='90%';
+  sp.innerHTML=`<div class="order-bubble" style="opacity:0;transition:opacity .3s">
+    <img src="${dish.icon}" alt="${dish.name}">
     <div class="bubble-price">$${dish.price}</div></div>
     ${buildCustSVG(t.id+''+(t.face||''))}
     <div class="cust-patience"><i style="width:100%"></i></div>`;
   sp.addEventListener('click',()=>fulfill(t.id));
   floor.appendChild(sp);
+  requestAnimationFrame(()=>{requestAnimationFrame(()=>{
+    sp.style.left=(pos.x-2)+'%'; sp.style.top=(pos.y-16)+'%';
+    setTimeout(()=>{
+      sp.classList.remove('walking-in');
+      const bub=sp.querySelector('.order-bubble');if(bub) bub.style.opacity='1';
+    },1000);
+  });});
   const tbl=el('#tbl-'+t.tableIdx);if(tbl) tbl.classList.add('occupied');
 }
 function removeCustSprite(id, happy){
@@ -1071,11 +1133,16 @@ function removeCustSprite(id, happy){
     setTimeout(()=>fx.remove(),800);
   }
   sp.classList.add(happy?'served':'angry');
+  const bub=sp.querySelector('.order-bubble');if(bub) bub.style.opacity='0';
+  setTimeout(()=>{
+    sp.classList.add('exiting');
+    sp.style.left='48%'; sp.style.top='92%';
+  },400);
   setTimeout(()=>{
     sp.remove();
     const t=RT.tickets.find(x=>x.id===id)||RT._lastRemoved;
     if(t&&t.tableIdx!=null){const tbl=el('#tbl-'+t.tableIdx);if(tbl) tbl.classList.remove('occupied');}
-  },600);
+  },1800);
 }
 function updateCustPatience(t){
   const bar=document.querySelector('#cust-'+t.id+' .cust-patience i');
@@ -1110,7 +1177,7 @@ function wireHireAndUpgrade(){
     const def=ALL_STAFF.find(s=>s.id===b.dataset.hire);
     if(!def||S.cash<def.cost||S.staff.includes(def.id)) return;
     S.cash-=def.cost; S.staff.push(def.id);
-    renderHUD(); renderView();
+    renderHUD(); renderView(); renderStaffOnFloor();
     pushLog(`Hired ${def.name} (${def.role})`,'good');
     toast(`${def.name} joined the crew!`,'good'); sfx('hire'); save();
   }));
