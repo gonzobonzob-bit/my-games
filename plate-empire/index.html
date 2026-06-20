@@ -263,6 +263,17 @@ nav{flex:1;padding:10px 0;}
 .menu-logo{font-family:var(--disp);font-weight:900;font-size:54px;line-height:0.9;text-transform:uppercase;letter-spacing:1px;text-align:center;}
 .menu-logo em{color:var(--brass);font-style:normal;}
 .menu-tag{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;margin:6px 0 26px;letter-spacing:2px;}
+.save-slot{display:flex;align-items:center;gap:12px;width:100%;background:var(--panel-2);border:1px solid var(--line);
+  color:var(--cream);border-radius:8px;padding:12px 14px;margin-bottom:8px;text-align:left;transition:all .12s;}
+.save-slot:hover{border-color:var(--brass);transform:translateY(-1px);}
+.save-slot .slot-num{font-family:var(--disp);font-weight:900;font-size:22px;color:var(--brass);width:28px;text-align:center;flex:0 0 auto;}
+.save-slot .slot-info{flex:1;min-width:0;}
+.save-slot .slot-title{font-weight:700;font-size:13px;}
+.save-slot .slot-detail{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+.save-slot.empty .slot-title{color:var(--muted);}
+.save-slot .slot-del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:5px;
+  padding:4px 8px;font-size:10px;flex:0 0 auto;transition:all .12s;}
+.save-slot .slot-del:hover{border-color:var(--alert);color:var(--alert);}
 .menu-btn{display:block;width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--cream);
   border-radius:8px;padding:14px;font-size:15px;font-weight:700;margin-bottom:10px;transition:all .12s;}
 .menu-btn:hover:not(:disabled){border-color:var(--brass);color:var(--brass);transform:translateY(-1px);}
@@ -462,9 +473,8 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
 <div id="main-menu" class="overlay">
   <div class="card">
     <div class="menu-logo">Plate<br><em>Empire</em></div>
-    <div class="menu-tag">FOOD-TRUCK TIER · v1</div>
-    <button class="menu-btn primary" id="btn-new">New Game</button>
-    <button class="menu-btn" id="btn-continue"><span id="cont-label">Continue</span></button>
+    <div class="menu-tag">RESTAURANT TYCOON</div>
+    <div id="save-slots"></div>
     <button class="menu-btn" id="btn-settings">Settings</button>
   </div>
 </div>
@@ -600,8 +610,10 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
    ================================================================= */
 
 /* ---------- A. Config ---------- */
-const SAVE_KEY = 'plate-empire-save-v2';
+const SAVE_SLOTS = 3;
+const SAVE_PREFIX = 'plate-empire-slot-';
 const AUTOSAVE_MS = 30000;
+let activeSlot = 0;
 
 const TIERS = [
   {id:'truck',  name:'Food Truck',   loc:'El Paso Food Truck',       bg:'assets/backdrop.png',       unlockRep:0,  unlockCash:0,     dayLen:90000,  railCap:6},
@@ -743,17 +755,22 @@ const RT={tickets:[],nextId:1,spawnAcc:0,lastT:0,raf:0,autosaveTimer:0,
   eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null,tutStep:0,
   staffAcc:{}};
 
+function slotKey(n){ return SAVE_PREFIX+n; }
 function save(reason){
-  try{ localStorage.setItem(SAVE_KEY,JSON.stringify({...S,_ts:Date.now()}));
+  try{ localStorage.setItem(slotKey(activeSlot),JSON.stringify({...S,_ts:Date.now()}));
     if(reason) toast('Game saved','good'); return true;
   }catch(e){ if(reason) toast('Save failed','bad'); return false; }
 }
-function loadSave(){
-  try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null;
+function loadSlot(n){
+  try{ const r=localStorage.getItem(slotKey(n)); if(!r) return null;
     const d=JSON.parse(r); return typeof d.cash==='number'?d:null;
   }catch(e){ return null; }
 }
-function hasSave(){ return !!loadSave(); }
+function deleteSlot(n){
+  try{ localStorage.removeItem(slotKey(n)); }catch(e){}
+  // migrate old single-key save to slot 0
+  try{ localStorage.removeItem('plate-empire-save-v2'); }catch(e){}
+}
 
 /* ---------- C. Boot ---------- */
 function showMenu(){
@@ -761,17 +778,56 @@ function showMenu(){
   cancelAnimationFrame(RT.raf); clearInterval(RT.autosaveTimer);
   ['#game','#pause','#settings','#day-summary','#tier-up','#victory','#game-over','#tutorial'].forEach(s=>el(s).classList.add('hidden'));
   el('#main-menu').classList.remove('hidden');
-  const sv=loadSave();
-  el('#btn-continue').disabled=!sv;
-  el('#cont-label').textContent=sv?`Continue — ${TIERS[sv.tier||0].name} Day ${sv.day} · $${sv.cash}`:'Continue';
+  renderSaveSlots();
+}
+function renderSaveSlots(){
+  const box=el('#save-slots'); if(!box) return;
+  // migrate old single save key to slot 0
+  try{
+    const old=localStorage.getItem('plate-empire-save-v2');
+    if(old&&!localStorage.getItem(slotKey(0))){localStorage.setItem(slotKey(0),old);localStorage.removeItem('plate-empire-save-v2');}
+  }catch(e){}
+  let html='';
+  for(let i=0;i<SAVE_SLOTS;i++){
+    const sv=loadSlot(i);
+    if(sv){
+      const tier=TIERS[sv.tier||0]||TIERS[0];
+      html+=`<button class="save-slot" data-slot="${i}">
+        <div class="slot-num">${i+1}</div>
+        <div class="slot-info"><div class="slot-title">${tier.name} — Day ${sv.day}</div>
+        <div class="slot-detail">$${sv.cash} · ${sv.rep} rep · ${sv.served} served</div></div>
+        <button class="slot-del" data-del="${i}">✕</button></button>`;
+    } else {
+      html+=`<button class="save-slot empty" data-slot="${i}">
+        <div class="slot-num">${i+1}</div>
+        <div class="slot-info"><div class="slot-title">Empty Slot</div>
+        <div class="slot-detail">Start a new game</div></div></button>`;
+    }
+  }
+  box.innerHTML=html;
+  els('.save-slot').forEach(b=>b.addEventListener('click',e=>{
+    if(e.target.closest('.slot-del')) return;
+    const slot=parseInt(b.dataset.slot);
+    activeSlot=slot;
+    const sv=loadSlot(slot);
+    if(sv) continueGame(slot); else newGame();
+  }));
+  els('.slot-del').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const slot=parseInt(b.dataset.del);
+    deleteSlot(slot);
+    renderSaveSlots();
+    toast('Slot '+(slot+1)+' deleted','');
+  }));
 }
 function newGame(){
   S=defaultState(); startSession(); save();
   pushLog('Opened for business. Day 1.','good');
   if(!S.tutDone) startTutorial();
 }
-function continueGame(){
-  const d=loadSave(); if(!d){toast('No save found','bad');return;}
+function continueGame(slot){
+  if(slot!=null) activeSlot=slot;
+  const d=loadSlot(activeSlot); if(!d){toast('No save found','bad');return;}
   S={...defaultState(),...d,finances:{...defaultState().finances,...(d.finances||{})},
     bestDay:{...defaultState().bestDay,...(d.bestDay||{})},
     settings:{...defaultState().settings,...(d.settings||{})}};
@@ -1210,7 +1266,7 @@ function gameOver(){
     <div><span>Total served</span><b>${S.served}</b></div>
     <div><span>Final cash</span><b>$${S.cash}</b></div>`;
   el('#game-over').classList.remove('hidden');
-  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+  deleteSlot(activeSlot);
 }
 
 function showTierUpgrade(){
@@ -1400,8 +1456,6 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 
 /* ---------- K. Wiring ---------- */
 function wire(){
-  el('#btn-new').addEventListener('click',newGame);
-  el('#btn-continue').addEventListener('click',continueGame);
   el('#btn-settings').addEventListener('click',()=>{el('#main-menu').classList.add('hidden');el('#settings').classList.remove('hidden');});
   el('#settings-back').addEventListener('click',()=>{el('#settings').classList.add('hidden');el('#main-menu').classList.remove('hidden');});
   els('.toggle').forEach(t=>t.addEventListener('click',()=>{
