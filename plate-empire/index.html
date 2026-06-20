@@ -111,9 +111,11 @@ button{font-family:var(--body);cursor:pointer;}
 .ticket.urgent .t-bar{background:var(--alert);}
 .ticket.warn .t-bar{background:var(--brass);}
 .ticket.fulfilled{animation:pop .35s ease forwards;pointer-events:none;}
+.ticket.staff-served{animation:staffPop .4s ease forwards;pointer-events:none;}
 .ticket.missed{animation:miss .4s ease forwards;pointer-events:none;}
 @keyframes ticketSlideIn{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.12);box-shadow:0 0 0 3px var(--sage)}100%{transform:scale(0.6);opacity:0}}
+@keyframes staffPop{0%{transform:scale(1)}40%{transform:scale(1.08);box-shadow:0 0 0 3px var(--brass)}100%{transform:scale(0.6);opacity:0}}
 @keyframes miss{0%{transform:translateY(0)}100%{transform:translateY(40px) rotate(6deg);opacity:0}}
 
 /* ---------- 4. Sidebar + HUD ---------- */
@@ -585,17 +587,17 @@ const MISS_REP = -3;
 const RAIL_SLOT = 152;
 
 const ALL_STAFF = [
-  {id:'cook2',tier:0,name:'Maria',role:'Assistant Cook',icon:'👩‍🍳',cost:100,salary:5,effect:'+2s ticket time',ticketBonus:2000},
-  {id:'cook3',tier:0,name:'Carlos',role:'Line Cook',icon:'👨‍🍳',cost:200,salary:8,effect:'+2 rail capacity',railBonus:2},
-  {id:'waitress',tier:1,name:'Sofia',role:'Waitress',icon:'💁‍♀️',cost:300,salary:12,effect:'+1s ticket time',ticketBonus:1000},
-  {id:'dishwasher',tier:1,name:'Miguel',role:'Dishwasher',icon:'🧹',cost:200,salary:8,effect:'+1 rail capacity',railBonus:1},
-  {id:'sous',tier:1,name:'Diego',role:'Sous Chef',icon:'👨‍🍳',cost:500,salary:15,effect:'+3s ticket time',ticketBonus:3000},
-  {id:'sommelier',tier:2,name:'Claire',role:'Sommelier',icon:'🍷',cost:800,salary:20,effect:'+2s ticket time',ticketBonus:2000},
-  {id:'hostess',tier:2,name:'Ana',role:'Hostess',icon:'💁‍♀️',cost:600,salary:15,effect:'+2 rail capacity',railBonus:2},
-  {id:'executive',tier:3,name:'Chef Pierre',role:'Executive Chef',icon:'👨‍🍳',cost:2000,salary:40,effect:'+4s ticket time',ticketBonus:4000},
-  {id:'maitre',tier:3,name:'François',role:"Maître d'",icon:'🤵',cost:1500,salary:30,effect:'+3 rail capacity',railBonus:3},
-  {id:'gm',tier:4,name:'Victoria',role:'General Manager',icon:'👩‍💼',cost:5000,salary:60,effect:'+5s ticket time',ticketBonus:5000},
-  {id:'concierge',tier:4,name:'James',role:'Concierge',icon:'🤵‍♂️',cost:3000,salary:40,effect:'+4 rail capacity',railBonus:4},
+  {id:'cook2',tier:0,name:'Maria',role:'Assistant Cook',icon:'👩‍🍳',cost:100,salary:5,effect:'+2s ticket · auto-serve 8s',ticketBonus:2000,autoServe:8000},
+  {id:'cook3',tier:0,name:'Carlos',role:'Line Cook',icon:'👨‍🍳',cost:200,salary:8,effect:'+2 rail · auto-serve 7s',railBonus:2,autoServe:7000},
+  {id:'waitress',tier:1,name:'Sofia',role:'Waitress',icon:'💁‍♀️',cost:300,salary:12,effect:'+1s ticket · auto-serve 6s',ticketBonus:1000,autoServe:6000},
+  {id:'dishwasher',tier:1,name:'Miguel',role:'Dishwasher',icon:'🧹',cost:200,salary:8,effect:'+1 rail cap',railBonus:1},
+  {id:'sous',tier:1,name:'Diego',role:'Sous Chef',icon:'👨‍🍳',cost:500,salary:15,effect:'+3s ticket · auto-serve 5s',ticketBonus:3000,autoServe:5000},
+  {id:'sommelier',tier:2,name:'Claire',role:'Sommelier',icon:'🍷',cost:800,salary:20,effect:'+2s ticket · auto-serve 6s',ticketBonus:2000,autoServe:6000},
+  {id:'hostess',tier:2,name:'Ana',role:'Hostess',icon:'💁‍♀️',cost:600,salary:15,effect:'+2 rail cap',railBonus:2},
+  {id:'executive',tier:3,name:'Chef Pierre',role:'Executive Chef',icon:'👨‍🍳',cost:2000,salary:40,effect:'+4s ticket · auto-serve 4s',ticketBonus:4000,autoServe:4000},
+  {id:'maitre',tier:3,name:'François',role:"Maître d'",icon:'🤵',cost:1500,salary:30,effect:'+3 rail cap',railBonus:3},
+  {id:'gm',tier:4,name:'Victoria',role:'General Manager',icon:'👩‍💼',cost:5000,salary:60,effect:'+5s ticket · auto-serve 3s',ticketBonus:5000,autoServe:3000},
+  {id:'concierge',tier:4,name:'James',role:'Concierge',icon:'🤵‍♂️',cost:3000,salary:40,effect:'+4 rail cap',railBonus:4},
 ];
 
 const UPGRADES = [
@@ -669,7 +671,8 @@ const defaultState = ()=>({
 let S=defaultState(), view='overview', running=false, paused=false;
 const RT={tickets:[],nextId:1,spawnAcc:0,lastT:0,raf:0,autosaveTimer:0,
   streak:0,bestStreak:0,dayServed:0,dayMissed:0,dayEarnings:0,dayTips:0,
-  eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null,tutStep:0};
+  eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null,tutStep:0,
+  staffAcc:{}};
 
 function save(reason){
   try{ localStorage.setItem(SAVE_KEY,JSON.stringify({...S,_ts:Date.now()}));
@@ -712,7 +715,7 @@ function startSession(){
   running=true; paused=false;
   Object.assign(RT,{tickets:[],nextId:1,spawnAcc:0,lastT:performance.now(),
     streak:0,bestStreak:0,dayServed:0,dayMissed:0,dayEarnings:0,dayTips:0,
-    eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null});
+    eventPaceMult:1,eventRepMult:1,eventTipMult:1,eventRailBonus:0,activeEvent:null,staffAcc:{}});
   el('#main-menu').classList.add('hidden'); el('#settings').classList.add('hidden');
   el('#pause').classList.add('hidden'); el('#game').classList.remove('hidden');
   el('#rail-track').querySelectorAll('.ticket').forEach(n=>n.remove());
@@ -931,7 +934,7 @@ function layoutTickets(){
 }
 function ticketNode(id){return el(`.ticket[data-id="${id}"]`);}
 
-function fulfill(id){
+function fulfill(id, staffName){
   const idx=RT.tickets.findIndex(t=>t.id===id); if(idx<0) return;
   const t=RT.tickets[idx], dish=dishById(t.dishId), cust=t.cust||CUSTOMER_TYPES[0];
   const tipBase=Math.ceil(dish.price*0.2);
@@ -943,14 +946,15 @@ function fulfill(id){
   RT.streak++; if(RT.streak>RT.bestStreak) RT.bestStreak=RT.streak;
   RT.dayServed++; RT.dayEarnings+=dish.price; RT.dayTips+=tip;
   const node=ticketNode(id);
-  if(node){node.classList.add('fulfilled');setTimeout(()=>node.remove(),360);}
+  if(node){node.classList.add(staffName?'staff-served':'fulfilled');setTimeout(()=>node.remove(),360);}
   RT.tickets.splice(idx,1); layoutTickets(); renderHUD(); updateScene();
   let sb=0;
   if(RT.streak===5) sb=10; else if(RT.streak>0&&RT.streak%10===0) sb=25;
   if(sb){S.cash+=sb;RT.dayEarnings+=sb;}
   S.finances.totalEarnings+=dish.price; S.finances.totalTips+=tip; S.finances.totalBonuses+=sb;
   const tm=tip?` · +$${tip} tip`:'';
-  pushLog(`Served ${dish.name} · +$${dish.price}${tm} · +${repGain} rep`,'good');
+  const by=staffName?` [${staffName}]`:'';
+  pushLog(`Served ${dish.name} · +$${dish.price}${tm} · +${repGain} rep${by}`,'good');
   if(sb) toast(`${RT.streak}x streak! +$${sb} bonus!`,'good');
   else if(RT.streak>=3) toast(`${RT.streak}x streak!`,'good');
   sfx('serve'); checkAchievements();
@@ -1083,6 +1087,16 @@ function tick(dt){
   const dayScale=Math.max(0.6,1-(S.day-1)*0.04);
   const interval=Math.max(PACE.rush,base*dayScale*RT.eventPaceMult);
   if(RT.spawnAcc>=interval){RT.spawnAcc=0;spawnTicket();}
+  (S.staff||[]).forEach(sid=>{
+    const def=ALL_STAFF.find(x=>x.id===sid);
+    if(!def||!def.autoServe) return;
+    if(!RT.staffAcc[sid]) RT.staffAcc[sid]=0;
+    RT.staffAcc[sid]+=dt;
+    if(RT.staffAcc[sid]>=def.autoServe&&RT.tickets.length>0){
+      RT.staffAcc[sid]=0;
+      fulfill(RT.tickets[0].id, def.name);
+    }
+  });
   for(let i=RT.tickets.length-1;i>=0;i--){
     const t=RT.tickets[i]; t.left-=dt;
     const node=ticketNode(t.id);
