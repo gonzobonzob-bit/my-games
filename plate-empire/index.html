@@ -74,7 +74,8 @@ button{font-family:var(--body);cursor:pointer;}
   box-shadow:0 6px 16px rgba(0,0,0,0.5);cursor:pointer;
   display:flex;flex-direction:column;overflow:hidden;
   border-top:4px solid var(--brass);
-  transition:transform .12s ease, box-shadow .12s ease;
+  transition:left .3s ease, transform .12s ease, box-shadow .12s ease;
+  animation:ticketSlideIn .3s ease;
   font-family:var(--mono);
   /* serrated bottom edge like a kitchen ticket */
   -webkit-mask:radial-gradient(4px 4px at 8px 100%,transparent 98%,#000) repeat-x bottom/16px 8px;
@@ -92,6 +93,7 @@ button{font-family:var(--body);cursor:pointer;}
 .ticket.warn .t-bar{background:var(--brass);}
 .ticket.fulfilled{animation:pop .35s ease forwards;pointer-events:none;}
 .ticket.missed{animation:miss .4s ease forwards;pointer-events:none;}
+@keyframes ticketSlideIn{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.12);box-shadow:0 0 0 3px var(--sage)}100%{transform:scale(0.6);opacity:0}}
 @keyframes miss{0%{transform:translateY(0)}100%{transform:translateY(40px) rotate(6deg);opacity:0}}
 
@@ -223,6 +225,36 @@ nav{flex:1;padding:10px 0;}
   .menu-logo{font-size:40px;}
 }
 
+/* staff panel */
+.staff-card{display:flex;align-items:center;gap:12px;padding:12px;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:8px;margin-bottom:10px;}
+.staff-card .s-icon{font-size:28px;flex:0 0 auto;}
+.staff-card .s-info{flex:1;}
+.staff-card .s-name{font-weight:700;font-size:14px;}
+.staff-card .s-role{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+.staff-card .s-effect{font-family:var(--mono);font-size:10px;color:var(--sage);margin-top:2px;}
+.staff-card .s-cost{font-family:var(--mono);font-size:10px;color:var(--brass-dim);}
+.hire-btn{background:var(--brass);color:#1c1a18;border:none;border-radius:6px;padding:8px 16px;
+  font-weight:700;font-size:12px;cursor:pointer;transition:background .12s;}
+.hire-btn:hover{background:#d6a052;}
+.hire-btn:disabled{opacity:0.4;cursor:not-allowed;background:var(--brass-dim);}
+
+/* finance panel */
+.fin-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:12px;}
+.fin-row:last-child{border-bottom:none;}
+.fin-row .pos{color:var(--sage);}
+.fin-row .neg{color:var(--alert);}
+
+/* community milestones */
+.ms-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.ms-row:last-child{border-bottom:none;}
+.ms-row .ms-icon{font-size:18px;width:24px;text-align:center;}
+.ms-row .ms-name{font-weight:700;}
+.ms-row .ms-req{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto;}
+.ms-row.achieved .ms-name{color:var(--sage);}
+.ms-row.current{border-left:3px solid var(--brass);padding-left:8px;background:rgba(192,138,62,0.06);border-radius:4px;}
+
 /* reduce-motion: honor the Settings toggle */
 body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
   animation-duration:0.001s !important;transition-duration:0.001s !important;}
@@ -286,9 +318,9 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
     <nav id="nav">
       <button class="nav-item active" data-view="overview"><span class="ic">▦</span>Overview</button>
       <button class="nav-item" data-view="menu"><span class="ic">🍽</span>Menu</button>
-      <button class="nav-item" data-view="staff"><span class="ic">👤</span>Staff<span class="soon">SOON</span></button>
-      <button class="nav-item" data-view="finance"><span class="ic">$</span>Finance<span class="soon">SOON</span></button>
-      <button class="nav-item" data-view="community"><span class="ic">♥</span>Community<span class="soon">SOON</span></button>
+      <button class="nav-item" data-view="staff"><span class="ic">👤</span>Staff</button>
+      <button class="nav-item" data-view="finance"><span class="ic">$</span>Finance</button>
+      <button class="nav-item" data-view="community"><span class="ic">♥</span>Community</button>
     </nav>
     <div class="side-foot">
       <button id="btn-save">Save</button>
@@ -376,6 +408,18 @@ const DAY_LENGTH_MS = 90000;  // length of one service day
 const RAIL_SLOT = 152;        // px horizontal spacing per ticket
 
 /* ---------- B. State + persistence ---------- */
+const STAFF_DEFS = [
+  { id:'cook2', name:'Maria', role:'Assistant Cook', icon:'👩‍🍳', cost:100, salary:5, effect:'+2s ticket time', ticketBonus:2000 },
+  { id:'cook3', name:'Carlos', role:'Line Cook',     icon:'👨‍🍳', cost:200, salary:8, effect:'+1 rail capacity', railBonus:2 },
+];
+const REP_MILESTONES = [
+  { rep:0,  name:'Unknown',           icon:'❓' },
+  { rep:20, name:'Local Spot',        icon:'📍' },
+  { rep:40, name:'Neighborhood Fave', icon:'⭐' },
+  { rep:60, name:'City Buzz',         icon:'🔥' },
+  { rep:80, name:'Legendary',         icon:'👑' },
+];
+
 const defaultState = () => ({
   cash: 50,
   rep: 70,
@@ -385,6 +429,9 @@ const defaultState = () => ({
   dayMsLeft: DAY_LENGTH_MS,
   log: [],
   settings: { sfx:true, reduceMotion:false, pace:'normal' },
+  staff: [],
+  finances: { totalEarnings:0, totalTips:0, totalBonuses:0, staffCost:0, history:[] },
+  bestDay: { served:0, earnings:0, tips:0, streak:0 },
 });
 
 let S = defaultState();      // persisted game state
@@ -476,8 +523,11 @@ function renderView(){
   const host = el('#view');
   if(view==='overview') host.innerHTML = tplOverview();
   else if(view==='menu') host.innerHTML = tplMenu();
-  else host.innerHTML = tplStub(view);
+  else if(view==='staff') host.innerHTML = tplStaff();
+  else if(view==='finance') host.innerHTML = tplFinance();
+  else if(view==='community') host.innerHTML = tplCommunity();
   if(view==='overview') renderLog();
+  if(view==='staff') wireHire();
 }
 
 function tplOverview(){
@@ -518,19 +568,126 @@ function tplMenu(){
   </div>`;
 }
 
-function tplStub(name){
-  const titles = { staff:'Staff', finance:'Finance', community:'Community' };
-  return `<div class="panel"><div class="stub">
-    <div class="big">${titles[name]||name}</div>
-    <p>Coming soon — unlocks in a later build pass.</p>
-  </div></div>`;
+function tplStaff(){
+  const you = `<div class="staff-card">
+    <div class="s-icon">🧑‍🍳</div>
+    <div class="s-info"><div class="s-name">You</div><div class="s-role">Head Cook · Owner</div>
+    <div class="s-effect">Always on duty</div></div></div>`;
+  const hires = STAFF_DEFS.map(s=>{
+    const hired = S.staff.includes(s.id);
+    if(hired) return `<div class="staff-card">
+      <div class="s-icon">${s.icon}</div>
+      <div class="s-info"><div class="s-name">${s.name}</div><div class="s-role">${s.role}</div>
+      <div class="s-effect">${s.effect}</div><div class="s-cost">$${s.salary}/day salary</div></div></div>`;
+    return `<div class="staff-card">
+      <div class="s-icon" style="opacity:0.4">${s.icon}</div>
+      <div class="s-info"><div class="s-name">${s.name}</div><div class="s-role">${s.role}</div>
+      <div class="s-effect">${s.effect} · $${s.salary}/day</div></div>
+      <button class="hire-btn" data-hire="${s.id}" ${S.cash<s.cost?'disabled':''}>Hire $${s.cost}</button></div>`;
+  }).join('');
+  return `<div class="panel">
+    <h2>Truck <span class="accent">Staff</span></h2>
+    <div class="sub">Your food-truck crew. Hire help to handle the rush.</div>
+    ${you}${hires}
+  </div>`;
 }
 
-/* ---------- E. Ticket system ---------- */
+function tplFinance(){
+  const f = S.finances;
+  const net = f.totalEarnings + f.totalTips + f.totalBonuses - f.staffCost;
+  const hist = (f.history||[]).slice(-10).reverse().map(h=>
+    `<div class="fin-row"><span>Day ${h.day}</span><span class="pos">+$${h.earned}</span>
+    <span class="pos">+$${h.tips} tips</span><span class="neg">-$${h.staff} staff</span></div>`
+  ).join('') || '<div class="fin-row" style="color:var(--muted)">No history yet</div>';
+  return `<div class="panel">
+    <h2>Truck <span class="accent">Finance</span></h2>
+    <div class="sub">Cash flow at a glance.</div>
+    <div class="grid-2">
+      <div class="metric"><div class="k">Total earnings</div><div class="v" style="color:var(--sage)">$${f.totalEarnings}</div></div>
+      <div class="metric"><div class="k">Total tips</div><div class="v" style="color:var(--sage)">$${f.totalTips}</div></div>
+      <div class="metric"><div class="k">Streak bonuses</div><div class="v" style="color:var(--brass)">$${f.totalBonuses}</div></div>
+      <div class="metric"><div class="k">Staff costs</div><div class="v" style="color:var(--alert)">$${f.staffCost}</div></div>
+    </div>
+    <div style="margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted)">Net profit: <b style="color:var(--${net>=0?'sage':'alert'})">$${net}</b></div>
+  </div>
+  <div class="panel">
+    <h2>Daily <span class="accent">History</span></h2>
+    ${hist}
+  </div>`;
+}
+
+function tplCommunity(){
+  const curMs = REP_MILESTONES.slice().reverse().find(m=>S.rep>=m.rep) || REP_MILESTONES[0];
+  const nextMs = REP_MILESTONES.find(m=>m.rep>S.rep);
+  const rows = REP_MILESTONES.map(m=>{
+    const achieved = S.rep >= m.rep;
+    const current = m === curMs;
+    return `<div class="ms-row ${achieved?'achieved':''} ${current?'current':''}">
+      <div class="ms-icon">${achieved?'✓':m.icon}</div>
+      <div class="ms-name">${m.name}</div>
+      <div class="ms-req">${m.rep} rep</div></div>`;
+  }).join('');
+  const best = S.bestDay;
+  return `<div class="panel">
+    <h2>Community <span class="accent">Standing</span></h2>
+    <div class="sub">Your reputation in the neighborhood.</div>
+    <div class="grid-2">
+      <div class="metric"><div class="k">Current standing</div><div class="v" style="font-size:18px">${curMs.icon} ${curMs.name}</div></div>
+      <div class="metric"><div class="k">${nextMs?'Next milestone':'Max reached'}</div>
+        <div class="v" style="font-size:18px">${nextMs?nextMs.icon+' '+nextMs.name+' ('+nextMs.rep+')':'👑 Legendary'}</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2><span class="accent">Milestones</span></h2>
+    ${rows}
+  </div>
+  <div class="panel">
+    <h2>Best <span class="accent">Day</span></h2>
+    <div class="sub">Your personal records.</div>
+    <div class="grid-2">
+      <div class="metric"><div class="k">Most served</div><div class="v">${best.served}</div></div>
+      <div class="metric"><div class="k">Best earnings</div><div class="v" style="color:var(--sage)">$${best.earnings}</div></div>
+      <div class="metric"><div class="k">Best tips</div><div class="v" style="color:var(--sage)">$${best.tips}</div></div>
+      <div class="metric"><div class="k">Longest streak</div><div class="v" style="color:var(--brass)">${best.streak}x</div></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- E. Staff helpers ---------- */
+function staffBonus(key){
+  return (S.staff||[]).reduce((sum,id)=>{
+    const def = STAFF_DEFS.find(s=>s.id===id);
+    return sum + (def && def[key] ? def[key] : 0);
+  }, 0);
+}
+function dailySalary(){
+  return (S.staff||[]).reduce((sum,id)=>{
+    const def = STAFF_DEFS.find(s=>s.id===id);
+    return sum + (def ? def.salary : 0);
+  }, 0);
+}
+function wireHire(){
+  els('[data-hire]').forEach(b=>b.addEventListener('click', ()=>{
+    const def = STAFF_DEFS.find(s=>s.id===b.dataset.hire);
+    if(!def || S.cash < def.cost || S.staff.includes(def.id)) return;
+    S.cash -= def.cost;
+    S.staff.push(def.id);
+    renderHUD();
+    renderView();
+    pushLog(`Hired ${def.name} (${def.role})`, 'good');
+    toast(`${def.name} joined the crew!`, 'good');
+    sfx('hire');
+    save();
+  }));
+}
+
+/* ---------- F. Ticket system ---------- */
 function spawnTicket(){
-  if(RT.tickets.length >= 6) return;        // rail capacity
+  const maxCap = 6 + staffBonus('railBonus');
+  if(RT.tickets.length >= maxCap) return;
   const dish = DISHES[Math.floor(Math.random()*DISHES.length)];
-  const t = { id:RT.nextId++, dishId:dish.id, life:dish.life, left:dish.life };
+  const bonus = staffBonus('ticketBonus');
+  const t = { id:RT.nextId++, dishId:dish.id, life:dish.life+bonus, left:dish.life+bonus };
   RT.tickets.push(t);
   const track = el('#rail-track');
   const node = document.createElement('div');
@@ -587,10 +744,14 @@ function fulfill(id){
   else if(RT.streak === 10){ streakBonus = 25; }
   else if(RT.streak > 0 && RT.streak % 10 === 0){ streakBonus = 25; }
   if(streakBonus){ S.cash += streakBonus; RT.dayEarnings += streakBonus; }
+  S.finances.totalEarnings += dish.price;
+  S.finances.totalTips += tip;
+  S.finances.totalBonuses += streakBonus;
   const tipMsg = tip ? ` · +$${tip} tip` : '';
   pushLog(`Served ${dish.name} · +$${dish.price}${tipMsg} · +${dish.rep} rep`, 'good');
   if(streakBonus) toast(`${RT.streak}x streak! +$${streakBonus} bonus!`, 'good');
   else if(RT.streak >= 3) toast(`${RT.streak}x streak!`, 'good');
+  sfx('serve');
 }
 
 function expire(id){
@@ -608,20 +769,32 @@ function expire(id){
   layoutTickets();
   renderHUD();
   pushLog(`Missed ${dish.name} · ${MISS_REP} rep`, 'bad');
+  sfx('miss');
   if(S.rep <= 0) gameOver();
 }
 
-/* ---------- F. Economy + day cycle ---------- */
+/* ---------- G. Economy + day cycle ---------- */
 function endDay(){
   paused = true;
   const perfect = RT.dayMissed === 0 && RT.dayServed > 0;
   if(perfect){ S.rep = clamp(S.rep + 5, 0, 100); }
+  const sal = dailySalary();
+  S.cash -= sal;
+  S.finances.staffCost += sal;
+  if(!S.finances.history) S.finances.history = [];
+  S.finances.history.push({ day:S.day, earned:RT.dayEarnings, tips:RT.dayTips, staff:sal });
+  if(S.finances.history.length > 30) S.finances.history.shift();
+  if(RT.dayServed > S.bestDay.served) S.bestDay.served = RT.dayServed;
+  if(RT.dayEarnings > S.bestDay.earnings) S.bestDay.earnings = RT.dayEarnings;
+  if(RT.dayTips > S.bestDay.tips) S.bestDay.tips = RT.dayTips;
+  if(RT.bestStreak > S.bestDay.streak) S.bestDay.streak = RT.bestStreak;
   el('#ds-title').textContent = perfect ? `Day ${S.day} — Perfect Service!` : `Day ${S.day} Complete`;
   el('#ds-stats').innerHTML = `
     <div><span>Orders served</span><b>${RT.dayServed}</b></div>
     <div><span>Orders missed</span><b>${RT.dayMissed}</b></div>
     <div><span>Earnings</span><b>$${RT.dayEarnings}</b></div>
     <div><span>Tips earned</span><b>$${RT.dayTips}</b></div>
+    ${sal?'<div><span>Staff salary</span><b style="color:var(--alert)">-$'+sal+'</b></div>':''}
     <div><span>Best streak</span><b>${RT.bestStreak}x</b></div>
     <div><span>Reputation</span><b>${S.rep}/100</b></div>
     ${perfect ? '<div><span>Perfect service bonus</span><b>+5 rep</b></div>' : ''}`;
@@ -633,6 +806,8 @@ function endDay(){
   RT.tickets.forEach(t=>{ const n=ticketNode(t.id); if(n) n.remove(); });
   RT.tickets = [];
   layoutTickets();
+  renderHUD();
+  sfx('dayEnd');
   save();
 }
 
@@ -745,6 +920,31 @@ function toast(msg, kind){
   n.textContent = msg;
   box.appendChild(n);
   setTimeout(()=>n.remove(), 2500);
+}
+
+/* ---------- SFX (Web Audio beeps) ---------- */
+let audioCtx;
+function sfx(name){
+  if(!S.settings.sfx) return;
+  if(!audioCtx) try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  g.gain.setValueAtTime(0.08, now);
+  if(name==='serve'){
+    o.type='sine'; o.frequency.setValueAtTime(660,now); o.frequency.setValueAtTime(880,now+0.06);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.15); o.start(now); o.stop(now+0.15);
+  } else if(name==='miss'){
+    o.type='sawtooth'; o.frequency.setValueAtTime(220,now); o.frequency.setValueAtTime(140,now+0.15);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.2); o.start(now); o.stop(now+0.2);
+  } else if(name==='hire'){
+    o.type='sine'; o.frequency.setValueAtTime(440,now); o.frequency.setValueAtTime(660,now+0.08); o.frequency.setValueAtTime(880,now+0.16);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.25); o.start(now); o.stop(now+0.25);
+  } else if(name==='dayEnd'){
+    o.type='triangle'; o.frequency.setValueAtTime(523,now); o.frequency.setValueAtTime(659,now+0.12); o.frequency.setValueAtTime(784,now+0.24);
+    g.gain.exponentialRampToValueAtTime(0.001,now+0.4); o.start(now); o.stop(now+0.4);
+  } else { o.disconnect(); return; }
 }
 
 /* ---------- helpers ---------- */
