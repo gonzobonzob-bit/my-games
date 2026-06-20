@@ -131,33 +131,25 @@ footer a{color:var(--purple);text-decoration:none;}
   </div>
 </header>
 <div class="stats-bar">
-  <div class="stat"><span class="stat-val" id="s-total">12</span><span class="stat-lbl">Games</span></div>
+  <div class="stat"><span class="stat-val" id="s-total">5</span><span class="stat-lbl">Showing</span></div>
   <div class="stat"><span class="stat-val" style="color:#16a34a;" id="s-complete">5</span><span class="stat-lbl">Complete</span></div>
-  <div class="stat"><span class="stat-val" style="color:#fbbf24;" id="s-wip">6</span><span class="stat-lbl">In Progress</span></div>
+  <div class="stat"><span class="stat-val" style="color:#fbbf24;" id="s-wip">0</span><span class="stat-lbl">In Progress</span></div>
   <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Free</span></div>
 </div>
 <div class="filter-bar">
-  <button class="filter-btn active" onclick="filterGames('all',this)">All Games</button>
+  <button class="filter-btn active-complete" id="filter-complete" onclick="filterGames('complete',this,'complete')">✓ Complete</button>
+  <button class="filter-btn" onclick="filterGames('wip',this,'wip')">🚧 In Progress</button>
+  <button class="filter-btn" onclick="filterGames('all',this)">All Games</button>
   <button class="filter-btn" onclick="filterGames('idle',this)">🎰 Idle / Tycoon</button>
   <button class="filter-btn" onclick="filterGames('td',this)">🏰 Tower Defense</button>
   <button class="filter-btn" onclick="filterGames('rpg',this)">🗡️ RPG</button>
   <button class="filter-btn" onclick="filterGames('moba',this)">⚔️ MOBA</button>
   <button class="filter-btn" onclick="filterGames('strategy',this)">🚂 Strategy</button>
   <button class="filter-btn" onclick="filterGames('transport',this)">🚛 Transport Tycoon</button>
-  <button class="filter-btn" onclick="filterGames('complete',this,'complete')">✓ Complete</button>
-  <button class="filter-btn" onclick="filterGames('wip',this,'wip')">🚧 In Progress</button>
 </div>
 <div class="grid" id="game-grid">
 
-  <a class="card status-wip" href="plate-empire/index.html" data-tags="idle" data-status="wip">
-    <div class="card-banner banner-plate"><span class="banner-emoji">🚚🍔</span><span class="card-badge badge-idle">Tycoon</span></div>
-    <div class="card-body">
-      <div class="card-genre">🍔 Restaurant Tycoon</div>
-      <div class="card-title">Plate Empire</div>
-      <div class="card-desc">Run an El Paso food truck. Snatch order tickets off the rail before the timer runs out to earn cash and reputation across timed service days. Charcoal/brass kitchen-ticket UI, isometric backdrop, 5-dish menu. Food-truck tier — more tiers to come.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Placeholder Art</span></div>
-  </a>
+  <!-- ===== COMPLETE ===== -->
 
   <a class="card status-complete" href="purr-and-power-v5.html" data-tags="idle solar" data-status="complete">
     <div class="card-banner banner-solar"><span class="banner-emoji">☀️🐱</span><span class="card-badge badge-solar">⭐ Featured</span></div>
@@ -169,44 +161,24 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card status-wip" href="cat-cafe-v4b.html" data-tags="idle" data-status="wip">
-    <div class="card-banner banner-cafe"><span class="banner-emoji">🐱☕</span><span class="card-badge badge-idle">Idle</span></div>
+  <a class="card status-complete" href="transport-empire.html" data-tags="transport strategy idle" data-status="complete">
+    <div class="card-banner banner-transport"><span class="banner-emoji">🚚🌆</span><span class="card-badge badge-transport">Tycoon</span></div>
     <div class="card-body">
-      <div class="card-genre">🐱 Idle Tycoon</div>
-      <div class="card-title">Paws & Contempt</div>
-      <div class="card-desc">Build a cat café empire with witty sarcastic humor. 32 unique cat breeds, hire staff, upgrade your café, unlock prestige tiers. Day/night cycle, ambient sounds, 10 save slots.</div>
+      <div class="card-genre">🚛 Transport Tycoon</div>
+      <div class="card-title">Transport Empire</div>
+      <div class="card-desc">From one truck to a logistics empire across road, rail, sea & air. A pseudo-3D isometric world with 28 industries to invest in or acquire, an HQ compound that physically grows, 3 rival firms, and a philanthropic Community Movement division that earns goodwill — not just money. 3 game modes, autosave, fully mobile.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Prestige Bug</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card status-wip" href="neon-dynasty.html" data-tags="idle" data-status="wip">
-    <div class="card-banner banner-cyber"><div class="neon-streaks"></div><span class="banner-emoji">🏙️⚡</span><span class="card-badge badge-ai">AI Oracle</span></div>
+  <a class="card status-complete" href="iron-frontier.html" data-tags="strategy idle" data-status="complete">
+    <div class="card-banner banner-frontier"><span class="banner-emoji">🚂⚙️</span><span class="card-badge badge-strategy">Strategy</span></div>
     <div class="card-body">
-      <div class="card-genre">🌆 Cyberpunk Tycoon</div>
-      <div class="card-title">NEON DYNASTY</div>
-      <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the live AI Oracle powered by Claude for real strategic advice.</div>
+      <div class="card-genre">🚂 Steampunk Tycoon</div>
+      <div class="card-title">Iron Frontier</div>
+      <div class="card-desc">Build a railway empire across the wild west. Lay tracks, connect towns, run steam trains, grow populations. Isometric hex map, BFS routing, full economy system. El Paso, 1871.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Oracle Offline</span></div>
-  </a>
-
-  <a class="card status-wip" href="epoch-mobile.html" data-tags="idle" data-status="wip">
-    <div class="card-banner banner-forge"><span class="banner-emoji">⚒️🔥</span><span class="card-badge badge-idle">Idle</span></div>
-    <div class="card-body">
-      <div class="card-genre">⚒️ Idle Crafting</div>
-      <div class="card-title">EPOCH: The Eternal Forge</div>
-      <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes, prestige to loop through time. Each age makes you stronger.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Rune Bug</span></div>
-  </a>
-
-  <a class="card status-wip" href="xfiles-pwa.html" data-tags="rpg idle" data-status="wip">
-    <div class="card-banner banner-xfiles"><span class="banner-emoji">👁️🛸</span><span class="card-badge badge-rpg">RPG</span></div>
-    <div class="card-body">
-      <div class="card-genre">🗡️ Idle RPG</div>
-      <div class="card-title">X-Files: The Truth Is Out There</div>
-      <div class="card-desc">Gather evidence, recruit agents from Mulder to Scully, expose conspiracies from Black Oil to Majestic-12. CRT terminal aesthetic. The truth is out there.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Cost Check Bug</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
   <a class="card status-complete" href="wizard_tower_defense.html" data-tags="td" data-status="complete">
@@ -229,7 +201,59 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card status-wip" href="entangled-index.html" data-tags="rpg" data-status="wip">
+  <!-- ===== IN PROGRESS ===== -->
+
+  <a class="card status-wip" href="plate-empire/index.html" data-tags="idle" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-plate"><span class="banner-emoji">🚚🍔</span><span class="card-badge badge-idle">Tycoon</span></div>
+    <div class="card-body">
+      <div class="card-genre">🍔 Restaurant Tycoon</div>
+      <div class="card-title">Plate Empire</div>
+      <div class="card-desc">Run an El Paso food truck. Snatch order tickets off the rail before the timer runs out to earn cash and reputation across timed service days. Charcoal/brass kitchen-ticket UI, isometric backdrop, 5-dish menu. Food-truck tier — more tiers to come.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Placeholder Art</span></div>
+  </a>
+
+  <a class="card status-wip" href="cat-cafe-v4b.html" data-tags="idle" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-cafe"><span class="banner-emoji">🐱☕</span><span class="card-badge badge-idle">Idle</span></div>
+    <div class="card-body">
+      <div class="card-genre">🐱 Idle Tycoon</div>
+      <div class="card-title">Paws & Contempt</div>
+      <div class="card-desc">Build a cat café empire with witty sarcastic humor. 32 unique cat breeds, hire staff, upgrade your café, unlock prestige tiers. Day/night cycle, ambient sounds, 10 save slots.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Prestige Bug</span></div>
+  </a>
+
+  <a class="card status-wip" href="neon-dynasty.html" data-tags="idle" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-cyber"><div class="neon-streaks"></div><span class="banner-emoji">🏙️⚡</span><span class="card-badge badge-ai">AI Oracle</span></div>
+    <div class="card-body">
+      <div class="card-genre">🌆 Cyberpunk Tycoon</div>
+      <div class="card-title">NEON DYNASTY</div>
+      <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the live AI Oracle powered by Claude for real strategic advice.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Oracle Offline</span></div>
+  </a>
+
+  <a class="card status-wip" href="epoch-mobile.html" data-tags="idle" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-forge"><span class="banner-emoji">⚒️🔥</span><span class="card-badge badge-idle">Idle</span></div>
+    <div class="card-body">
+      <div class="card-genre">⚒️ Idle Crafting</div>
+      <div class="card-title">EPOCH: The Eternal Forge</div>
+      <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes, prestige to loop through time. Each age makes you stronger.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Rune Bug</span></div>
+  </a>
+
+  <a class="card status-wip" href="xfiles-pwa.html" data-tags="rpg idle" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-xfiles"><span class="banner-emoji">👁️🛸</span><span class="card-badge badge-rpg">RPG</span></div>
+    <div class="card-body">
+      <div class="card-genre">🗡️ Idle RPG</div>
+      <div class="card-title">X-Files: The Truth Is Out There</div>
+      <div class="card-desc">Gather evidence, recruit agents from Mulder to Scully, expose conspiracies from Black Oil to Majestic-12. CRT terminal aesthetic. The truth is out there.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Cost Check Bug</span></div>
+  </a>
+
+  <a class="card status-wip" href="entangled-index.html" data-tags="rpg" data-status="wip" data-hidden="1">
     <div class="card-banner banner-entangled"><span class="banner-emoji">💞🔮</span><span class="card-badge badge-vn">Visual Novel</span></div>
     <div class="card-body">
       <div class="card-genre">💞 Visual Novel · Dating Sim</div>
@@ -239,27 +263,9 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Eps 7–12 Missing</span></div>
   </a>
 
-  <a class="card status-complete" href="iron-frontier.html" data-tags="strategy idle" data-status="complete">
-    <div class="card-banner banner-frontier"><span class="banner-emoji">🚂⚙️</span><span class="card-badge badge-strategy">Strategy</span></div>
-    <div class="card-body">
-      <div class="card-genre">🚂 Steampunk Tycoon</div>
-      <div class="card-title">Iron Frontier</div>
-      <div class="card-desc">Build a railway empire across the wild west. Lay tracks, connect towns, run steam trains, grow populations. Isometric hex map, BFS routing, full economy system. El Paso, 1871.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
-  </a>
+  <!-- ===== DEV ===== -->
 
-  <a class="card status-complete" href="transport-empire.html" data-tags="transport strategy idle" data-status="complete">
-    <div class="card-banner banner-transport"><span class="banner-emoji">🚚🌆</span><span class="card-badge badge-transport">Tycoon</span></div>
-    <div class="card-body">
-      <div class="card-genre">🚛 Transport Tycoon</div>
-      <div class="card-title">Transport Empire</div>
-      <div class="card-desc">From one truck to a logistics empire across road, rail, sea & air. A pseudo-3D isometric world with 28 industries to invest in or acquire, an HQ compound that physically grows, 3 rival firms, and a philanthropic Community Movement division that earns goodwill — not just money. 3 game modes, autosave, fully mobile.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
-  </a>
-
-  <div class="card" data-tags="td" data-status="dev" style="opacity:0.55;cursor:default;">
+  <div class="card" data-tags="td" data-status="dev" data-hidden="1" style="opacity:0.55;cursor:default;">
     <div class="card-banner banner-terminus"><span class="banner-emoji">🚂💀</span><span class="card-badge badge-dev">In Dev</span></div>
     <div class="card-body">
       <div class="card-genre">🏰 Tower Defense</div>
