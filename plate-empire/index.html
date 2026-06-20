@@ -219,6 +219,17 @@ nav{flex:1;padding:10px 0;}
   .grid-2{grid-template-columns:1fr;}
   .menu-logo{font-size:40px;}
 }
+
+/* reduce-motion: honor the Settings toggle */
+body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
+  animation-duration:0.001s !important;transition-duration:0.001s !important;}
+
+.stat.streak .v{color:var(--brass);}
+.stat.streak.hot .v{color:var(--sage);text-shadow:0 0 10px rgba(107,142,90,0.5);}
+.run-stats{font-family:var(--mono);font-size:13px;color:var(--cream);margin:6px 0 22px;}
+.run-stats div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);}
+.run-stats div:last-child{border-bottom:none;}
+.run-stats b{color:var(--brass);}
 </style>
 </head>
 <body>
@@ -289,6 +300,7 @@ nav{flex:1;padding:10px 0;}
       <div class="stat rep"><div class="k">Reputation</div><div class="v" id="hud-rep">0</div>
         <div class="rep-bar"><i id="hud-rep-bar" style="width:0%"></i></div></div>
       <div class="stat day"><div class="k">Day</div><div class="v" id="hud-day">1</div></div>
+      <div class="stat streak"><div class="k">Streak</div><div class="v" id="hud-streak">0</div></div>
       <button class="pause-btn" id="btn-pause">⏸ Pause</button>
     </div>
     <div id="view"><!-- active view rendered here --></div>
@@ -302,6 +314,26 @@ nav{flex:1;padding:10px 0;}
     <button class="menu-btn primary" id="pause-resume">Resume</button>
     <button class="menu-btn" id="pause-save">Save Game</button>
     <button class="menu-btn" id="pause-menu">Main Menu</button>
+  </div>
+</div>
+
+<!-- ============ DAY SUMMARY ============ -->
+<div id="day-summary" class="overlay hidden">
+  <div class="card">
+    <h3 id="ds-title">Day Complete</h3>
+    <div class="run-stats" id="ds-stats"></div>
+    <button class="menu-btn primary" id="ds-continue">Start Next Day</button>
+  </div>
+</div>
+
+<!-- ============ GAME OVER ============ -->
+<div id="game-over" class="overlay hidden">
+  <div class="card">
+    <h3>Game Over</h3>
+    <p style="text-align:center;color:var(--muted);margin-bottom:18px;">Your reputation hit zero. The health inspector shut you down.</p>
+    <div class="run-stats" id="go-stats"></div>
+    <button class="menu-btn primary" id="go-new">Try Again</button>
+    <button class="menu-btn" id="go-menu">Main Menu</button>
   </div>
 </div>
 
@@ -357,7 +389,8 @@ let running = false;         // is a game session active (vs menu)
 let paused = false;          // is the pause overlay up
 
 /* live (non-persisted) runtime */
-const RT = { tickets:[], nextId:1, spawnAcc:0, lastT:0, raf:0, autosaveTimer:0 };
+const RT = { tickets:[], nextId:1, spawnAcc:0, lastT:0, raf:0, autosaveTimer:0,
+  streak:0, bestStreak:0, dayServed:0, dayMissed:0, dayEarnings:0, dayTips:0 };
 
 function save(reason){
   try{
@@ -418,6 +451,7 @@ function startSession(){
   el('#rail-track').querySelectorAll('.ticket').forEach(n=>n.remove());
   setView('overview');
   syncSettingsUI();
+  document.body.classList.toggle('reduce-motion', !!S.settings.reduceMotion);
   renderHUD();
   startLoop();
   clearInterval(RT.autosaveTimer);
@@ -524,15 +558,24 @@ function fulfill(id){
   if(idx<0) return;
   const t = RT.tickets[idx];
   const dish = dishById(t.dishId);
-  S.cash += dish.price;
+  const tipChance = S.rep / 100;
+  const tip = Math.random() < tipChance ? Math.ceil(dish.price * 0.2) : 0;
+  S.cash += dish.price + tip;
   S.rep = clamp(S.rep + dish.rep, 0, 100);
   S.served++;
+  RT.streak++;
+  if(RT.streak > RT.bestStreak) RT.bestStreak = RT.streak;
+  RT.dayServed++;
+  RT.dayEarnings += dish.price;
+  RT.dayTips += tip;
   const node = ticketNode(id);
   if(node){ node.classList.add('fulfilled'); setTimeout(()=>node.remove(), 360); }
   RT.tickets.splice(idx,1);
   layoutTickets();
   renderHUD();
-  pushLog(`Served ${dish.name} · +$${dish.price} · +${dish.rep} rep`, 'good');
+  const tipMsg = tip ? ` · +$${tip} tip` : '';
+  pushLog(`Served ${dish.name} · +$${dish.price}${tipMsg} · +${dish.rep} rep`, 'good');
+  if(RT.streak >= 3) toast(`${RT.streak}x streak!`, 'good');
 }
 
 function expire(id){
@@ -542,21 +585,50 @@ function expire(id){
   const dish = dishById(t.dishId);
   S.rep = clamp(S.rep + MISS_REP, 0, 100);
   S.missed++;
+  RT.streak = 0;
+  RT.dayMissed++;
   const node = ticketNode(id);
   if(node){ node.classList.add('missed'); setTimeout(()=>node.remove(), 420); }
   RT.tickets.splice(idx,1);
   layoutTickets();
   renderHUD();
   pushLog(`Missed ${dish.name} · ${MISS_REP} rep`, 'bad');
+  if(S.rep <= 0) gameOver();
 }
 
 /* ---------- F. Economy + day cycle ---------- */
 function endDay(){
+  paused = true;
+  el('#ds-title').textContent = `Day ${S.day} Complete`;
+  el('#ds-stats').innerHTML = `
+    <div><span>Orders served</span><b>${RT.dayServed}</b></div>
+    <div><span>Orders missed</span><b>${RT.dayMissed}</b></div>
+    <div><span>Earnings</span><b>$${RT.dayEarnings}</b></div>
+    <div><span>Tips earned</span><b>$${RT.dayTips}</b></div>
+    <div><span>Best streak</span><b>${RT.bestStreak}x</b></div>
+    <div><span>Reputation</span><b>${S.rep}/100</b></div>`;
+  el('#day-summary').classList.remove('hidden');
   S.day++;
   S.dayMsLeft = DAY_LENGTH_MS;
-  pushLog(`Day ${S.day-1} closed — served ${S.served}, missed ${S.missed}.`, '');
-  toast(`Day ${S.day} — fresh service!`, 'good');
+  RT.dayServed = 0; RT.dayMissed = 0; RT.dayEarnings = 0; RT.dayTips = 0;
+  RT.streak = 0; RT.bestStreak = 0;
+  RT.tickets.forEach(t=>{ const n=ticketNode(t.id); if(n) n.remove(); });
+  RT.tickets = [];
+  layoutTickets();
   save();
+}
+
+function gameOver(){
+  running = false;
+  cancelAnimationFrame(RT.raf);
+  clearInterval(RT.autosaveTimer);
+  el('#go-stats').innerHTML = `
+    <div><span>Days survived</span><b>${S.day}</b></div>
+    <div><span>Total served</span><b>${S.served}</b></div>
+    <div><span>Total missed</span><b>${S.missed}</b></div>
+    <div><span>Final cash</span><b>$${S.cash}</b></div>`;
+  el('#game-over').classList.remove('hidden');
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
 }
 
 /* ---------- G. Game loop ---------- */
@@ -611,6 +683,11 @@ function renderHUD(){
   el('#hud-rep').textContent = S.rep;
   el('#hud-rep-bar').style.width = S.rep+'%';
   el('#hud-day').textContent = S.day;
+  const streakEl = el('#hud-streak');
+  if(streakEl){
+    streakEl.textContent = RT.streak;
+    streakEl.closest('.stat').classList.toggle('hot', RT.streak >= 3);
+  }
   if(view==='overview'){
     setText('#m-served', S.served); setText('#m-missed', S.missed); setText('#m-cash', S.cash);
   }
@@ -669,6 +746,7 @@ function wire(){
     const key = t.dataset.set;
     S.settings[key] = !S.settings[key];
     t.classList.toggle('on', S.settings[key]);
+    if(key==='reduceMotion') document.body.classList.toggle('reduce-motion', S.settings.reduceMotion);
   }));
   el('#set-pace').addEventListener('change', e=>{ S.settings.pace = e.target.value; });
 
@@ -689,6 +767,19 @@ function wire(){
       if(paused) closePause(); else openPause();
     }
   });
+
+  // day summary continue
+  el('#ds-continue').addEventListener('click', ()=>{
+    el('#day-summary').classList.add('hidden');
+    paused = false;
+    RT.lastT = performance.now();
+    pushLog(`Day ${S.day} — fresh service!`, 'good');
+    toast(`Day ${S.day} — let's go!`, 'good');
+  });
+
+  // game over
+  el('#go-new').addEventListener('click', ()=>{ el('#game-over').classList.add('hidden'); newGame(); });
+  el('#go-menu').addEventListener('click', ()=>{ el('#game-over').classList.add('hidden'); showMenu(); });
 
   // save on tab hide
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden && running) save(); });
