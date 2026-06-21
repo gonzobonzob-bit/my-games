@@ -452,6 +452,21 @@ const U = {
   shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; },
 };
 
+/* ---------------- Web Audio SFX ---------------- */
+let _audioCtx;
+function sfx(name){
+  if(!_audioCtx) try{_audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
+  o.connect(g);g.connect(_audioCtx.destination);
+  const now=_audioCtx.currentTime; g.gain.setValueAtTime(0.07,now);
+  if(name==='buy'){o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.setValueAtTime(660,now+0.08);o.frequency.setValueAtTime(880,now+0.16);g.gain.exponentialRampToValueAtTime(0.001,now+0.25);o.start(now);o.stop(now+0.25);}
+  else if(name==='deliver'){o.type='sine';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(784,now+0.06);g.gain.exponentialRampToValueAtTime(0.001,now+0.12);o.start(now);o.stop(now+0.12);}
+  else if(name==='click'){o.type='sine';o.frequency.setValueAtTime(600,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.06);o.start(now);o.stop(now+0.06);}
+  else if(name==='level'){o.type='sine';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(659,now+0.12);o.frequency.setValueAtTime(784,now+0.24);o.frequency.setValueAtTime(1047,now+0.36);g.gain.exponentialRampToValueAtTime(0.001,now+0.5);o.start(now);o.stop(now+0.5);}
+  else if(name==='error'){o.type='sawtooth';o.frequency.setValueAtTime(200,now);o.frequency.setValueAtTime(140,now+0.12);g.gain.exponentialRampToValueAtTime(0.001,now+0.18);o.start(now);o.stop(now+0.18);}
+  else{o.disconnect();}
+}
+
 /* ---------------- Content tables ---------------- */
 const CITY_NAMES = ["Harborline","Cedar Falls","Mount Vesper","Gladewater","Ironreach","Saltmarsh",
   "Pinecrest","Redhollow","Aurora Bay","Stonebridge","Brackenfield","Lakemoor","Northgate",
@@ -1411,13 +1426,14 @@ const Fleet = {
   buy(tier,key,division){
     const s=this.spec(tier,key); if(!s) return;
     if(this.count()>=this.capacity()){ Toast.show('Vehicle Lot is full — upgrade it first.','bad'); return; }
-    if(G.cash<s.price){ Toast.show('Not enough cash for that vehicle.','bad'); return; }
+    if(G.cash<s.price){ Toast.show('Not enough cash for that vehicle.','bad'); sfx('error'); return; }
     Money.spend(s.price,'vehicle');
     const v={ id:U.id(), tier, key, name:s.name, ic:s.ic, cap:s.cap, baseSpeed:s.speed,
       maint:s.maint, life:s.life, age:0, condition:100, division:division||'main',
       job:null, progress:0, broken:false, jobsDone:0 };
     G.vehicles.push(v);
     Toast.show(`Acquired ${s.name}${division==='cm'?' for Community Movement':''}.`, division==='cm'?'cm':'good');
+    sfx('buy');
     if(division==='cm') G.cm.fleetGoal=Math.max(G.cm.fleetGoal,this.cmCount());
     UI.refresh();
   },
@@ -1548,6 +1564,7 @@ const Jobs = {
     // remove job record
     G.jobs=G.jobs.filter(x=>x.id!==j.id);
     Toast.show(`Delivered ${j.cargo} to ${j.toName} · +${U.money(pay)}`, j.kind==='community'?'cm':'good');
+    sfx('deliver');
     UI.refreshLight();
   },
   expireOld(){
@@ -1757,7 +1774,7 @@ const Industry = {
     if(ind.stake+pct>100) pct=100-ind.stake;
     if(ind.ownerComp && ind.stake===0){ Toast.show('A competitor controls this — buy them out via full acquisition.','bad'); return; }
     const cost=this.investCost(ind,pct);
-    if(!Money.can(cost)){ Toast.show('Not enough capital to invest.','bad'); return; }
+    if(!Money.can(cost)){ Toast.show('Not enough capital to invest.','bad'); sfx('error'); return; }
     Money.spend(cost,'invest'); ind.stake+=pct; ind.forSale=ind.stake<100;
     if(ind.stake>=100){ ind.ownerComp=null; Toast.show(`You now fully own ${ind.name}!`,'gold'); Rep.add(2); }
     else Toast.show(`Invested in ${ind.name} — ${ind.stake}% stake.`,'good');
@@ -1921,7 +1938,7 @@ const Modes = {
   checkUnlocks(){
     if(G.mode!=='campaign') return;
     TIER_ORDER.forEach(t=>{ if(!G.unlocked[t] && G.stats.earned>=TIER_INFO[t].unlock){
-      G.unlocked[t]=true;
+      G.unlocked[t]=true; sfx('level');
       Modal.open({ic:TIER_INFO[t].ic,title:`${TIER_INFO[t].name} Transport Unlocked`,
         body:`${TIER_INFO[t].blurb} You've earned enough to expand into ${TIER_INFO[t].name.toLowerCase()} freight. New vehicles are available in your Fleet.`,
         choices:[{label:'Expand the empire',cls:'primary',fn:()=>{ UI.openPanel('fleet'); }}]});

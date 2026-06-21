@@ -968,6 +968,23 @@ let desks=[];let catEls=[];
 let catCornerEl=null;
 
 // ════════════════════════════════
+// WEB AUDIO SFX
+// ════════════════════════════════
+let _audioCtx;
+function sfx(name){
+  if(!_audioCtx) try{_audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
+  o.connect(g);g.connect(_audioCtx.destination);
+  const now=_audioCtx.currentTime; g.gain.setValueAtTime(0.08,now);
+  if(name==='click'){o.type='sine';o.frequency.setValueAtTime(600,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.08);o.start(now);o.stop(now+0.08);}
+  else if(name==='buy'){o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.setValueAtTime(660,now+0.08);o.frequency.setValueAtTime(880,now+0.16);g.gain.exponentialRampToValueAtTime(0.001,now+0.25);o.start(now);o.stop(now+0.25);}
+  else if(name==='earn'){o.type='sine';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(784,now+0.06);g.gain.exponentialRampToValueAtTime(0.001,now+0.12);o.start(now);o.stop(now+0.12);}
+  else if(name==='error'){o.type='sawtooth';o.frequency.setValueAtTime(200,now);o.frequency.setValueAtTime(140,now+0.12);g.gain.exponentialRampToValueAtTime(0.001,now+0.18);o.start(now);o.stop(now+0.18);}
+  else if(name==='achieve'){o.type='sine';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(659,now+0.1);o.frequency.setValueAtTime(784,now+0.2);o.frequency.setValueAtTime(1047,now+0.3);g.gain.exponentialRampToValueAtTime(0.001,now+0.45);o.start(now);o.stop(now+0.45);}
+  else{o.disconnect();}
+}
+
+// ════════════════════════════════
 // LAYER SWITCHING
 // ════════════════════════════════
 let curLayer='office';
@@ -1144,6 +1161,7 @@ function hireEmployee(){
   G.staff++;
   G.weeklyPayroll+=next.payroll;
   spawnDesk();
+  sfx('buy');
   showToast('👔 '+next.role+' hired! +'+fmt(next.payroll)+'/wk'
 ,'good');
   checkMilestones();
@@ -1367,6 +1385,7 @@ function scheduleBreak(idx){
 }
 
 function tapDesk(el,idx){
+  sfx('click');
   const softBonus=G.upgrades.soft?Math.pow(2,G.upgrades.soft):1;
   const bonus=Math.floor(14*softBonus*G.incomeMultiplier*(1+G.morale/200));
   G.money+=bonus;G.totalMoney+=bonus;G.todayRevenue+=bonus;G.weeklyRevenue+=bonus;
@@ -1909,6 +1928,7 @@ function collectJob(i){
   const fleetBonus=G.upgrades.fleet?Math.pow(1.5,G.upgrades.fleet):1;
   const pay=Math.floor(site.earn*site.level*fleetBonus*(1+G.morale/120));
   G.money+=pay;G.totalMoney+=pay;G.todayRevenue+=pay;G.weeklyRevenue+=pay;
+  sfx('earn');
   const r=site.el.getBoundingClientRect();
   spawnFltXY(r.left+44,r.top,'+'+fmt(pay),'#22C55E');
   site.el.classList.remove('ready');
@@ -2735,6 +2755,7 @@ function buyUpgrade(id){
   G.money-=cost;G.upgrades[id]=lv+1;
   if(id==='cert')G.incomeMultiplier*=1.4;
   if(id==='truck2'){spawnSecondTruck();}
+  sfx('buy');
   showToast('⬆️ '+u.name+' upgraded!'
 ,'good');
   renderUpgrades();updateUI();
@@ -2805,6 +2826,7 @@ function checkMilestones(){
 function showNextMs(){
   if(!msQueue.length){msShowing=false;return;}
   msShowing=true;
+  sfx('achieve');
   const m=msQueue.shift();
   document.getElementById('ms-ico').textContent=m.icon;
   document.getElementById('ms-title').textContent=m.title;

@@ -186,6 +186,21 @@ function lightenColor(hex, amount) {
   return `rgb(${r},${g},${b})`;
 }
 
+let _audioCtx;
+function sfx(name){
+  if(!_audioCtx) try{_audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
+  o.connect(g);g.connect(_audioCtx.destination);
+  const now=_audioCtx.currentTime; g.gain.setValueAtTime(0.06,now);
+  if(name==='attack'){o.type='square';o.frequency.setValueAtTime(200,now);o.frequency.setValueAtTime(120,now+0.04);g.gain.exponentialRampToValueAtTime(0.001,now+0.07);o.start(now);o.stop(now+0.07);}
+  else if(name==='ability'){o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.setValueAtTime(880,now+0.08);g.gain.exponentialRampToValueAtTime(0.001,now+0.15);o.start(now);o.stop(now+0.15);}
+  else if(name==='kill'){o.type='sine';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(784,now+0.06);g.gain.exponentialRampToValueAtTime(0.001,now+0.1);o.start(now);o.stop(now+0.1);}
+  else if(name==='levelup'){o.type='sine';o.frequency.setValueAtTime(523,now);o.frequency.setValueAtTime(659,now+0.1);o.frequency.setValueAtTime(784,now+0.2);o.frequency.setValueAtTime(1047,now+0.3);g.gain.exponentialRampToValueAtTime(0.001,now+0.4);o.start(now);o.stop(now+0.4);}
+  else if(name==='hit'){o.type='sawtooth';o.frequency.setValueAtTime(150,now);g.gain.setValueAtTime(0.04,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.05);o.start(now);o.stop(now+0.05);}
+  else if(name==='buy'){o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.setValueAtTime(660,now+0.06);g.gain.exponentialRampToValueAtTime(0.001,now+0.12);o.start(now);o.stop(now+0.12);}
+  else{o.disconnect();}
+}
+
 let heroData=null,player=null,enemies=[],projectiles=[],particles=[];
 let wave=1,gold=0,kills=0,frame=0;
 let canvas,ctx,W,H;
@@ -327,6 +342,7 @@ function useAbility(idx){
   if(player.mp<a.mpCost){spawnDmgFloat(player.x,player.y,'No MP!','#60a5fa');return;}
   player.mp-=a.mpCost;
   a.cd=a.maxCd;
+  sfx('ability');
   if(a.aoe){
     // Hit all in range
     enemies.forEach(e=>{
@@ -370,6 +386,7 @@ function buyShopItem(idx){
   if(gold>=it.cost){
     gold-=it.cost;
     it.effect();
+    sfx('buy');
     spawnDmgFloat(player.x,player.y,it.icon,'#fbbf24');
     document.getElementById('shop-gold-display').textContent=gold;
   } else {
@@ -391,10 +408,12 @@ function dealDamage(enemy,dmg){
 function killEnemy(e){
   enemies=enemies.filter(x=>x!==e);
   gold+=e.gold;kills++;
+  sfx('kill');
   player.xp+=e.xp;
   if(player.xp>=player.xpMax){
     player.lv++;player.xp-=player.xpMax;player.xpMax=Math.floor(player.xpMax*1.4);
     player.atk+=10;player.maxHp+=50;player.hp=Math.min(player.maxHp,player.hp+50);
+    sfx('levelup');
     spawnDmgFloat(player.x,player.y,'LEVEL UP! ⬆️','#fbbf24');
   }
   for(let i=0;i<8;i++)particles.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:1,col:e.color,r:3});
@@ -454,6 +473,7 @@ function update(dt){
     if(near&&Math.hypot(near.x-player.x,near.y-player.y)<200){
       const ang=Math.atan2(near.y-player.y,near.x-player.x);
       projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*7,vy:Math.sin(ang)*7,dmg:player.atk,owner:'player',col:player.color,r:5,target:near.id});
+      sfx('attack');
     }
   }
   // MP regen
@@ -476,6 +496,7 @@ function update(dt){
         e.cooldown=0;
         player.hp-=e.atk;
         player.invulnerable=0.3;
+        sfx('hit');
         if(player.hp<=0)gameOver();
       }
     }

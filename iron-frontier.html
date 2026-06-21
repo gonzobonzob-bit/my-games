@@ -314,14 +314,16 @@ function createRoute(aId, bId, type) {
   if (!canConnect(aId, bId, type)) {
     const names = { rail:'Rail/Road cities', road:'Rail/Road cities', air:'airports (✈️)', sea:'ports (⚓)' };
     showToast(TRANSPORT[type].name + ' routes require ' + names[type] + '!');
+    sfx('error');
     return -1;
   }
   const cost = TRANSPORT[type].routeCost;
-  if (!spendGold(cost)) { showToast('Not enough gold!'); return -1; }
+  if (!spendGold(cost)) { showToast('Not enough gold!'); sfx('error'); return -1; }
   const id = nextRouteId++;
   routes[id] = { nodeA: aId, nodeB: bId, type, vehId: -1 };
   if (nodes[aId]) nodes[aId].connected = true;
   if (nodes[bId]) nodes[bId].connected = true;
+  sfx('connect');
   updateRoutePanel();
   updateHUD();
   return id;
@@ -694,6 +696,21 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+// ─── SFX (Web Audio synthesized) ─────────────────────────────────────────────
+let _audioCtx;
+function sfx(name){
+  if(!_audioCtx) try{_audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
+  o.connect(g);g.connect(_audioCtx.destination);
+  const now=_audioCtx.currentTime; g.gain.setValueAtTime(0.07,now);
+  if(name==='build'){o.type='square';o.frequency.setValueAtTime(180,now);o.frequency.setValueAtTime(220,now+0.05);g.gain.exponentialRampToValueAtTime(0.001,now+0.1);o.start(now);o.stop(now+0.1);}
+  else if(name==='connect'){o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.setValueAtTime(660,now+0.1);o.frequency.setValueAtTime(880,now+0.2);g.gain.exponentialRampToValueAtTime(0.001,now+0.3);o.start(now);o.stop(now+0.3);}
+  else if(name==='train'){o.type='sawtooth';o.frequency.setValueAtTime(120,now);g.gain.setValueAtTime(0.04,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.3);o.start(now);o.stop(now+0.3);}
+  else if(name==='click'){o.type='sine';o.frequency.setValueAtTime(600,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.06);o.start(now);o.stop(now+0.06);}
+  else if(name==='error'){o.type='sawtooth';o.frequency.setValueAtTime(200,now);o.frequency.setValueAtTime(140,now+0.1);g.gain.exponentialRampToValueAtTime(0.001,now+0.15);o.start(now);o.stop(now+0.15);}
+  else{o.disconnect();}
+}
+
 function updateInfoPanel() {
   const title    = document.getElementById('info-title');
   const sub      = document.getElementById('info-sub');
@@ -792,6 +809,7 @@ function doBuyVehicle() {
   const result = buyVehicle(pendingRouteId);
   if (result !== false) {
     const tr = TRANSPORT[routes[pendingRouteId].type];
+    sfx('train');
     showToast(tr.label + ' purchased! -' + tr.vehCost + 'G');
     updateInfoPanel();
     updateRoutePanel();
@@ -848,6 +866,7 @@ function handleNodeClick(nodeId) {
   if (currentMode === 'route') {
     if (!routeNodeA) {
       routeNodeA = nodeId;
+      sfx('click');
       showToast(NODE_MAP[nodeId].name + ' selected — pick destination');
       updateInfoPanel();
     } else if (routeNodeA === nodeId) {
