@@ -88,6 +88,8 @@ const S = {
     teamPayout: 'Team Payout',
     teamResults: 'Your Team',
     dmgDealt: 'Dmg',
+    repairFleet: 'Repair',
+    fullHealth: 'Full HP',
     fireDriver: 'Fire',
     fireConfirm: 'Confirm?',
     fastForward: '2x'
@@ -368,9 +370,9 @@ function renderGarage() {
     const carCountEl = document.getElementById('garage-car-count');
     if (carCountEl) carCountEl.textContent = healthyCount + ' ' + S.carCount;
 
-    // Auto-select first healthy car if active car is wrecked
+    // Auto-select first healthy car if active car is wrecked (only if a healthy option exists)
     const activeCar = getActiveCar();
-    if (!activeCar || activeCar.health <= 0) {
+    if (activeCar && activeCar.health <= 0) {
         const firstHealthy = state.cars.find(c => c.health > 0);
         if (firstHealthy) {
             state.activeCar = firstHealthy.id;
@@ -379,7 +381,7 @@ function renderGarage() {
     }
 
     const car = getActiveCar();
-    if (!car || car.health <= 0) {
+    if (!car) {
         container.innerHTML = '<div class="junk-empty">' + S.noCar + '</div>';
         document.getElementById('btn-start-derby').disabled = true;
         return;
@@ -488,6 +490,11 @@ function renderGarage() {
                 <span style="color:var(--muted);font-size:12px">${S.health}: ${Math.round(car.health)}/${car.maxHealth}</span>
             </div>
             <div class="car-health-bar"><div class="car-health-fill ${hpClass}" style="width:${hpPct}%"></div></div>
+            ${car.health < car.maxHealth ? (() => {
+                const missing = car.maxHealth - car.health;
+                const repCost = Math.ceil(missing * 2);
+                return `<button class="upgrade-btn repair-fleet-btn" onclick="repairFleetCar()" ${state.cash < repCost ? 'disabled' : ''}>${S.repairFleet} — $${repCost}</button>`;
+            })() : `<div class="repair-full">${S.fullHealth}</div>`}
             <div class="car-stats">
                 <div class="stat-box">
                     <div class="stat-label">${S.engine}</div>
@@ -545,6 +552,19 @@ function upgradeArmor() {
     saveGame(state);
     renderGarage();
     showToast(`${S.armor} upgraded to ${S.lvl} ${car.armor}!`);
+    sfxUpgrade();
+}
+
+function repairFleetCar() {
+    const car = getActiveCar();
+    if (!car || car.health >= car.maxHealth) return;
+    const cost = Math.ceil((car.maxHealth - car.health) * 2);
+    if (state.cash < cost) return;
+    state.cash -= cost;
+    car.health = car.maxHealth;
+    saveGame(state);
+    renderGarage();
+    showToast(S.repairFleet + ': ' + car.name + '!');
     sfxUpgrade();
 }
 

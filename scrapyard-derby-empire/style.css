@@ -324,6 +324,9 @@ body {
 }
 .upgrade-btn:hover { background: var(--accent2); }
 .upgrade-btn:disabled { background: var(--metal); opacity: 0.5; cursor: default; }
+.repair-fleet-btn { background: var(--success) !important; margin-bottom: 4px; }
+.repair-fleet-btn:hover { background: #2ecc71 !important; }
+.repair-full { font-size: 10px; color: var(--success); text-align: center; margin-bottom: 4px; font-weight: 700; }
 
 .driver-card {
     background: rgba(44, 37, 32, 0.92);
