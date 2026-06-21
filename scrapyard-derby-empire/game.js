@@ -44,7 +44,13 @@ const S = {
     repaired: 'Repaired!',
     repoGot: 'Towed in a new junker!',
     destroyed: 'WRECKED',
-    selectCar: 'Select Car'
+    selectCar: 'Select Car',
+    slot: 'Slot',
+    empty: 'Empty',
+    derbies: 'Derbies',
+    cars: 'Cars',
+    deleteSlot: 'Delete',
+    confirmDelete: 'Delete this save?'
 };
 
 // ── Config ──
@@ -81,8 +87,6 @@ let havokInstance = null;
 document.addEventListener('DOMContentLoaded', async () => {
     initHavok();
     showScreen('menu');
-    const btnContinue = document.getElementById('btn-continue');
-    if (btnContinue) btnContinue.disabled = !hasSave();
 });
 
 async function initHavok() {
@@ -103,25 +107,64 @@ function showScreen(id) {
         el.classList.add('active');
         currentScreen = id;
     }
+    if (id === 'menu') renderMainMenu();
     if (id === 'garage') renderGarage();
     if (id === 'junkyard') renderJunkyard();
     if (id === 'settings') renderSettings();
 }
 
 // ── Main Menu ──
-function newGame() {
+function renderMainMenu() {
+    const container = document.getElementById('menu-slots');
+    if (!container) return;
+    let html = '';
+    for (let i = 0; i < SLOT_COUNT; i++) {
+        const summary = getSlotSummary(i);
+        if (summary) {
+            html += `
+            <div class="slot-card">
+                <div class="slot-header">${S.slot} ${i + 1}</div>
+                <div class="slot-summary">$${summary.cash} · ${summary.derbiesPlayed} ${S.derbies} · ${summary.carsOwned} ${S.cars}</div>
+                <div class="slot-actions">
+                    <button class="menu-btn primary" onclick="slotContinue(${i})">${S.continueGame}</button>
+                    <button class="menu-btn slot-delete" onclick="slotDelete(${i})">${S.deleteSlot}</button>
+                </div>
+            </div>`;
+        } else {
+            html += `
+            <div class="slot-card">
+                <div class="slot-header">${S.slot} ${i + 1}</div>
+                <div class="slot-empty-label">${S.empty}</div>
+                <div class="slot-actions">
+                    <button class="menu-btn primary" onclick="slotNewGame(${i})">${S.newGame}</button>
+                </div>
+            </div>`;
+        }
+    }
+    container.innerHTML = html;
+}
+
+function slotNewGame(index) {
+    activeSlot = index;
     state = createNewSave();
     saveGame(state);
     showScreen('garage');
 }
 
-function continueGame() {
-    state = loadGame();
+function slotContinue(index) {
+    activeSlot = index;
+    state = loadSlot(index);
     if (!state) {
         state = createNewSave();
         saveGame(state);
     }
     showScreen('garage');
+}
+
+function slotDelete(index) {
+    if (!confirm(S.confirmDelete)) return;
+    deleteSlotData(index);
+    renderMainMenu();
 }
 
 function openSettings() {
@@ -298,7 +341,6 @@ function igmMainMenu() {
     document.getElementById('overlay-igm').classList.remove('active');
     cleanupDerby();
     showScreen('menu');
-    document.getElementById('btn-continue').disabled = !hasSave();
 }
 
 // ── Derby ──

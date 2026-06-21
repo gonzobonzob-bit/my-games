@@ -1,5 +1,11 @@
-const SAVE_KEY = 'scrapyard_derby_empire';
+const SAVE_KEY_PREFIX = 'scrapyard_derby_empire_slot_';
 const SAVE_VERSION = 1;
+const SLOT_COUNT = 3;
+let activeSlot = 0;
+
+function slotKey(index) {
+    return SAVE_KEY_PREFIX + index;
+}
 
 function createNewSave() {
     return {
@@ -34,15 +40,15 @@ function createNewSave() {
 
 function saveGame(state) {
     try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        localStorage.setItem(slotKey(activeSlot), JSON.stringify(state));
     } catch (e) {
         console.warn('Save failed:', e);
     }
 }
 
-function loadGame() {
+function loadSlot(index) {
     try {
-        const raw = localStorage.getItem(SAVE_KEY);
+        const raw = localStorage.getItem(slotKey(index));
         if (!raw) return null;
         const data = JSON.parse(raw);
         if (data.version !== SAVE_VERSION) return null;
@@ -53,10 +59,20 @@ function loadGame() {
     }
 }
 
-function hasSave() {
-    return localStorage.getItem(SAVE_KEY) !== null;
+function hasSlot(index) {
+    return localStorage.getItem(slotKey(index)) !== null;
 }
 
-function deleteSave() {
-    localStorage.removeItem(SAVE_KEY);
+function deleteSlotData(index) {
+    localStorage.removeItem(slotKey(index));
+}
+
+function getSlotSummary(index) {
+    const data = loadSlot(index);
+    if (!data) return null;
+    return {
+        cash: data.cash,
+        derbiesPlayed: data.stats.derbiesPlayed,
+        carsOwned: data.cars.length
+    };
 }
