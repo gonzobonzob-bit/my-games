@@ -161,6 +161,12 @@ body {
     color: var(--success);
 }
 .top-bar-cash img { width: 20px; height: 20px; }
+.top-bar-car-count {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-left: 4px;
+}
 .menu-toggle {
     background: var(--panel);
     border: 1px solid var(--border);
@@ -171,6 +177,65 @@ body {
     cursor: pointer;
 }
 .menu-toggle:hover { border-color: var(--accent); }
+
+/* ===== SEASON BAR ===== */
+.season-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.season-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent2);
+    white-space: nowrap;
+}
+.season-progress-track {
+    flex: 1;
+    height: 8px;
+    background: var(--panel2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.season-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s;
+}
+.season-wins {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* ===== PRESTIGE OVERLAY ===== */
+.prestige-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: #f1c40f;
+    margin-bottom: 12px;
+    text-align: center;
+}
+.prestige-msg {
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 8px;
+    text-align: center;
+}
+.prestige-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.4;
+}
 
 /* ===== GARAGE ===== */
 .garage-content {
@@ -270,6 +335,68 @@ body {
 .driver-card img { width: 36px; height: 36px; border-radius: 50%; }
 .driver-name { font-weight: 700; font-size: 14px; }
 .driver-role { font-size: 11px; color: var(--muted); }
+.driver-skill { font-size: 11px; color: var(--accent2); letter-spacing: 1px; }
+
+/* ===== DRIVERS SECTION ===== */
+.drivers-section {
+    background: rgba(44, 37, 32, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.drivers-section-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--accent2);
+    margin-bottom: 4px;
+}
+.driver-roster-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.driver-roster-card.active-driver {
+    border-color: var(--accent);
+    background: rgba(212, 133, 10, 0.12);
+}
+.driver-roster-card img { width: 32px; height: 32px; border-radius: 50%; }
+.driver-roster-info { flex: 1; }
+.driver-action-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+.driver-action-btn:hover { opacity: 0.85; }
+.driver-action-btn.assign { background: var(--accent); color: #fff; }
+.driver-action-btn.unassign { background: var(--metal); color: #fff; }
+.hire-driver-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: var(--success);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 4px;
+}
+.hire-driver-btn:hover { background: #2ecc71; }
+.hire-driver-btn:disabled { background: var(--metal); opacity: 0.5; cursor: default; }
 
 .paint-row {
     display: flex;
@@ -339,6 +466,7 @@ body {
     cursor: pointer;
 }
 .car-select-btn.active { border-color: var(--accent2); background: var(--accent); color: #fff; }
+.car-select-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ===== DERBY ===== */
 #screen-derby { position: relative; }

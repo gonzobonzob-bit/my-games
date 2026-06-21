@@ -23,7 +23,7 @@ function createNewSave() {
             }
         ],
         drivers: [
-            { id: 'driver_01', name: 'Rookie Rex', assignedCar: 'starter_01' }
+            { id: 'driver_01', name: 'Rookie Rex', skill: 1, assignedCar: 'starter_01' }
         ],
         junkyardCars: [],
         activeCar: 'starter_01',
@@ -34,7 +34,11 @@ function createNewSave() {
             carsScraped: 0,
             carsRepaired: 0
         },
-        repoAvailable: false
+        repoAvailable: false,
+        season: 1,
+        prestigeMultiplier: 1.0,
+        seasonWins: 0,
+        seasonTarget: 5
     };
 }
 
@@ -52,6 +56,17 @@ function loadSlot(index) {
         if (!raw) return null;
         const data = JSON.parse(raw);
         if (data.version !== SAVE_VERSION) return null;
+        // Backward compat: add prestige/season fields if missing
+        if (data.season === undefined) data.season = 1;
+        if (data.prestigeMultiplier === undefined) data.prestigeMultiplier = 1.0;
+        if (data.seasonWins === undefined) data.seasonWins = 0;
+        if (data.seasonTarget === undefined) data.seasonTarget = 5;
+        // Backward compat: add skill to drivers missing it
+        if (data.drivers) {
+            for (const d of data.drivers) {
+                if (d.skill === undefined) d.skill = 1;
+            }
+        }
         return data;
     } catch (e) {
         console.warn('Load failed:', e);

@@ -24,7 +24,14 @@
     <div class="top-bar">
         <button class="menu-toggle" onclick="toggleIGM()">&#9776;</button>
         <span class="top-bar-title">Garage HQ</span>
-        <span class="top-bar-cash"><img src="assets/icons/cash.png" alt="$"> <span id="garage-cash">$0</span></span>
+        <span class="top-bar-cash"><img src="assets/icons/cash.png" alt="$"> <span id="garage-cash">$0</span> <span class="top-bar-car-count" id="garage-car-count"></span></span>
+    </div>
+    <div class="season-bar" id="season-bar">
+        <span class="season-label" id="season-label">Season 1</span>
+        <div class="season-progress-track">
+            <div class="season-progress-fill" id="season-progress-fill" style="width:0%"></div>
+        </div>
+        <span class="season-wins" id="season-wins">0/5 wins</span>
     </div>
     <div class="garage-content" id="garage-content"></div>
     <div class="garage-actions">
@@ -50,6 +57,14 @@
         <div id="results-table" class="results-table"></div>
         <div id="results-payout" class="results-payout">Payout: $300</div>
         <button class="menu-btn primary" onclick="derbyBackToGarage()">Back to Garage</button>
+    </div>
+    <!-- Prestige Overlay -->
+    <div id="overlay-prestige" class="overlay">
+        <div id="prestige-title" class="prestige-title">Season Complete!</div>
+        <div id="prestige-msg" class="prestige-msg"></div>
+        <div id="prestige-desc" class="prestige-desc"></div>
+        <button class="menu-btn primary" onclick="doPrestige()">Prestige</button>
+        <button class="menu-btn" onclick="dismissPrestige()">Not Yet</button>
     </div>
 </div>
 

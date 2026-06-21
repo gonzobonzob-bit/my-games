@@ -50,7 +50,28 @@ const S = {
     derbies: 'Derbies',
     cars: 'Cars',
     deleteSlot: 'Delete',
-    confirmDelete: 'Delete this save?'
+    confirmDelete: 'Delete this save?',
+    drivers: 'Drivers',
+    skill: 'Skill',
+    unassigned: 'Unassigned',
+    assign: 'Assign',
+    unassign: 'Unassign',
+    hireDriver: 'Hire Driver',
+    hired: 'Hired',
+    assignedTo: 'Assigned to',
+    notEnoughCash: 'Not enough cash!',
+    alreadyAssigned: 'Car already has a driver',
+    driverAssigned: 'Driver assigned!',
+    driverUnassigned: 'Driver unassigned',
+    carCount: 'cars',
+    season: 'Season',
+    seasonProgress: '{current}/{target} wins',
+    seasonComplete: 'Season Complete!',
+    seasonCompleteMsg: 'You conquered Season {season}!',
+    prestige: 'Prestige',
+    prestigeDesc: 'Reset your empire for a permanent {mult}x earnings multiplier. New target: {target} wins.',
+    prestigeMultLabel: '{mult}x',
+    payoutMultLabel: '({mult}x)'
 };
 
 // ── Config ──
@@ -72,6 +93,116 @@ const AI_CAR_NAMES = [
     'Rusty Nail', 'Wreck Machine'
 ];
 const AI_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c'];
+const DRIVER_NAMES = [
+    'Mad Max', 'Turbo Tina', 'Diesel Dan', 'Wrench Wendy',
+    'Nitro Nick', 'Axle Rose', 'Chrome Charlie', 'Burnout Betty',
+    'Torque Tony', 'Skid Sally', 'Piston Pete', 'Fumes Fiona'
+];
+const HIRE_DRIVER_COSTS = [150, 300, 600, 1200];
+
+// ── Sound (Web Audio synthesis — no external files) ──
+let audioCtx = null;
+let sfxEnabled = true;
+let lastCrashTime = 0;
+
+function ensureAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
+
+function sfxCrash() {
+    if (!sfxEnabled) return;
+    const now = performance.now();
+    if (now - lastCrashTime < 300) return;
+    lastCrashTime = now;
+    const ctx = ensureAudioCtx();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 800; bp.Q.value = 1.5;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    src.connect(bp).connect(gain).connect(ctx.destination);
+    src.start(); src.stop(ctx.currentTime + 0.15);
+}
+
+function sfxUpgrade() {
+    if (!sfxEnabled) return;
+    const ctx = ensureAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(800, ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.25);
+}
+
+function sfxScrap() {
+    if (!sfxEnabled) return;
+    const ctx = ensureAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.12);
+}
+
+function sfxEngine() {
+    if (!sfxEnabled) return;
+    const ctx = ensureAudioCtx();
+    const osc = ctx.createOscillator();
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.value = 55;
+    lfo.type = 'sine'; lfo.frequency.value = 6;
+    lfoGain.gain.value = 8;
+    lfo.connect(lfoGain).connect(osc.frequency);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(); lfo.start(); osc.stop(ctx.currentTime + 0.5); lfo.stop(ctx.currentTime + 0.5);
+}
+
+function sfxWin() {
+    if (!sfxEnabled) return;
+    const ctx = ensureAudioCtx();
+    [523, 659, 784].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle'; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.2);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.12); osc.stop(ctx.currentTime + i * 0.12 + 0.2);
+    });
+}
+
+function sfxLose() {
+    if (!sfxEnabled) return;
+    const ctx = ensureAudioCtx();
+    [400, 280].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle'; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.2 + 0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.2); osc.stop(ctx.currentTime + i * 0.2 + 0.3);
+    });
+}
 
 // ── State ──
 let state = null;
@@ -82,6 +213,8 @@ let derbyCars = [];
 let derbyTimer = 0;
 let derbyRunning = false;
 let havokInstance = null;
+let derbyTimeScale = 1;
+let derbySlowMoTimer = 0;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
@@ -201,8 +334,26 @@ function renderGarage() {
     const cashEl = document.getElementById('garage-cash');
     cashEl.textContent = '$' + state.cash;
 
+    // Update season bar
+    updateSeasonBar();
+
+    // Update car count indicator
+    const healthyCount = state.cars.filter(c => c.health > 0).length;
+    const carCountEl = document.getElementById('garage-car-count');
+    if (carCountEl) carCountEl.textContent = healthyCount + ' ' + S.carCount;
+
+    // Auto-select first healthy car if active car is wrecked
+    const activeCar = getActiveCar();
+    if (!activeCar || activeCar.health <= 0) {
+        const firstHealthy = state.cars.find(c => c.health > 0);
+        if (firstHealthy) {
+            state.activeCar = firstHealthy.id;
+            saveGame(state);
+        }
+    }
+
     const car = getActiveCar();
-    if (!car) {
+    if (!car || car.health <= 0) {
         container.innerHTML = '<div class="junk-empty">' + S.noCar + '</div>';
         document.getElementById('btn-start-derby').disabled = true;
         return;
@@ -219,8 +370,10 @@ function renderGarage() {
         carSelectHtml = '<div class="car-select">';
         for (const c of state.cars) {
             const cls = c.id === state.activeCar ? 'car-select-btn active' : 'car-select-btn';
-            const hp = c.health > 0 ? '' : ' [WRECKED]';
-            carSelectHtml += `<button class="${cls}" onclick="selectCar('${c.id}')">${c.name}${hp}</button>`;
+            const wrecked = c.health <= 0;
+            const hp = wrecked ? ' [WRECKED]' : '';
+            const dis = wrecked ? ' disabled' : '';
+            carSelectHtml += `<button class="${cls}" onclick="selectCar('${c.id}')"${dis}>${c.name}${hp}</button>`;
         }
         carSelectHtml += '</div>';
     }
@@ -236,6 +389,37 @@ function renderGarage() {
         paintHtml += `<img class="${sel}" src="${p.img}" title="${title}" onclick="${onclick}">`;
     }
     paintHtml += '</div>';
+
+    // Build drivers roster HTML
+    const currentDriver = state.drivers.find(d => d.assignedCar === car.id);
+    const hireCostIdx = Math.min(state.drivers.length - 1, HIRE_DRIVER_COSTS.length - 1);
+    const hireCost = HIRE_DRIVER_COSTS[hireCostIdx];
+    let driversHtml = '<div class="drivers-section">' +
+        '<div class="drivers-section-title">' + S.drivers + '</div>';
+    for (const d of state.drivers) {
+        const assignedCarObj = d.assignedCar ? state.cars.find(c => c.id === d.assignedCar) : null;
+        const assignedLabel = assignedCarObj ? S.assignedTo + ': ' + assignedCarObj.name : S.unassigned;
+        const isAssignedHere = d.assignedCar === car.id;
+        let actionBtn = '';
+        if (isAssignedHere) {
+            actionBtn = '<button class="driver-action-btn unassign" onclick="unassignDriver(\'' + d.id + '\')">' + S.unassign + '</button>';
+        } else if (!currentDriver) {
+            actionBtn = '<button class="driver-action-btn assign" onclick="assignDriver(\'' + d.id + '\')">' + S.assign + '</button>';
+        }
+        const skillDots = '★'.repeat(d.skill) + '☆'.repeat(5 - d.skill);
+        driversHtml += '<div class="driver-roster-card' + (isAssignedHere ? ' active-driver' : '') + '">' +
+            '<img src="assets/icons/helmet.png" alt="driver">' +
+            '<div class="driver-roster-info">' +
+                '<div class="driver-name">' + d.name + '</div>' +
+                '<div class="driver-skill">' + S.skill + ': ' + skillDots + '</div>' +
+                '<div class="driver-role">' + assignedLabel + '</div>' +
+            '</div>' +
+            actionBtn +
+        '</div>';
+    }
+    driversHtml += '<button class="hire-driver-btn" onclick="hireDriver()" ' +
+        (state.cash < hireCost ? 'disabled' : '') + '>' + S.hireDriver + ' — $' + hireCost + '</button>' +
+    '</div>';
 
     container.innerHTML = `
         ${carSelectHtml}
@@ -267,13 +451,7 @@ function renderGarage() {
             </div>
             ${paintHtml}
         </div>
-        <div class="driver-card">
-            <img src="assets/icons/helmet.png" alt="driver">
-            <div>
-                <div class="driver-name">${state.drivers[0].name}</div>
-                <div class="driver-role">${S.driver}</div>
-            </div>
-        </div>
+        ${driversHtml}
     `;
 
     document.getElementById('btn-start-derby').disabled = car.health <= 0;
@@ -295,6 +473,7 @@ function upgradeEngine() {
     saveGame(state);
     renderGarage();
     showToast(`${S.engine} upgraded to ${S.lvl} ${car.engine}!`);
+    sfxUpgrade();
 }
 
 function upgradeArmor() {
@@ -307,6 +486,7 @@ function upgradeArmor() {
     saveGame(state);
     renderGarage();
     showToast(`${S.armor} upgraded to ${S.lvl} ${car.armor}!`);
+    sfxUpgrade();
 }
 
 function setPaint(id) {
@@ -326,6 +506,66 @@ function buyPaint(id) {
     saveGame(state);
     renderGarage();
     showToast(`${p.name} livery applied!`);
+}
+
+// ── Driver Management ──
+function hireDriver() {
+    const hireCostIdx = Math.min(state.drivers.length - 1, HIRE_DRIVER_COSTS.length - 1);
+    const cost = HIRE_DRIVER_COSTS[hireCostIdx];
+    if (state.cash < cost) {
+        showToast(S.notEnoughCash);
+        return;
+    }
+    // Pick a random name not already in use
+    const usedNames = new Set(state.drivers.map(d => d.name));
+    const available = DRIVER_NAMES.filter(n => !usedNames.has(n));
+    if (available.length === 0) {
+        showToast(S.notEnoughCash);
+        return;
+    }
+    const name = available[Math.floor(Math.random() * available.length)];
+    state.cash -= cost;
+    state.drivers.push({
+        id: 'driver_' + Date.now(),
+        name: name,
+        skill: 1,
+        assignedCar: null
+    });
+    saveGame(state);
+    renderGarage();
+    showToast(S.hired + ': ' + name + '!');
+}
+
+function assignDriver(driverId) {
+    const car = getActiveCar();
+    if (!car) return;
+    // Check if car already has a driver
+    const existing = state.drivers.find(d => d.assignedCar === car.id);
+    if (existing) {
+        showToast(S.alreadyAssigned);
+        return;
+    }
+    const driver = state.drivers.find(d => d.id === driverId);
+    if (!driver) return;
+    // Unassign from previous car if any
+    driver.assignedCar = car.id;
+    saveGame(state);
+    renderGarage();
+    showToast(S.driverAssigned);
+}
+
+function unassignDriver(driverId) {
+    const driver = state.drivers.find(d => d.id === driverId);
+    if (!driver) return;
+    driver.assignedCar = null;
+    saveGame(state);
+    renderGarage();
+    showToast(S.driverUnassigned);
+}
+
+function getDriverForCar(carId) {
+    if (!state || !state.drivers) return null;
+    return state.drivers.find(d => d.assignedCar === carId) || null;
 }
 
 // ── In-Game Menu ──
@@ -439,7 +679,9 @@ async function initDerby() {
         new BABYLON.Vector3(8, 1, 8)
     ];
 
-    // Player car
+    // Player car — look up assigned driver skill
+    const playerDriver = getDriverForCar(playerCar.id);
+    const playerDriverSkill = playerDriver ? playerDriver.skill : 0;
     derbyCars.push(createDerbyCar(derbyScene, {
         name: playerCar.name,
         position: spawns[0],
@@ -447,7 +689,8 @@ async function initDerby() {
         engine: playerCar.engine,
         armor: playerCar.armor,
         isPlayer: true,
-        maxHealth: playerCar.maxHealth
+        maxHealth: playerCar.maxHealth,
+        driverSkill: playerDriverSkill
     }));
 
     // AI cars
@@ -475,11 +718,25 @@ async function initDerby() {
     // Timer
     derbyTimer = DERBY_DURATION;
     derbyRunning = true;
+    derbyTimeScale = 1;
+    derbySlowMoTimer = 0;
+    sfxEngine();
 
     // Game loop
     derbyScene.registerBeforeRender(() => {
         if (!derbyRunning) return;
-        const dt = derbyEngine.getDeltaTime() / 1000;
+        const rawDt = derbyEngine.getDeltaTime() / 1000;
+
+        // Slow-mo countdown (uses real time so the effect has consistent duration)
+        if (derbySlowMoTimer > 0) {
+            derbySlowMoTimer -= rawDt;
+            derbyTimeScale = 0.3;
+            if (derbySlowMoTimer <= 0) {
+                derbyTimeScale = 1;
+            }
+        }
+
+        const dt = rawDt * derbyTimeScale;
         derbyTimer -= dt;
         updateDerbyTimer();
 
@@ -495,16 +752,39 @@ async function initDerby() {
         // Update HUD
         updateDerbyHUD();
 
+        // Dynamic zoom — average distance between alive cars
+        if (alive.length >= 2) {
+            let totalDist = 0;
+            let pairCount = 0;
+            for (let i = 0; i < alive.length; i++) {
+                for (let j = i + 1; j < alive.length; j++) {
+                    totalDist += BABYLON.Vector3.Distance(alive[i].mesh.position, alive[j].mesh.position);
+                    pairCount++;
+                }
+            }
+            const avgDist = totalDist / pairCount;
+            // Map: avgDist <= 10 → radius 25, avgDist >= 20 → radius 40
+            const t = Math.max(0, Math.min(1, (avgDist - 10) / 10));
+            const targetRadius = 25 + t * 15;
+            camera.radius += (targetRadius - camera.radius) * 0.03;
+        }
+
         // Check end conditions
         if (alive.length <= 1 || derbyTimer <= 0) {
             endDerby();
         }
     });
 
-    // Camera auto-rotate
+    // Camera auto-rotate + follow player car
     derbyScene.registerAfterRender(() => {
         if (derbyRunning) {
-            camera.alpha += 0.001;
+            camera.alpha += 0.002;
+
+            // Follow-cam: smoothly track the player car
+            const playerCar = derbyCars.find(c => c.isPlayer);
+            if (playerCar && playerCar.health > 0) {
+                camera.target = BABYLON.Vector3.Lerp(camera.target, playerCar.mesh.position, 0.05);
+            }
         }
     });
 
@@ -546,6 +826,7 @@ function createDerbyCar(scene, opts) {
         health: opts.maxHealth,
         maxHealth: opts.maxHealth,
         color: opts.color,
+        driverSkill: opts.driverSkill || 0,
         totalDamageDealt: 0,
         damageCooldown: 0,
         aiTarget: null,
@@ -584,7 +865,9 @@ function updateCarAI(car, aliveCars, dt) {
     dir.z += (Math.random() - 0.5) * 0.3;
     dir.normalize();
 
-    const targetSpeed = 8 + car.engine * 2;
+    // Driver skill bonus: each skill point adds 5% speed (skill 5 = 25% faster)
+    const baseSpeed = 8 + car.engine * 2;
+    const targetSpeed = baseSpeed * (1 + car.driverSkill * 0.05);
 
     if (car.aggregate && car.aggregate.body) {
         const currentVel = car.aggregate.body.getLinearVelocity();
@@ -640,6 +923,7 @@ function checkCollisionDamage(aliveCars, dt) {
             // Visual feedback — flash
             flashCar(a);
             flashCar(b);
+            sfxCrash();
 
             // Handle destroyed
             if (a.health <= 0) destroyCar(a);
@@ -665,6 +949,13 @@ function destroyCar(car) {
     if (car.aggregate) {
         car.aggregate.body.setLinearVelocity(BABYLON.Vector3.Zero());
         car.aggregate.body.setAngularVelocity(BABYLON.Vector3.Zero());
+    }
+
+    // Slow-mo on final wreck: if only 1 car remains after this destruction
+    const aliveAfter = derbyCars.filter(c => c.health > 0).length;
+    if (aliveAfter <= 1 && derbyRunning) {
+        derbySlowMoTimer = 1.5;
+        derbyTimeScale = 0.3;
     }
 }
 
@@ -718,13 +1009,17 @@ function endDerby() {
 
     const playerIdx = ranked.findIndex(c => c.isPlayer);
     const placement = playerIdx + 1;
-    const payout = DERBY_PAYOUTS[playerIdx] || 0;
+    const basePayout = DERBY_PAYOUTS[playerIdx] || 0;
+    const payout = Math.round(basePayout * state.prestigeMultiplier);
 
     // Apply payout
     state.cash += payout;
     state.stats.totalEarnings += payout;
     state.stats.derbiesPlayed++;
-    if (placement === 1) state.stats.derbiesWon++;
+    if (placement === 1) {
+        state.stats.derbiesWon++;
+        state.seasonWins++;
+    }
 
     // Damage player car
     const playerDerby = derbyCars.find(c => c.isPlayer);
@@ -765,8 +1060,10 @@ function endDerby() {
 
     titleEl.textContent = placement === 1 ? S.youWon : S.youLost;
     titleEl.className = 'results-title ' + (placement === 1 ? 'win' : 'lose');
+    if (placement === 1) sfxWin(); else sfxLose();
     placementEl.textContent = S.placement + ': #' + placement;
-    payoutEl.textContent = S.payout + ': $' + payout;
+    const multText = state.prestigeMultiplier > 1 ? ' ' + S.payoutMultLabel.replace('{mult}', state.prestigeMultiplier.toFixed(2)) : '';
+    payoutEl.textContent = S.payout + ': $' + payout + multText;
 
     tableEl.innerHTML = '';
     ranked.forEach((c, i) => {
@@ -781,8 +1078,13 @@ function endDerby() {
 
 function derbyBackToGarage() {
     document.getElementById('overlay-results').classList.remove('active');
-    cleanupDerby();
-    showScreen('garage');
+    // Check if season is complete before leaving derby screen
+    if (state.seasonWins >= state.seasonTarget) {
+        showPrestigeOverlay();
+    } else {
+        cleanupDerby();
+        showScreen('garage');
+    }
 }
 
 function cleanupDerby() {
@@ -845,6 +1147,7 @@ function scrapCar(id) {
     saveGame(state);
     renderJunkyard();
     showToast(S.scrapped + ' $' + jc.scrapValue + '!');
+    sfxScrap();
 }
 
 function repairCar(id) {
@@ -892,4 +1195,75 @@ function doRepoJob() {
     saveGame(state);
     renderJunkyard();
     showToast(S.repoGot);
+}
+
+// ── Season / Prestige ──
+function updateSeasonBar() {
+    const labelEl = document.getElementById('season-label');
+    const fillEl = document.getElementById('season-progress-fill');
+    const winsEl = document.getElementById('season-wins');
+    if (!labelEl || !fillEl || !winsEl) return;
+
+    labelEl.textContent = S.season + ' ' + state.season;
+    const pct = Math.min(100, (state.seasonWins / state.seasonTarget) * 100);
+    fillEl.style.width = pct + '%';
+    winsEl.textContent = S.seasonProgress
+        .replace('{current}', state.seasonWins)
+        .replace('{target}', state.seasonTarget);
+}
+
+function showPrestigeOverlay() {
+    const titleEl = document.getElementById('prestige-title');
+    const msgEl = document.getElementById('prestige-msg');
+    const descEl = document.getElementById('prestige-desc');
+    const overlay = document.getElementById('overlay-prestige');
+
+    titleEl.textContent = S.seasonComplete;
+    msgEl.textContent = S.seasonCompleteMsg.replace('{season}', state.season);
+    const newMult = (state.prestigeMultiplier + 0.15).toFixed(2);
+    const newTarget = state.seasonTarget + 2;
+    descEl.textContent = S.prestigeDesc
+        .replace('{mult}', newMult)
+        .replace('{target}', newTarget);
+    overlay.classList.add('active');
+}
+
+function doPrestige() {
+    document.getElementById('overlay-prestige').classList.remove('active');
+
+    // Increment season and multiplier
+    state.season++;
+    state.prestigeMultiplier = parseFloat((state.prestigeMultiplier + 0.15).toFixed(2));
+    state.seasonTarget += 2;
+    state.seasonWins = 0;
+
+    // Reset empire but keep season, multiplier, stats
+    state.cash = 500;
+    state.cars = [
+        {
+            id: 'starter_01',
+            name: 'Rust Bucket',
+            engine: 1,
+            armor: 1,
+            paint: 'rust',
+            health: 100,
+            maxHealth: 100
+        }
+    ];
+    state.drivers = [
+        { id: 'driver_01', name: 'Rookie Rex', skill: 1, assignedCar: 'starter_01' }
+    ];
+    state.junkyardCars = [];
+    state.activeCar = 'starter_01';
+    state.repoAvailable = false;
+
+    saveGame(state);
+    cleanupDerby();
+    showScreen('garage');
+}
+
+function dismissPrestige() {
+    document.getElementById('overlay-prestige').classList.remove('active');
+    cleanupDerby();
+    showScreen('garage');
 }
