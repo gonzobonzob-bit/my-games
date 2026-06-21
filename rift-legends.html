@@ -205,6 +205,16 @@ let heroData=null,player=null,enemies=[],projectiles=[],particles=[];
 let wave=1,gold=0,kills=0,frame=0;
 let canvas,ctx,W,H;
 let joystickActive=false,joyX=0,joyY=0;
+const keys={};
+window.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='Digit1') useAbility(0);
+  else if(e.code==='Digit2') useAbility(1);
+  else if(e.code==='Digit3') useAbility(2);
+  else if(e.code==='Digit4'||e.code==='KeyB') openShop();
+  else if(e.code==='Escape'&&document.getElementById('shop-modal').classList.contains('show')) closeShop();
+});
+window.addEventListener('keyup',e=>{keys[e.code]=false;});
 let abilities=[];
 
 function goSplash(){
@@ -394,8 +404,17 @@ function buyShopItem(idx){
   }
 }
 
+let wavePaused=false;
+function showWaveShop(){
+  wavePaused=true;
+  openShop();
+}
 function closeShop(){
   document.getElementById('shop-modal').classList.remove('show');
+  if(wavePaused){
+    wavePaused=false;
+    spawnWave();
+  }
 }
 
 function dealDamage(enemy,dmg){
@@ -419,7 +438,7 @@ function killEnemy(e){
   for(let i=0;i<8;i++)particles.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:1,col:e.color,r:3});
   if(enemies.length===0){
     if(wave>=MAX_WAVE){showVictory();return;}
-    setTimeout(()=>{wave++;spawnWave();},1500);
+    setTimeout(()=>{wave++;showWaveShop();},1000);
   }
   document.getElementById('enemies-left').textContent=enemies.length;
 }
@@ -456,16 +475,24 @@ function updateAbilityUI(){
 let lastT=0;
 function gameLoop(t){
   const dt=Math.min((t-lastT)/1000,0.05);lastT=t;
-  update(dt);render();
+  if(!wavePaused){update(dt);}
+  render();
   requestAnimationFrame(gameLoop);
 }
 
 function update(dt){
   frame++;
-  // Move player
-  if(joystickActive){
-    player.x=Math.max(20,Math.min(W-20,player.x+joyX*player.spd*2.5));
-    player.y=Math.max(20,Math.min(H-20,player.y+joyY*player.spd*2.5));
+  // Move player — keyboard (arrow/WASD) or joystick
+  let mx=joyX,my=joyY;
+  if(keys['ArrowLeft']||keys['KeyA']) mx=-1;
+  if(keys['ArrowRight']||keys['KeyD']) mx=1;
+  if(keys['ArrowUp']||keys['KeyW']) my=-1;
+  if(keys['ArrowDown']||keys['KeyS']) my=1;
+  if(mx||my){
+    const len=Math.sqrt(mx*mx+my*my);
+    if(len>1){mx/=len;my/=len;}
+    player.x=Math.max(20,Math.min(W-20,player.x+mx*player.spd*2.5));
+    player.y=Math.max(20,Math.min(H-20,player.y+my*player.spd*2.5));
   }
   // Auto-attack
   if(frame%20===0){
