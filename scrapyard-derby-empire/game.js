@@ -87,17 +87,20 @@ const S = {
     lineupSlots: '{team} team + {ai} AI',
     teamPayout: 'Team Payout',
     teamResults: 'Your Team',
-    dmgDealt: 'Dmg'
+    dmgDealt: 'Dmg',
+    fireDriver: 'Fire',
+    fireConfirm: 'Confirm?',
+    fastForward: '2x'
 };
 
 // ── Config ──
 const UPGRADE_COSTS = [0, 200, 500, 1000, 2000];
 const MAX_LEVEL = 5;
 const PAINT_OPTIONS = [
-    { id: 'rust',      name: 'Rust',      cost: 0,   color: '#8B4513', img: 'assets/img/livery-rust.png' },
-    { id: 'primer',    name: 'Primer',    cost: 100, color: '#808080', img: 'assets/img/livery-primer.png' },
-    { id: 'scratched', name: 'Scratched', cost: 150, color: '#696960', img: 'assets/img/livery-scratched.png' },
-    { id: 'flame',     name: 'Flame',     cost: 300, color: '#C83214', img: 'assets/img/livery-flame.png' }
+    { id: 'rust',      name: 'Rust',      cost: 0, color: '#8B4513', img: 'assets/img/livery-rust.png' },
+    { id: 'primer',    name: 'Primer',    cost: 0, color: '#808080', img: 'assets/img/livery-primer.png' },
+    { id: 'scratched', name: 'Scratched', cost: 0, color: '#696960', img: 'assets/img/livery-scratched.png' },
+    { id: 'flame',     name: 'Flame',     cost: 0, color: '#C83214', img: 'assets/img/livery-flame.png' }
 ];
 const DERBY_DURATION = 45;
 const DERBY_TOTAL_CARS = 8;
@@ -233,6 +236,7 @@ let derbyRunning = false;
 let havokInstance = null;
 let derbyTimeScale = 1;
 let derbySlowMoTimer = 0;
+let derbyFastForward = false;
 let lastImpactPos = null;
 let lastImpactTime = 0;
 
@@ -403,12 +407,7 @@ function renderGarage() {
     let paintHtml = '<div class="paint-row">';
     for (const p of PAINT_OPTIONS) {
         const sel = p.id === car.paint ? 'paint-swatch selected' : 'paint-swatch';
-        const owned = p.cost === 0 || p.id === car.paint;
-        const onclick = owned
-            ? `setPaint('${p.id}')`
-            : `buyPaint('${p.id}')`;
-        const title = owned ? p.name : `${p.name} — $${p.cost}`;
-        paintHtml += `<img class="${sel}" src="${p.img}" title="${title}" onclick="${onclick}">`;
+        paintHtml += `<img class="${sel}" src="${p.img}" title="${p.name}" onclick="setPaint('${p.id}')">`;
     }
     paintHtml += '</div>';
 
@@ -428,6 +427,9 @@ function renderGarage() {
         } else if (!currentDriver) {
             actionBtn = '<button class="driver-action-btn assign" onclick="assignDriver(\'' + d.id + '\')">' + S.assign + '</button>';
         }
+        const fireBtn = state.drivers.length > 1
+            ? '<button class="driver-action-btn fire" onclick="fireDriver(\'' + d.id + '\', this)">' + S.fireDriver + '</button>'
+            : '';
         const skillDots = '★'.repeat(d.skill) + '☆'.repeat(5 - d.skill);
         driversHtml += '<div class="driver-roster-card' + (isAssignedHere ? ' active-driver' : '') + '">' +
             '<img src="assets/icons/helmet.png" alt="driver">' +
@@ -436,7 +438,7 @@ function renderGarage() {
                 '<div class="driver-skill">' + S.skill + ': ' + skillDots + '</div>' +
                 '<div class="driver-role">' + assignedLabel + '</div>' +
             '</div>' +
-            actionBtn +
+            '<div class="driver-actions">' + actionBtn + fireBtn + '</div>' +
         '</div>';
     }
     // Walk-in cards
@@ -644,6 +646,23 @@ function unassignDriver(driverId) {
     saveGame(state);
     renderGarage();
     showToast(S.driverUnassigned);
+}
+
+function fireDriver(driverId, btnEl) {
+    if (state.drivers.length <= 1) return;
+    if (btnEl && !btnEl.dataset.confirm) {
+        btnEl.dataset.confirm = '1';
+        btnEl.textContent = S.fireConfirm;
+        btnEl.classList.add('confirming');
+        setTimeout(() => { if (btnEl) { delete btnEl.dataset.confirm; btnEl.textContent = S.fireDriver; btnEl.classList.remove('confirming'); } }, 2000);
+        return;
+    }
+    const idx = state.drivers.findIndex(d => d.id === driverId);
+    if (idx === -1) return;
+    state.drivers.splice(idx, 1);
+    state.derbyLineup = state.derbyLineup.filter(e => e.driverId !== driverId);
+    saveGame(state);
+    renderGarage();
 }
 
 function getDriverForCar(carId) {
@@ -904,6 +923,7 @@ async function initDerby() {
     derbyRunning = true;
     derbyTimeScale = 1;
     derbySlowMoTimer = 0;
+    derbyFastForward = false;
     lastImpactPos = null;
     lastImpactTime = 0;
     sfxEngine();
@@ -916,12 +936,13 @@ async function initDerby() {
         // Slow-mo countdown (uses real time so the effect has consistent duration)
         if (derbySlowMoTimer > 0) {
             derbySlowMoTimer -= rawDt;
-            derbyTimeScale = 0.3;
             if (derbySlowMoTimer <= 0) {
-                derbyTimeScale = 1;
+                derbyTimeScale = derbyFastForward ? 2 : 1;
             }
         }
 
+        const baseMult = derbyFastForward && derbySlowMoTimer <= 0 ? 2 : 1;
+        if (derbySlowMoTimer <= 0) derbyTimeScale = baseMult;
         const dt = rawDt * derbyTimeScale;
         derbyTimer -= dt;
         updateDerbyTimer();
@@ -1054,12 +1075,12 @@ function createDerbyCar(scene, opts) {
     let aggregate = null;
     if (scene.getPhysicsEngine()) {
         aggregate = new BABYLON.PhysicsAggregate(body, BABYLON.PhysicsShapeType.BOX, {
-            mass: 1200 + opts.engine * 200,
-            friction: 0.25,
-            restitution: 0.6
+            mass: 1000 + opts.engine * 150,
+            friction: 0.2,
+            restitution: 0.85
         }, scene);
-        aggregate.body.setAngularDamping(1.5);
-        aggregate.body.setLinearDamping(0.08);
+        aggregate.body.setAngularDamping(1.0);
+        aggregate.body.setLinearDamping(0.05);
     }
 
     return {
@@ -1097,7 +1118,7 @@ function updateCarAI(car, aliveCars, dt) {
             if (d < minDist) { minDist = d; nearest = other; }
         }
         car.aiTarget = nearest;
-        car.aiTimer = 1.0 + Math.random() * 1.5;
+        car.aiTimer = 0.4 + Math.random() * 0.8;
     }
     if (!car.aiTarget) return;
 
@@ -1117,24 +1138,22 @@ function updateCarAI(car, aliveCars, dt) {
     const crossY = fwd.x * toTarget.z - fwd.z * toTarget.x;
 
     if (car.aggregate && car.aggregate.body) {
-        // Steering via angular impulse
-        const steerStrength = 800 + car.engine * 200;
+        // Aggressive steering
+        const steerStrength = 1200 + car.engine * 300;
         const steerMag = Math.min(1.0, Math.abs(crossY)) * steerStrength;
         car.aggregate.body.applyAngularImpulse(new BABYLON.Vector3(0, Math.sign(crossY) * steerMag * dt, 0));
 
-        // Throttle: forward when aligned, reverse when facing away
+        // Aggressive throttle: always pushing forward hard, brief reverse only when totally backwards
         let throttle = 0;
-        if (dot > 0.5) throttle = 1.0;
-        else if (dot > 0) throttle = 0.4;
-        else if (dot < -0.5) throttle = -0.35;
-        throttle += (Math.random() - 0.5) * 0.08;
+        if (dot > 0.3) throttle = 1.0;
+        else if (dot > -0.2) throttle = 0.7;
+        else throttle = -0.5;
 
-        // Drive via velocity blend along forward heading (force-based fails against Havok friction)
         const skillMult = 1 + car.driverSkill * 0.05;
-        const maxSpd = (10 + car.engine * 2) * skillMult;
+        const maxSpd = (16 + car.engine * 3) * skillMult;
         const desiredVel = fwd.scale(throttle * maxSpd);
         const curVel = car.aggregate.body.getLinearVelocity();
-        const blend = Math.min(1, dt * 2.5);
+        const blend = Math.min(1, dt * 4);
         const nx = curVel.x + (desiredVel.x - curVel.x) * blend;
         const nz = curVel.z + (desiredVel.z - curVel.z) * blend;
         car.aggregate.body.setLinearVelocity(new BABYLON.Vector3(nx, curVel.y, nz));
@@ -1168,9 +1187,9 @@ function checkCollisionDamage(aliveCars, dt) {
                 );
             }
 
-            if (relSpeed < 2.5) continue;
+            if (relSpeed < 3.0) continue;
 
-            const baseDmg = relSpeed * 1.2;
+            const baseDmg = relSpeed * 1.5;
             const dmgToA = Math.max(1, baseDmg * (1 - (b.armor - 1) * 0.1));
             const dmgToB = Math.max(1, baseDmg * (1 - (a.armor - 1) * 0.1));
 
@@ -1189,10 +1208,14 @@ function checkCollisionDamage(aliveCars, dt) {
                 b.staggerTimer = Math.max(b.staggerTimer || 0, stag);
             }
 
-            // Track impact for camera
+            // Track impact for camera + hit-stop on big hits
             if (relSpeed > 4.0) {
                 lastImpactPos = a.mesh.position.add(b.mesh.position).scale(0.5);
                 lastImpactTime = performance.now();
+            }
+            if (relSpeed > 8.0) {
+                derbyTimeScale = 0.15;
+                derbySlowMoTimer = 0.12;
             }
 
             // Visual feedback — flash
@@ -1269,6 +1292,13 @@ function updateDerbyTimer() {
 
 function skipDerby() {
     if (derbyRunning) endDerby();
+}
+
+function toggleFastForward() {
+    derbyFastForward = !derbyFastForward;
+    if (derbySlowMoTimer <= 0) derbyTimeScale = derbyFastForward ? 2 : 1;
+    const btn = document.getElementById('btn-fast-forward');
+    if (btn) btn.classList.toggle('active', derbyFastForward);
 }
 
 function endDerby() {

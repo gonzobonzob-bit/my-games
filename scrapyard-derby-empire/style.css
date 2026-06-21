@@ -249,10 +249,12 @@ body {
     background-color: var(--bg);
 }
 .car-card {
-    background: rgba(44, 37, 32, 0.92);
+    background: rgba(44, 37, 32, 0.95);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 16px;
+    position: relative;
+    z-index: 2;
 }
 .car-card-header {
     display: flex;
@@ -339,13 +341,15 @@ body {
 
 /* ===== DRIVERS SECTION ===== */
 .drivers-section {
-    background: rgba(44, 37, 32, 0.92);
+    background: rgba(44, 37, 32, 0.95);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    position: relative;
+    z-index: 2;
 }
 .drivers-section-title {
     font-size: 16px;
@@ -379,8 +383,11 @@ body {
     flex-shrink: 0;
 }
 .driver-action-btn:hover { opacity: 0.85; }
+.driver-actions { display: flex; gap: 6px; flex-shrink: 0; flex-direction: column; }
 .driver-action-btn.assign { background: var(--accent); color: #fff; }
 .driver-action-btn.unassign { background: var(--metal); color: #fff; }
+.driver-action-btn.fire { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.driver-action-btn.fire:hover, .driver-action-btn.fire.confirming { background: var(--danger); color: #fff; }
 /* ===== WALK-IN FLIP CARDS ===== */
 .walkin-title {
     font-size: 13px;
@@ -596,6 +603,9 @@ body {
     gap: 8px;
     overflow-x: auto;
     padding-bottom: 8px;
+    position: relative;
+    z-index: 3;
+    flex-shrink: 0;
 }
 .car-select-btn {
     flex-shrink: 0;
@@ -654,6 +664,18 @@ body {
     cursor: pointer;
 }
 .derby-skip:hover { background: rgba(0,0,0,0.8); }
+.derby-ff {
+    pointer-events: auto;
+    padding: 8px 14px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.derby-ff.active { background: var(--accent); border-color: var(--accent2); }
 .derby-health-bars {
     display: flex;
     gap: 8px;
