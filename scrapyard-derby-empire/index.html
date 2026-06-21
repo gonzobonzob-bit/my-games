@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Scrapyard D-Derby Empire</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+</head>
+<body>
+
+<!-- ===== MAIN MENU ===== -->
+<div id="screen-menu" class="screen">
+    <img src="assets/img/title-splash.png" class="menu-splash" alt="Scrapyard D-Derby Empire">
+    <div class="menu-title">Scrapyard D-Derby Empire</div>
+    <div class="menu-sub">Demolition Derby Tycoon</div>
+    <button class="menu-btn primary" onclick="newGame()">New Game</button>
+    <button class="menu-btn" id="btn-continue" onclick="continueGame()" disabled>Continue</button>
+    <button class="menu-btn" onclick="openSettings()">Settings</button>
+</div>
+
+<!-- ===== GARAGE ===== -->
+<div id="screen-garage" class="screen">
+    <div class="top-bar">
+        <button class="menu-toggle" onclick="toggleIGM()">&#9776;</button>
+        <span class="top-bar-title">Garage HQ</span>
+        <span class="top-bar-cash"><img src="assets/icons/cash.png" alt="$"> <span id="garage-cash">$0</span></span>
+    </div>
+    <div class="garage-content" id="garage-content"></div>
+    <div class="garage-actions">
+        <button class="action-btn derby" id="btn-start-derby" onclick="startDerby()">Start Derby</button>
+        <button class="action-btn junkyard" onclick="showScreen('junkyard')">Junkyard</button>
+    </div>
+</div>
+
+<!-- ===== DERBY ===== -->
+<div id="screen-derby" class="screen">
+    <canvas id="derby-canvas"></canvas>
+    <div class="derby-hud">
+        <div class="derby-hud-top">
+            <div class="derby-timer" id="derby-timer">Time: 40s</div>
+            <button class="derby-skip" onclick="skipDerby()">Skip &gt;&gt;</button>
+        </div>
+        <div class="derby-health-bars" id="derby-health-bars"></div>
+    </div>
+    <!-- Results Overlay -->
+    <div id="overlay-results" class="overlay">
+        <div id="results-title" class="results-title win">Victory!</div>
+        <div id="results-placement" class="results-placement">Placement: #1</div>
+        <div id="results-table" class="results-table"></div>
+        <div id="results-payout" class="results-payout">Payout: $300</div>
+        <button class="menu-btn primary" onclick="derbyBackToGarage()">Back to Garage</button>
+    </div>
+</div>
+
+<!-- ===== JUNKYARD ===== -->
+<div id="screen-junkyard" class="screen">
+    <div class="top-bar">
+        <button class="menu-toggle" onclick="toggleIGM()">&#9776;</button>
+        <span class="top-bar-title">Junkyard</span>
+        <span class="top-bar-cash"><img src="assets/icons/cash.png" alt="$"> <span id="junkyard-cash">$0</span></span>
+    </div>
+    <div class="junkyard-content" id="junkyard-content"></div>
+    <div class="junkyard-actions">
+        <button class="action-btn junkyard" onclick="showScreen('garage')">Back to Garage</button>
+    </div>
+</div>
+
+<!-- ===== SETTINGS (STUB) ===== -->
+<div id="screen-settings" class="screen">
+    <div class="top-bar">
+        <button class="menu-toggle" onclick="showScreen('menu')">&#8592;</button>
+        <span class="top-bar-title">Settings</span>
+        <span></span>
+    </div>
+    <div class="settings-content">
+        <div class="settings-stub">Settings coming soon...</div>
+        <button class="menu-btn" onclick="showScreen('menu')">Back</button>
+    </div>
+</div>
+
+<!-- ===== IN-GAME MENU OVERLAY ===== -->
+<div id="overlay-igm" class="overlay">
+    <div class="igm-panel">
+        <div class="igm-title">Menu</div>
+        <button class="igm-btn" onclick="igmResume()">Resume</button>
+        <button class="igm-btn" onclick="igmMainMenu()">Main Menu</button>
+    </div>
+</div>
+
+<script src="save.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

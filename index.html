@@ -89,7 +89,11 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-marble{background:linear-gradient(180deg,#020a18 0%,#0a1e3a 45%,#102840 80%,#081828 100%);}
 .banner-marble::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 50% 60% at 50% 60%,rgba(68,170,255,0.35) 0%,rgba(40,100,200,0.15) 40%,transparent 70%);}
 .banner-marble::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(68,170,255,0.08) 50%,transparent 60%),linear-gradient(45deg,transparent 35%,rgba(100,200,255,0.06) 45%,transparent 55%);}
-/* 13. Plate Empire — Food Truck Dusk */
+/* 13. Scrapyard D-Derby Empire — Demolition Derby */
+.banner-derby{background:linear-gradient(180deg,#0d0804 0%,#1a0c04 40%,#2a1508 75%,#1a0e04 100%);}
+.banner-derby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 70% at 50% 80%,rgba(255,100,20,0.4) 0%,rgba(200,50,10,0.2) 35%,transparent 65%);animation:forgeFlicker 2.2s ease-in-out infinite;}
+.banner-derby::after{content:'';position:absolute;inset:0;background:radial-gradient(circle 15px at 25% 40%,rgba(255,120,0,0.25),transparent 55%),radial-gradient(circle 12px at 65% 30%,rgba(255,80,0,0.2),transparent 50%),radial-gradient(circle 10px at 80% 60%,rgba(255,150,0,0.15),transparent 50%),linear-gradient(135deg,transparent 40%,rgba(200,80,10,0.06) 50%,transparent 60%);}
+/* 14. Plate Empire — Food Truck Dusk */
 .banner-plate{background:linear-gradient(180deg,#241c16 0%,#3a2a1c 45%,#5a3a22 75%,#1C1A18 100%);}
 .banner-plate::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% 95%,rgba(192,138,62,0.45) 0%,rgba(232,161,74,0.18) 40%,transparent 75%);}
 .banner-plate::after{content:'';position:absolute;left:50%;top:30%;transform:translateX(-50%);width:46%;height:34%;background:rgba(255,214,138,0.16);border-radius:4px;box-shadow:0 0 24px rgba(255,214,138,0.25);}
@@ -213,6 +217,16 @@ footer a{color:var(--purple);text-decoration:none;}
       <div class="card-genre">🎱 3D Marble Physics</div>
       <div class="card-title">Marble Descent</div>
       <div class="card-desc">Roll a marble through a 3D obstacle course. Babylon.js engine with Cannon.js physics — ramps, bridges, chasms, rotating blockers. Arrow/WASD tilt + spacebar jump. 3 lives, checkpoints, best time tracking.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+  </a>
+
+  <a class="card status-wip" href="scrapyard-derby-empire/index.html" data-tags="idle action" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-derby"><span class="banner-emoji">🏎️💥</span><span class="card-badge badge-idle">Tycoon</span></div>
+    <div class="card-body">
+      <div class="card-genre">💥 Demolition Derby Tycoon</div>
+      <div class="card-title">Scrapyard D-Derby Empire</div>
+      <div class="card-desc">Build a demolition derby empire from the junkyard up. Upgrade cars, hire drivers, smash opponents in 3D Havok-physics arenas, then scrap or repair the wreckage. Babylon.js 3D engine.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
   </a>
