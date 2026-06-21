@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Rift Legends</title>
+<title>Veil Legends</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#05030f;--dark:#08050a;--border:#1a0f2a;--purple:#7c3aed;--gold:#d97706;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--text:#e2d9f3;--muted:#6b5e8a;}
@@ -67,15 +67,19 @@ canvas{display:block;touch-action:none;}
 .shop-item-name{font-size:10px;font-weight:700;color:#c4b5fd;display:block;text-transform:uppercase;letter-spacing:0.5px;}
 .shop-item-cost{font-family:'Cinzel',serif;font-size:13px;color:#fbbf24;margin-top:3px;}
 .shop-close{background:transparent;border:1px solid rgba(124,58,237,0.5);border-radius:10px;padding:10px 30px;font-family:'Cinzel',serif;font-size:14px;color:#a78bfa;cursor:pointer;}
+.menu-btn{background:rgba(124,58,237,0.2);border:1px solid rgba(124,58,237,0.4);border-radius:6px;padding:3px 8px;font-family:'Cinzel',serif;font-size:9px;color:#a78bfa;cursor:pointer;letter-spacing:0.5px;}
+.menu-btn:active{background:rgba(124,58,237,0.4);}
+.sp-btn.continue-btn{background:linear-gradient(135deg,#d97706,#f59e0b);margin-top:4px;}
 </style>
 </head>
 <body>
 <div id="splash">
   <div class="sp-icon">⚔️</div>
-  <div class="sp-title">RIFT LEGENDS</div>
+  <div class="sp-title">VEIL LEGENDS</div>
   <div class="sp-sub">CHOOSE YOUR CHAMPION</div>
   <div class="hero-select" id="hero-select"></div>
-  <button class="sp-btn" onclick="startBattle()">ENTER THE RIFT</button>
+  <button class="sp-btn" onclick="startBattle()">ENTER THE VEIL</button>
+  <button class="sp-btn continue-btn" id="continue-btn" style="display:none;" onclick="continueSave()">CONTINUE</button>
 </div>
 
 <div id="game-ui">
@@ -93,6 +97,7 @@ canvas{display:block;touch-action:none;}
       <div class="wave-sub"><span id="enemies-left">0</span> enemies</div>
     </div>
     <div class="gold-display">⚡<span id="gold-display">0</span></div>
+    <button class="menu-btn" onclick="backToMenu()">MENU</button>
   </div>
   <div id="canvas-wrap">
     <canvas id="game-canvas"></canvas>
@@ -188,9 +193,11 @@ let joystickActive=false,joyX=0,joyY=0;
 let abilities=[];
 
 function goSplash(){
+  stopAutosave();
   document.getElementById('game-ui').classList.remove('show');
   document.getElementById('gameover').classList.remove('show');
   document.getElementById('splash').style.display='flex';
+  checkContinueButton();
 }
 
 function initHeroSelect(){
@@ -211,14 +218,17 @@ function selectHero(id){
 }
 
 function startBattle(){
+  deleteSave();
   document.getElementById('splash').style.display='none';
   document.getElementById('game-ui').classList.add('show');
   initCanvas();
   initPlayer();
+  enemies=[];projectiles=[];particles=[];wave=1;gold=0;kills=0;frame=0;
   abilities=heroData.abilities.map(a=>({...a,cd:0}));
   spawnWave();
   setupJoystick();
   updateAbilityUI();
+  startAutosave();
   requestAnimationFrame(gameLoop);
 }
 
@@ -732,6 +742,8 @@ function render(){
 }
 
 function gameOver(){
+  stopAutosave();
+  deleteSave();
   const el=document.getElementById('go-title');
   el.style.color='';
   el.textContent='DEFEATED';
@@ -740,6 +752,8 @@ function gameOver(){
 }
 
 function showVictory(){
+  stopAutosave();
+  deleteSave();
   const el=document.getElementById('go-title');
   el.style.color='#d97706';
   el.textContent='VICTORY!';
@@ -752,9 +766,99 @@ function restartGame(){
   enemies=[];projectiles=[];particles=[];wave=1;gold=0;kills=0;frame=0;
   abilities=heroData.abilities.map(a=>({...a,cd:0}));
   initPlayer();spawnWave();
+  startAutosave();
+}
+
+const SAVE_KEY='veilLegendsSave';
+let autosaveInterval=null;
+
+function saveGame(){
+  if(!player||!heroData)return;
+  const data={
+    saveVersion:1,
+    heroId:heroData.id,
+    wave:wave,
+    gold:gold,
+    kills:kills,
+    player:{
+      hp:player.hp,maxHp:player.maxHp,
+      mp:player.mp,maxMp:player.maxMp,
+      atk:player.atk,spd:player.spd,
+      lv:player.lv,xp:player.xp,xpMax:player.xpMax
+    }
+  };
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(data));}catch(e){}
+}
+
+function loadGame(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return null;
+    const data=JSON.parse(raw);
+    if(!data||data.saveVersion!==1)return null;
+    return data;
+  }catch(e){return null;}
+}
+
+function deleteSave(){
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+}
+
+function startAutosave(){
+  stopAutosave();
+  autosaveInterval=setInterval(saveGame,30000);
+}
+
+function stopAutosave(){
+  if(autosaveInterval){clearInterval(autosaveInterval);autosaveInterval=null;}
+}
+
+function continueSave(){
+  const data=loadGame();
+  if(!data)return;
+  heroData=HEROES.find(h=>h.id===data.heroId)||HEROES[0];
+  document.getElementById('splash').style.display='none';
+  document.getElementById('game-ui').classList.add('show');
+  initCanvas();
+  initPlayer();
+  // Restore saved player stats
+  player.hp=data.player.hp;player.maxHp=data.player.maxHp;
+  player.mp=data.player.mp;player.maxMp=data.player.maxMp;
+  player.atk=data.player.atk;player.spd=data.player.spd;
+  player.lv=data.player.lv;player.xp=data.player.xp;player.xpMax=data.player.xpMax;
+  wave=data.wave;gold=data.gold;kills=data.kills;
+  abilities=heroData.abilities.map(a=>({...a,cd:0}));
+  spawnWave();
+  setupJoystick();
+  updateAbilityUI();
+  startAutosave();
+  requestAnimationFrame(gameLoop);
+}
+
+function backToMenu(){
+  saveGame();
+  stopAutosave();
+  enemies=[];projectiles=[];particles=[];
+  document.getElementById('game-ui').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('shop-modal').classList.remove('show');
+  document.getElementById('splash').style.display='flex';
+  checkContinueButton();
+}
+
+function checkContinueButton(){
+  const data=loadGame();
+  const btn=document.getElementById('continue-btn');
+  if(data&&btn){
+    btn.style.display='';
+    btn.textContent='CONTINUE (Wave '+data.wave+', Lv'+data.player.lv+')';
+  } else if(btn){
+    btn.style.display='none';
+  }
 }
 
 initHeroSelect();
+checkContinueButton();
 </script>
 </body>
 </html>

@@ -45,14 +45,14 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-cafe{background:linear-gradient(160deg,#2a1200 0%,#4a1f00 40%,#3d1500 70%,#1e0d00 100%);}
 .banner-cafe::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 50%,rgba(251,191,36,0.22) 0%,rgba(217,119,6,0.12) 40%,transparent 70%);}
 .banner-cafe::after{content:'';position:absolute;left:50%;top:10%;transform:translateX(-50%);width:52%;height:75%;background:rgba(255,200,100,0.07);border-radius:6px;box-shadow:inset 0 0 20px rgba(255,200,100,0.1),inset 0 0 6px rgba(255,255,255,0.05);backdrop-filter:blur(1px);}
-/* 3. NEON DYNASTY — Cyberpunk City */
+/* 3. NEON DOMINION — Cyberpunk City */
 .banner-cyber{background:#01010d;}
 .banner-cyber::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.35) 3px,rgba(0,0,0,0.35) 4px);}
 .banner-cyber::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 10%,rgba(0,255,255,0.06) 14%,transparent 15%,transparent 22%,rgba(255,0,200,0.07) 25%,transparent 27%,transparent 38%,rgba(139,92,246,0.08) 41%,transparent 43%,transparent 55%,rgba(0,255,255,0.05) 58%,transparent 60%,transparent 70%,rgba(255,0,200,0.06) 73%,transparent 75%,transparent 82%,rgba(0,255,255,0.07) 85%,transparent 87%);}
 .banner-cyber .neon-streaks{position:absolute;inset:0;overflow:hidden;}
 .banner-cyber .neon-streaks::before{content:'';position:absolute;top:0;left:13%;width:1px;height:100%;background:linear-gradient(180deg,transparent,rgba(0,255,255,0.7),rgba(0,255,255,0.3),transparent);box-shadow:0 0 6px 1px rgba(0,255,255,0.5);}
 .banner-cyber .neon-streaks::after{content:'';position:absolute;top:0;left:25%;width:1px;height:100%;background:linear-gradient(180deg,transparent,rgba(255,0,200,0.8),rgba(255,0,200,0.3),transparent);box-shadow:0 0 8px 1px rgba(255,0,200,0.6);}
-/* 4. EPOCH: The Eternal Forge — Forge Fire */
+/* 4. Anvil Epoch — Forge Fire */
 @keyframes forgeFlicker{0%,100%{opacity:1;transform:scaleX(1)}25%{opacity:0.85;transform:scaleX(1.04)}50%{opacity:0.95;transform:scaleX(0.97)}75%{opacity:0.9;transform:scaleX(1.03)}}
 .banner-forge{background:linear-gradient(180deg,#0a0804 0%,#150b00 40%,#260d00 75%,#3d1200 100%);}
 .banner-forge::before{content:'';position:absolute;bottom:0;left:0;right:0;height:55%;background:radial-gradient(ellipse 90% 100% at 50% 100%,rgba(255,80,0,0.6) 0%,rgba(220,50,0,0.35) 35%,rgba(160,20,0,0.15) 60%,transparent 80%);animation:forgeFlicker 1.8s ease-in-out infinite;}
@@ -65,7 +65,7 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-wizard{background:radial-gradient(ellipse at 50% 60%,#110a2e 0%,#07041a 60%,#030210 100%);}
 .banner-wizard::before{content:'';position:absolute;inset:0;background:radial-gradient(circle 55px at 50% 50%,rgba(139,92,246,0.28) 0%,rgba(124,58,237,0.12) 45%,transparent 70%),radial-gradient(circle 90px at 50% 50%,transparent 50%,rgba(109,40,217,0.08) 65%,transparent 80%),radial-gradient(circle 130px at 50% 50%,transparent 65%,rgba(88,28,187,0.06) 80%,transparent 95%);}
 .banner-wizard::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 46px,rgba(109,40,217,0.3) 47px,transparent 49px),radial-gradient(circle at 50% 50%,transparent 72px,rgba(109,40,217,0.2) 73px,transparent 75px),radial-gradient(circle at 50% 50%,transparent 100px,rgba(88,28,187,0.15) 101px,transparent 103px);}
-/* 7. Rift Legends — Void Rift */
+/* 7. Veil Legends — Void Rift */
 .banner-rift{background:radial-gradient(ellipse at 50% 50%,#1a004a 0%,#0d0025 50%,#03000d 100%);}
 .banner-rift::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 30% 60% at 50% 50%,rgba(167,139,250,0.4) 0%,rgba(139,92,246,0.2) 30%,transparent 65%);filter:blur(2px);}
 .banner-rift::after{content:'';position:absolute;left:50%;top:10%;bottom:10%;transform:translateX(-50%);width:2px;background:linear-gradient(180deg,transparent,rgba(196,181,253,0.9),rgba(167,139,250,1),rgba(196,181,253,0.9),transparent);box-shadow:0 0 12px 4px rgba(139,92,246,0.8),0 0 30px 8px rgba(109,40,217,0.5),0 0 60px 15px rgba(88,28,187,0.3);}
@@ -77,15 +77,19 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-terminus{background:linear-gradient(180deg,#0a0600 0%,#1a0e00 40%,#120900 70%,#0a0600 100%);}
 .banner-terminus::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 7px,rgba(0,0,0,0.5) 7px,rgba(0,0,0,0.5) 8px);}
 .banner-terminus::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 100% 80% at 0% 50%,rgba(0,0,0,0.7),transparent 50%),radial-gradient(ellipse 100% 80% at 100% 50%,rgba(0,0,0,0.7),transparent 50%),radial-gradient(ellipse 100% 40% at 50% 0%,rgba(0,0,0,0.5),transparent 60%),radial-gradient(ellipse 100% 40% at 50% 100%,rgba(0,0,0,0.5),transparent 60%);}
-/* 10. Iron Frontier — Steampunk Rails */
+/* 10. Steel Vanguard — Steampunk Rails */
 .banner-frontier{background:linear-gradient(180deg,#1a0c00 0%,#2e1400 45%,#3d1f00 80%,#2a1200 100%);}
 .banner-frontier::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 100%,rgba(194,101,10,0.45) 0%,rgba(160,70,5,0.2) 45%,transparent 75%),radial-gradient(ellipse 40% 30% at 50% 85%,rgba(255,150,30,0.3) 0%,transparent 60%);}
 .banner-frontier::after{content:'';position:absolute;inset:0;background:linear-gradient(160deg,transparent 30%,rgba(180,120,50,0.06) 45%,transparent 55%),linear-gradient(20deg,transparent 30%,rgba(194,101,10,0.07) 45%,transparent 55%);}
-/* 11. Transport Empire — Isometric Freight */
+/* 11. Freight Dominion — Isometric Freight */
 .banner-transport{background:linear-gradient(180deg,#0a0e14 0%,#10202a 45%,#16303a 80%,#0a1820 100%);}
 .banner-transport::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 38%,rgba(242,193,78,0.5) 39%,rgba(242,193,78,0.5) 41%,transparent 42%),linear-gradient(135deg,transparent 56%,rgba(111,211,199,0.4) 57%,rgba(111,211,199,0.4) 59%,transparent 60%),linear-gradient(135deg,transparent 72%,rgba(242,193,78,0.3) 73%,rgba(242,193,78,0.3) 75%,transparent 76%);}
 .banner-transport::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 100%,rgba(242,193,78,0.28) 0%,rgba(90,169,230,0.12) 45%,transparent 75%);}
-/* 12. Plate Empire — Food Truck Dusk */
+/* 12. Marble Descent — 3D Marble Course */
+.banner-marble{background:linear-gradient(180deg,#020a18 0%,#0a1e3a 45%,#102840 80%,#081828 100%);}
+.banner-marble::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 50% 60% at 50% 60%,rgba(68,170,255,0.35) 0%,rgba(40,100,200,0.15) 40%,transparent 70%);}
+.banner-marble::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(68,170,255,0.08) 50%,transparent 60%),linear-gradient(45deg,transparent 35%,rgba(100,200,255,0.06) 45%,transparent 55%);}
+/* 13. Plate Empire — Food Truck Dusk */
 .banner-plate{background:linear-gradient(180deg,#241c16 0%,#3a2a1c 45%,#5a3a22 75%,#1C1A18 100%);}
 .banner-plate::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% 95%,rgba(192,138,62,0.45) 0%,rgba(232,161,74,0.18) 40%,transparent 75%);}
 .banner-plate::after{content:'';position:absolute;left:50%;top:30%;transform:translateX(-50%);width:46%;height:34%;background:rgba(255,214,138,0.16);border-radius:4px;box-shadow:0 0 24px rgba(255,214,138,0.25);}
@@ -165,7 +169,7 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-banner banner-transport"><span class="banner-emoji">🚚🌆</span><span class="card-badge badge-transport">Tycoon</span></div>
     <div class="card-body">
       <div class="card-genre">🚛 Transport Tycoon</div>
-      <div class="card-title">Transport Empire</div>
+      <div class="card-title">Freight Dominion</div>
       <div class="card-desc">From one truck to a logistics empire across road, rail, sea & air. A pseudo-3D isometric world with 28 industries to invest in or acquire, an HQ compound that physically grows, 3 rival firms, and a philanthropic Community Movement division that earns goodwill — not just money. 3 game modes, autosave, fully mobile.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
@@ -175,7 +179,7 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-banner banner-frontier"><span class="banner-emoji">🚂⚙️</span><span class="card-badge badge-strategy">Strategy</span></div>
     <div class="card-body">
       <div class="card-genre">🚂 Steampunk Tycoon</div>
-      <div class="card-title">Iron Frontier</div>
+      <div class="card-title">Steel Vanguard</div>
       <div class="card-desc">Build a railway empire across the wild west. Lay tracks, connect towns, run steam trains, grow populations. Isometric hex map, BFS routing, full economy system. El Paso, 1871.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
@@ -195,13 +199,23 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-banner banner-rift"><span class="banner-emoji">⚔️🌀</span><span class="card-badge badge-moba">MOBA</span></div>
     <div class="card-body">
       <div class="card-genre">⚔️ Action MOBA</div>
-      <div class="card-title">Rift Legends</div>
+      <div class="card-title">Veil Legends</div>
       <div class="card-desc">Choose your champion — Warrior, Mage, Assassin, or Ranger. Mobile joystick controls, 3 abilities each, in-game shop, level up system. Survive 10 waves to claim victory.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
   <!-- ===== IN PROGRESS ===== -->
+
+  <a class="card status-wip" href="../tilt/index.html" data-tags="arcade" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-marble"><span class="banner-emoji">🔵🏔️</span><span class="card-badge badge-new">3D</span></div>
+    <div class="card-body">
+      <div class="card-genre">🎱 3D Marble Physics</div>
+      <div class="card-title">Marble Descent</div>
+      <div class="card-desc">Roll a marble through a 3D obstacle course. Babylon.js engine with Cannon.js physics — ramps, bridges, chasms, rotating blockers. Arrow/WASD tilt + spacebar jump. 3 lives, checkpoints, best time tracking.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+  </a>
 
   <a class="card status-wip" href="plate-empire/index.html" data-tags="idle" data-status="wip" data-hidden="1">
     <div class="card-banner banner-plate"><span class="banner-emoji">🚚🍔</span><span class="card-badge badge-idle">Tycoon</span></div>
@@ -227,7 +241,7 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-banner banner-cyber"><div class="neon-streaks"></div><span class="banner-emoji">🏙️⚡</span><span class="card-badge badge-ai">AI Oracle</span></div>
     <div class="card-body">
       <div class="card-genre">🌆 Cyberpunk Tycoon</div>
-      <div class="card-title">NEON DYNASTY</div>
+      <div class="card-title">NEON DOMINION</div>
       <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the live AI Oracle powered by Claude for real strategic advice.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Oracle Offline</span></div>
@@ -237,7 +251,7 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-banner banner-forge"><span class="banner-emoji">⚒️🔥</span><span class="card-badge badge-idle">Idle</span></div>
     <div class="card-body">
       <div class="card-genre">⚒️ Idle Crafting</div>
-      <div class="card-title">EPOCH: The Eternal Forge</div>
+      <div class="card-title">Anvil Epoch</div>
       <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes, prestige to loop through time. Each age makes you stronger.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Rune Bug</span></div>

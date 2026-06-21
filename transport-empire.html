@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Transport Empire</title>
+<title>Freight Dominion</title>
 <style>
 :root{
   --bg:#0a0e14; --bg2:#10161f; --panel:#161d29; --panel2:#1d2734;
@@ -426,7 +426,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <script>
 "use strict";
 /* =====================================================================
-   TRANSPORT EMPIRE  —  single-file management tycoon
+   FREIGHT DOMINION  —  single-file management tycoon
    Systems: World/Map, HQ, Vehicles, Industry, Logistics, Community
    Movement, Competitors, Trust/Morals, Finance, Modes, UI, Save.
    ===================================================================== */
@@ -1377,9 +1377,9 @@ const Map = {
   init(){
     if(this.webglSupported()){
       try{ Object.assign(this, MapGL); MapGL.init.call(this); this._mode='webgl';
-        console.log('Transport Empire: WebGL renderer active.'); return; }
-      catch(e){ console.warn('Transport Empire: WebGL failed — using Canvas 2D fallback.', e); }
-    } else { console.log('Transport Empire: WebGL unavailable — using Canvas 2D fallback.'); }
+        console.log('Freight Dominion: WebGL renderer active.'); return; }
+      catch(e){ console.warn('Freight Dominion: WebGL failed — using Canvas 2D fallback.', e); }
+    } else { console.log('Freight Dominion: WebGL unavailable — using Canvas 2D fallback.'); }
     this.useCanvas();
   },
   useCanvas(){
@@ -2165,7 +2165,7 @@ const Menu = {
     ]},
   ],
   build(){ const bar=document.getElementById('menubar');
-    let h=`<div class="mbrand">🚚 <span>Transport Empire</span></div>`;
+    let h=`<div class="mbrand">🚚 <span>Freight Dominion</span></div>`;
     this.defs.forEach((m,mi)=>{ h+=`<div class="mi" data-mi="${mi}"><span>${m.label}</span><div class="dd">`;
       m.items.forEach((it,ii)=>{ if(it==='sep'){ h+=`<div class="sep"></div>`; return; }
         h+=`<div class="it" data-mi="${mi}" data-ii="${ii}"><span class="ic">${it.ic}</span>${it.label}${it.key?`<span class="k">${it.key}</span>`:''}</div>`; });
@@ -2661,7 +2661,7 @@ const Panels = {
         <div class="meta">${({campaign:'Main Campaign — progression with story beats.',sandboxFree:'Free Sandbox — unlimited money, everything unlocked, zero financial pressure.',sandboxCampaign:'Campaign Sandbox — realistic capital and a live, fluctuating economy with real consequences. All content unlocked.'})[G.mode]}</div></div>
       <div class="card"><h4>🚪 Exit</h4>
         <div class="row"><button class="btn red sm" onclick="Panels.exitToMenu()">Save & Quit to Main Menu</button></div></div>
-      <div class="muted" style="text-align:center;margin-top:14px">Transport Empire v1.0</div>`;
+      <div class="muted" style="text-align:center;margin-top:14px">Freight Dominion v1.0</div>`;
   },
 
   /* ---------- Modals ---------- */
@@ -2695,7 +2695,7 @@ const Panels = {
   },
   settingsModal(){
     Modal.open({ic:'⚙️',title:'Settings',
-      body:'Transport Empire runs locally in your browser. Saves live in this device\'s storage.',
+      body:'Freight Dominion runs locally in your browser. Saves live in this device\'s storage.',
       choices:[
         {label:'Clear ALL saves',cls:'red',fn:()=>{ for(let i=1;i<=3;i++)Save.delete(i); Toast.show('All saves cleared.','info'); UI.updateMenu(); }},
         {label:'Close',cls:'ghost',fn:()=>{}},
@@ -2844,7 +2844,7 @@ const News = {
 const NewsTicker = {
   refresh(){ const el=document.getElementById('newsline'); if(!el) return;
     const items=(G.news||[]).slice(0,12).map(n=>`<span class="ni">📰 Day ${n.day}: ${n.t}</span>`).join('<span class="nsep">•</span>');
-    el.innerHTML=items||'<span class="ni">📰 Transport Empire — building the network.</span>'; },
+    el.innerHTML=items||'<span class="ni">📰 Freight Dominion — building the network.</span>'; },
 };
 
 /* ---------------- Economy realism (Task 6) ---------------- */

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Iron Frontier</title>
+<title>Steel Vanguard</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -152,7 +152,7 @@ canvas{display:block;touch-action:none;}
 
 <div id="splash">
   <div class="sp-emblem">🚂</div>
-  <div class="sp-title">IRON FRONTIER</div>
+  <div class="sp-title">STEEL VANGUARD</div>
   <div class="sp-sub">Steampunk Transport Tycoon</div>
   <div class="sp-desc">Connect frontier cities by rail, road, air, and sea. Deploy trains, trucks, planes, and ships to grow your settlements to a population of 10,000.</div>
   <button class="sp-btn" onclick="newGame()">NEW GAME</button>
@@ -178,6 +178,7 @@ canvas{display:block;touch-action:none;}
       <div class="hud-val" id="hud-day">1</div>
     </div>
     <button id="pause-btn" onclick="togglePause()">⏸</button>
+    <button id="menu-btn" onclick="goToSplash()" style="background:rgba(92,61,26,0.5);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-family:'Cinzel',serif;font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px;">MENU</button>
   </div>
 
   <div id="canvas-wrap">
@@ -204,7 +205,7 @@ canvas{display:block;touch-action:none;}
 
   <div id="info-panel">
     <div id="info-text">
-      <div id="info-title">Iron Frontier</div>
+      <div id="info-title">Steel Vanguard</div>
       <div id="info-sub">Select a city or switch to Route mode</div>
     </div>
     <button class="act-btn primary hidden" id="btn-vehicle" onclick="doBuyVehicle()">Buy Vehicle</button>
@@ -271,6 +272,7 @@ let vehicles = []; // { id, routeId, type, p, dir, state, stopTimer }
 let gold = 500, day = 1, dayTimer = 0;
 let nextRouteId = 0, nextVehId = 0;
 let paused = false, gameStarted = false, victoryShown = false;
+let autosaveInterval = null;
 let selectedNode = null, routeNodeA = null, pendingRouteId = null;
 let currentMode = 'select';
 let selectedTransport = 'rail';
@@ -749,7 +751,7 @@ function updateInfoPanel() {
     return;
   }
 
-  title.textContent = 'Iron Frontier';
+  title.textContent = 'Steel Vanguard';
   sub.textContent   = 'Select a city or switch to Route mode to build connections';
 }
 
@@ -951,7 +953,7 @@ const SAVE_KEY = 'iron-frontier-v2';
 
 function saveGame() {
   const save = {
-    v: 2, gold, day, dayTimer, nextRouteId, nextVehId,
+    v: 2, saveVersion: 1, gold, day, dayTimer, nextRouteId, nextVehId,
     nodes:    Object.entries(nodes).map(([id, n]) => ({ id, pop: n.pop, connected: n.connected, deliveryScore: n.deliveryScore })),
     routes:   Object.entries(routes).map(([id, r]) => ({ id: +id, nodeA: r.nodeA, nodeB: r.nodeB, type: r.type, vehId: r.vehId })),
     vehicles: vehicles.map(v => ({ id: v.id, routeId: v.routeId, type: v.type, p: v.p, dir: v.dir, state: v.state, stopTimer: v.stopTimer }))
@@ -990,6 +992,8 @@ function startGameUI() {
   updateHUD();
   updateRoutePanel();
   lastTime = performance.now();
+  if (autosaveInterval) clearInterval(autosaveInterval);
+  autosaveInterval = setInterval(() => { if (gameStarted && !paused) saveGame(); }, 30000);
 }
 
 function newGame() {
@@ -1013,6 +1017,7 @@ function continueGame() {
 }
 
 function goToSplash() {
+  if (autosaveInterval) { clearInterval(autosaveInterval); autosaveInterval = null; }
   saveGame();
   document.getElementById('game-ui').classList.remove('show');
   document.getElementById('victory').classList.remove('show');

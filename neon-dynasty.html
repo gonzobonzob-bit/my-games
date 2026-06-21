@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>NEON DYNASTY</title>
+<title>NEON DOMINION</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#020412;--panel:#050a1a;--card:#080f22;--border:#0a1a3a;--cyan:#00d4ff;--pink:#ff0080;--purple:#8000ff;--gold:#ffd700;--text:#a0c4ff;--muted:#304060;}
@@ -23,6 +23,8 @@ body::after{content:'';position:fixed;inset:0;background:
 #app{display:none;flex-direction:column;height:100%;position:relative;z-index:1;}
 #app.show{display:flex;}
 #topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.menu-btn{background:none;border:1px solid var(--muted);color:var(--muted);font-family:'Orbitron',sans-serif;font-size:8px;padding:3px 8px;cursor:pointer;letter-spacing:1px;}
+.menu-btn:active{color:var(--cyan);border-color:var(--cyan);}
 .corp-name{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--cyan);letter-spacing:2px;}
 .currencies{display:flex;gap:6px;}
 .cur{background:var(--card);border:1px solid var(--border);padding:2px 7px;font-size:10px;}
@@ -89,7 +91,7 @@ body::after{content:'';position:fixed;inset:0;background:
 <body>
 <div id="splash">
   <div class="sp-city">🏙️</div>
-  <div class="sp-title">NEON DYNASTY</div>
+  <div class="sp-title">NEON DOMINION</div>
   <div class="sp-sub">Corporate Tycoon</div>
   <div class="sp-desc">Build a megacorp in a neon-soaked cyberpunk city. Hack systems, acquire divisions, consult the AI Oracle for strategic advice.</div>
   <button class="sp-btn" onclick="startGame()">INITIALIZE CORP</button>
@@ -111,6 +113,7 @@ body::after{content:'';position:fixed;inset:0;background:
 </div>
 <div id="app">
   <div id="topbar">
+    <button class="menu-btn" onclick="backToMenu()" title="Back to Menu">◀ MENU</button>
     <div class="corp-name">⚡ <span id="corp-name">AXIOM CORP</span></div>
     <div class="currencies">
       <div class="cur credits">¥<span id="res-credits">0</span></div>
@@ -284,7 +287,7 @@ async function consultOracle(){
   if(!q){showToast('Enter a question for the Oracle');return;}
   const resp=document.getElementById('oracle-response');
   resp.innerHTML='<span class="oracle-typing">◈ PROCESSING...</span>';
-  const ctx=`You are the AI Oracle for NEON DYNASTY, a cyberpunk corporate tycoon game. Player stats: Credits=¥${fmt(G.credits)}, Data=◈${fmt(G.data)}, Rep=★${fmt(G.rep)}, Hack Power=${G.hackPower}, Dominance=${Math.floor(G.dominance)}%, Divisions=${Object.keys(G.divisionsOwned).length}. Give strategic advice in 2-3 sentences in a noir cyberpunk tone. Be specific and useful.`;
+  const ctx=`You are the AI Oracle for NEON DOMINION, a cyberpunk corporate tycoon game. Player stats: Credits=¥${fmt(G.credits)}, Data=◈${fmt(G.data)}, Rep=★${fmt(G.rep)}, Hack Power=${G.hackPower}, Dominance=${Math.floor(G.dominance)}%, Divisions=${Object.keys(G.divisionsOwned).length}. Give strategic advice in 2-3 sentences in a noir cyberpunk tone. Be specific and useful.`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -344,8 +347,14 @@ function showToast(msg){
   const t=document.createElement('div');t.className='toast';t.textContent=msg;
   document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
-function save(){try{localStorage.setItem('neondynasty_v1',JSON.stringify(G));}catch(e){}}
+function save(){try{const s=Object.assign({},G,{saveVersion:1});localStorage.setItem('neondynasty_v1',JSON.stringify(s));}catch(e){}}
 function load(){try{const d=JSON.parse(localStorage.getItem('neondynasty_v1'));if(d)Object.assign(G,d);}catch(e){}}
+
+function backToMenu(){
+  save();
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('splash').style.display='';
+}
 
 function startGame(){
   document.getElementById('splash').style.display='none';
@@ -353,8 +362,8 @@ function startGame(){
   load();renderLists();updateUI();
   setInterval(gameTick,100);
   setInterval(renderLists,3000);
-  setInterval(save,30000);
-  showToast('⚡ Welcome to NEON DYNASTY');
+  setInterval(()=>{save();showToast('💾 Autosaved');},30000);
+  showToast('⚡ Welcome to NEON DOMINION');
 }
 </script>
 </body>

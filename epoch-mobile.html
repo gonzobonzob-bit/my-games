@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>EPOCH: The Eternal Forge</title>
+<title>Anvil Epoch</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0805;--panel:#13100c;--card:#1c1810;--border:#3a2e1e;--gold:#d4a030;--gold2:#f0c060;--ember:#e06020;--stone:#8a7a60;--text:#e8d8b0;--muted:#7a6a4a;}
@@ -60,14 +60,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 <body>
 <div id="splash">
   <div class="sp-forge">⚒️</div>
-  <div class="sp-title">EPOCH</div>
-  <div class="sp-sub">The Eternal Forge</div>
+  <div class="sp-title">ANVIL EPOCH</div>
   <div class="sp-desc">Forge legendary artifacts, unlock ancient recipes, and loop through the ages. Each prestige makes you stronger.</div>
   <button class="sp-btn" onclick="startGame()">Begin Forging</button>
 </div>
 <div id="app">
   <div id="topbar">
-    <div class="tb-title">⚒️ EPOCH</div>
+    <div class="tb-title">⚒️ ANVIL EPOCH</div>
+    <button onclick="backToMenu()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:10px;color:var(--muted);cursor:pointer;">☰ Menu</button>
     <div class="resources">
       <div class="res gold">🪙 <span id="res-gold">0</span></div>
       <div class="res stone">🪨 <span id="res-stone">0</span></div>
@@ -101,7 +101,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
         <div id="artifact-list"></div>
       </div>
       <div class="tab-pane" id="tab-prestige">
-        <div class="section-title">🌀 The Eternal Loop</div>
+        <div class="section-title">🌀 The Anvil Loop</div>
         <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;font-size:11px;color:var(--stone);line-height:1.7;">
           Prestige resets your resources and crafts but grants a permanent <strong style="color:#a060e0">power multiplier</strong>. Each loop through the ages makes you stronger. Artifacts survive prestige.
         </div>
@@ -145,7 +145,7 @@ const UPGRADES=[
 const ARTIFACTS=[
   {id:'hammer',name:"Titan's Hammer",icon:'🔨',desc:'Survives prestige. +10 forge power.',cost:{gold:5000,ember:1000},effect:()=>G.forgeRate+=10},
   {id:'amulet',name:'Forge Amulet',icon:'📿',desc:'Survives prestige. +50% all passive rates.',cost:{gold:10000,ember:2000},effect:()=>{G.goldRate=Math.floor(G.goldRate*1.5);G.stoneRate=Math.floor(G.stoneRate*1.5);G.emberRate=Math.floor(G.emberRate*1.5);}},
-  {id:'tome',name:"Epoch Tome",icon:'📖',desc:'Survives prestige. +1 prestige multiplier.',cost:{gold:20000,ember:5000},effect:()=>G.prestigeMult+=1},
+  {id:'tome',name:"Anvil Epoch Tome",icon:'📖',desc:'Survives prestige. +1 prestige multiplier.',cost:{gold:20000,ember:5000},effect:()=>G.prestigeMult+=1},
 ];
 
 let craftCounts={};
@@ -305,8 +305,10 @@ function showToast(msg){
 }
 
 const SK2='epoch_v1';
-function save(){try{localStorage.setItem(SK2,JSON.stringify(G));}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(SK2));if(d)Object.assign(G,d);}catch(e){}}
+function save(){try{const data=Object.assign({},G,{saveVersion:1});localStorage.setItem(SK2,JSON.stringify(data));}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(SK2));if(d){delete d.saveVersion;Object.assign(G,d);}}catch(e){}}
+
+let autosaveInterval=null;
 
 function startGame(){
   document.getElementById('splash').style.display='none';
@@ -315,8 +317,17 @@ function startGame(){
   renderItems();updateUI();
   setInterval(gameTick,100);
   setInterval(renderItems,3000);
-  setInterval(save,30000);
-  showToast('⚒️ Welcome back to the Forge!');
+  // Autosave every 30 seconds
+  autosaveInterval=setInterval(function(){save();showToast('💾 Autosaved');},30000);
+  showToast('⚒️ Welcome to Anvil Epoch!');
+}
+
+function backToMenu(){
+  // Stop autosave
+  if(autosaveInterval){clearInterval(autosaveInterval);autosaveInterval=null;}
+  save();
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('splash').style.display='flex';
 }
 </script>
 </body>
