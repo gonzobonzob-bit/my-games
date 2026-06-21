@@ -1426,8 +1426,11 @@ function tick(dt){
     if(!RT.staffAcc[sid]) RT.staffAcc[sid]=0;
     RT.staffAcc[sid]+=dt;
     if(RT.staffAcc[sid]>=def.autoServe&&RT.tickets.length>0){
-      RT.staffAcc[sid]=0;
-      fulfill(RT.tickets[0].id, def.name);
+      const open=RT.tickets.find(t=>!t.cooking);
+      if(open){
+        RT.staffAcc[sid]=0;
+        fulfill(open.id, def.name);
+      }
     }
   });
   for(let i=RT.tickets.length-1;i>=0;i--){
