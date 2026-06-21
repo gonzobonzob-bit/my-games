@@ -40,6 +40,20 @@
     </div>
 </div>
 
+<!-- ===== DERBY LINEUP ===== -->
+<div id="screen-lineup" class="screen">
+    <div class="top-bar">
+        <button class="menu-toggle" onclick="showScreen('garage')">&#8592;</button>
+        <span class="top-bar-title">Derby Lineup</span>
+        <span></span>
+    </div>
+    <div class="lineup-content" id="lineup-content"></div>
+    <div class="garage-actions">
+        <button class="action-btn derby" id="btn-enter-derby" onclick="confirmLineup()">Enter Derby</button>
+        <button class="action-btn junkyard" onclick="showScreen('garage')">Back</button>
+    </div>
+</div>
+
 <!-- ===== DERBY ===== -->
 <div id="screen-derby" class="screen">
     <canvas id="derby-canvas"></canvas>

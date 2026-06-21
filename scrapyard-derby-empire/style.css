@@ -495,6 +495,52 @@ body {
     animation: walkinPulse 2s ease-in-out infinite;
 }
 
+/* ===== LINEUP SCREEN ===== */
+.lineup-content {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background-color: var(--bg);
+}
+.lineup-header { text-align: center; margin-bottom: 4px; }
+.lineup-title { font-size: 20px; font-weight: 900; color: var(--accent2); }
+.lineup-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.lineup-counts { font-size: 13px; color: var(--accent); font-weight: 700; margin-top: 6px; }
+.lineup-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.lineup-entry:hover { border-color: var(--accent); }
+.lineup-entry.active { border-color: var(--success); background: rgba(39, 174, 96, 0.1); }
+.lineup-entry.disabled { opacity: 0.4; cursor: default; }
+.lineup-entry.disabled:hover { border-color: var(--border); }
+.lineup-check {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 900; color: var(--success);
+    flex-shrink: 0;
+}
+.lineup-entry.active .lineup-check { border-color: var(--success); background: rgba(39, 174, 96, 0.2); }
+.lineup-info { flex: 1; }
+.lineup-driver-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.lineup-driver-skill { font-size: 11px; color: #fbbf24; letter-spacing: 2px; }
+.lineup-status { font-size: 11px; display: block; margin-top: 2px; }
+.lineup-status.avail { color: var(--success); }
+.lineup-status.unavail { color: var(--danger); }
+.results-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
 .paint-row {
     display: flex;
     gap: 8px;
@@ -614,8 +660,8 @@ body {
     flex-wrap: wrap;
 }
 .derby-car-hp {
-    flex: 1;
-    min-width: 100px;
+    flex: 1 1 22%;
+    min-width: 80px;
     background: rgba(0,0,0,0.5);
     border-radius: 8px;
     padding: 6px 10px;
