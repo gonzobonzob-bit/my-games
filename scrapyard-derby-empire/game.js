@@ -196,6 +196,7 @@ function getActiveCar() {
 }
 
 function renderGarage() {
+    if (!state) return;
     const container = document.getElementById('garage-content');
     const cashEl = document.getElementById('garage-cash');
     cashEl.textContent = '$' + state.cash;
@@ -531,8 +532,8 @@ function createDerbyCar(scene, opts) {
             friction: 0.6,
             restitution: 0.35
         }, scene);
-        aggregate.body.setAngularDamping(3);
-        aggregate.body.setLinearDamping(0.3);
+        aggregate.body.setAngularDamping(5);
+        aggregate.body.setLinearDamping(0.15);
     }
 
     return {
@@ -583,25 +584,18 @@ function updateCarAI(car, aliveCars, dt) {
     dir.z += (Math.random() - 0.5) * 0.3;
     dir.normalize();
 
-    const forceMag = (500 + car.engine * 200);
+    const targetSpeed = 8 + car.engine * 2;
 
-    if (car.aggregate) {
-        const force = dir.scale(forceMag);
-        car.aggregate.body.applyForce(force, car.mesh.getAbsolutePosition());
-
-        // Clamp speed
-        const vel = car.aggregate.body.getLinearVelocity();
-        const maxSpeed = 4 + car.engine * 1.5;
-        const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
-        if (speed > maxSpeed) {
-            const ratio = maxSpeed / speed;
-            car.aggregate.body.setLinearVelocity(new BABYLON.Vector3(vel.x * ratio, vel.y, vel.z * ratio));
-        }
+    if (car.aggregate && car.aggregate.body) {
+        const currentVel = car.aggregate.body.getLinearVelocity();
+        const targetVel = dir.scale(targetSpeed);
+        const blend = Math.min(1, dt * 3);
+        const newVx = currentVel.x + (targetVel.x - currentVel.x) * blend;
+        const newVz = currentVel.z + (targetVel.z - currentVel.z) * blend;
+        car.aggregate.body.setLinearVelocity(new BABYLON.Vector3(newVx, currentVel.y, newVz));
     } else {
-        // Fallback: direct position movement
-        const speed = (2 + car.engine) * dt;
+        const speed = targetSpeed * dt;
         car.mesh.position.addInPlace(dir.scale(speed));
-        // Clamp to arena
         car.mesh.position.x = Math.max(-18, Math.min(18, car.mesh.position.x));
         car.mesh.position.z = Math.max(-18, Math.min(18, car.mesh.position.z));
     }
@@ -629,9 +623,9 @@ function checkCollisionDamage(aliveCars, dt) {
                 );
             }
 
-            if (relSpeed < 1.5) continue;
+            if (relSpeed < 2.0) continue;
 
-            const baseDmg = relSpeed * 2.5;
+            const baseDmg = relSpeed * 0.8;
             const dmgToA = Math.max(1, baseDmg * (1 - (b.armor - 1) * 0.1));
             const dmgToB = Math.max(1, baseDmg * (1 - (a.armor - 1) * 0.1));
 
@@ -640,8 +634,8 @@ function checkCollisionDamage(aliveCars, dt) {
             a.totalDamageDealt += dmgToB;
             b.totalDamageDealt += dmgToA;
 
-            a.damageCooldown = 0.5;
-            b.damageCooldown = 0.5;
+            a.damageCooldown = 1.0;
+            b.damageCooldown = 1.0;
 
             // Visual feedback — flash
             flashCar(a);
@@ -804,6 +798,7 @@ function cleanupDerby() {
 
 // ── Junkyard ──
 function renderJunkyard() {
+    if (!state) return;
     const container = document.getElementById('junkyard-content');
     const cashEl = document.getElementById('junkyard-cash');
     cashEl.textContent = '$' + state.cash;
