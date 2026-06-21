@@ -221,6 +221,8 @@ let derbyRunning = false;
 let havokInstance = null;
 let derbyTimeScale = 1;
 let derbySlowMoTimer = 0;
+let lastImpactPos = null;
+let lastImpactTime = 0;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
@@ -694,7 +696,7 @@ async function initDerby() {
     groundMat.specularColor = BABYLON.Color3.Black();
     ground.material = groundMat;
     if (derbyScene.getPhysicsEngine()) {
-        new BABYLON.PhysicsAggregate(ground, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, derbyScene);
+        new BABYLON.PhysicsAggregate(ground, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.3, restitution: 0.1 }, derbyScene);
     }
 
     // Arena walls
@@ -714,7 +716,7 @@ async function initDerby() {
         wall.rotation.y = wp.ry;
         wall.material = wallMat;
         if (derbyScene.getPhysicsEngine()) {
-            new BABYLON.PhysicsAggregate(wall, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.5, restitution: 0.4 }, derbyScene);
+            new BABYLON.PhysicsAggregate(wall, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.2, restitution: 0.7 }, derbyScene);
         }
     });
 
@@ -741,10 +743,10 @@ async function initDerby() {
     const playerCar = getActiveCar();
     const playerPaint = PAINT_OPTIONS.find(p => p.id === playerCar.paint) || PAINT_OPTIONS[0];
     const spawns = [
-        new BABYLON.Vector3(-8, 1, -8),
-        new BABYLON.Vector3(8, 1, -8),
-        new BABYLON.Vector3(-8, 1, 8),
-        new BABYLON.Vector3(8, 1, 8)
+        new BABYLON.Vector3(-8, 0.5, -8),
+        new BABYLON.Vector3(8, 0.5, -8),
+        new BABYLON.Vector3(-8, 0.5, 8),
+        new BABYLON.Vector3(8, 0.5, 8)
     ];
 
     // Player car — look up assigned driver skill
@@ -788,6 +790,8 @@ async function initDerby() {
     derbyRunning = true;
     derbyTimeScale = 1;
     derbySlowMoTimer = 0;
+    lastImpactPos = null;
+    lastImpactTime = 0;
     sfxEngine();
 
     // Game loop
@@ -843,17 +847,24 @@ async function initDerby() {
         }
     });
 
-    // Camera auto-rotate + follow player car
+    // Camera: follow action + react to impacts
     derbyScene.registerAfterRender(() => {
-        if (derbyRunning) {
-            camera.alpha += 0.002;
+        if (!derbyRunning) return;
+        camera.alpha += 0.0015;
 
-            // Follow-cam: smoothly track the player car
-            const playerCar = derbyCars.find(c => c.isPlayer);
-            if (playerCar && playerCar.health > 0) {
-                camera.target = BABYLON.Vector3.Lerp(camera.target, playerCar.mesh.position, 0.05);
+        const pc = derbyCars.find(c => c.isPlayer);
+        let camGoal = pc && pc.health > 0 ? pc.mesh.position.clone() : camera.target.clone();
+
+        // Bias toward impact location
+        if (lastImpactPos) {
+            const elapsed = performance.now() - lastImpactTime;
+            if (elapsed < 1500) {
+                const w = Math.max(0, 1 - elapsed / 1500) * 0.45;
+                camGoal = BABYLON.Vector3.Lerp(camGoal, lastImpactPos, w);
+                camera.radius += (22 - camera.radius) * 0.04 * (1 - elapsed / 1500);
             }
         }
+        camera.target = BABYLON.Vector3.Lerp(camera.target, camGoal, 0.06);
     });
 
     derbyEngine.runRenderLoop(() => {
@@ -866,26 +877,79 @@ async function initDerby() {
 }
 
 function createDerbyCar(scene, opts) {
-    const mesh = BABYLON.MeshBuilder.CreateBox(opts.name, { width: 2, height: 0.8, depth: 3 }, scene);
-    mesh.position = opts.position.clone();
+    const bodyColor = BABYLON.Color3.FromHexString(opts.color);
     const mat = new BABYLON.StandardMaterial(opts.name + 'Mat', scene);
-    mat.diffuseColor = BABYLON.Color3.FromHexString(opts.color);
+    mat.diffuseColor = bodyColor;
     mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-    mesh.material = mat;
+
+    const darkMat = new BABYLON.StandardMaterial(opts.name + 'DkMat', scene);
+    darkMat.diffuseColor = bodyColor.scale(0.55);
+    darkMat.specularColor = BABYLON.Color3.Black();
+
+    const wheelMat = new BABYLON.StandardMaterial(opts.name + 'WhlMat', scene);
+    wheelMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.12);
+
+    // Body (physics root)
+    const body = BABYLON.MeshBuilder.CreateBox(opts.name, { width: 2.0, height: 0.5, depth: 3.2 }, scene);
+    body.position = opts.position.clone();
+    body.material = mat;
+
+    // Cabin
+    const cab = BABYLON.MeshBuilder.CreateBox(opts.name + '_cab', { width: 1.5, height: 0.4, depth: 1.2 }, scene);
+    cab.position = new BABYLON.Vector3(0, 0.44, -0.15);
+    cab.parent = body;
+    cab.material = darkMat;
+
+    // Hood (front)
+    const hood = BABYLON.MeshBuilder.CreateBox(opts.name + '_hood', { width: 1.8, height: 0.18, depth: 0.9 }, scene);
+    hood.position = new BABYLON.Vector3(0, 0.08, 1.1);
+    hood.parent = body;
+    hood.material = mat;
+
+    // Trunk (rear)
+    const trunk = BABYLON.MeshBuilder.CreateBox(opts.name + '_trunk', { width: 1.8, height: 0.14, depth: 0.6 }, scene);
+    trunk.position = new BABYLON.Vector3(0, 0.06, -1.3);
+    trunk.parent = body;
+    trunk.material = mat;
+
+    // Bumpers
+    const bMat = new BABYLON.StandardMaterial(opts.name + 'BmpMat', scene);
+    bMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    const frontBumper = BABYLON.MeshBuilder.CreateBox(opts.name + '_fb', { width: 2.1, height: 0.25, depth: 0.2 }, scene);
+    frontBumper.position = new BABYLON.Vector3(0, -0.1, 1.6);
+    frontBumper.parent = body;
+    frontBumper.material = bMat;
+    const rearBumper = BABYLON.MeshBuilder.CreateBox(opts.name + '_rb', { width: 2.1, height: 0.25, depth: 0.2 }, scene);
+    rearBumper.position = new BABYLON.Vector3(0, -0.1, -1.6);
+    rearBumper.parent = body;
+    rearBumper.material = bMat;
+
+    // Wheels
+    const wPos = [
+        { x: -1.05, z: 1.0 }, { x: 1.05, z: 1.0 },
+        { x: -1.05, z: -1.0 }, { x: 1.05, z: -1.0 }
+    ];
+    wPos.forEach((wp, i) => {
+        const w = BABYLON.MeshBuilder.CreateCylinder(opts.name + '_w' + i, { diameter: 0.55, height: 0.22 }, scene);
+        w.rotation.z = Math.PI / 2;
+        w.position = new BABYLON.Vector3(wp.x, -0.2, wp.z);
+        w.parent = body;
+        w.material = wheelMat;
+    });
 
     let aggregate = null;
     if (scene.getPhysicsEngine()) {
-        aggregate = new BABYLON.PhysicsAggregate(mesh, BABYLON.PhysicsShapeType.BOX, {
-            mass: 800 + opts.engine * 100,
-            friction: 0.6,
-            restitution: 0.35
+        aggregate = new BABYLON.PhysicsAggregate(body, BABYLON.PhysicsShapeType.BOX, {
+            mass: 1200 + opts.engine * 200,
+            friction: 0.25,
+            restitution: 0.6
         }, scene);
-        aggregate.body.setAngularDamping(5);
-        aggregate.body.setLinearDamping(0.15);
+        aggregate.body.setAngularDamping(1.5);
+        aggregate.body.setLinearDamping(0.08);
     }
 
     return {
-        mesh,
+        mesh: body,
         aggregate,
         name: opts.name,
         isPlayer: opts.isPlayer,
@@ -897,56 +961,68 @@ function createDerbyCar(scene, opts) {
         driverSkill: opts.driverSkill || 0,
         totalDamageDealt: 0,
         damageCooldown: 0,
+        staggerTimer: 0,
         aiTarget: null,
-        aiTimer: 0,
-        velocity: new BABYLON.Vector3(0, 0, 0)
+        aiTimer: 0
     };
 }
 
 function updateCarAI(car, aliveCars, dt) {
+    if (car.staggerTimer > 0) { car.staggerTimer -= dt; return; }
+
     car.aiTimer -= dt;
     if (car.aiTimer <= 0 || !car.aiTarget || car.aiTarget.health <= 0) {
-        // Pick new target
-        let nearest = null;
-        let minDist = Infinity;
+        let nearest = null, minDist = Infinity;
         for (const other of aliveCars) {
             if (other === car) continue;
-            const dist = BABYLON.Vector3.Distance(car.mesh.position, other.mesh.position);
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = other;
-            }
+            const d = BABYLON.Vector3.Distance(car.mesh.position, other.mesh.position);
+            if (d < minDist) { minDist = d; nearest = other; }
         }
         car.aiTarget = nearest;
-        car.aiTimer = 1.5 + Math.random() * 2;
+        car.aiTimer = 1.0 + Math.random() * 1.5;
     }
-
     if (!car.aiTarget) return;
 
-    const dir = car.aiTarget.mesh.position.subtract(car.mesh.position);
-    dir.y = 0;
-    if (dir.length() < 0.01) return;
-    dir.normalize();
+    // Forward direction from mesh world transform
+    const fwd = BABYLON.Vector3.TransformNormal(BABYLON.Axis.Z, car.mesh.getWorldMatrix());
+    fwd.y = 0;
+    const fwdLen = fwd.length();
+    if (fwdLen < 0.001) return;
+    fwd.scaleInPlace(1 / fwdLen);
 
-    // Add some randomness
-    dir.x += (Math.random() - 0.5) * 0.3;
-    dir.z += (Math.random() - 0.5) * 0.3;
-    dir.normalize();
+    const toTarget = car.aiTarget.mesh.position.subtract(car.mesh.position);
+    toTarget.y = 0;
+    if (toTarget.length() < 0.5) return;
+    toTarget.normalize();
 
-    // Driver skill bonus: each skill point adds 5% speed (skill 5 = 25% faster)
-    const baseSpeed = 8 + car.engine * 2;
-    const targetSpeed = baseSpeed * (1 + car.driverSkill * 0.05);
+    const dot = BABYLON.Vector3.Dot(fwd, toTarget);
+    const crossY = fwd.x * toTarget.z - fwd.z * toTarget.x;
 
     if (car.aggregate && car.aggregate.body) {
-        const currentVel = car.aggregate.body.getLinearVelocity();
-        const targetVel = dir.scale(targetSpeed);
-        const blend = Math.min(1, dt * 3);
-        const newVx = currentVel.x + (targetVel.x - currentVel.x) * blend;
-        const newVz = currentVel.z + (targetVel.z - currentVel.z) * blend;
-        car.aggregate.body.setLinearVelocity(new BABYLON.Vector3(newVx, currentVel.y, newVz));
+        // Steering via angular impulse
+        const steerStrength = 800 + car.engine * 200;
+        const steerMag = Math.min(1.0, Math.abs(crossY)) * steerStrength;
+        car.aggregate.body.applyAngularImpulse(new BABYLON.Vector3(0, Math.sign(crossY) * steerMag * dt, 0));
+
+        // Throttle: forward when aligned, reverse when facing away
+        let throttle = 0;
+        if (dot > 0.5) throttle = 1.0;
+        else if (dot > 0) throttle = 0.4;
+        else if (dot < -0.5) throttle = -0.35;
+        throttle += (Math.random() - 0.5) * 0.08;
+
+        // Drive via velocity blend along forward heading (force-based fails against Havok friction)
+        const skillMult = 1 + car.driverSkill * 0.05;
+        const maxSpd = (10 + car.engine * 2) * skillMult;
+        const desiredVel = fwd.scale(throttle * maxSpd);
+        const curVel = car.aggregate.body.getLinearVelocity();
+        const blend = Math.min(1, dt * 2.5);
+        const nx = curVel.x + (desiredVel.x - curVel.x) * blend;
+        const nz = curVel.z + (desiredVel.z - curVel.z) * blend;
+        car.aggregate.body.setLinearVelocity(new BABYLON.Vector3(nx, curVel.y, nz));
     } else {
-        const speed = targetSpeed * dt;
-        car.mesh.position.addInPlace(dir.scale(speed));
+        const speed = (5 + car.engine * 2) * dt;
+        car.mesh.position.addInPlace(toTarget.scale(speed));
         car.mesh.position.x = Math.max(-18, Math.min(18, car.mesh.position.x));
         car.mesh.position.z = Math.max(-18, Math.min(18, car.mesh.position.z));
     }
@@ -974,9 +1050,9 @@ function checkCollisionDamage(aliveCars, dt) {
                 );
             }
 
-            if (relSpeed < 2.0) continue;
+            if (relSpeed < 2.5) continue;
 
-            const baseDmg = relSpeed * 0.8;
+            const baseDmg = relSpeed * 1.2;
             const dmgToA = Math.max(1, baseDmg * (1 - (b.armor - 1) * 0.1));
             const dmgToB = Math.max(1, baseDmg * (1 - (a.armor - 1) * 0.1));
 
@@ -985,8 +1061,21 @@ function checkCollisionDamage(aliveCars, dt) {
             a.totalDamageDealt += dmgToB;
             b.totalDamageDealt += dmgToA;
 
-            a.damageCooldown = 1.0;
-            b.damageCooldown = 1.0;
+            a.damageCooldown = 0.6;
+            b.damageCooldown = 0.6;
+
+            // Stagger on heavy hits
+            if (relSpeed > 5.0) {
+                const stag = 0.3 + relSpeed * 0.04;
+                a.staggerTimer = Math.max(a.staggerTimer || 0, stag);
+                b.staggerTimer = Math.max(b.staggerTimer || 0, stag);
+            }
+
+            // Track impact for camera
+            if (relSpeed > 4.0) {
+                lastImpactPos = a.mesh.position.add(b.mesh.position).scale(0.5);
+                lastImpactTime = performance.now();
+            }
 
             // Visual feedback — flash
             flashCar(a);
