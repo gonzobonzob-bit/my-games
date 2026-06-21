@@ -58,6 +58,12 @@ const S = {
     unassign: 'Unassign',
     hireDriver: 'Hire Driver',
     hired: 'Hired',
+    walkIns: 'Walk-ins',
+    walkInTap: 'Tap to reveal',
+    walkInEmpty: 'No walk-ins right now. Win a derby!',
+    walkInHire: 'Hire',
+    walkInPass: 'Pass',
+    walkInMystery: '?',
     assignedTo: 'Assigned to',
     notEnoughCash: 'Not enough cash!',
     alreadyAssigned: 'Car already has a driver',
@@ -280,6 +286,7 @@ function renderMainMenu() {
 function slotNewGame(index) {
     activeSlot = index;
     state = createNewSave();
+    generateWalkIns();
     saveGame(state);
     showScreen('garage');
 }
@@ -417,9 +424,44 @@ function renderGarage() {
             actionBtn +
         '</div>';
     }
-    driversHtml += '<button class="hire-driver-btn" onclick="hireDriver()" ' +
-        (state.cash < hireCost ? 'disabled' : '') + '>' + S.hireDriver + ' — $' + hireCost + '</button>' +
-    '</div>';
+    // Walk-in cards
+    if (state.walkIns && state.walkIns.length > 0) {
+        driversHtml += '<div class="walkin-title">' + S.walkIns + '</div>';
+        driversHtml += '<div class="walkin-row">';
+        state.walkIns.forEach((wi, idx) => {
+            if (wi.revealed) {
+                const skillDots = '★'.repeat(wi.skill) + '☆'.repeat(5 - wi.skill);
+                driversHtml += '<div class="walkin-card flipped">' +
+                    '<div class="walkin-card-inner">' +
+                        '<div class="walkin-card-back"><span>' + S.walkInMystery + '</span></div>' +
+                        '<div class="walkin-card-front">' +
+                            '<div class="walkin-front-info">' +
+                                '<div class="walkin-front-name">' + wi.name + '</div>' +
+                                '<div class="walkin-front-skill">' + skillDots + '</div>' +
+                                '<div class="walkin-front-cost">$' + wi.cost + '</div>' +
+                            '</div>' +
+                            '<div class="walkin-front-actions">' +
+                                '<button class="walkin-btn hire" onclick="hireWalkIn(' + idx + ')" ' +
+                                    (state.cash < wi.cost ? 'disabled' : '') + '>' + S.walkInHire + '</button>' +
+                                '<button class="walkin-btn pass" onclick="passWalkIn(' + idx + ')">' + S.walkInPass + '</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            } else {
+                driversHtml += '<div class="walkin-card" onclick="revealWalkIn(' + idx + ')">' +
+                    '<div class="walkin-card-inner">' +
+                        '<div class="walkin-card-back"><span>' + S.walkInMystery + '</span><div class="walkin-tap">' + S.walkInTap + '</div></div>' +
+                        '<div class="walkin-card-front"></div>' +
+                    '</div>' +
+                '</div>';
+            }
+        });
+        driversHtml += '</div>';
+    } else {
+        driversHtml += '<div class="walkin-empty">' + S.walkInEmpty + '</div>';
+    }
+    driversHtml += '</div>';
 
     container.innerHTML = `
         ${carSelectHtml}
@@ -509,31 +551,57 @@ function buyPaint(id) {
 }
 
 // ── Driver Management ──
-function hireDriver() {
-    const hireCostIdx = Math.min(state.drivers.length - 1, HIRE_DRIVER_COSTS.length - 1);
-    const cost = HIRE_DRIVER_COSTS[hireCostIdx];
-    if (state.cash < cost) {
-        showToast(S.notEnoughCash);
-        return;
-    }
-    // Pick a random name not already in use
+function generateWalkIns() {
     const usedNames = new Set(state.drivers.map(d => d.name));
-    const available = DRIVER_NAMES.filter(n => !usedNames.has(n));
-    if (available.length === 0) {
-        showToast(S.notEnoughCash);
-        return;
+    const wiNames = state.walkIns ? state.walkIns.map(w => w.name) : [];
+    usedNames.forEach(n => wiNames.push(n));
+    const pool = DRIVER_NAMES.filter(n => !usedNames.has(n));
+    if (pool.length === 0) { state.walkIns = []; return; }
+    const count = Math.min(2 + (Math.random() < 0.4 ? 1 : 0), pool.length);
+    const picks = [];
+    const used = new Set();
+    for (let i = 0; i < count; i++) {
+        const avail = pool.filter(n => !used.has(n));
+        if (avail.length === 0) break;
+        const name = avail[Math.floor(Math.random() * avail.length)];
+        used.add(name);
+        const roll = Math.random();
+        const skill = roll < 0.55 ? 1 : roll < 0.85 ? 2 : 3;
+        const cost = [0, 150, 350, 600][skill] + Math.floor(Math.random() * 100);
+        picks.push({ name, skill, cost, revealed: false });
     }
-    const name = available[Math.floor(Math.random() * available.length)];
-    state.cash -= cost;
-    state.drivers.push({
-        id: 'driver_' + Date.now(),
-        name: name,
-        skill: 1,
-        assignedCar: null
-    });
+    state.walkIns = picks;
+}
+
+function revealWalkIn(idx) {
+    if (!state.walkIns || !state.walkIns[idx]) return;
+    state.walkIns[idx].revealed = true;
     saveGame(state);
     renderGarage();
-    showToast(S.hired + ': ' + name + '!');
+    sfxUpgrade();
+}
+
+function hireWalkIn(idx) {
+    const wi = state.walkIns[idx];
+    if (!wi || state.cash < wi.cost) { showToast(S.notEnoughCash); return; }
+    state.cash -= wi.cost;
+    state.drivers.push({
+        id: 'driver_' + Date.now(),
+        name: wi.name,
+        skill: wi.skill,
+        assignedCar: null
+    });
+    state.walkIns.splice(idx, 1);
+    saveGame(state);
+    renderGarage();
+    showToast(S.hired + ': ' + wi.name + '!');
+}
+
+function passWalkIn(idx) {
+    if (!state.walkIns) return;
+    state.walkIns.splice(idx, 1);
+    saveGame(state);
+    renderGarage();
 }
 
 function assignDriver(driverId) {
@@ -1048,6 +1116,9 @@ function endDerby() {
 
     // Random repo availability
     state.repoAvailable = Math.random() < 0.5;
+
+    // Fresh walk-ins after each derby
+    generateWalkIns();
 
     saveGame(state);
 

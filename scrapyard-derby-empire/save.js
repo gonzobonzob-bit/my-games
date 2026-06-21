@@ -35,6 +35,7 @@ function createNewSave() {
             carsRepaired: 0
         },
         repoAvailable: false,
+        walkIns: [],
         season: 1,
         prestigeMultiplier: 1.0,
         seasonWins: 0,
@@ -61,6 +62,7 @@ function loadSlot(index) {
         if (data.prestigeMultiplier === undefined) data.prestigeMultiplier = 1.0;
         if (data.seasonWins === undefined) data.seasonWins = 0;
         if (data.seasonTarget === undefined) data.seasonTarget = 5;
+        if (data.walkIns === undefined) data.walkIns = [];
         // Backward compat: add skill to drivers missing it
         if (data.drivers) {
             for (const d of data.drivers) {
