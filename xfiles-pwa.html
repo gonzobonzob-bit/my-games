@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>X-Files: The Truth Is Out There</title>
+<title>Phantom Dossier</title>
 <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#020c04;--panel:#040f06;--card:#061409;--border:#0a3010;--green:#00cc44;--green2:#00ff66;--dim:#114422;--text:#88ccaa;--muted:#336644;--red:#cc2200;--amber:#cc8800;}
@@ -63,15 +63,15 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 <body>
 <div id="splash">
   <div class="sp-x">✕</div>
-  <div class="sp-title">X-FILES</div>
+  <div class="sp-title">PHANTOM DOSSIER</div>
   <div class="sp-sub">FEDERAL BUREAU OF INVESTIGATION — CLASSIFIED</div>
-  <div class="sp-desc">The paranormal doesn't explain itself. Gather evidence, recruit agents, expose conspiracies. The truth is out there — if you can find it.</div>
+  <div class="sp-desc">The paranormal doesn't explain itself. Gather evidence, recruit agents, expose conspiracies. The veil is thin — if you dare to look.</div>
   <button class="sp-btn" onclick="startGame()">▶ BEGIN INVESTIGATION</button>
 </div>
 <div id="app">
-  <div id="ticker"><div id="ticker-inner">◈ FBI CLASSIFIED ◈ PARANORMAL ACTIVITY IN 47 STATES ◈ SMOKING MAN NEAR PENTAGON ◈ LONE GUNMEN DECODE TRANSMISSION ◈ BLACK OIL SAMPLES MISSING ◈ MULDER STILL HAS NO SOCIAL LIFE ◈ THE TRUTH IS OUT THERE ◈</div></div>
+  <div id="ticker"><div id="ticker-inner">◈ FBI CLASSIFIED ◈ PARANORMAL ACTIVITY IN 47 STATES ◈ THE DIRECTOR NEAR PENTAGON ◈ THE CIRCUIT DECODE TRANSMISSION ◈ DARK MERCURY SAMPLES MISSING ◈ AGENT VOSS STILL HAS NO SOCIAL LIFE ◈ THE VEIL IS THIN ◈</div></div>
   <div id="topbar">
-    <div class="agent-badge">AGENT <span id="agent-name">MULDER</span> | LV <span id="agent-lv">1</span></div>
+    <div class="agent-badge">AGENT <span id="agent-name">VOSS</span> | LV <span id="agent-lv">1</span></div>
     <div class="resources">
       <div class="res-chip">EV:<span id="res-ev">0</span></div>
       <div class="res-chip">IN:<span id="res-in">0</span></div>
@@ -84,7 +84,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   </div>
   <div id="main">
     <div class="case-panel" id="case-panel" onclick="investigate()">
-      <div class="case-header">▶ CASE FILE X-<span id="case-num">73812</span></div>
+      <div class="case-header">▶ DOSSIER PD-<span id="case-num">73812</span></div>
       <div class="case-text" id="case-text">Tap to begin investigating.</div>
       <button class="investigate-btn">▶ INVESTIGATE</button>
     </div>
@@ -113,13 +113,13 @@ const CASES=[
   'Power grid failures across Pacific Northwest. EMF readings off the charts.',
   'Navy pilot reports metallic disc traveling Mach 5 with no heat signature.',
   'Smallpox survivors developing unusual abilities. CDC has no explanation.',
-  'Colonist hybrid discovered in rural Pennsylvania. Syndicate cover-up suspected.',
-  'Black oil sample stolen from Fort Detrick. Bounty Hunter sighted leaving facility.',
+  'Convergence hybrid discovered in rural Pennsylvania. Syndicate cover-up suspected.',
+  'Dark Mercury sample stolen from Fort Detrick. Phantom operative sighted leaving facility.',
   'New federal building has same floor plan as Syndicate bunker from 1973.',
   'Children in Arizona community share identical DNA markers. All born same week.',
-  'Mulder receives encrypted message from Deep Throat — from 10 years ago.',
+  'Agent Voss receives encrypted message from The Informant — from 10 years ago.',
 ];
-const TRUTH_STAGES=['BASELINE','PERSONS OF INTEREST','PHYSICAL EVIDENCE','GOVERNMENT TIES','ALIEN CONTACT','SYNDICATE EXPOSED','COLONIZATION PLOT','THE TRUTH REVEALED'];
+const TRUTH_STAGES=['BASELINE','PERSONS OF INTEREST','PHYSICAL EVIDENCE','GOVERNMENT TIES','ALIEN CONTACT','SYNDICATE EXPOSED','CONVERGENCE PLOT','THE TRUTH REVEALED'];
 
 const UPGRADES=[
   {id:'magnify',name:'Magnifying Glass',icon:'🔍',desc:'+2 EV per tap',cost:{ev:20},effect:()=>G.tapPower+=2},
@@ -127,28 +127,28 @@ const UPGRADES=[
   {id:'scanner',name:'Radiation Scanner',icon:'☢️',desc:'+3 Intel/s',cost:{ev:100,intel:30},effect:()=>G.inRate+=3},
   {id:'wire',name:'Wiretap Setup',icon:'📞',desc:'×2 tap power',cost:{ev:200,intel:50},effect:()=>G.tapPower*=2},
   {id:'sat',name:'Satellite Uplink',icon:'📡',desc:'+10 EV/s +5 IN/s',cost:{ev:500,intel:100},effect:()=>{G.evRate+=10;G.inRate+=5;}},
-  {id:'mj12',name:'MJ-12 Documents',icon:'📂',desc:'+50 EV/s',cost:{ev:1000,cred:100},effect:()=>G.evRate+=50},
-  {id:'oil',name:'Black Oil Sample',icon:'🧪',desc:'×3 all passive rates',cost:{ev:5000,intel:500,cred:200},effect:()=>{G.evRate*=3;G.inRate*=3;G.crRate*=3;}},
+  {id:'mj12',name:'Division Twelve Documents',icon:'📂',desc:'+50 EV/s',cost:{ev:1000,cred:100},effect:()=>G.evRate+=50},
+  {id:'oil',name:'Dark Mercury Sample',icon:'🧪',desc:'×3 all passive rates',cost:{ev:5000,intel:500,cred:200},effect:()=>{G.evRate*=3;G.inRate*=3;G.crRate*=3;}},
   {id:'ufo',name:'UFO Crash Evidence',icon:'🛸',desc:'×5 tap power',cost:{ev:10000,intel:2000},effect:()=>G.tapPower*=5},
 ];
 
 const AGENTS=[
   {id:'informant',name:'Informant',icon:'🤫',desc:'+2 IN/s',cost:{ev:50},effect:()=>G.inRate+=2},
-  {id:'gunmen',name:'Lone Gunmen',icon:'💻',desc:'+3 EV/s +2 IN/s',cost:{ev:150,intel:40},effect:()=>{G.evRate+=3;G.inRate+=2;}},
+  {id:'gunmen',name:'The Circuit',icon:'💻',desc:'+3 EV/s +2 IN/s',cost:{ev:150,intel:40},effect:()=>{G.evRate+=3;G.inRate+=2;}},
   {id:'field',name:'Field Agent',icon:'🕵️',desc:'+10 EV/s +1 CR/s',cost:{ev:300,intel:80},effect:()=>{G.evRate+=10;G.crRate+=1;}},
-  {id:'skinner',name:'AD Skinner',icon:'👔',desc:'+5 CR/s covers for you',cost:{ev:800,cred:50},effect:()=>G.crRate+=5},
+  {id:'skinner',name:'Chief Harlan',icon:'👔',desc:'+5 CR/s covers for you',cost:{ev:800,cred:50},effect:()=>G.crRate+=5},
   {id:'senator',name:'Sympathetic Senator',icon:'🏛️',desc:'+20 CR/s',cost:{ev:3000,cred:200},effect:()=>G.crRate+=20},
-  {id:'deepthroat',name:'Deep Throat',icon:'🔦',desc:'+100 EV/s',cost:{ev:10000,intel:1000},effect:()=>G.evRate+=100},
-  {id:'xscully',name:'Dana Scully',icon:'🔬',desc:'×2 all rates permanently',cost:{ev:20000,intel:5000,cred:1000},effect:()=>{G.evRate*=2;G.inRate*=2;G.crRate*=2;}},
+  {id:'deepthroat',name:'The Informant',icon:'🔦',desc:'+100 EV/s',cost:{ev:10000,intel:1000},effect:()=>G.evRate+=100},
+  {id:'xscully',name:'Agent Reyes',icon:'🔬',desc:'×2 all rates permanently',cost:{ev:20000,intel:5000,cred:1000},effect:()=>{G.evRate*=2;G.inRate*=2;G.crRate*=2;}},
 ];
 
 const CONSPIRACIES=[
-  {id:'blackoil',name:'Black Oil Virus',icon:'🛢️',desc:'CLASSIFIED',reveal:'Extraterrestrial virus — controls hosts, prepares for colonization.',effect:'EV tap×2',cost:{ev:500,intel:200,cred:50},costEv:500,costIn:200,costCr:50},
-  {id:'syndicate',name:'The Syndicate',icon:'🚬',desc:'CLASSIFIED',reveal:'Powerful group collaborating with aliens. Smoking Man leads.',effect:'+100 EV/s',cost:{ev:2000,intel:500,cred:100},costEv:2000,costIn:500,costCr:100},
+  {id:'blackoil',name:'Dark Mercury Pathogen',icon:'🛢️',desc:'CLASSIFIED',reveal:'Extraterrestrial virus — controls hosts, prepares for convergence.',effect:'EV tap×2',cost:{ev:500,intel:200,cred:50},costEv:500,costIn:200,costCr:50},
+  {id:'syndicate',name:'The Syndicate',icon:'🚬',desc:'CLASSIFIED',reveal:'Powerful group collaborating with aliens. The Director leads.',effect:'+100 EV/s',cost:{ev:2000,intel:500,cred:100},costEv:2000,costIn:500,costCr:100},
   {id:'supersoldiers',name:'Super Soldiers',icon:'💉',desc:'CLASSIFIED',reveal:'Alien-human hybrids. Indestructible. Working inside government.',effect:'×3 tap power',cost:{ev:5000,intel:1000,cred:300},costEv:5000,costIn:1000,costCr:300},
-  {id:'majestic',name:'Majestic-12',icon:'📋',desc:'CLASSIFIED',reveal:'Secret govt committee. Recovered crashed saucers since 1947.',effect:'+500 EV/s',cost:{ev:15000,intel:3000,cred:1000},costEv:15000,costIn:3000,costCr:1000},
-  {id:'colonization',name:'Colonization Plot',icon:'🌍',desc:'CLASSIFIED',reveal:'Full alien takeover scheduled. Date known to few.',effect:'×10 all rates',cost:{ev:50000,intel:10000,cred:5000},costEv:50000,costIn:10000,costCr:5000},
-  {id:'finaltruth',name:'The Final Truth',icon:'👁️',desc:'CLASSIFIED',reveal:'Everything Mulder ever believed — confirmed. The truth was always out there.',effect:'PRESTIGE UNLOCK',cost:{ev:200000,intel:50000,cred:20000},costEv:200000,costIn:50000,costCr:20000},
+  {id:'majestic',name:'Division Twelve',icon:'📋',desc:'CLASSIFIED',reveal:'Secret govt committee. Recovered crashed saucers since 1947.',effect:'+500 EV/s',cost:{ev:15000,intel:3000,cred:1000},costEv:15000,costIn:3000,costCr:1000},
+  {id:'colonization',name:'Convergence Plot',icon:'🌍',desc:'CLASSIFIED',reveal:'Full alien takeover scheduled. Date known to few.',effect:'×10 all rates',cost:{ev:50000,intel:10000,cred:5000},costEv:50000,costIn:10000,costCr:5000},
+  {id:'finaltruth',name:'The Final Truth',icon:'👁️',desc:'CLASSIFIED',reveal:'Everything Agent Voss ever believed — confirmed. The veil was always thin.',effect:'PRESTIGE UNLOCK',cost:{ev:200000,intel:50000,cred:20000},costEv:200000,costIn:50000,costCr:20000},
 ];
 
 function fmt(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return Math.floor(n);}
@@ -263,7 +263,7 @@ function updateUI(){
   document.getElementById('truth-fill').style.width=G.truth+'%';
   const lv=Math.floor(G.totalEv/500)+1;
   document.getElementById('agent-lv').textContent=lv;
-  if(lv>1)document.getElementById('agent-name').textContent=['MULDER','SCULLY','KRYCEK','DOGGETT','REYES'][Math.min(4,lv-1)];
+  if(lv>1)document.getElementById('agent-name').textContent=['VOSS','REYES','KOVA','OAKES','LIANG'][Math.min(4,lv-1)];
   const ll=document.getElementById('log-list');
   if(ll)ll.innerHTML=G.logEntries.map(e=>`<div class="log-entry ${e.cls}">${e.msg}</div>`).join('');
   save();
@@ -283,15 +283,15 @@ function showToast(msg){
   document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
 
-function save(){try{localStorage.setItem('xfiles_v1',JSON.stringify(G));}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem('xfiles_v1'));if(d)Object.assign(G,d);}catch(e){}}
+function save(){try{localStorage.setItem('phantom_dossier_v1',JSON.stringify(G));}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem('phantom_dossier_v1'));if(d)Object.assign(G,d);}catch(e){}}
 
 function startGame(){
   document.getElementById('splash').style.display='none';
   document.getElementById('app').classList.add('show');
   load();
-  addLog('▶ X-FILES DIVISION — SYSTEM ONLINE','important');
-  addLog('▶ Begin investigation. The truth is out there.');
+  addLog('▶ PHANTOM DOSSIER — SYSTEM ONLINE','important');
+  addLog('▶ Begin investigation. The veil is thin.');
   renderItems();updateUI();
   setInterval(gameTick,100);
   setInterval(renderItems,3000);
