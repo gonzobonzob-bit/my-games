@@ -110,6 +110,9 @@ button{font-family:var(--body);cursor:pointer;}
 .ticket .t-foot{font-size:9px;color:#7a6f5c;padding:2px 7px;display:flex;justify-content:space-between;}
 .ticket.urgent .t-bar{background:var(--alert);}
 .ticket.warn .t-bar{background:var(--brass);}
+.ticket.cooking{border-top-color:var(--sage);opacity:0.85;}
+.ticket.cooking .t-bar{background:linear-gradient(90deg,var(--sage),#9ecf6a) !important;transition:width 0.3s linear;}
+.ticket.cooking .t-name::after{content:' 🍳';font-size:9px;}
 .ticket.fulfilled{animation:pop .35s ease forwards;pointer-events:none;}
 .ticket.staff-served{animation:staffPop .4s ease forwards;pointer-events:none;}
 .ticket.missed{animation:miss .4s ease forwards;pointer-events:none;}
@@ -634,31 +637,31 @@ const TIERS = [
 ];
 
 const ALL_DISHES = [
-  {id:'burger',  tier:0, name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.png',  price:9,  rep:2, life:12000},
-  {id:'tacos',   tier:0, name:'Street Tacos',       icon:'assets/dish-street-tacos.png',        price:7,  rep:2, life:11000},
-  {id:'fries',   tier:0, name:'Loaded Fries',       icon:'assets/dish-loaded-fries.png',        price:6,  rep:1, life:10000},
-  {id:'burrito', tier:0, name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.png', price:10, rep:3, life:13000},
-  {id:'elote',   tier:0, name:'Elote',              icon:'assets/dish-elote.png',               price:5,  rep:1, life:9000},
-  {id:'cfs',     tier:1, name:'Chicken Fried Steak',icon:'assets/dish-chicken-fried-steak.png', price:14, rep:3, life:14000},
-  {id:'pancakes',tier:1, name:'Pancake Stack',      icon:'assets/dish-pancakes.png',            price:8,  rep:2, life:10000},
-  {id:'club',    tier:1, name:'Club Sandwich',      icon:'assets/dish-club-sandwich.png',       price:11, rep:2, life:11000},
-  {id:'shake',   tier:1, name:'Milkshake',          icon:'assets/dish-milkshake.png',           price:7,  rep:1, life:9000},
-  {id:'meatloaf',tier:1, name:'Meatloaf Plate',     icon:'assets/dish-meatloaf.png',            price:13, rep:3, life:13000},
-  {id:'salmon',  tier:2, name:'Grilled Salmon',     icon:'assets/dish-salmon.png',              price:22, rep:4, life:15000},
-  {id:'carbonara',tier:2,name:'Pasta Carbonara',    icon:'assets/dish-carbonara.png',           price:18, rep:3, life:13000},
-  {id:'caesar',  tier:2, name:'Caesar Salad',       icon:'assets/dish-caesar.png',              price:14, rep:2, life:11000},
-  {id:'brulee',  tier:2, name:'Crème Brûlée',       icon:'assets/dish-brulee.png',              price:12, rep:3, life:12000},
-  {id:'wine',    tier:2, name:'House Wine',          icon:'assets/dish-wine.png',                price:16, rep:2, life:10000},
-  {id:'filet',   tier:3, name:'Filet Mignon',       icon:'assets/dish-filet.png',               price:45, rep:5, life:18000},
-  {id:'lobster', tier:3, name:'Lobster Tail',        icon:'assets/dish-lobster.png',             price:50, rep:5, life:20000},
-  {id:'risotto', tier:3, name:'Truffle Risotto',     icon:'assets/dish-risotto.png',             price:35, rep:4, life:16000},
-  {id:'tasting', tier:3, name:'Tasting Plate',       icon:'assets/dish-tasting.png',             price:60, rep:6, life:22000},
-  {id:'champagne',tier:3,name:'Champagne',          icon:'assets/dish-champagne.png',           price:30, rep:3, life:12000},
-  {id:'wagyu',   tier:4, name:'Wagyu A5',            icon:'assets/dish-wagyu.png',               price:90, rep:7, life:24000},
-  {id:'sushi',   tier:4, name:'Omakase Sushi',       icon:'assets/dish-sushi.png',               price:75, rep:6, life:22000},
-  {id:'paella',  tier:4, name:'Seafood Paella',      icon:'assets/dish-paella.png',              price:55, rep:5, life:18000},
-  {id:'souffle', tier:4, name:'Chocolate Soufflé',   icon:'assets/dish-souffle.png',             price:40, rep:4, life:16000},
-  {id:'cocktail',tier:4, name:'Craft Cocktail',      icon:'assets/dish-cocktail.png',            price:25, rep:3, life:12000},
+  {id:'burger',  tier:0, name:'Green Chile Burger', icon:'assets/dish-green-chile-burger.png',  price:9,  rep:2, life:12000, cookTime:4000},
+  {id:'tacos',   tier:0, name:'Street Tacos',       icon:'assets/dish-street-tacos.png',        price:7,  rep:2, life:11000, cookTime:3000},
+  {id:'fries',   tier:0, name:'Loaded Fries',       icon:'assets/dish-loaded-fries.png',        price:6,  rep:1, life:10000, cookTime:2500},
+  {id:'burrito', tier:0, name:'Carne Asada Burrito', icon:'assets/dish-carne-asada-burrito.png', price:10, rep:3, life:13000, cookTime:5000},
+  {id:'elote',   tier:0, name:'Elote',              icon:'assets/dish-elote.png',               price:5,  rep:1, life:9000,  cookTime:2000},
+  {id:'cfs',     tier:1, name:'Chicken Fried Steak',icon:'assets/dish-chicken-fried-steak.png', price:14, rep:3, life:14000, cookTime:6000},
+  {id:'pancakes',tier:1, name:'Pancake Stack',      icon:'assets/dish-pancakes.png',            price:8,  rep:2, life:10000, cookTime:3500},
+  {id:'club',    tier:1, name:'Club Sandwich',      icon:'assets/dish-club-sandwich.png',       price:11, rep:2, life:11000, cookTime:4000},
+  {id:'shake',   tier:1, name:'Milkshake',          icon:'assets/dish-milkshake.png',           price:7,  rep:1, life:9000,  cookTime:2000},
+  {id:'meatloaf',tier:1, name:'Meatloaf Plate',     icon:'assets/dish-meatloaf.png',            price:13, rep:3, life:13000, cookTime:5500},
+  {id:'salmon',  tier:2, name:'Grilled Salmon',     icon:'assets/dish-salmon.png',              price:22, rep:4, life:15000, cookTime:7000},
+  {id:'carbonara',tier:2,name:'Pasta Carbonara',    icon:'assets/dish-carbonara.png',           price:18, rep:3, life:13000, cookTime:6000},
+  {id:'caesar',  tier:2, name:'Caesar Salad',       icon:'assets/dish-caesar.png',              price:14, rep:2, life:11000, cookTime:3000},
+  {id:'brulee',  tier:2, name:'Crème Brûlée',       icon:'assets/dish-brulee.png',              price:12, rep:3, life:12000, cookTime:5000},
+  {id:'wine',    tier:2, name:'House Wine',          icon:'assets/dish-wine.png',                price:16, rep:2, life:10000, cookTime:1500},
+  {id:'filet',   tier:3, name:'Filet Mignon',       icon:'assets/dish-filet.png',               price:45, rep:5, life:18000, cookTime:9000},
+  {id:'lobster', tier:3, name:'Lobster Tail',        icon:'assets/dish-lobster.png',             price:50, rep:5, life:20000, cookTime:10000},
+  {id:'risotto', tier:3, name:'Truffle Risotto',     icon:'assets/dish-risotto.png',             price:35, rep:4, life:16000, cookTime:8000},
+  {id:'tasting', tier:3, name:'Tasting Plate',       icon:'assets/dish-tasting.png',             price:60, rep:6, life:22000, cookTime:11000},
+  {id:'champagne',tier:3,name:'Champagne',          icon:'assets/dish-champagne.png',           price:30, rep:3, life:12000, cookTime:1500},
+  {id:'wagyu',   tier:4, name:'Wagyu A5',            icon:'assets/dish-wagyu.png',               price:90, rep:7, life:24000, cookTime:12000},
+  {id:'sushi',   tier:4, name:'Omakase Sushi',       icon:'assets/dish-sushi.png',               price:75, rep:6, life:22000, cookTime:10000},
+  {id:'paella',  tier:4, name:'Seafood Paella',      icon:'assets/dish-paella.png',              price:55, rep:5, life:18000, cookTime:9000},
+  {id:'souffle', tier:4, name:'Chocolate Soufflé',   icon:'assets/dish-souffle.png',             price:40, rep:4, life:16000, cookTime:8000},
+  {id:'cocktail',tier:4, name:'Craft Cocktail',      icon:'assets/dish-cocktail.png',            price:25, rep:3, life:12000, cookTime:2000},
 ];
 function dishById(id){ return ALL_DISHES.find(d=>d.id===id); }
 function tierDishes(t){ return ALL_DISHES.filter(d=>d.tier===t); }
@@ -1239,6 +1242,25 @@ function ticketNode(id){return el(`.ticket[data-id="${id}"]`);}
 
 function fulfill(id, staffName){
   const idx=RT.tickets.findIndex(t=>t.id===id); if(idx<0) return;
+  const t=RT.tickets[idx];
+  if(t.cooking) return;
+  const dish=dishById(t.dishId);
+  t.cooking=true;
+  t.cookLeft=dish.cookTime||3000;
+  t.cookTotal=t.cookLeft;
+  t.cookedBy=staffName||null;
+  const node=ticketNode(id);
+  if(node){
+    node.classList.add('cooking');
+    node.style.pointerEvents='none';
+    const bar=node.querySelector('.t-bar');if(bar) bar.style.width='0%';
+  }
+  const bub=document.querySelector('#cust-'+id+' .order-bubble');
+  if(bub) bub.style.opacity='0.4';
+  pushLog(`Cooking ${dish.name}...`);
+}
+function cookComplete(id){
+  const idx=RT.tickets.findIndex(t=>t.id===id); if(idx<0) return;
   const t=RT.tickets[idx], dish=dishById(t.dishId), cust=t.cust||CUSTOMER_TYPES[0];
   const tipBase=Math.ceil(dish.price*0.2);
   const tipChance=S.rep/100*cust.tipMult*tipMultiplier();
@@ -1249,7 +1271,7 @@ function fulfill(id, staffName){
   RT.streak++; if(RT.streak>RT.bestStreak) RT.bestStreak=RT.streak;
   RT.dayServed++; RT.dayEarnings+=dish.price; RT.dayTips+=tip;
   const node=ticketNode(id);
-  if(node){node.classList.add(staffName?'staff-served':'fulfilled');setTimeout(()=>node.remove(),360);}
+  if(node){node.classList.add(t.cookedBy?'staff-served':'fulfilled');setTimeout(()=>node.remove(),360);}
   RT._lastRemoved=t;
   removeCustSprite(id, true);
   RT.tickets.splice(idx,1); layoutTickets(); renderHUD(); updateScene();
@@ -1258,7 +1280,7 @@ function fulfill(id, staffName){
   if(sb){S.cash+=sb;RT.dayEarnings+=sb;}
   S.finances.totalEarnings+=dish.price; S.finances.totalTips+=tip; S.finances.totalBonuses+=sb;
   const tm=tip?` · +$${tip} tip`:'';
-  const by=staffName?` [${staffName}]`:'';
+  const by=t.cookedBy?` [${t.cookedBy}]`:'';
   pushLog(`Served ${dish.name} · +$${dish.price}${tm} · +${repGain} rep${by}`,'good');
   if(sb) toast(`${RT.streak}x streak! +$${sb} bonus!`,'good');
   else if(RT.streak>=3) toast(`${RT.streak}x streak!`,'good');
@@ -1409,17 +1431,28 @@ function tick(dt){
     }
   });
   for(let i=RT.tickets.length-1;i>=0;i--){
-    const t=RT.tickets[i]; t.left-=dt;
+    const t=RT.tickets[i];
     const node=ticketNode(t.id);
-    if(node){
-      const frac=Math.max(0,t.left/t.life);
-      const bar=node.querySelector('.t-bar'); if(bar) bar.style.width=(frac*100)+'%';
-      node.classList.toggle('warn',frac<=0.5&&frac>0.25);
-      node.classList.toggle('urgent',frac<=0.25);
-      const tm=node.querySelector('.t-time'); if(tm) tm.textContent=Math.ceil(Math.max(0,t.left)/1000)+'s';
+    if(t.cooking){
+      t.cookLeft-=dt;
+      if(node){
+        const cookFrac=Math.max(0,1-t.cookLeft/t.cookTotal);
+        const bar=node.querySelector('.t-bar'); if(bar) bar.style.width=(cookFrac*100)+'%';
+        const tm=node.querySelector('.t-time'); if(tm) tm.textContent=Math.ceil(Math.max(0,t.cookLeft)/1000)+'s';
+      }
+      if(t.cookLeft<=0) cookComplete(t.id);
+    } else {
+      t.left-=dt;
+      if(node){
+        const frac=Math.max(0,t.left/t.life);
+        const bar=node.querySelector('.t-bar'); if(bar) bar.style.width=(frac*100)+'%';
+        node.classList.toggle('warn',frac<=0.5&&frac>0.25);
+        node.classList.toggle('urgent',frac<=0.25);
+        const tm=node.querySelector('.t-time'); if(tm) tm.textContent=Math.ceil(Math.max(0,t.left)/1000)+'s';
+      }
+      if(view==='floor') updateCustPatience(t);
+      if(t.left<=0) expire(t.id);
     }
-    if(view==='floor') updateCustPatience(t);
-    if(t.left<=0) expire(t.id);
   }
   S.dayMsLeft-=dt;
   if(S.dayMsLeft<=0) endDay();
