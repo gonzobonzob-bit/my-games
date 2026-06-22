@@ -1556,7 +1556,7 @@ function renderJunkyard() {
             </div>
             <div class="junk-actions">
                 <button class="junk-btn scrap" onclick="scrapCar('${jc.id}')">${S.scrap} ($${jc.scrapValue})</button>
-                <button class="junk-btn repair" onclick="repairCar('${jc.id}')" ${state.cash < jc.repairCost ? 'disabled' : ''}>${S.repair} ($${jc.repairCost})</button>
+                <button class="junk-btn repair" onclick="repairCar('${jc.id}')" ${state.cars.length >= MAX_TEAM_ENTRIES ? 'disabled title="Fleet full"' : state.cash < jc.repairCost ? 'disabled' : ''}>${state.cars.length >= MAX_TEAM_ENTRIES ? S.repair + ' (Fleet full)' : S.repair + ' ($' + jc.repairCost + ')'}</button>
             </div>
         </div>`;
     }
@@ -1604,6 +1604,7 @@ function scrapCar(id) {
 }
 
 function repairCar(id) {
+    if (state.cars.length >= MAX_TEAM_ENTRIES) return;
     const idx = state.junkyardCars.findIndex(c => c.id === id);
     if (idx === -1) return;
     const jc = state.junkyardCars[idx];
