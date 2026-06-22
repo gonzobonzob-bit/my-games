@@ -1056,6 +1056,7 @@ async function initDerby() {
             name: car.name,
             position: spawns[spawnIdx++],
             color: paint.color,
+            paintId: car.paint || 'rust',
             engine: car.engine,
             armor: car.armor,
             isPlayer: true,
@@ -1195,6 +1196,21 @@ function createDerbyCar(scene, opts) {
     darkMat.diffuseColor = bodyColor.scale(0.55);
     darkMat.specularColor = BABYLON.Color3.Black();
 
+    // Livery-specific accent material
+    const accentMat = new BABYLON.StandardMaterial(opts.name + 'AccMat', scene);
+    const pid = opts.paintId || '';
+    if (pid === 'flame') {
+        accentMat.diffuseColor = new BABYLON.Color3(1.0, 0.35, 0.0);
+        accentMat.emissiveColor = new BABYLON.Color3(0.3, 0.08, 0.0);
+    } else if (pid === 'primer') {
+        accentMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.48);
+        mat.specularColor = BABYLON.Color3.Black();
+    } else if (pid === 'scratched') {
+        accentMat.diffuseColor = bodyColor.scale(0.35);
+    } else {
+        accentMat.diffuseColor = bodyColor.scale(0.7);
+    }
+
     const wheelMat = new BABYLON.StandardMaterial(opts.name + 'WhlMat', scene);
     wheelMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.12);
 
@@ -1209,17 +1225,28 @@ function createDerbyCar(scene, opts) {
     cab.parent = body;
     cab.material = darkMat;
 
-    // Hood (front)
+    // Hood (front) — shows livery accent
     const hood = BABYLON.MeshBuilder.CreateBox(opts.name + '_hood', { width: 1.8, height: 0.18, depth: 0.9 }, scene);
     hood.position = new BABYLON.Vector3(0, 0.08, 1.1);
     hood.parent = body;
-    hood.material = mat;
+    hood.material = accentMat;
 
     // Trunk (rear)
     const trunk = BABYLON.MeshBuilder.CreateBox(opts.name + '_trunk', { width: 1.8, height: 0.14, depth: 0.6 }, scene);
     trunk.position = new BABYLON.Vector3(0, 0.06, -1.3);
     trunk.parent = body;
-    trunk.material = mat;
+    trunk.material = accentMat;
+
+    // Team roof stripe
+    if (opts.isTeam) {
+        const stripe = BABYLON.MeshBuilder.CreateBox(opts.name + '_stripe', { width: 0.3, height: 0.05, depth: 1.3 }, scene);
+        stripe.position = new BABYLON.Vector3(0, 0.67, -0.15);
+        stripe.parent = body;
+        const stripeMat = new BABYLON.StandardMaterial(opts.name + 'StrMat', scene);
+        stripeMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0);
+        stripeMat.emissiveColor = new BABYLON.Color3(0.3, 0.25, 0);
+        stripe.material = stripeMat;
+    }
 
     // Bumpers
     const bMat = new BABYLON.StandardMaterial(opts.name + 'BmpMat', scene);
@@ -1249,12 +1276,12 @@ function createDerbyCar(scene, opts) {
     let aggregate = null;
     if (scene.getPhysicsEngine()) {
         aggregate = new BABYLON.PhysicsAggregate(body, BABYLON.PhysicsShapeType.BOX, {
-            mass: 1000 + opts.engine * 150,
-            friction: 0.2,
-            restitution: 0.85
+            mass: 900 + opts.engine * 150,
+            friction: 0.15,
+            restitution: 0.9
         }, scene);
-        aggregate.body.setAngularDamping(1.0);
-        aggregate.body.setLinearDamping(0.05);
+        aggregate.body.setAngularDamping(0.8);
+        aggregate.body.setLinearDamping(0.04);
     }
 
     return {
@@ -1287,9 +1314,11 @@ function updateCarAI(car, aliveCars, dt) {
 
     car.aiTimer -= dt;
     if (car.aiTimer <= 0 || !car.aiTarget || car.aiTarget.health <= 0) {
+        // Team cars target rivals first; AI targets anyone
+        const rivals = aliveCars.filter(c => c !== car && (car.isTeam ? !c.isTeam : true));
+        const pool = rivals.length > 0 ? rivals : aliveCars.filter(c => c !== car);
         let nearest = null, minDist = Infinity;
-        for (const other of aliveCars) {
-            if (other === car) continue;
+        for (const other of pool) {
             const d = BABYLON.Vector3.Distance(car.mesh.position, other.mesh.position);
             if (d < minDist) { minDist = d; nearest = other; }
         }
