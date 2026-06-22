@@ -126,7 +126,15 @@ const S = {
     leagueRegionalCircuit: 'Regional Circuit',
     leagueNationalChampionship: 'National Championship',
     leaguePromoted: 'League Promotion! Welcome to {league}!',
-    leagueLabel: 'League'
+    leagueLabel: 'League',
+    challengeMode: 'Challenge Mode',
+    modeStandard: 'Standard',
+    modeSurvival: 'Survival',
+    mode1v1: '1v1',
+    cosmeticUnlocked: 'Cosmetic Unlocked: {name}!',
+    goldBumpers: 'Gold Bumpers',
+    chromeWheels: 'Chrome Wheels',
+    neonUnderglow: 'Neon Underglow'
 };
 
 // ── Config ──
@@ -289,6 +297,8 @@ let derbySlowMoTimer = 0;
 let derbyFastForward = false;
 let lastImpactPos = null;
 let lastImpactTime = 0;
+let survivalAiSpawnCount = 0;
+let survivalPlayerWrecks = 0;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
@@ -954,13 +964,31 @@ function renderLineup() {
         state.cars.some(c => c.id === e.carId && c.health > 0)
     );
 
-    const teamCount = state.derbyLineup.length;
-    const aiCount = DERBY_TOTAL_CARS - teamCount;
+    // Mode-specific constraints
+    const mode = state.derbyMode || 'standard';
+    const maxTeam = mode === '1v1' ? 1 : MAX_TEAM_ENTRIES;
+    while (state.derbyLineup.length > maxTeam) state.derbyLineup.pop();
 
-    let html = '<div class="lineup-header">' +
+    const teamCount = state.derbyLineup.length;
+
+    const modeDesc = mode === 'survival' ? '60s, AI keeps spawning' :
+                     mode === '1v1' ? '30s, 1v1 arena' :
+                     '8 cars, 45s';
+
+    // Mode selector
+    let html = '<div class="lineup-mode-selector">' +
+        '<div class="lineup-mode-label">' + S.challengeMode + '</div>' +
+        '<div class="lineup-mode-pills">' +
+            '<button class="mode-pill' + (mode === 'standard' ? ' active' : '') + '" onclick="setDerbyMode(\'standard\')">' + S.modeStandard + '</button>' +
+            '<button class="mode-pill' + (mode === 'survival' ? ' active' : '') + '" onclick="setDerbyMode(\'survival\')">' + S.modeSurvival + '</button>' +
+            '<button class="mode-pill' + (mode === '1v1' ? ' active' : '') + '" onclick="setDerbyMode(\'1v1\')">' + S.mode1v1 + '</button>' +
+        '</div>' +
+        '<div class="lineup-mode-desc">' + modeDesc + '</div>' +
+    '</div>';
+
+    html += '<div class="lineup-header">' +
         '<div class="lineup-title">' + S.lineup + '</div>' +
-        '<div class="lineup-desc">' + S.lineupDesc.replace('{max}', MAX_TEAM_ENTRIES) + '</div>' +
-        '<div class="lineup-counts">' + S.lineupSlots.replace('{team}', teamCount).replace('{ai}', aiCount) + '</div>' +
+        '<div class="lineup-desc">' + S.lineupDesc.replace('{max}', maxTeam) + '</div>' +
     '</div>';
 
     // Car-centric: show every fleet car
@@ -982,7 +1010,7 @@ function renderLineup() {
         const checked = inLineup;
         const disabledClass = !canToggle ? ' disabled' : '';
         const activeClass = checked ? ' active' : '';
-        const atCap = teamCount >= MAX_TEAM_ENTRIES && !checked;
+        const atCap = teamCount >= maxTeam && !checked;
         const clickable = canToggle && !atCap;
 
         html += '<div class="lineup-entry' + activeClass + disabledClass + '"' +
@@ -1000,12 +1028,19 @@ function renderLineup() {
     document.getElementById('btn-enter-derby').disabled = teamCount === 0;
 }
 
+function setDerbyMode(mode) {
+    state.derbyMode = mode;
+    saveGame(state);
+    renderLineup();
+}
+
 function toggleLineupCar(carId) {
     const idx = state.derbyLineup.findIndex(e => e.carId === carId);
     if (idx >= 0) {
         state.derbyLineup.splice(idx, 1);
     } else {
-        if (state.derbyLineup.length >= MAX_TEAM_ENTRIES) return;
+        const maxTeam = (state.derbyMode === '1v1') ? 1 : MAX_TEAM_ENTRIES;
+        if (state.derbyLineup.length >= maxTeam) return;
         const car = state.cars.find(c => c.id === carId);
         if (!car || car.health <= 0) return;
         const driver = getDriverForCar(carId);
@@ -1028,7 +1063,7 @@ async function initDerby() {
     const canvas = document.getElementById('derby-canvas');
     derbyEngine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
     derbyScene = new BABYLON.Scene(derbyEngine);
-    derbyScene.clearColor = new BABYLON.Color4(0.15, 0.12, 0.1, 1);
+    derbyScene.clearColor = new BABYLON.Color4(0.08, 0.06, 0.04, 1);
 
     // Physics
     if (havokInstance) {
@@ -1050,13 +1085,39 @@ async function initDerby() {
     const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(-1, -2, 1), derbyScene);
     dir.intensity = 0.5;
 
+    // Floodlights at arena corners
+    const flood1 = new BABYLON.PointLight('flood1', new BABYLON.Vector3(-18, 12, -18), derbyScene);
+    flood1.intensity = 0.3;
+    flood1.diffuse = new BABYLON.Color3(1, 0.95, 0.9);
+    const flood2 = new BABYLON.PointLight('flood2', new BABYLON.Vector3(18, 12, 18), derbyScene);
+    flood2.intensity = 0.3;
+    flood2.diffuse = new BABYLON.Color3(1, 0.95, 0.9);
+
+    // Dusty ground fog disc
+    const fogDisc = BABYLON.MeshBuilder.CreateDisc('fogDisc', { radius: 22 }, derbyScene);
+    fogDisc.rotation.x = Math.PI / 2;
+    fogDisc.position.y = 0.05;
+    const fogMat = new BABYLON.StandardMaterial('fogMat', derbyScene);
+    fogMat.diffuseColor = new BABYLON.Color3(0.35, 0.25, 0.15);
+    fogMat.specularColor = BABYLON.Color3.Black();
+    fogMat.alpha = 0.15;
+    fogMat.backFaceCulling = false;
+    fogDisc.material = fogMat;
+
+    // Mode setup
+    const derbyMode = state.derbyMode || 'standard';
+    const is1v1 = derbyMode === '1v1';
+    const isSurvival = derbyMode === 'survival';
+    const arenaSize = is1v1 ? 20 : 40;
+    const wallOff = arenaSize / 2;
+
     // Arena variant selection (0 = The Pit, 1 = Figure 8, 2 = Junkyard)
-    const arenaVariant = Math.floor(Math.random() * 3);
+    const arenaVariant = is1v1 ? 0 : Math.floor(Math.random() * 3);
     const arenaNames = ['The Pit', 'Figure 8', 'Junkyard'];
     const currentArenaName = arenaNames[arenaVariant];
 
     // Arena ground
-    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 40, height: 40 }, derbyScene);
+    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: arenaSize, height: arenaSize }, derbyScene);
     const groundMat = new BABYLON.StandardMaterial('groundMat', derbyScene);
     groundMat.diffuseColor = arenaVariant === 2
         ? new BABYLON.Color3(0.25, 0.2, 0.14)
@@ -1069,10 +1130,10 @@ async function initDerby() {
 
     // Outer arena walls (shared by all variants)
     const wallPositions = [
-        { x: 0, z: 20, rx: 0, ry: 0, w: 42, h: 4, d: 1 },
-        { x: 0, z: -20, rx: 0, ry: 0, w: 42, h: 4, d: 1 },
-        { x: 20, z: 0, rx: 0, ry: Math.PI / 2, w: 42, h: 4, d: 1 },
-        { x: -20, z: 0, rx: 0, ry: Math.PI / 2, w: 42, h: 4, d: 1 }
+        { x: 0, z: wallOff, rx: 0, ry: 0, w: arenaSize + 2, h: 4, d: 1 },
+        { x: 0, z: -wallOff, rx: 0, ry: 0, w: arenaSize + 2, h: 4, d: 1 },
+        { x: wallOff, z: 0, rx: 0, ry: Math.PI / 2, w: arenaSize + 2, h: 4, d: 1 },
+        { x: -wallOff, z: 0, rx: 0, ry: Math.PI / 2, w: arenaSize + 2, h: 4, d: 1 }
     ];
     const wallMat = new BABYLON.StandardMaterial('wallMat', derbyScene);
     wallMat.diffuseColor = new BABYLON.Color3(0.4, 0.35, 0.3);
@@ -1146,8 +1207,11 @@ async function initDerby() {
         d.material = debrisMat;
     }
 
-    // Spawn positions: two rows of 4 facing each other
-    const spawns = [
+    // Spawn positions — smaller arena for 1v1
+    const spawns = is1v1 ? [
+        new BABYLON.Vector3(-4, 0.5, -5),
+        new BABYLON.Vector3(4, 0.5, 5)
+    ] : [
         new BABYLON.Vector3(-12, 0.5, -10),
         new BABYLON.Vector3(-4, 0.5, -10),
         new BABYLON.Vector3(4, 0.5, -10),
@@ -1162,8 +1226,12 @@ async function initDerby() {
     derbyCars = [];
     const usedNames = new Set();
     let spawnIdx = 0;
+    const cosmetics = state.unlockedCosmetics || [];
 
-    for (const entry of state.derbyLineup) {
+    const lineupEntries = state.derbyLineup;
+
+    for (const entry of lineupEntries) {
+        if (!entry) continue;
         const car = state.cars.find(c => c.id === entry.carId);
         if (!car || car.health <= 0) continue;
         const driver = entry.driverId ? state.drivers.find(d => d.id === entry.driverId) : null;
@@ -1184,16 +1252,18 @@ async function initDerby() {
             maxHealth: car.maxHealth,
             driverSkill: driver ? driver.skill : 0,
             engineQuality: car.engineQuality || 1,
-            armorQuality: car.armorQuality || 1
+            armorQuality: car.armorQuality || 1,
+            cosmetics: cosmetics
         }));
     }
 
     // Fill remaining slots with AI — use league tier for stats
     const tier = getLeagueTier();
-    const aiSlotCount = DERBY_TOTAL_CARS - spawnIdx;
+    const totalCars = is1v1 ? 2 : isSurvival ? (spawnIdx + 4) : DERBY_TOTAL_CARS;
 
-    // Pick 2-3 rival slots from the AI pool
-    const rivalCount = Math.min(aiSlotCount, 2 + (Math.random() < 0.5 ? 1 : 0));
+    // Pick 2-3 rival slots from the AI pool (not for 1v1 or survival)
+    const aiSlotCount = totalCars - spawnIdx;
+    const rivalCount = (is1v1 || isSurvival) ? 0 : Math.min(aiSlotCount, 2 + (Math.random() < 0.5 ? 1 : 0));
     const rivalPicks = [];
     const shuffledTeams = [...RIVAL_TEAMS].sort(() => Math.random() - 0.5);
     for (let r = 0; r < rivalCount; r++) {
@@ -1201,7 +1271,7 @@ async function initDerby() {
     }
 
     let aiIdx = 0;
-    while (spawnIdx < DERBY_TOTAL_CARS) {
+    while (spawnIdx < totalCars && spawnIdx < spawns.length) {
         let name;
         do { name = AI_CAR_NAMES[Math.floor(Math.random() * AI_CAR_NAMES.length)]; } while (usedNames.has(name));
         usedNames.add(name);
@@ -1222,18 +1292,27 @@ async function initDerby() {
         aiIdx++;
     }
 
+    // Survival mode tracking
+    survivalAiSpawnCount = isSurvival ? aiSlotCount : 0;
+    survivalPlayerWrecks = 0;
+
     // HUD
     renderDerbyHUD();
 
-    // Timer
-    derbyTimer = DERBY_DURATION;
+    // Timer — mode-dependent
+    derbyTimer = is1v1 ? 30 : isSurvival ? 60 : DERBY_DURATION;
     derbyRunning = true;
     derbyTimeScale = 1;
     derbySlowMoTimer = 0;
     derbyFastForward = false;
     lastImpactPos = null;
     lastImpactTime = 0;
+    skidMarks = [];
+    skidMarkMat = null;
+    lastSkidTime = {};
+    _sparkTexture = null;
     sfxEngine();
+    showAnnouncerText('DEMOLITION DERBY!');
 
     // Game loop
     derbyScene.registerBeforeRender(() => {
@@ -1260,8 +1339,31 @@ async function initDerby() {
             updateCarAI(car, alive, dt);
         }
 
+        // Skid marks for staggering cars
+        const now = performance.now();
+        for (const car of alive) {
+            if (car.staggerTimer > 0) {
+                const lastTime = lastSkidTime[car.name] || 0;
+                if (now - lastTime > 100) {
+                    createSkidMark(derbyScene, car.mesh.position);
+                    lastSkidTime[car.name] = now;
+                }
+            }
+        }
+
         // Collision damage
         checkCollisionDamage(alive, dt);
+
+        // Survival mode: spawn replacement AI when one is wrecked
+        if (isSurvival) {
+            const deadAi = derbyCars.filter(c => !c.isTeam && c.health <= 0 && !c._survivalReplaced);
+            for (const dc of deadAi) {
+                dc._survivalReplaced = true;
+                if (survivalAiSpawnCount < 12) {
+                    spawnAICar(derbyScene, usedNames, tier);
+                }
+            }
+        }
 
         // Update HUD
         updateDerbyHUD();
@@ -1284,7 +1386,12 @@ async function initDerby() {
         }
 
         // Check end conditions
-        if (alive.length <= 1 || derbyTimer <= 0) {
+        const aliveNow = derbyCars.filter(c => c.health > 0);
+        const teamAlive = aliveNow.some(c => c.isTeam);
+        const endByTimer = derbyTimer <= 0;
+        const endByLastStanding = !isSurvival && aliveNow.length <= 1;
+        const endBySurvivalTeamDead = isSurvival && !teamAlive;
+        if (endByTimer || endByLastStanding || endBySurvivalTeamDead) {
             endDerby();
         }
     });
@@ -1318,6 +1425,33 @@ async function initDerby() {
     });
 }
 
+function spawnAICar(scene, usedNames, tier) {
+    let name;
+    do { name = AI_CAR_NAMES[Math.floor(Math.random() * AI_CAR_NAMES.length)]; } while (usedNames.has(name));
+    usedNames.add(name);
+    const eng = tier.aiEngineMin + Math.floor(Math.random() * (tier.aiEngineMax - tier.aiEngineMin + 1));
+    const arm = tier.aiArmorMin + Math.floor(Math.random() * (tier.aiArmorMax - tier.aiArmorMin + 1));
+    const pos = new BABYLON.Vector3(
+        (Math.random() - 0.5) * 26,
+        0.5,
+        (Math.random() - 0.5) * 26
+    );
+    const newCar = createDerbyCar(scene, {
+        name: name,
+        position: pos,
+        color: AI_COLORS[Math.floor(Math.random() * AI_COLORS.length)],
+        engine: eng,
+        armor: arm,
+        isPlayer: false,
+        isTeam: false,
+        maxHealth: 100,
+        rivalTeam: null
+    });
+    derbyCars.push(newCar);
+    survivalAiSpawnCount++;
+    renderDerbyHUD();
+}
+
 function createDerbyCar(scene, opts) {
     const bodyColor = BABYLON.Color3.FromHexString(opts.color);
     const mat = new BABYLON.StandardMaterial(opts.name + 'Mat', scene);
@@ -1344,7 +1478,12 @@ function createDerbyCar(scene, opts) {
     }
 
     const wheelMat = new BABYLON.StandardMaterial(opts.name + 'WhlMat', scene);
-    wheelMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.12);
+    if ((opts.cosmetics || []).includes('chrome_wheels')) {
+        wheelMat.diffuseColor = new BABYLON.Color3(0.75, 0.75, 0.78);
+        wheelMat.specularColor = new BABYLON.Color3(0.4, 0.4, 0.4);
+    } else {
+        wheelMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.12);
+    }
 
     // Body (physics root)
     const body = BABYLON.MeshBuilder.CreateBox(opts.name, { width: 2.0, height: 0.5, depth: 3.2 }, scene);
@@ -1381,8 +1520,14 @@ function createDerbyCar(scene, opts) {
     }
 
     // Bumpers
+    const cosm = opts.cosmetics || [];
     const bMat = new BABYLON.StandardMaterial(opts.name + 'BmpMat', scene);
-    bMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    if (cosm.includes('gold_bumpers')) {
+        bMat.diffuseColor = new BABYLON.Color3(0.85, 0.65, 0.13);
+        bMat.specularColor = new BABYLON.Color3(0.5, 0.4, 0.1);
+    } else {
+        bMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    }
     const frontBumper = BABYLON.MeshBuilder.CreateBox(opts.name + '_fb', { width: 2.1, height: 0.25, depth: 0.2 }, scene);
     frontBumper.position = new BABYLON.Vector3(0, -0.1, 1.6);
     frontBumper.parent = body;
@@ -1404,6 +1549,18 @@ function createDerbyCar(scene, opts) {
         w.parent = body;
         w.material = wheelMat;
     });
+
+    // Neon underglow cosmetic
+    if ((opts.cosmetics || []).includes('neon_underglow')) {
+        const glow = BABYLON.MeshBuilder.CreateBox(opts.name + '_glow', { width: 1.8, height: 0.08, depth: 3.0 }, scene);
+        glow.position = new BABYLON.Vector3(0, -0.3, 0);
+        glow.parent = body;
+        const glowMat = new BABYLON.StandardMaterial(opts.name + 'GlowMat', scene);
+        glowMat.diffuseColor = new BABYLON.Color3(0.0, 1.0, 0.0);
+        glowMat.emissiveColor = new BABYLON.Color3(0.0, 0.8, 0.0);
+        glowMat.alpha = 0.2;
+        glow.material = glowMat;
+    }
 
     let aggregate = null;
     if (scene.getPhysicsEngine()) {
@@ -1568,6 +1725,18 @@ function checkCollisionDamage(aliveCars, dt) {
             flashCar(b);
             sfxCrash();
 
+            // Impact particles for significant hits
+            if (relSpeed > 5) {
+                const midpoint = a.mesh.position.add(b.mesh.position).scale(0.5);
+                spawnImpactParticles(derbyScene, midpoint);
+            }
+
+            // Announcer text for big hits
+            if (relSpeed > 8) {
+                const bigHitTexts = ['MASSIVE HIT!', 'CRUSHING BLOW!', 'TOTAL CARNAGE!', 'WRECKED!'];
+                showAnnouncerText(bigHitTexts[Math.floor(Math.random() * bigHitTexts.length)]);
+            }
+
             // Handle destroyed
             if (a.health <= 0) destroyCar(a);
             if (b.health <= 0) destroyCar(b);
@@ -1582,6 +1751,80 @@ function flashCar(car) {
     setTimeout(() => {
         if (car.mesh.material) car.mesh.material.emissiveColor = orig;
     }, 150);
+}
+
+// ── Impact Particles ──
+let _sparkTexture = null;
+function getSparkTexture(scene) {
+    if (_sparkTexture) return _sparkTexture;
+    const size = 4;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    _sparkTexture = new BABYLON.Texture(canvas.toDataURL(), scene);
+    return _sparkTexture;
+}
+
+function spawnImpactParticles(scene, position) {
+    const ps = new BABYLON.ParticleSystem('sparks', 40, scene);
+    ps.particleTexture = getSparkTexture(scene);
+    ps.emitter = position.clone();
+    ps.minLifeTime = 0.1;
+    ps.maxLifeTime = 0.3;
+    ps.minSize = 0.05;
+    ps.maxSize = 0.15;
+    ps.minEmitPower = 5;
+    ps.maxEmitPower = 15;
+    ps.emitRate = 300;
+    ps.gravity = new BABYLON.Vector3(0, -2, 0);
+    ps.direction1 = new BABYLON.Vector3(-1, 1, -1);
+    ps.direction2 = new BABYLON.Vector3(1, 2, 1);
+    ps.color1 = new BABYLON.Color4(1, 0.6, 0, 1);
+    ps.color2 = new BABYLON.Color4(1, 0.8, 0.2, 1);
+    ps.colorDead = new BABYLON.Color4(0.3, 0.1, 0, 0);
+    ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+    ps.start();
+    setTimeout(() => { ps.stop(); }, 100);
+    setTimeout(() => { ps.dispose(); }, 500);
+}
+
+// ── Skid Marks ──
+let skidMarks = [];
+let skidMarkMat = null;
+let lastSkidTime = {};
+
+function createSkidMark(scene, position) {
+    if (!skidMarkMat) {
+        skidMarkMat = new BABYLON.StandardMaterial('skidMat', scene);
+        skidMarkMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+        skidMarkMat.specularColor = BABYLON.Color3.Black();
+    }
+    const mark = BABYLON.MeshBuilder.CreateBox('skid' + skidMarks.length, { width: 0.3, height: 0.02, depth: 0.5 }, scene);
+    mark.position = new BABYLON.Vector3(position.x, 0.05, position.z);
+    mark.rotation.y = Math.random() * Math.PI;
+    mark.material = skidMarkMat;
+    skidMarks.push(mark);
+    if (skidMarks.length > 100) {
+        const old = skidMarks.shift();
+        old.dispose();
+    }
+}
+
+// ── Announcer Text ──
+let announcerTimeout = null;
+function showAnnouncerText(text) {
+    const el = document.getElementById('announcer-text');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('announcer-show');
+    void el.offsetWidth; // force reflow for re-triggering animation
+    el.classList.add('announcer-show');
+    clearTimeout(announcerTimeout);
+    announcerTimeout = setTimeout(() => {
+        el.classList.remove('announcer-show');
+    }, 1500);
 }
 
 function destroyCar(car) {
@@ -1599,6 +1842,7 @@ function destroyCar(car) {
     if (aliveAfter <= 1 && derbyRunning) {
         derbySlowMoTimer = 1.5;
         derbyTimeScale = 0.3;
+        showAnnouncerText('LAST ONE STANDING!');
     }
 }
 
@@ -1659,19 +1903,42 @@ function endDerby() {
     });
 
     // Per-team-car payouts
+    const derbyMode = state.derbyMode || 'standard';
     let totalPayout = 0;
     const teamResults = [];
     const bestTeamPlacement = ranked.findIndex(c => c.isTeam) + 1;
     const leagueTier = getLeagueTier();
 
-    ranked.forEach((c, i) => {
-        if (!c.isTeam) return;
-        const placement = i + 1;
-        const base = DERBY_PAYOUTS[i] || 0;
-        const payout = Math.round(base * state.prestigeMultiplier * leagueTier.payoutMult);
-        totalPayout += payout;
-        teamResults.push({ name: c.name, driverName: c.teamDriverName, placement, payout, hp: c.health, dmg: Math.round(c.totalDamageDealt), teamCarId: c.teamCarId });
-    });
+    if (derbyMode === 'survival') {
+        // Survival: $100 per AI car wrecked by player's team
+        const aiWrecked = derbyCars.filter(c => !c.isTeam && c.health <= 0).length;
+        const survPayout = Math.round(aiWrecked * 100 * state.prestigeMultiplier * leagueTier.payoutMult);
+        totalPayout = survPayout;
+        const teamCar = derbyCars.find(c => c.isTeam);
+        if (teamCar) {
+            teamResults.push({ name: teamCar.name, driverName: teamCar.teamDriverName, placement: 1, payout: survPayout, hp: teamCar.health, dmg: Math.round(teamCar.totalDamageDealt), teamCarId: teamCar.teamCarId, survivalWrecks: aiWrecked });
+        }
+    } else if (derbyMode === '1v1') {
+        // 1v1: $400 for winning (placement 1), $50 consolation
+        ranked.forEach((c, i) => {
+            if (!c.isTeam) return;
+            const placement = i + 1;
+            const base = placement === 1 ? 400 : 50;
+            const payout = Math.round(base * state.prestigeMultiplier * leagueTier.payoutMult);
+            totalPayout += payout;
+            teamResults.push({ name: c.name, driverName: c.teamDriverName, placement, payout, hp: c.health, dmg: Math.round(c.totalDamageDealt), teamCarId: c.teamCarId });
+        });
+    } else {
+        // Standard
+        ranked.forEach((c, i) => {
+            if (!c.isTeam) return;
+            const placement = i + 1;
+            const base = DERBY_PAYOUTS[i] || 0;
+            const payout = Math.round(base * state.prestigeMultiplier * leagueTier.payoutMult);
+            totalPayout += payout;
+            teamResults.push({ name: c.name, driverName: c.teamDriverName, placement, payout, hp: c.health, dmg: Math.round(c.totalDamageDealt), teamCarId: c.teamCarId });
+        });
+    }
 
     state.cash += totalPayout;
     state.stats.totalEarnings += totalPayout;
@@ -1765,6 +2032,10 @@ function cleanupDerby() {
     }
     derbyScene = null;
     derbyCars = [];
+    // Clear announcer
+    clearTimeout(announcerTimeout);
+    const annEl = document.getElementById('announcer-text');
+    if (annEl) { annEl.classList.remove('announcer-show'); annEl.textContent = ''; }
 }
 
 // ── Junkyard ──
@@ -1965,13 +2236,27 @@ function showPrestigeOverlay() {
 function doPrestige() {
     document.getElementById('overlay-prestige').classList.remove('active');
 
+    // Unlock prestige cosmetic before incrementing season
+    const cosmeticsByPrestige = [
+        { prestige: 1, id: 'gold_bumpers', name: S.goldBumpers },
+        { prestige: 2, id: 'chrome_wheels', name: S.chromeWheels },
+        { prestige: 3, id: 'neon_underglow', name: S.neonUnderglow }
+    ];
+    const prestigeLevel = state.season; // current season = prestige count after increment
+    const cosmeticReward = cosmeticsByPrestige.find(c => c.prestige === prestigeLevel);
+    if (cosmeticReward && !(state.unlockedCosmetics || []).includes(cosmeticReward.id)) {
+        if (!state.unlockedCosmetics) state.unlockedCosmetics = [];
+        state.unlockedCosmetics.push(cosmeticReward.id);
+        showToast(S.cosmeticUnlocked.replace('{name}', cosmeticReward.name));
+    }
+
     // Increment season and multiplier
     state.season++;
     state.prestigeMultiplier = parseFloat((state.prestigeMultiplier + 0.15).toFixed(2));
     state.seasonTarget += 2;
     state.seasonWins = 0;
 
-    // Reset empire but keep season, multiplier, stats
+    // Reset empire but keep season, multiplier, stats, cosmetics
     state.cash = 500;
     state.cars = [
         {

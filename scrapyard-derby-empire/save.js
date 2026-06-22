@@ -39,6 +39,8 @@ function createNewSave() {
         privateSeller: null,
         walkIns: [],
         derbyLineup: [],
+        derbyMode: 'standard',
+        unlockedCosmetics: [],
         season: 1,
         prestigeMultiplier: 1.0,
         seasonWins: 0,
@@ -71,6 +73,8 @@ function loadSlot(index) {
         if (data.usedParts === undefined) data.usedParts = [];
         if (data.privateSeller === undefined) data.privateSeller = null;
         if (data.league === undefined) data.league = 1;
+        if (data.derbyMode === undefined) data.derbyMode = 'standard';
+        if (data.unlockedCosmetics === undefined) data.unlockedCosmetics = [];
         if (data.cars) {
             for (const c of data.cars) {
                 if (c.engineQuality === undefined) c.engineQuality = 1.0;

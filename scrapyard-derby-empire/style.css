@@ -758,6 +758,34 @@ body {
     text-shadow: 0 1px 4px rgba(0,0,0,0.8);
 }
 
+/* ===== ANNOUNCER TEXT ===== */
+#announcer-text {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 32px;
+    font-weight: 900;
+    color: #f1c40f;
+    text-shadow: 0 0 12px rgba(241, 196, 15, 0.6), 0 2px 8px rgba(0,0,0,0.9);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: 2px;
+}
+#announcer-text.announcer-show {
+    animation: announcerFade 1.5s ease-out forwards;
+}
+@keyframes announcerFade {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+    80%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0); }
+}
+
 /* ===== RESULTS OVERLAY ===== */
 .overlay {
     position: absolute;
@@ -973,11 +1001,120 @@ body {
 }
 .toast.visible { transform: translateX(-50%) translateY(0); }
 
+/* ===== TOUCH TARGETS & DOUBLE-TAP PREVENTION ===== */
+button {
+    min-height: 44px;
+    touch-action: manipulation;
+}
+
+/* ===== SCROLL HINT (gradient fade at bottom of scrollable areas) ===== */
+.garage-content,
+.junkyard-content {
+    position: relative;
+}
+.garage-content::after,
+.junkyard-content::after {
+    content: '';
+    display: block;
+    height: 40px;
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to bottom, transparent, var(--bg));
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+/* ===== CHALLENGE MODE SELECTOR ===== */
+.lineup-mode-selector {
+    text-align: center;
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.lineup-mode-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+.lineup-mode-pills {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+.mode-pill {
+    padding: 8px 18px;
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    background: var(--panel2);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.mode-pill:hover { border-color: var(--accent); }
+.mode-pill.active {
+    background: var(--accent);
+    border-color: var(--accent2);
+    color: #fff;
+}
+.lineup-mode-desc {
+    font-size: 11px;
+    color: var(--muted);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 500px) {
     .menu-title { font-size: 22px; }
-    .derby-health-bars { flex-direction: column; }
-    .derby-car-hp { min-width: 0; }
-    .car-stats { grid-template-columns: 1fr; }
-    .garage-actions { flex-direction: column; }
+
+    /* Garage action buttons: 2 rows of buttons */
+    .garage-actions {
+        flex-wrap: wrap;
+    }
+    .garage-actions .action-btn {
+        flex: 1 1 45%;
+    }
+
+    /* Derby health bars: 4-column grid, 8 bars in 2 rows */
+    .derby-health-bars {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+    }
+    .derby-car-hp {
+        min-width: 0;
+        padding: 4px 6px;
+    }
+    .derby-car-name {
+        font-size: 8px;
+    }
+    .derby-hp-track {
+        height: 5px;
+    }
+
+    /* Car stats: keep 3 columns but tighter padding */
+    .car-stats {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+    .stat-box {
+        padding: 6px;
+    }
+
+    /* Walk-in cards: smaller on mobile */
+    .walkin-card {
+        height: 100px;
+        min-width: 90px;
+    }
+
+    /* Lineup entries: tighter padding */
+    .lineup-entry {
+        padding: 8px;
+    }
 }
