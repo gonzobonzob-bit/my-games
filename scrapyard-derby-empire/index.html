@@ -16,7 +16,7 @@
     <div class="menu-title">Scrapyard D-Derby Empire</div>
     <div class="menu-sub">Demolition Derby Tycoon</div>
     <div id="menu-slots" class="menu-slots"></div>
-    <button class="menu-btn" onclick="openSettings()">Settings</button>
+    <button class="menu-btn" onclick="openSettings()">Stats</button>
 </div>
 
 <!-- ===== GARAGE ===== -->
@@ -28,6 +28,7 @@
     </div>
     <div class="season-bar" id="season-bar">
         <span class="season-label" id="season-label">Season 1</span>
+        <span class="league-label" id="league-label">Local Junkyard</span>
         <div class="season-progress-track">
             <div class="season-progress-fill" id="season-progress-fill" style="width:0%"></div>
         </div>
@@ -110,17 +111,14 @@
     </div>
 </div>
 
-<!-- ===== SETTINGS (STUB) ===== -->
+<!-- ===== STATS ===== -->
 <div id="screen-settings" class="screen">
     <div class="top-bar">
         <button class="menu-toggle" onclick="showScreen('menu')">&#8592;</button>
-        <span class="top-bar-title">Settings</span>
+        <span class="top-bar-title">Stats</span>
         <span></span>
     </div>
-    <div class="settings-content">
-        <div class="settings-stub">Settings coming soon...</div>
-        <button class="menu-btn" onclick="showScreen('menu')">Back</button>
-    </div>
+    <div class="settings-content"></div>
 </div>
 
 <!-- ===== IN-GAME MENU OVERLAY ===== -->

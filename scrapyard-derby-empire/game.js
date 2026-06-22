@@ -36,7 +36,19 @@ const S = {
     resume: 'Resume',
     mainMenu: 'Main Menu',
     menu: 'Menu',
-    settingsStub: 'Settings coming soon...',
+    stats: 'Stats',
+    statDerbiesPlayed: 'Derbies Played',
+    statDerbiesWon: 'Derbies Won',
+    statTotalEarnings: 'Total Earnings',
+    statCarsScraped: 'Cars Scraped',
+    statCarsRepaired: 'Cars Repaired',
+    statSeason: 'Current Season',
+    statPrestigeMult: 'Prestige Multiplier',
+    statFleetSize: 'Fleet Size',
+    statDriverCount: 'Drivers',
+    statUsedParts: 'Used Parts',
+    train: 'Train',
+    trainMax: 'Max Skill',
     back: 'Back',
     noCar: 'No usable car! Visit the junkyard.',
     scrapped: 'Scrapped for',
@@ -109,10 +121,16 @@ const S = {
     privateSeller: 'Private Seller',
     privateSellerDesc: 'Selling a car — needs work',
     buyFromSeller: 'Buy',
-    sellerBought: 'Car bought!'
+    sellerBought: 'Car bought!',
+    leagueLocalJunkyard: 'Local Junkyard',
+    leagueRegionalCircuit: 'Regional Circuit',
+    leagueNationalChampionship: 'National Championship',
+    leaguePromoted: 'League Promotion! Welcome to {league}!',
+    leagueLabel: 'League'
 };
 
 // ── Config ──
+const TRAIN_COSTS = [0, 300, 600, 1000, 1800];
 const UPGRADE_COSTS = [0, 200, 500, 1000, 2000];
 const MAX_LEVEL = 5;
 const PAINT_OPTIONS = [
@@ -142,6 +160,16 @@ const DRIVER_NAMES = [
     'Torque Tony', 'Skid Sally', 'Piston Pete', 'Fumes Fiona'
 ];
 const HIRE_DRIVER_COSTS = [150, 300, 600, 1200];
+const LEAGUE_TIERS = [
+    { name: 'leagueLocalJunkyard',        minWins: 0,  aiEngineMin: 1, aiEngineMax: 2, aiArmorMin: 1, aiArmorMax: 2, payoutMult: 1.0 },
+    { name: 'leagueRegionalCircuit',      minWins: 10, aiEngineMin: 2, aiEngineMax: 3, aiArmorMin: 2, aiArmorMax: 3, payoutMult: 1.5 },
+    { name: 'leagueNationalChampionship', minWins: 25, aiEngineMin: 3, aiEngineMax: 4, aiArmorMin: 3, aiArmorMax: 4, payoutMult: 2.0 }
+];
+const RIVAL_TEAMS = [
+    { name: 'Rusty Renegades', color: '#e74c3c' },
+    { name: 'Chrome Crushers', color: '#3498db' },
+    { name: 'Scrap Kings',     color: '#2ecc71' }
+];
 
 // ── Sound (Web Audio synthesis — no external files) ──
 let audioCtx = null;
@@ -354,7 +382,28 @@ function openSettings() {
 }
 
 function renderSettings() {
-    // stub — screen already has static content
+    const container = document.querySelector('#screen-settings .settings-content');
+    if (!container) return;
+    if (!state) {
+        container.innerHTML = '<div style="color:var(--muted);font-size:14px">' + S.stats + '</div>' +
+            '<button class="menu-btn" onclick="showScreen(\'menu\')">' + S.back + '</button>';
+        return;
+    }
+    const st = state.stats;
+    container.innerHTML =
+        '<div class="stats-grid">' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statDerbiesPlayed + '</div><div class="stats-card-value">' + st.derbiesPlayed + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statDerbiesWon + '</div><div class="stats-card-value">' + st.derbiesWon + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statTotalEarnings + '</div><div class="stats-card-value">$' + st.totalEarnings + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statCarsScraped + '</div><div class="stats-card-value">' + st.carsScraped + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statCarsRepaired + '</div><div class="stats-card-value">' + st.carsRepaired + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statSeason + '</div><div class="stats-card-value">' + state.season + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statPrestigeMult + '</div><div class="stats-card-value">' + state.prestigeMultiplier.toFixed(2) + 'x</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statFleetSize + '</div><div class="stats-card-value">' + state.cars.length + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statDriverCount + '</div><div class="stats-card-value">' + state.drivers.length + '</div></div>' +
+            '<div class="stats-card"><div class="stats-card-label">' + S.statUsedParts + '</div><div class="stats-card-value">' + state.usedParts.length + '</div></div>' +
+        '</div>' +
+        '<button class="menu-btn" onclick="showScreen(\'menu\')">' + S.back + '</button>';
 }
 
 // ── Toast ──
@@ -444,6 +493,14 @@ function renderGarage() {
         const fireBtn = state.drivers.length > 1
             ? '<button class="driver-action-btn fire" onclick="fireDriver(\'' + d.id + '\', this)">' + S.fireDriver + '</button>'
             : '';
+        let trainBtn = '';
+        if (d.skill < 5) {
+            const trainCost = TRAIN_COSTS[d.skill];
+            trainBtn = '<button class="driver-action-btn train" onclick="trainDriver(\'' + d.id + '\')"' +
+                (state.cash < trainCost ? ' disabled' : '') + '>' + S.train + ' — $' + trainCost + '</button>';
+        } else {
+            trainBtn = '<button class="driver-action-btn train" disabled>' + S.trainMax + '</button>';
+        }
         const skillDots = '★'.repeat(d.skill) + '☆'.repeat(5 - d.skill);
         driversHtml += '<div class="driver-roster-card' + (isAssignedHere ? ' active-driver' : '') + '">' +
             '<img src="assets/icons/helmet.png" alt="driver">' +
@@ -452,7 +509,7 @@ function renderGarage() {
                 '<div class="driver-skill">' + S.skill + ': ' + skillDots + '</div>' +
                 '<div class="driver-role">' + assignedLabel + '</div>' +
             '</div>' +
-            '<div class="driver-actions">' + actionBtn + fireBtn + '</div>' +
+            '<div class="driver-actions">' + actionBtn + trainBtn + fireBtn + '</div>' +
         '</div>';
     }
     // Walk-in cards
@@ -849,6 +906,19 @@ function fireDriver(driverId, btnEl) {
     renderGarage();
 }
 
+function trainDriver(driverId) {
+    const driver = state.drivers.find(d => d.id === driverId);
+    if (!driver || driver.skill >= 5) return;
+    const cost = TRAIN_COSTS[driver.skill];
+    if (state.cash < cost) { showToast(S.notEnoughCash); return; }
+    state.cash -= cost;
+    driver.skill++;
+    saveGame(state);
+    renderGarage();
+    showToast(driver.name + ' ' + S.skill + ' ' + driver.skill + '!');
+    sfxUpgrade();
+}
+
 function getDriverForCar(carId) {
     if (!state || !state.drivers) return null;
     return state.drivers.find(d => d.assignedCar === carId) || null;
@@ -980,17 +1050,24 @@ async function initDerby() {
     const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(-1, -2, 1), derbyScene);
     dir.intensity = 0.5;
 
+    // Arena variant selection (0 = The Pit, 1 = Figure 8, 2 = Junkyard)
+    const arenaVariant = Math.floor(Math.random() * 3);
+    const arenaNames = ['The Pit', 'Figure 8', 'Junkyard'];
+    const currentArenaName = arenaNames[arenaVariant];
+
     // Arena ground
     const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 40, height: 40 }, derbyScene);
     const groundMat = new BABYLON.StandardMaterial('groundMat', derbyScene);
-    groundMat.diffuseColor = new BABYLON.Color3(0.35, 0.28, 0.2);
+    groundMat.diffuseColor = arenaVariant === 2
+        ? new BABYLON.Color3(0.25, 0.2, 0.14)
+        : new BABYLON.Color3(0.35, 0.28, 0.2);
     groundMat.specularColor = BABYLON.Color3.Black();
     ground.material = groundMat;
     if (derbyScene.getPhysicsEngine()) {
         new BABYLON.PhysicsAggregate(ground, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.3, restitution: 0.1 }, derbyScene);
     }
 
-    // Arena walls
+    // Outer arena walls (shared by all variants)
     const wallPositions = [
         { x: 0, z: 20, rx: 0, ry: 0, w: 42, h: 4, d: 1 },
         { x: 0, z: -20, rx: 0, ry: 0, w: 42, h: 4, d: 1 },
@@ -1011,7 +1088,47 @@ async function initDerby() {
         }
     });
 
-    // Debris props (small boxes scattered)
+    // Variant-specific features
+    if (arenaVariant === 1) {
+        // Figure 8: cross-shaped center barrier with corner gaps
+        const barrierPositions = [
+            { x: 0, z: 0, ry: 0, w: 15, h: 4, d: 1.5 },
+            { x: 0, z: 0, ry: Math.PI / 2, w: 15, h: 4, d: 1.5 }
+        ];
+        barrierPositions.forEach((bp, i) => {
+            const barrier = BABYLON.MeshBuilder.CreateBox('barrier' + i, { width: bp.w, height: bp.h, depth: bp.d }, derbyScene);
+            barrier.position = new BABYLON.Vector3(bp.x, 2, bp.z);
+            barrier.rotation.y = bp.ry;
+            barrier.material = wallMat;
+            if (derbyScene.getPhysicsEngine()) {
+                new BABYLON.PhysicsAggregate(barrier, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.2, restitution: 0.7 }, derbyScene);
+            }
+        });
+    } else if (arenaVariant === 2) {
+        // Junkyard: 4-6 large pushable debris obstacles
+        const junkMat = new BABYLON.StandardMaterial('junkMat', derbyScene);
+        junkMat.diffuseColor = new BABYLON.Color3(0.3, 0.22, 0.15);
+        junkMat.specularColor = BABYLON.Color3.Black();
+        const junkCount = 4 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < junkCount; i++) {
+            const w = 2 + Math.random() * 2;
+            const h = 1 + Math.random() * 1;
+            const dp = 2 + Math.random() * 2;
+            const junk = BABYLON.MeshBuilder.CreateBox('junk' + i, { width: w, height: h, depth: dp }, derbyScene);
+            junk.position = new BABYLON.Vector3(
+                (Math.random() - 0.5) * 26,
+                h / 2,
+                (Math.random() - 0.5) * 26
+            );
+            junk.rotation.y = Math.random() * Math.PI;
+            junk.material = junkMat;
+            if (derbyScene.getPhysicsEngine()) {
+                new BABYLON.PhysicsAggregate(junk, BABYLON.PhysicsShapeType.BOX, { mass: 200, friction: 0.5, restitution: 0.3 }, derbyScene);
+            }
+        }
+    }
+
+    // Small decorative debris (all variants)
     const debrisMat = new BABYLON.StandardMaterial('debrisMat', derbyScene);
     debrisMat.diffuseColor = new BABYLON.Color3(0.3, 0.25, 0.2);
     for (let i = 0; i < 6; i++) {
@@ -1071,23 +1188,38 @@ async function initDerby() {
         }));
     }
 
-    // Fill remaining slots with AI
+    // Fill remaining slots with AI — use league tier for stats
+    const tier = getLeagueTier();
+    const aiSlotCount = DERBY_TOTAL_CARS - spawnIdx;
+
+    // Pick 2-3 rival slots from the AI pool
+    const rivalCount = Math.min(aiSlotCount, 2 + (Math.random() < 0.5 ? 1 : 0));
+    const rivalPicks = [];
+    const shuffledTeams = [...RIVAL_TEAMS].sort(() => Math.random() - 0.5);
+    for (let r = 0; r < rivalCount; r++) {
+        rivalPicks.push(shuffledTeams[r % shuffledTeams.length]);
+    }
+
+    let aiIdx = 0;
     while (spawnIdx < DERBY_TOTAL_CARS) {
         let name;
         do { name = AI_CAR_NAMES[Math.floor(Math.random() * AI_CAR_NAMES.length)]; } while (usedNames.has(name));
         usedNames.add(name);
-        const eng = 1 + Math.floor(Math.random() * 2);
-        const arm = 1 + Math.floor(Math.random() * 2);
+        const eng = tier.aiEngineMin + Math.floor(Math.random() * (tier.aiEngineMax - tier.aiEngineMin + 1));
+        const arm = tier.aiArmorMin + Math.floor(Math.random() * (tier.aiArmorMax - tier.aiArmorMin + 1));
+        const rival = aiIdx < rivalCount ? rivalPicks[aiIdx] : null;
         derbyCars.push(createDerbyCar(derbyScene, {
             name: name,
             position: spawns[spawnIdx++],
-            color: AI_COLORS[spawnIdx % AI_COLORS.length],
+            color: rival ? rival.color : AI_COLORS[spawnIdx % AI_COLORS.length],
             engine: eng,
             armor: arm,
             isPlayer: false,
             isTeam: false,
-            maxHealth: 100
+            maxHealth: 100,
+            rivalTeam: rival ? rival.name : null
         }));
+        aiIdx++;
     }
 
     // HUD
@@ -1301,6 +1433,7 @@ function createDerbyCar(scene, opts) {
         driverSkill: opts.driverSkill || 0,
         engineQuality: opts.engineQuality || 1,
         armorQuality: opts.armorQuality || 1,
+        rivalTeam: opts.rivalTeam || null,
         totalDamageDealt: 0,
         damageCooldown: 0,
         staggerTimer: 0,
@@ -1314,9 +1447,16 @@ function updateCarAI(car, aliveCars, dt) {
 
     car.aiTimer -= dt;
     if (car.aiTimer <= 0 || !car.aiTarget || car.aiTarget.health <= 0) {
-        // Team cars target rivals first; AI targets anyone
-        const rivals = aliveCars.filter(c => c !== car && (car.isTeam ? !c.isTeam : true));
-        const pool = rivals.length > 0 ? rivals : aliveCars.filter(c => c !== car);
+        // Team cars target non-team; rival team cars target player team; others target anyone
+        let preferred;
+        if (car.isTeam) {
+            preferred = aliveCars.filter(c => c !== car && !c.isTeam);
+        } else if (car.rivalTeam) {
+            preferred = aliveCars.filter(c => c !== car && c.isTeam);
+        } else {
+            preferred = aliveCars.filter(c => c !== car);
+        }
+        const pool = preferred.length > 0 ? preferred : aliveCars.filter(c => c !== car);
         let nearest = null, minDist = Infinity;
         for (const other of pool) {
             const d = BABYLON.Vector3.Distance(car.mesh.position, other.mesh.position);
@@ -1469,8 +1609,10 @@ function renderDerbyHUD() {
         const div = document.createElement('div');
         div.className = 'derby-car-hp' + (car.isPlayer ? ' player' : '');
         div.id = 'hp-' + car.name.replace(/\s/g, '-');
+        const prefix = car.isPlayer ? '★ ' : '';
+        const teamSuffix = car.rivalTeam ? ' [' + car.rivalTeam + ']' : '';
         div.innerHTML = `
-            <div class="derby-car-name ${car.isPlayer ? 'player-name' : ''}">${car.isPlayer ? '★ ' : ''}${car.name}</div>
+            <div class="derby-car-name ${car.isPlayer ? 'player-name' : ''}">${prefix}${car.name}${teamSuffix}</div>
             <div class="derby-hp-track"><div class="derby-hp-fill" style="width:100%;background:${car.color}"></div></div>
         `;
         barsEl.appendChild(div);
@@ -1520,12 +1662,13 @@ function endDerby() {
     let totalPayout = 0;
     const teamResults = [];
     const bestTeamPlacement = ranked.findIndex(c => c.isTeam) + 1;
+    const leagueTier = getLeagueTier();
 
     ranked.forEach((c, i) => {
         if (!c.isTeam) return;
         const placement = i + 1;
         const base = DERBY_PAYOUTS[i] || 0;
-        const payout = Math.round(base * state.prestigeMultiplier);
+        const payout = Math.round(base * state.prestigeMultiplier * leagueTier.payoutMult);
         totalPayout += payout;
         teamResults.push({ name: c.name, driverName: c.teamDriverName, placement, payout, hp: c.health, dmg: Math.round(c.totalDamageDealt), teamCarId: c.teamCarId });
     });
@@ -1536,6 +1679,7 @@ function endDerby() {
     if (bestTeamPlacement === 1) {
         state.stats.derbiesWon++;
         state.seasonWins++;
+        checkLeaguePromotion();
     }
 
     // Apply damage back to fleet cars + handle wrecks
@@ -1697,9 +1841,12 @@ function repairCar(id) {
     state.cash -= jc.repairCost;
     state.stats.carsRepaired++;
 
+    const customName = prompt('Name your new car:', jc.name);
+    const finalName = (customName && customName.trim()) ? customName.trim() : jc.name;
+
     state.cars.push({
         id: jc.id,
-        name: jc.name,
+        name: finalName,
         engine: jc.engine,
         armor: jc.armor,
         paint: jc.paint || 'rust',
@@ -1761,11 +1908,30 @@ function buyFromSeller() {
     showToast(S.sellerBought);
 }
 
+// ── League Tiers ──
+function getLeagueTier() {
+    const idx = Math.max(0, Math.min((state.league || 1) - 1, LEAGUE_TIERS.length - 1));
+    return LEAGUE_TIERS[idx];
+}
+
+function checkLeaguePromotion() {
+    const totalWins = state.stats.derbiesWon;
+    for (let i = LEAGUE_TIERS.length - 1; i >= 0; i--) {
+        if (totalWins >= LEAGUE_TIERS[i].minWins && (state.league || 1) < i + 1) {
+            state.league = i + 1;
+            saveGame(state);
+            showToast(S.leaguePromoted.replace('{league}', S[LEAGUE_TIERS[i].name]));
+            return;
+        }
+    }
+}
+
 // ── Season / Prestige ──
 function updateSeasonBar() {
     const labelEl = document.getElementById('season-label');
     const fillEl = document.getElementById('season-progress-fill');
     const winsEl = document.getElementById('season-wins');
+    const leagueEl = document.getElementById('league-label');
     if (!labelEl || !fillEl || !winsEl) return;
 
     labelEl.textContent = S.season + ' ' + state.season;
@@ -1774,6 +1940,10 @@ function updateSeasonBar() {
     winsEl.textContent = S.seasonProgress
         .replace('{current}', state.seasonWins)
         .replace('{target}', state.seasonTarget);
+    if (leagueEl) {
+        const tier = getLeagueTier();
+        leagueEl.textContent = S[tier.name];
+    }
 }
 
 function showPrestigeOverlay() {

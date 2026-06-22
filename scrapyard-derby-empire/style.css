@@ -194,6 +194,15 @@ body {
     color: var(--accent2);
     white-space: nowrap;
 }
+.league-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+    padding: 2px 8px;
+    background: rgba(212, 133, 10, 0.15);
+    border-radius: 4px;
+}
 .season-progress-track {
     flex: 1;
     height: 8px;
@@ -411,6 +420,8 @@ body {
 .driver-actions { display: flex; gap: 6px; flex-shrink: 0; flex-direction: column; }
 .driver-action-btn.assign { background: var(--accent); color: #fff; }
 .driver-action-btn.unassign { background: var(--metal); color: #fff; }
+.driver-action-btn.train { background: var(--success); color: #fff; }
+.driver-action-btn.train:disabled { background: var(--metal); opacity: 0.5; cursor: default; }
 .driver-action-btn.fire { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 .driver-action-btn.fire:hover, .driver-action-btn.fire.confirming { background: var(--danger); color: #fff; }
 /* ===== WALK-IN FLIP CARDS ===== */
@@ -905,7 +916,7 @@ body {
 .igm-btn:hover { border-color: var(--accent); }
 .igm-btn:last-child { margin-bottom: 0; }
 
-/* ===== SETTINGS (STUB) ===== */
+/* ===== STATS SCREEN ===== */
 .settings-content {
     flex: 1;
     display: flex;
@@ -913,10 +924,34 @@ body {
     align-items: center;
     justify-content: center;
     gap: 20px;
+    padding: 16px;
+    overflow-y: auto;
 }
-.settings-stub {
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+}
+.stats-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+}
+.stats-card-label {
+    font-size: 10px;
     color: var(--muted);
-    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+.stats-card-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent2);
 }
 
 /* ===== TOAST ===== */

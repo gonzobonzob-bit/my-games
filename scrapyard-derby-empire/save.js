@@ -42,7 +42,8 @@ function createNewSave() {
         season: 1,
         prestigeMultiplier: 1.0,
         seasonWins: 0,
-        seasonTarget: 5
+        seasonTarget: 5,
+        league: 1
     };
 }
 
@@ -69,6 +70,7 @@ function loadSlot(index) {
         if (data.derbyLineup === undefined) data.derbyLineup = [];
         if (data.usedParts === undefined) data.usedParts = [];
         if (data.privateSeller === undefined) data.privateSeller = null;
+        if (data.league === undefined) data.league = 1;
         if (data.cars) {
             for (const c of data.cars) {
                 if (c.engineQuality === undefined) c.engineQuality = 1.0;
