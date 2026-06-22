@@ -391,15 +391,7 @@ function renderGarage() {
     const carCountEl = document.getElementById('garage-car-count');
     if (carCountEl) carCountEl.textContent = healthyCount + ' ' + S.carCount;
 
-    // Auto-select first healthy car if active car is wrecked (only if a healthy option exists)
-    const activeCar = getActiveCar();
-    if (activeCar && activeCar.health <= 0) {
-        const firstHealthy = state.cars.find(c => c.health > 0);
-        if (firstHealthy) {
-            state.activeCar = firstHealthy.id;
-            saveGame(state);
-        }
-    }
+    // (Auto-select removed — player can select wrecked cars to repair them)
 
     const car = getActiveCar();
     if (!car) {
