@@ -347,6 +347,7 @@ body {
 /* ===== USED PARTS ===== */
 .used-parts-section { background: rgba(44, 37, 32, 0.95); border: 1px solid var(--border); border-radius: 12px; padding: 14px; position: relative; z-index: 2; }
 .used-part-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: var(--text); }
+.used-part-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .used-part-btn { width: auto !important; margin: 0 !important; padding: 5px 12px !important; background: var(--success) !important; font-size: 11px !important; }
 
 .driver-card {

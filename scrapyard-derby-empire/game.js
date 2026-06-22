@@ -105,6 +105,7 @@ const S = {
     noUsedParts: 'No used parts. Scrap junkyard cars!',
     usedPartFound: 'Found a used part!',
     partInstalled: 'Part installed!',
+    sellPart: 'Sell',
     privateSeller: 'Private Seller',
     privateSellerDesc: 'Selling a car — needs work',
     buyFromSeller: 'Buy',
@@ -570,14 +571,16 @@ function sellCar(carId, btnEl) {
     const car = state.cars[idx];
     const price = getCarSellPrice(car);
     state.cash += price;
-    // Unassign any driver from this car
+    const parts = stripPartsFromCar(car.engine, car.armor);
+    parts.forEach(p => state.usedParts.push(p));
     for (const d of state.drivers) { if (d.assignedCar === carId) d.assignedCar = null; }
     state.derbyLineup = state.derbyLineup.filter(e => e.carId !== carId);
     state.cars.splice(idx, 1);
     if (state.activeCar === carId) state.activeCar = state.cars[0] ? state.cars[0].id : null;
     saveGame(state);
     renderGarage();
-    showToast(S.soldCar + ': ' + car.name + ' — $' + price);
+    const partMsg = parts.length > 0 ? ' + ' + parts.length + ' parts' : '';
+    showToast(S.soldCar + ': ' + car.name + ' — $' + price + partMsg);
     sfxScrap();
 }
 
@@ -667,6 +670,41 @@ function shopUpgrade(carId, type) {
 }
 
 // ── Used Parts ──
+function stripPartsFromCar(engineLvl, armorLvl) {
+    const parts = [];
+    if (engineLvl > 1) {
+        const q = USED_QUALITY_MIN + Math.random() * (USED_QUALITY_MAX - USED_QUALITY_MIN);
+        parts.push({ type: 'engine', quality: Math.round(q * 100) / 100 });
+    }
+    if (armorLvl > 1) {
+        const q = USED_QUALITY_MIN + Math.random() * (USED_QUALITY_MAX - USED_QUALITY_MIN);
+        parts.push({ type: 'armor', quality: Math.round(q * 100) / 100 });
+    }
+    if (parts.length === 0 && Math.random() < 0.6) {
+        const type = Math.random() < 0.5 ? 'engine' : 'armor';
+        const q = USED_QUALITY_MIN + Math.random() * (USED_QUALITY_MAX - USED_QUALITY_MIN);
+        parts.push({ type, quality: Math.round(q * 100) / 100 });
+    }
+    return parts;
+}
+
+function getPartSellPrice(part) {
+    const base = part.type === 'engine' ? 40 : 35;
+    return Math.round(base * part.quality);
+}
+
+function sellUsedPart(idx) {
+    const part = state.usedParts[idx];
+    if (!part) return;
+    const price = getPartSellPrice(part);
+    state.cash += price;
+    state.usedParts.splice(idx, 1);
+    saveGame(state);
+    renderGarage();
+    showToast(S.soldCar + ' $' + price);
+    sfxScrap();
+}
+
 function renderUsedPartsHtml(car) {
     if (!state.usedParts || state.usedParts.length === 0) return '';
     let html = '<div class="used-parts-section"><div class="drivers-section-title">' + S.usedPartsInv + '</div>';
@@ -675,9 +713,13 @@ function renderUsedPartsHtml(car) {
         const qPct = Math.round(p.quality * 100);
         const curLvl = p.type === 'engine' ? car.engine : car.armor;
         const canInstall = curLvl < MAX_LEVEL;
+        const sellPrice = getPartSellPrice(p);
         html += `<div class="used-part-item">
             <span>${label} +1 <span class="stat-quality">(${qPct}%)</span></span>
-            <button class="upgrade-btn used-part-btn" onclick="installUsedPart(${idx})" ${canInstall ? '' : 'disabled'}>${S.install}</button>
+            <span class="used-part-actions">
+                <button class="upgrade-btn used-part-btn" onclick="installUsedPart(${idx})" ${canInstall ? '' : 'disabled'}>${S.install}</button>
+                <button class="sell-car-btn" onclick="sellUsedPart(${idx})">$${sellPrice} ${S.sellPart}</button>
+            </span>
         </div>`;
     });
     return html + '</div>';
@@ -1628,14 +1670,10 @@ function scrapCar(id) {
     const jc = state.junkyardCars[idx];
     state.cash += jc.scrapValue;
     state.stats.carsScraped++;
+    const parts = stripPartsFromCar(jc.engine, jc.armor);
+    parts.forEach(p => state.usedParts.push(p));
     state.junkyardCars.splice(idx, 1);
-    let partMsg = '';
-    if (Math.random() < USED_PART_CHANCE) {
-        const type = Math.random() < 0.5 ? 'engine' : 'armor';
-        const quality = USED_QUALITY_MIN + Math.random() * (USED_QUALITY_MAX - USED_QUALITY_MIN);
-        state.usedParts.push({ type, quality: Math.round(quality * 100) / 100 });
-        partMsg = ' + ' + S.usedPartFound;
-    }
+    const partMsg = parts.length > 0 ? ' + ' + parts.length + ' parts' : '';
     saveGame(state);
     renderJunkyard();
     showToast(S.scrapped + ' $' + jc.scrapValue + '!' + partMsg);
