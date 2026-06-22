@@ -35,6 +35,8 @@ function createNewSave() {
             carsRepaired: 0
         },
         repoAvailable: false,
+        usedParts: [],
+        privateSeller: null,
         walkIns: [],
         derbyLineup: [],
         season: 1,
@@ -65,6 +67,14 @@ function loadSlot(index) {
         if (data.seasonTarget === undefined) data.seasonTarget = 5;
         if (data.walkIns === undefined) data.walkIns = [];
         if (data.derbyLineup === undefined) data.derbyLineup = [];
+        if (data.usedParts === undefined) data.usedParts = [];
+        if (data.privateSeller === undefined) data.privateSeller = null;
+        if (data.cars) {
+            for (const c of data.cars) {
+                if (c.engineQuality === undefined) c.engineQuality = 1.0;
+                if (c.armorQuality === undefined) c.armorQuality = 1.0;
+            }
+        }
         // Backward compat: add skill to drivers missing it
         if (data.drivers) {
             for (const d of data.drivers) {

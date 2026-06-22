@@ -327,6 +327,21 @@ body {
 .repair-fleet-btn { background: var(--success) !important; margin-bottom: 4px; }
 .repair-fleet-btn:hover { background: #2ecc71 !important; }
 .repair-full { font-size: 10px; color: var(--success); text-align: center; margin-bottom: 4px; font-weight: 700; }
+.stat-quality { font-size: 9px; color: var(--accent); font-weight: 700; }
+
+/* ===== PARTS SHOP ===== */
+.shop-content { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background-color: var(--bg); }
+.shop-car-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.shop-car-name { font-size: 15px; font-weight: 800; color: var(--accent2); margin-bottom: 8px; }
+.shop-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: var(--text); }
+.shop-row .upgrade-btn { width: auto; margin: 0; padding: 6px 14px; flex-shrink: 0; }
+.action-btn.shop { background: var(--accent); border-color: var(--accent2); color: #fff; }
+.action-btn.shop:hover { background: var(--accent2); }
+
+/* ===== USED PARTS ===== */
+.used-parts-section { background: rgba(44, 37, 32, 0.95); border: 1px solid var(--border); border-radius: 12px; padding: 14px; position: relative; z-index: 2; }
+.used-part-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: var(--text); }
+.used-part-btn { width: auto !important; margin: 0 !important; padding: 5px 12px !important; background: var(--success) !important; font-size: 11px !important; }
 
 .driver-card {
     background: rgba(44, 37, 32, 0.92);

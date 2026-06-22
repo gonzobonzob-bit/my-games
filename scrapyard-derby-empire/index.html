@@ -36,7 +36,21 @@
     <div class="garage-content" id="garage-content"></div>
     <div class="garage-actions">
         <button class="action-btn derby" id="btn-start-derby" onclick="startDerby()">Start Derby</button>
+        <button class="action-btn shop" onclick="showScreen('shop')">Parts Shop</button>
         <button class="action-btn junkyard" onclick="showScreen('junkyard')">Junkyard</button>
+    </div>
+</div>
+
+<!-- ===== PARTS SHOP ===== -->
+<div id="screen-shop" class="screen">
+    <div class="top-bar">
+        <button class="menu-toggle" onclick="showScreen('garage')">&#8592;</button>
+        <span class="top-bar-title">Parts Shop</span>
+        <span class="top-bar-cash"><img src="assets/icons/cash.png" alt="$"> <span id="shop-cash">$0</span></span>
+    </div>
+    <div class="shop-content" id="shop-content"></div>
+    <div class="junkyard-actions">
+        <button class="action-btn junkyard" onclick="showScreen('garage')">Back to Garage</button>
     </div>
 </div>
 

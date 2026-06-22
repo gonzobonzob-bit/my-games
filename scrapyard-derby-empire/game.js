@@ -31,8 +31,7 @@ const S = {
     scrap: 'Scrap',
     repair: 'Repair',
     repoJob: 'Repo Job',
-    repoDesc: 'Pay a fee to tow in a mystery junker',
-    repoFee: 'Fee',
+    repoDesc: 'Free tow — mystery junker for the yard',
     emptyYard: 'The junkyard is empty. Win some derbies!',
     resume: 'Resume',
     mainMenu: 'Main Menu',
@@ -92,7 +91,20 @@ const S = {
     fullHealth: 'Full HP',
     fireDriver: 'Fire',
     fireConfirm: 'Confirm?',
-    fastForward: '2x'
+    fastForward: '2x',
+    partsShop: 'Parts Shop',
+    newPart: 'New',
+    usedPart: 'Used',
+    quality: 'Quality',
+    install: 'Install',
+    usedPartsInv: 'Used Parts',
+    noUsedParts: 'No used parts. Scrap junkyard cars!',
+    usedPartFound: 'Found a used part!',
+    partInstalled: 'Part installed!',
+    privateSeller: 'Private Seller',
+    privateSellerDesc: 'Selling a car — needs work',
+    buyFromSeller: 'Buy',
+    sellerBought: 'Car bought!'
 };
 
 // ── Config ──
@@ -108,7 +120,10 @@ const DERBY_DURATION = 45;
 const DERBY_TOTAL_CARS = 8;
 const MAX_TEAM_ENTRIES = 3;
 const DERBY_PAYOUTS = [500, 350, 250, 175, 100, 60, 30, 10];
-const REPO_FEE = 75;
+const USED_PART_CHANCE = 0.5;
+const USED_QUALITY_MIN = 0.65;
+const USED_QUALITY_MAX = 0.75;
+const PRIVATE_SELLER_CHANCE = 0.3;
 const AI_CAR_NAMES = [
     'Iron Maiden', 'Scrap Heap', 'Dumpster Fire', 'Junkyard Dog',
     'Steel Thunder', 'Tin Can', 'Metal Masher', 'Road Rage',
@@ -268,6 +283,7 @@ function showScreen(id) {
     }
     if (id === 'menu') renderMainMenu();
     if (id === 'garage') renderGarage();
+    if (id === 'shop') renderPartsShop();
     if (id === 'lineup') renderLineup();
     if (id === 'junkyard') renderJunkyard();
     if (id === 'settings') renderSettings();
@@ -499,16 +515,12 @@ function renderGarage() {
                 <div class="stat-box">
                     <div class="stat-label">${S.engine}</div>
                     <div class="stat-value">${S.lvl} ${car.engine}</div>
-                    ${engineCost !== null
-                        ? `<button class="upgrade-btn" onclick="upgradeEngine()" ${state.cash < engineCost ? 'disabled' : ''}>${S.upgrade} — $${engineCost}</button>`
-                        : '<button class="upgrade-btn" disabled>MAX</button>'}
+                    ${(car.engineQuality || 1) < 1 ? `<div class="stat-quality">${Math.round((car.engineQuality || 1) * 100)}%</div>` : ''}
                 </div>
                 <div class="stat-box">
                     <div class="stat-label">${S.armor}</div>
                     <div class="stat-value">${S.lvl} ${car.armor}</div>
-                    ${armorCost !== null
-                        ? `<button class="upgrade-btn" onclick="upgradeArmor()" ${state.cash < armorCost ? 'disabled' : ''}>${S.upgrade} — $${armorCost}</button>`
-                        : '<button class="upgrade-btn" disabled>MAX</button>'}
+                    ${(car.armorQuality || 1) < 1 ? `<div class="stat-quality">${Math.round((car.armorQuality || 1) * 100)}%</div>` : ''}
                 </div>
                 <div class="stat-box">
                     <div class="stat-label">${S.paint}</div>
@@ -517,6 +529,7 @@ function renderGarage() {
             </div>
             ${paintHtml}
         </div>
+        ${renderUsedPartsHtml(car)}
         ${driversHtml}
     `;
 
@@ -565,6 +578,85 @@ function repairFleetCar() {
     saveGame(state);
     renderGarage();
     showToast(S.repairFleet + ': ' + car.name + '!');
+    sfxUpgrade();
+}
+
+// ── Parts Shop ──
+function renderPartsShop() {
+    if (!state) return;
+    const container = document.getElementById('shop-content');
+    const cashEl = document.getElementById('shop-cash');
+    cashEl.textContent = '$' + state.cash;
+
+    let html = '';
+    for (const car of state.cars) {
+        const engCost = car.engine < MAX_LEVEL ? UPGRADE_COSTS[car.engine] : null;
+        const armCost = car.armor < MAX_LEVEL ? UPGRADE_COSTS[car.armor] : null;
+        html += `<div class="shop-car-card">
+            <div class="shop-car-name">${car.name}</div>
+            <div class="shop-row">
+                <span>${S.engine} ${S.lvl} ${car.engine}</span>
+                ${engCost !== null
+                    ? `<button class="upgrade-btn" onclick="shopUpgrade('${car.id}','engine')" ${state.cash < engCost ? 'disabled' : ''}>${S.newPart} — $${engCost}</button>`
+                    : '<button class="upgrade-btn" disabled>MAX</button>'}
+            </div>
+            <div class="shop-row">
+                <span>${S.armor} ${S.lvl} ${car.armor}</span>
+                ${armCost !== null
+                    ? `<button class="upgrade-btn" onclick="shopUpgrade('${car.id}','armor')" ${state.cash < armCost ? 'disabled' : ''}>${S.newPart} — $${armCost}</button>`
+                    : '<button class="upgrade-btn" disabled>MAX</button>'}
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function shopUpgrade(carId, type) {
+    const car = state.cars.find(c => c.id === carId);
+    if (!car) return;
+    const lvl = type === 'engine' ? car.engine : car.armor;
+    if (lvl >= MAX_LEVEL) return;
+    const cost = UPGRADE_COSTS[lvl];
+    if (state.cash < cost) return;
+    state.cash -= cost;
+    if (type === 'engine') { car.engine++; car.engineQuality = 1.0; }
+    else { car.armor++; car.armorQuality = 1.0; }
+    saveGame(state);
+    renderPartsShop();
+    showToast(`${type === 'engine' ? S.engine : S.armor} ${S.lvl} ${type === 'engine' ? car.engine : car.armor}!`);
+    sfxUpgrade();
+}
+
+// ── Used Parts ──
+function renderUsedPartsHtml(car) {
+    if (!state.usedParts || state.usedParts.length === 0) return '';
+    let html = '<div class="used-parts-section"><div class="drivers-section-title">' + S.usedPartsInv + '</div>';
+    state.usedParts.forEach((p, idx) => {
+        const label = p.type === 'engine' ? S.engine : S.armor;
+        const qPct = Math.round(p.quality * 100);
+        const curLvl = p.type === 'engine' ? car.engine : car.armor;
+        const canInstall = curLvl < MAX_LEVEL;
+        html += `<div class="used-part-item">
+            <span>${label} +1 <span class="stat-quality">(${qPct}%)</span></span>
+            <button class="upgrade-btn used-part-btn" onclick="installUsedPart(${idx})" ${canInstall ? '' : 'disabled'}>${S.install}</button>
+        </div>`;
+    });
+    return html + '</div>';
+}
+
+function installUsedPart(idx) {
+    const part = state.usedParts[idx];
+    if (!part) return;
+    const car = getActiveCar();
+    if (!car) return;
+    const curLvl = part.type === 'engine' ? car.engine : car.armor;
+    if (curLvl >= MAX_LEVEL) return;
+    if (part.type === 'engine') { car.engine++; car.engineQuality = part.quality; }
+    else { car.armor++; car.armorQuality = part.quality; }
+    state.usedParts.splice(idx, 1);
+    saveGame(state);
+    renderGarage();
+    showToast(S.partInstalled);
     sfxUpgrade();
 }
 
@@ -912,7 +1004,9 @@ async function initDerby() {
             teamDriverId: driver.id,
             teamDriverName: driver.name,
             maxHealth: car.maxHealth,
-            driverSkill: driver.skill
+            driverSkill: driver.skill,
+            engineQuality: car.engineQuality || 1,
+            armorQuality: car.armorQuality || 1
         }));
     }
 
@@ -1118,6 +1212,8 @@ function createDerbyCar(scene, opts) {
         maxHealth: opts.maxHealth,
         color: opts.color,
         driverSkill: opts.driverSkill || 0,
+        engineQuality: opts.engineQuality || 1,
+        armorQuality: opts.armorQuality || 1,
         totalDamageDealt: 0,
         damageCooldown: 0,
         staggerTimer: 0,
@@ -1170,7 +1266,7 @@ function updateCarAI(car, aliveCars, dt) {
         else throttle = -0.5;
 
         const skillMult = 1 + car.driverSkill * 0.05;
-        const maxSpd = (16 + car.engine * 3) * skillMult;
+        const maxSpd = (16 + car.engine * 3 * (car.engineQuality || 1)) * skillMult;
         const desiredVel = fwd.scale(throttle * maxSpd);
         const curVel = car.aggregate.body.getLinearVelocity();
         const blend = Math.min(1, dt * 4);
@@ -1210,8 +1306,8 @@ function checkCollisionDamage(aliveCars, dt) {
             if (relSpeed < 3.0) continue;
 
             const baseDmg = relSpeed * 1.5;
-            const dmgToA = Math.max(1, baseDmg * (1 - (b.armor - 1) * 0.1));
-            const dmgToB = Math.max(1, baseDmg * (1 - (a.armor - 1) * 0.1));
+            const dmgToA = Math.max(1, baseDmg * (1 - (b.armor - 1) * 0.1 * (b.armorQuality || 1)));
+            const dmgToB = Math.max(1, baseDmg * (1 - (a.armor - 1) * 0.1 * (a.armorQuality || 1)));
 
             a.health = Math.max(0, a.health - dmgToA);
             b.health = Math.max(0, b.health - dmgToB);
@@ -1372,6 +1468,7 @@ function endDerby() {
 
     state.repoAvailable = Math.random() < 0.5;
     generateWalkIns();
+    generatePrivateSeller();
     saveGame(state);
 
     // Build results UI
@@ -1468,8 +1565,18 @@ function renderJunkyard() {
         html += `
         <div class="repo-card">
             <div class="repo-title">${S.repoJob}</div>
-            <div class="repo-desc">${S.repoDesc} · ${S.repoFee}: $${REPO_FEE}</div>
-            <button class="repo-btn" onclick="doRepoJob()" ${state.cash < REPO_FEE ? 'disabled' : ''}>${S.repoJob} — $${REPO_FEE}</button>
+            <div class="repo-desc">${S.repoDesc}</div>
+            <button class="repo-btn" onclick="doRepoJob()">${S.repoJob} — Free</button>
+        </div>`;
+    }
+
+    if (state.privateSeller) {
+        const ps = state.privateSeller;
+        html += `
+        <div class="repo-card" style="border-color:var(--accent2)">
+            <div class="repo-title">${S.privateSeller}</div>
+            <div class="repo-desc">${S.privateSellerDesc} · ${S.engine} ${S.lvl} ${ps.engine} · ${S.armor} ${S.lvl} ${ps.armor}</div>
+            <button class="repo-btn" onclick="buyFromSeller()" ${state.cash < ps.price ? 'disabled' : ''}>${S.buyFromSeller} — $${ps.price}</button>
         </div>`;
     }
 
@@ -1483,9 +1590,16 @@ function scrapCar(id) {
     state.cash += jc.scrapValue;
     state.stats.carsScraped++;
     state.junkyardCars.splice(idx, 1);
+    let partMsg = '';
+    if (Math.random() < USED_PART_CHANCE) {
+        const type = Math.random() < 0.5 ? 'engine' : 'armor';
+        const quality = USED_QUALITY_MIN + Math.random() * (USED_QUALITY_MAX - USED_QUALITY_MIN);
+        state.usedParts.push({ type, quality: Math.round(quality * 100) / 100 });
+        partMsg = ' + ' + S.usedPartFound;
+    }
     saveGame(state);
     renderJunkyard();
-    showToast(S.scrapped + ' $' + jc.scrapValue + '!');
+    showToast(S.scrapped + ' $' + jc.scrapValue + '!' + partMsg);
     sfxScrap();
 }
 
@@ -1514,26 +1628,51 @@ function repairCar(id) {
 }
 
 function doRepoJob() {
-    if (state.cash < REPO_FEE || !state.repoAvailable) return;
-    state.cash -= REPO_FEE;
+    if (!state.repoAvailable) return;
     state.repoAvailable = false;
-
     const name = AI_CAR_NAMES[Math.floor(Math.random() * AI_CAR_NAMES.length)];
     state.junkyardCars.push({
         id: 'repo_' + Date.now(),
-        name: name,
-        engine: 1,
-        armor: 1,
-        paint: 'rust',
-        health: 0,
-        maxHealth: 100,
+        name: name, engine: 1, armor: 1, paint: 'rust',
+        health: 0, maxHealth: 100,
         scrapValue: 30 + Math.floor(Math.random() * 70),
         repairCost: 80 + Math.floor(Math.random() * 150)
     });
-
     saveGame(state);
     renderJunkyard();
     showToast(S.repoGot);
+}
+
+function generatePrivateSeller() {
+    if (Math.random() < PRIVATE_SELLER_CHANCE) {
+        const name = AI_CAR_NAMES[Math.floor(Math.random() * AI_CAR_NAMES.length)];
+        const eng = 1 + Math.floor(Math.random() * 3);
+        const arm = 1 + Math.floor(Math.random() * 3);
+        state.privateSeller = {
+            name, engine: eng, armor: arm,
+            price: 150 + (eng + arm - 2) * 75 + Math.floor(Math.random() * 100),
+            maxHealth: 100
+        };
+    } else {
+        state.privateSeller = null;
+    }
+}
+
+function buyFromSeller() {
+    const ps = state.privateSeller;
+    if (!ps || state.cash < ps.price) return;
+    state.cash -= ps.price;
+    state.junkyardCars.push({
+        id: 'seller_' + Date.now(),
+        name: ps.name, engine: ps.engine, armor: ps.armor, paint: 'rust',
+        health: 0, maxHealth: ps.maxHealth,
+        scrapValue: 40 + Math.floor(Math.random() * 80),
+        repairCost: 80 + Math.floor(Math.random() * 150)
+    });
+    state.privateSeller = null;
+    saveGame(state);
+    renderJunkyard();
+    showToast(S.sellerBought);
 }
 
 // ── Season / Prestige ──
