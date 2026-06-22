@@ -92,6 +92,10 @@ const S = {
     fireDriver: 'Fire',
     fireConfirm: 'Confirm?',
     fastForward: '2x',
+    sellCar: 'Sell',
+    sellConfirm: 'Confirm sell?',
+    soldCar: 'Sold',
+    cantSellLast: 'Can\'t sell your last car!',
     partsShop: 'Parts Shop',
     newPart: 'New',
     usedPart: 'Used',
@@ -503,7 +507,10 @@ function renderGarage() {
         <div class="car-card">
             <div class="car-card-header">
                 <span class="car-name">${car.name}</span>
-                <span style="color:var(--muted);font-size:12px">${S.health}: ${Math.round(car.health)}/${car.maxHealth}</span>
+                <span style="display:flex;align-items:center;gap:8px">
+                    <span style="color:var(--muted);font-size:12px">${S.health}: ${Math.round(car.health)}/${car.maxHealth}</span>
+                    ${state.cars.length > 1 ? `<button class="sell-car-btn" onclick="sellCar('${car.id}',this)">$${getCarSellPrice(car)} ${S.sellCar}</button>` : ''}
+                </span>
             </div>
             <div class="car-health-bar"><div class="car-health-fill ${hpClass}" style="width:${hpPct}%"></div></div>
             ${car.health < car.maxHealth ? (() => {
@@ -540,6 +547,38 @@ function selectCar(id) {
     state.activeCar = id;
     saveGame(state);
     renderGarage();
+}
+
+function getCarSellPrice(car) {
+    const base = 50;
+    const engValue = UPGRADE_COSTS.slice(0, car.engine).reduce((a, b) => a + b, 0);
+    const armValue = UPGRADE_COSTS.slice(0, car.armor).reduce((a, b) => a + b, 0);
+    return Math.round((base + (engValue + armValue) * 0.4) * (car.health / car.maxHealth + 0.2));
+}
+
+function sellCar(carId, btnEl) {
+    if (state.cars.length <= 1) { showToast(S.cantSellLast); return; }
+    if (btnEl && !btnEl.dataset.confirm) {
+        btnEl.dataset.confirm = '1';
+        btnEl.textContent = S.sellConfirm;
+        btnEl.classList.add('confirming');
+        setTimeout(() => { if (btnEl) { delete btnEl.dataset.confirm; const c = state.cars.find(x => x.id === carId); if (c) btnEl.textContent = '$' + getCarSellPrice(c) + ' ' + S.sellCar; btnEl.classList.remove('confirming'); } }, 2500);
+        return;
+    }
+    const idx = state.cars.findIndex(c => c.id === carId);
+    if (idx === -1) return;
+    const car = state.cars[idx];
+    const price = getCarSellPrice(car);
+    state.cash += price;
+    // Unassign any driver from this car
+    for (const d of state.drivers) { if (d.assignedCar === carId) d.assignedCar = null; }
+    state.derbyLineup = state.derbyLineup.filter(e => e.carId !== carId);
+    state.cars.splice(idx, 1);
+    if (state.activeCar === carId) state.activeCar = state.cars[0] ? state.cars[0].id : null;
+    saveGame(state);
+    renderGarage();
+    showToast(S.soldCar + ': ' + car.name + ' — $' + price);
+    sfxScrap();
 }
 
 function upgradeEngine() {
