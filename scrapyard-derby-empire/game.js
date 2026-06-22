@@ -879,18 +879,9 @@ function renderLineup() {
     const container = document.getElementById('lineup-content');
     if (!container || !state) return;
 
-    // Auto-build lineup from drivers with assigned healthy cars
-    const eligible = [];
-    for (const d of state.drivers) {
-        const car = d.assignedCar ? state.cars.find(c => c.id === d.assignedCar) : null;
-        const healthy = car && car.health > 0;
-        const inLineup = state.derbyLineup.some(e => e.driverId === d.id);
-        eligible.push({ driver: d, car, healthy, inLineup });
-    }
-
     // Clean stale lineup entries
     state.derbyLineup = state.derbyLineup.filter(e =>
-        eligible.some(el => el.driver.id === e.driverId && el.healthy)
+        state.cars.some(c => c.id === e.carId && c.health > 0)
     );
 
     const teamCount = state.derbyLineup.length;
@@ -902,56 +893,53 @@ function renderLineup() {
         '<div class="lineup-counts">' + S.lineupSlots.replace('{team}', teamCount).replace('{ai}', aiCount) + '</div>' +
     '</div>';
 
-    for (const el of eligible) {
-        const d = el.driver;
-        const skillDots = '★'.repeat(d.skill) + '☆'.repeat(5 - d.skill);
-        let status = '';
-        let canToggle = false;
+    // Car-centric: show every fleet car
+    for (const car of state.cars) {
+        const healthy = car.health > 0;
+        const driver = getDriverForCar(car.id);
+        const inLineup = state.derbyLineup.some(e => e.carId === car.id);
+        const hpPct = Math.round((car.health / car.maxHealth) * 100);
 
-        if (!el.car) {
-            status = '<span class="lineup-status unavail">' + S.lineupNoCar + '</span>';
-        } else if (!el.healthy) {
-            status = '<span class="lineup-status unavail">' + S.lineupWrecked + '</span>';
+        let driverLabel = '';
+        if (driver) {
+            const skillDots = '★'.repeat(driver.skill) + '☆'.repeat(5 - driver.skill);
+            driverLabel = '<span class="lineup-status avail">' + driver.name + ' ' + skillDots + '</span>';
         } else {
-            const hpPct = Math.round((el.car.health / el.car.maxHealth) * 100);
-            status = '<span class="lineup-status avail">' + el.car.name + ' (' + hpPct + '%)</span>';
-            canToggle = true;
+            driverLabel = '<span class="lineup-status" style="color:var(--muted)">No driver (skill 0)</span>';
         }
 
-        const checked = el.inLineup;
+        const canToggle = healthy;
+        const checked = inLineup;
         const disabledClass = !canToggle ? ' disabled' : '';
         const activeClass = checked ? ' active' : '';
         const atCap = teamCount >= MAX_TEAM_ENTRIES && !checked;
         const clickable = canToggle && !atCap;
 
         html += '<div class="lineup-entry' + activeClass + disabledClass + '"' +
-            (clickable || checked ? ' onclick="toggleLineupEntry(\'' + d.id + '\')"' : '') + '>' +
+            (clickable || checked ? ' onclick="toggleLineupCar(\'' + car.id + '\')"' : '') + '>' +
             '<div class="lineup-check">' + (checked ? '✓' : '') + '</div>' +
             '<div class="lineup-info">' +
-                '<div class="lineup-driver-name">' + d.name + '</div>' +
-                '<div class="lineup-driver-skill">' + skillDots + '</div>' +
-                status +
+                '<div class="lineup-driver-name">' + car.name + (healthy ? ' (' + hpPct + '%)' : ' [WRECKED]') + '</div>' +
+                '<div class="lineup-driver-skill">' + S.engine + ' ' + S.lvl + ' ' + car.engine + ' · ' + S.armor + ' ' + S.lvl + ' ' + car.armor + '</div>' +
+                driverLabel +
             '</div>' +
         '</div>';
     }
 
     container.innerHTML = html;
-
-    const enterBtn = document.getElementById('btn-enter-derby');
-    enterBtn.disabled = teamCount === 0;
+    document.getElementById('btn-enter-derby').disabled = teamCount === 0;
 }
 
-function toggleLineupEntry(driverId) {
-    const idx = state.derbyLineup.findIndex(e => e.driverId === driverId);
+function toggleLineupCar(carId) {
+    const idx = state.derbyLineup.findIndex(e => e.carId === carId);
     if (idx >= 0) {
         state.derbyLineup.splice(idx, 1);
     } else {
         if (state.derbyLineup.length >= MAX_TEAM_ENTRIES) return;
-        const driver = state.drivers.find(d => d.id === driverId);
-        if (!driver || !driver.assignedCar) return;
-        const car = state.cars.find(c => c.id === driver.assignedCar);
+        const car = state.cars.find(c => c.id === carId);
         if (!car || car.health <= 0) return;
-        state.derbyLineup.push({ driverId: driver.id, carId: car.id });
+        const driver = getDriverForCar(carId);
+        state.derbyLineup.push({ carId: car.id, driverId: driver ? driver.id : null });
     }
     saveGame(state);
     renderLineup();
@@ -1060,8 +1048,8 @@ async function initDerby() {
 
     for (const entry of state.derbyLineup) {
         const car = state.cars.find(c => c.id === entry.carId);
-        const driver = state.drivers.find(d => d.id === entry.driverId);
-        if (!car || !driver || car.health <= 0) continue;
+        if (!car || car.health <= 0) continue;
+        const driver = entry.driverId ? state.drivers.find(d => d.id === entry.driverId) : null;
         const paint = PAINT_OPTIONS.find(p => p.id === car.paint) || PAINT_OPTIONS[0];
         usedNames.add(car.name);
         derbyCars.push(createDerbyCar(derbyScene, {
@@ -1073,10 +1061,10 @@ async function initDerby() {
             isPlayer: true,
             isTeam: true,
             teamCarId: car.id,
-            teamDriverId: driver.id,
-            teamDriverName: driver.name,
+            teamDriverId: driver ? driver.id : null,
+            teamDriverName: driver ? driver.name : null,
             maxHealth: car.maxHealth,
-            driverSkill: driver.skill,
+            driverSkill: driver ? driver.skill : 0,
             engineQuality: car.engineQuality || 1,
             armorQuality: car.armorQuality || 1
         }));
