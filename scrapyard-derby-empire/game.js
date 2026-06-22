@@ -421,8 +421,7 @@ function renderGarage() {
             const cls = c.id === state.activeCar ? 'car-select-btn active' : 'car-select-btn';
             const wrecked = c.health <= 0;
             const hp = wrecked ? ' [WRECKED]' : '';
-            const dis = wrecked ? ' disabled' : '';
-            carSelectHtml += `<button class="${cls}" onclick="selectCar('${c.id}')"${dis}>${c.name}${hp}</button>`;
+            carSelectHtml += `<button class="${cls}${wrecked ? ' wrecked' : ''}" onclick="selectCar('${c.id}')">${c.name}${hp}</button>`;
         }
         carSelectHtml += '</div>';
     }

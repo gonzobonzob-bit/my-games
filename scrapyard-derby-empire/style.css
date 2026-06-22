@@ -644,6 +644,7 @@ body {
     cursor: pointer;
 }
 .car-select-btn.active { border-color: var(--accent2); background: var(--accent); color: #fff; }
+.car-select-btn.wrecked { opacity: 0.6; border-style: dashed; }
 .car-select-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ===== DERBY ===== */
