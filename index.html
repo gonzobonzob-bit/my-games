@@ -97,6 +97,10 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-plate{background:linear-gradient(180deg,#241c16 0%,#3a2a1c 45%,#5a3a22 75%,#1C1A18 100%);}
 .banner-plate::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% 95%,rgba(192,138,62,0.45) 0%,rgba(232,161,74,0.18) 40%,transparent 75%);}
 .banner-plate::after{content:'';position:absolute;left:50%;top:30%;transform:translateX(-50%);width:46%;height:34%;background:rgba(255,214,138,0.16);border-radius:4px;box-shadow:0 0 24px rgba(255,214,138,0.25);}
+/* Shadow Ledger — Noir City Rain */
+.banner-shadow{background:linear-gradient(180deg,#04060e 0%,#080d1a 40%,#0d1220 75%,#060810 100%);}
+.banner-shadow::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent,transparent 18px,rgba(255,140,0,0.04) 18px,rgba(255,140,0,0.04) 19px),repeating-linear-gradient(0deg,transparent,transparent 12px,rgba(34,102,255,0.03) 12px,rgba(34,102,255,0.03) 13px);}
+.banner-shadow::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 30% 60%,rgba(255,140,0,0.18) 0%,transparent 55%),radial-gradient(ellipse 40% 40% at 70% 40%,rgba(34,102,255,0.15) 0%,transparent 50%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -289,6 +293,16 @@ footer a{color:var(--purple);text-decoration:none;}
       <div class="card-desc">Quantum romance visual novel with branching choices, multiple endings, and an AI inner voice powered by Claude. Episodes 1–6 playable. Episodes 7–12 in development.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Eps 7–12 Missing</span></div>
+  </a>
+
+  <a class="card status-wip" href="shadow-ledger/index.html" data-tags="idle strategy" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-shadow"><span class="banner-emoji">🌆🔫</span><span class="card-badge badge-idle">Crime Idle</span></div>
+    <div class="card-body">
+      <div class="card-genre">🔫 Crime Tycoon · Idle</div>
+      <div class="card-title">Shadow Ledger</div>
+      <div class="card-desc">Run the El Paso underworld from the shadows. Manage crew, operations, front businesses, and faction politics across 4 districts. Passive income, heat management, loyalty systems. Babylon.js 3D top-down city.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 In Progress</span></div>
   </a>
 
   <!-- ===== DEV ===== -->

@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0a0a0f;
+  --panel:    rgba(13,13,20,0.95);
+  --amber:    #ff8c00;
+  --blue:     #2266ff;
+  --text:     #e8e0d0;
+  --muted:    #8a7a6a;
+  --danger:   #ff3333;
+  --success:  #22cc66;
+  --border:   rgba(255,140,0,0.3);
+  --border-h: rgba(255,140,0,0.7);
+}
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family: 'Cinzel', Georgia, serif; }
+
+/* ─── BABYLON CANVAS ─── */
+#renderCanvas {
+  position:fixed; top:0; left:0; width:100%; height:100%; z-index:0;
+  display:none; touch-action:none;
+}
+
+/* ─── HUD ─── */
+#hud {
+  position:fixed; top:0; left:0; right:0; height:50px; z-index:100;
+  background:rgba(5,5,10,0.97); border-bottom:1px solid var(--border);
+  display:none; align-items:center; gap:8px; padding:0 12px;
+  font-family:'Cinzel',serif;
+}
+#hud-cash { color:var(--amber); font-size:0.85rem; font-weight:600; min-width:90px; white-space:nowrap; }
+#hud-heat-wrap { display:flex; align-items:center; gap:5px; }
+#hud-heat-label { color:var(--muted); font-size:0.7rem; }
+#hud-heat-bar-bg { width:60px; height:8px; background:#1a1a22; border-radius:4px; overflow:hidden; border:1px solid var(--border); }
+#hud-heat-bar { height:100%; width:5%; background:var(--success); border-radius:4px; transition:width 0.4s, background 0.4s; }
+#hud-title { color:var(--muted); font-size:0.75rem; flex:1; text-align:center; letter-spacing:0.1em; }
+#hud-rep { display:flex; gap:5px; }
+.rep-badge { background:rgba(255,140,0,0.1); border:1px solid var(--border); border-radius:4px; padding:2px 6px; font-size:0.65rem; color:var(--text); display:flex; flex-direction:column; align-items:center; gap:1px; }
+.rep-badge span:first-child { color:var(--muted); font-size:0.55rem; letter-spacing:0.05em; }
+.rep-badge span:last-child { color:var(--amber); font-weight:700; }
+#hud-nav { display:flex; gap:4px; }
+.nav-btn {
+  background:transparent; border:1px solid var(--border); color:var(--text);
+  padding:4px 9px; font-family:'Cinzel',serif; font-size:0.65rem; cursor:pointer;
+  border-radius:3px; letter-spacing:0.05em; transition:all 0.2s;
+}
+.nav-btn:hover, .nav-btn.active { background:rgba(255,140,0,0.15); border-color:var(--amber); color:var(--amber); }
+.nav-btn.danger { border-color:rgba(255,51,51,0.4); }
+.nav-btn.danger:hover { background:rgba(255,51,51,0.15); border-color:var(--danger); color:var(--danger); }
+
+/* ─── SCREENS BASE ─── */
+.screen {
+  position:fixed; top:0; left:0; right:0; bottom:0; z-index:10;
+  display:none; overflow:hidden;
+}
+.screen.active { display:block; }
+.screen-inner { position:absolute; top:50px; left:0; right:0; bottom:0; overflow-y:auto; padding:20px; }
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:#0a0a0f; }
+::-webkit-scrollbar-thumb { background:rgba(255,140,0,0.3); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(255,140,0,0.6); }
+
+/* ─── PANEL ─── */
+.panel {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:6px; padding:16px;
+  transition:border-color 0.2s;
+}
+.panel:hover { border-color:var(--border-h); }
+.panel-title {
+  font-family:'Cinzel',serif; font-size:0.9rem; font-weight:600;
+  color:var(--amber); letter-spacing:0.1em; text-transform:uppercase;
+  margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);
+}
+.section-title {
+  font-family:'Cinzel',serif; font-size:0.75rem; color:var(--muted);
+  letter-spacing:0.15em; text-transform:uppercase; margin-bottom:10px;
+}
+
+/* ─── BUTTONS ─── */
+.btn {
+  background:rgba(255,140,0,0.1); border:1px solid var(--border);
+  color:var(--text); padding:7px 14px; font-family:'Cinzel',serif;
+  font-size:0.75rem; cursor:pointer; border-radius:4px;
+  letter-spacing:0.05em; transition:all 0.2s; white-space:nowrap;
+}
+.btn:hover { background:rgba(255,140,0,0.25); border-color:var(--amber); color:var(--amber); }
+.btn:disabled { opacity:0.4; cursor:not-allowed; }
+.btn.primary { background:rgba(255,140,0,0.2); border-color:var(--amber); color:var(--amber); }
+.btn.primary:hover { background:rgba(255,140,0,0.4); }
+.btn.danger { background:rgba(255,51,51,0.1); border-color:rgba(255,51,51,0.4); color:#ff6666; }
+.btn.danger:hover { background:rgba(255,51,51,0.25); border-color:var(--danger); }
+.btn.success { background:rgba(34,204,102,0.1); border-color:rgba(34,204,102,0.4); color:var(--success); }
+.btn.success:hover { background:rgba(34,204,102,0.25); border-color:var(--success); }
+.btn.small { padding:3px 8px; font-size:0.65rem; }
+
+/* ─── BARS ─── */
+.bar-bg { width:100%; height:7px; background:#1a1a22; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.05); }
+.bar-fill { height:100%; border-radius:4px; transition:width 0.4s, background 0.4s; }
+.loyalty-bar .bar-fill { background:var(--danger); }
+.loyalty-bar .bar-fill.mid { background:#ffaa00; }
+.loyalty-bar .bar-fill.high { background:var(--success); }
+.heat-bar-fill { background:var(--success); }
+.heat-bar-fill.warm { background:#ffaa00; }
+.heat-bar-fill.hot { background:#ff6600; }
+.heat-bar-fill.danger { background:var(--danger); }
+
+/* ─── TAGS ─── */
+.tag {
+  display:inline-block; padding:2px 8px; border-radius:3px;
+  font-size:0.65rem; font-weight:600; letter-spacing:0.05em; font-family:'Cinzel',serif;
+}
+.tag.controlled { background:rgba(34,204,102,0.15); color:var(--success); border:1px solid rgba(34,204,102,0.3); }
+.tag.contested { background:rgba(255,170,0,0.15); color:#ffaa00; border:1px solid rgba(255,170,0,0.3); }
+.tag.enemy { background:rgba(255,51,51,0.15); color:var(--danger); border:1px solid rgba(255,51,51,0.3); }
+.tag.active { background:rgba(34,204,102,0.15); color:var(--success); border:1px solid rgba(34,204,102,0.3); }
+.tag.inactive { background:rgba(138,122,106,0.15); color:var(--muted); border:1px solid rgba(138,122,106,0.3); }
+.tag.allied { background:rgba(34,204,102,0.15); color:var(--success); border:1px solid rgba(34,204,102,0.3); }
+.tag.neutral { background:rgba(34,102,255,0.15); color:#66aaff; border:1px solid rgba(34,102,255,0.3); }
+.tag.wary { background:rgba(255,170,0,0.15); color:#ffaa00; border:1px solid rgba(255,170,0,0.3); }
+.tag.hostile { background:rgba(255,51,51,0.15); color:var(--danger); border:1px solid rgba(255,51,51,0.3); }
+
+/* ─── GRID HELPERS ─── */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.flex-row { display:flex; align-items:center; gap:8px; }
+.flex-between { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.flex-col { display:flex; flex-direction:column; gap:8px; }
+.gap-4 { gap:4px; }
+.gap-12 { gap:12px; }
+.mt-4 { margin-top:4px; }
+.mt-8 { margin-top:8px; }
+.mt-12 { margin-top:12px; }
+.text-sm { font-size:0.75rem; }
+.text-xs { font-size:0.65rem; }
+.text-muted { color:var(--muted); }
+.text-amber { color:var(--amber); }
+.text-success { color:var(--success); }
+.text-danger { color:var(--danger); }
+.font-title { font-family:'Cinzel',serif; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 1: MAIN MENU
+═══════════════════════════════════════════════════ */
+#screen-menu {
+  background: radial-gradient(ellipse at 30% 60%, #0d1a2a 0%, #050508 60%, #000005 100%);
+  z-index:200; display:flex; align-items:center; justify-content:center;
+}
+#screen-menu.active { display:flex; }
+.menu-inner { text-align:center; position:relative; z-index:2; }
+.menu-title {
+  font-family:'Cinzel Decorative', 'Cinzel', serif;
+  font-size:clamp(2.5rem, 6vw, 5rem); font-weight:700;
+  color:var(--amber); letter-spacing:0.15em; text-shadow:0 0 40px rgba(255,140,0,0.5), 0 2px 4px rgba(0,0,0,0.8);
+  line-height:1.1;
+}
+.menu-tagline {
+  font-family:'Cinzel',serif; font-style:italic;
+  font-size:clamp(0.85rem, 1.5vw, 1.1rem); color:var(--muted);
+  letter-spacing:0.2em; margin-top:8px; margin-bottom:40px;
+}
+.menu-buttons { display:flex; flex-direction:column; align-items:center; gap:14px; }
+.menu-btn {
+  background:rgba(255,140,0,0.07); border:1px solid rgba(255,140,0,0.35);
+  color:var(--text); padding:12px 48px; font-family:'Cinzel',serif;
+  font-size:0.95rem; font-weight:600; cursor:pointer; border-radius:4px;
+  letter-spacing:0.2em; transition:all 0.3s; min-width:220px;
+  text-transform:uppercase;
+}
+.menu-btn:hover { background:rgba(255,140,0,0.2); border-color:var(--amber); color:var(--amber); box-shadow:0 0 20px rgba(255,140,0,0.2); }
+/* CSS rain on menu */
+.menu-rain { position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden; pointer-events:none; }
+.rain-drop {
+  position:absolute; width:1px; background:rgba(180,220,255,0.3);
+  animation:rain-fall linear infinite;
+}
+@keyframes rain-fall { from { transform:translateY(-20px); } to { transform:translateY(110vh); } }
+.menu-location { font-size:0.65rem; color:rgba(138,122,106,0.5); letter-spacing:0.3em; text-transform:uppercase; margin-top:50px; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 2: CITY VIEW
+═══════════════════════════════════════════════════ */
+#screen-city { background:transparent; }
+#screen-city.active { display:block; }
+#renderCanvas { }
+#district-panel {
+  position:absolute; right:16px; top:66px; width:260px;
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:6px; padding:16px; z-index:20;
+  display:none;
+}
+#district-panel.visible { display:block; }
+#dp-name { font-family:'Cinzel',serif; font-size:1rem; font-weight:600; color:var(--amber); margin-bottom:10px; }
+.dp-row { display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-bottom:8px; }
+.dp-row span:first-child { color:var(--muted); }
+#city-hint {
+  position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+  background:rgba(13,13,20,0.85); border:1px solid var(--border);
+  padding:8px 20px; border-radius:20px;
+  font-size:0.7rem; color:var(--muted); letter-spacing:0.1em;
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 3: OPERATIONS
+═══════════════════════════════════════════════════ */
+#ops-income-banner {
+  background:rgba(255,140,0,0.07); border:1px solid var(--border);
+  border-radius:6px; padding:12px 16px; margin-bottom:16px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+#ops-income-banner .banner-val { font-size:1.2rem; color:var(--amber); font-weight:700; }
+#ops-income-banner .banner-lbl { font-size:0.7rem; color:var(--muted); }
+.op-card {
+  background:var(--panel); border:1px solid var(--border); border-radius:6px;
+  padding:14px; margin-bottom:10px; transition:border-color 0.2s;
+}
+.op-card:hover { border-color:var(--border-h); }
+.op-card.running { border-color:rgba(34,204,102,0.4); }
+.op-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.op-name { font-family:'Cinzel',serif; font-size:0.85rem; font-weight:600; }
+.op-stats { display:flex; gap:16px; font-size:0.7rem; color:var(--muted); margin-bottom:10px; }
+.op-stats span { display:flex; flex-direction:column; gap:2px; }
+.op-stats strong { color:var(--text); font-size:0.8rem; }
+.op-crew-row { display:flex; align-items:center; gap:8px; font-size:0.75rem; }
+.op-crew-row .crew-count { color:var(--amber); min-width:20px; text-align:center; font-weight:700; }
+
+/* upgrade tree modal */
+#upgrade-modal {
+  display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.85); z-index:500; align-items:center; justify-content:center;
+}
+#upgrade-modal.open { display:flex; }
+#upgrade-modal-inner {
+  background:#0d0d14; border:1px solid var(--border); border-radius:8px;
+  padding:24px; width:min(700px,95vw); max-height:85vh; overflow-y:auto;
+}
+.upgrade-trees { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+.upgrade-tree-title { font-family:'Cinzel',serif; font-size:0.8rem; color:var(--amber); margin-bottom:10px; letter-spacing:0.1em; text-transform:uppercase; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.upgrade-node {
+  background:rgba(255,140,0,0.05); border:1px solid var(--border);
+  border-radius:5px; padding:10px; margin-bottom:8px; transition:all 0.2s;
+}
+.upgrade-node.unlocked { border-color:rgba(34,204,102,0.4); background:rgba(34,204,102,0.05); }
+.upgrade-node.available { cursor:pointer; }
+.upgrade-node.available:hover { border-color:var(--amber); background:rgba(255,140,0,0.1); }
+.upgrade-node.locked { opacity:0.45; }
+.upgrade-node-name { font-size:0.75rem; font-weight:600; color:var(--text); margin-bottom:4px; font-family:'Cinzel',serif; }
+.upgrade-node-desc { font-size:0.65rem; color:var(--muted); margin-bottom:6px; }
+.upgrade-node-cost { font-size:0.7rem; color:var(--amber); }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 4: CREW
+═══════════════════════════════════════════════════ */
+.crew-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; }
+.crew-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:6px; padding:14px; transition:border-color 0.2s;
+}
+.crew-card:hover { border-color:var(--border-h); }
+.crew-name { font-family:'Cinzel',serif; font-size:0.85rem; font-weight:600; color:var(--text); margin-bottom:2px; }
+.crew-role { font-size:0.65rem; color:var(--amber); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:10px; }
+.crew-loyalty-row { display:flex; align-items:center; justify-content:space-between; font-size:0.65rem; color:var(--muted); margin-bottom:4px; }
+.crew-assign { font-size:0.65rem; color:var(--muted); margin-top:8px; font-style:italic; }
+.crew-hire-panel { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; align-items:center; }
+.role-hire-btn { }
+.crew-pool-info { font-size:0.75rem; color:var(--muted); }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 5: BUSINESSES
+═══════════════════════════════════════════════════ */
+.biz-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:6px; padding:16px; transition:border-color 0.2s;
+}
+.biz-card:hover { border-color:var(--border-h); }
+.biz-name { font-family:'Cinzel',serif; font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:4px; }
+.biz-tier-dots { display:flex; gap:5px; margin-bottom:10px; }
+.tier-dot { width:10px; height:10px; border-radius:50%; border:1px solid var(--border); }
+.tier-dot.filled { background:var(--amber); border-color:var(--amber); }
+.biz-stats { font-size:0.75rem; color:var(--muted); margin-bottom:12px; line-height:1.8; }
+.biz-stats strong { color:var(--text); }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 6: FACTIONS
+═══════════════════════════════════════════════════ */
+.faction-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:6px; padding:20px; transition:border-color 0.2s;
+}
+.faction-card:hover { border-color:var(--border-h); }
+.faction-name { font-family:'Cinzel',serif; font-size:1rem; font-weight:600; color:var(--text); margin-bottom:4px; }
+.faction-score-row { display:flex; align-items:center; justify-content:space-between; font-size:0.75rem; margin:10px 0 5px; }
+.faction-desc { font-size:0.7rem; color:var(--muted); margin-top:8px; line-height:1.6; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 7: WORLD MAP
+═══════════════════════════════════════════════════ */
+#screen-worldmap { background:radial-gradient(ellipse at 50% 50%, #080b12 0%, #03040a 100%); }
+#screen-worldmap.active { display:block; }
+.wm-inner { padding:20px; padding-top:70px; }
+.wm-title { font-family:'Cinzel',serif; font-size:1.2rem; color:var(--amber); letter-spacing:0.2em; text-align:center; margin-bottom:6px; }
+.wm-subtitle { font-size:0.75rem; color:var(--muted); text-align:center; letter-spacing:0.1em; margin-bottom:30px; }
+.wm-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; max-width:700px; margin:0 auto 20px; }
+.wm-district-box {
+  border-radius:8px; border:1px solid; padding:16px; text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:6px; cursor:default;
+}
+.wm-district-box.active { border-color:rgba(255,140,0,0.5); background:rgba(255,140,0,0.08); }
+.wm-district-box.active .wm-district-name { color:var(--amber); }
+.wm-district-box.locked { border-color:rgba(100,100,120,0.2); background:rgba(40,40,60,0.2); opacity:0.5; }
+.wm-district-box.locked .wm-district-name { color:rgba(138,122,106,0.6); }
+.wm-district-name { font-family:'Cinzel',serif; font-size:0.75rem; font-weight:600; letter-spacing:0.1em; }
+.wm-lock-icon { font-size:1.2rem; opacity:0.4; }
+.wm-district-status { font-size:0.6rem; letter-spacing:0.15em; text-transform:uppercase; }
+.wm-expand-msg { font-size:0.7rem; color:var(--muted); text-align:center; letter-spacing:0.1em; font-style:italic; margin-top:10px; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 8: SETTINGS
+═══════════════════════════════════════════════════ */
+.save-slot-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:6px; padding:16px; margin-bottom:12px;
+  transition:border-color 0.2s;
+}
+.save-slot-card:hover { border-color:var(--border-h); }
+.save-slot-name { font-family:'Cinzel',serif; font-size:0.85rem; font-weight:600; color:var(--amber); margin-bottom:6px; }
+.save-slot-info { font-size:0.7rem; color:var(--muted); margin-bottom:10px; line-height:1.7; }
+.save-slot-info strong { color:var(--text); }
+.save-slot-btns { display:flex; gap:8px; flex-wrap:wrap; }
+.autosave-banner {
+  background:rgba(34,204,102,0.07); border:1px solid rgba(34,204,102,0.3);
+  border-radius:6px; padding:12px 16px; margin-bottom:16px;
+  font-size:0.75rem; color:var(--success);
+}
+
+/* ─── NOTIFICATION TOAST ─── */
+#toast {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:rgba(13,13,20,0.97); border:1px solid var(--amber);
+  color:var(--text); padding:8px 20px; border-radius:20px;
+  font-size:0.75rem; letter-spacing:0.05em;
+  z-index:9999; opacity:0; transition:opacity 0.3s;
+  pointer-events:none; white-space:nowrap; max-width:90vw;
+}
+#toast.show { opacity:1; }
+
+/* ─── MOBILE FALLBACK ─── */
+@media (max-width:640px) {
+  .upgrade-trees { grid-template-columns:1fr; }
+  .wm-grid { grid-template-columns:repeat(3,1fr); }
+  .grid-2 { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Babylon.js Canvas (always present, shown on city screen) -->
+<canvas id="renderCanvas"></canvas>
+
+<!-- ─── TOAST ─── -->
+<div id="toast"></div>
+
+<!-- ─── UPGRADE MODAL (global) ─── -->
+<div id="upgrade-modal">
+  <div id="upgrade-modal-inner">
+    <div class="flex-between" style="margin-bottom:16px;">
+      <div class="panel-title" style="margin:0;border:none;padding:0;">Upgrade Trees</div>
+      <button class="btn small" onclick="closeUpgradeModal()">✕ Close</button>
+    </div>
+    <div class="upgrade-trees" id="upgrade-trees-container"></div>
+  </div>
+</div>
+
+<!-- ─── HUD ─── -->
+<div id="hud">
+  <div id="hud-cash">$0</div>
+  <div id="hud-heat-wrap">
+    <span id="hud-heat-label">HEAT</span>
+    <div id="hud-heat-bar-bg"><div id="hud-heat-bar"></div></div>
+    <span id="hud-heat-val" style="font-size:0.65rem;color:var(--muted);min-width:28px;">0%</span>
+  </div>
+  <div id="hud-title">— The Outsider —</div>
+  <div id="hud-rep">
+    <div class="rep-badge"><span>RESP</span><span id="rep-respect">0</span></div>
+    <div class="rep-badge"><span>FEAR</span><span id="rep-fear">0</span></div>
+    <div class="rep-badge"><span>LOYA</span><span id="rep-loyalty">0</span></div>
+    <div class="rep-badge"><span>GHST</span><span id="rep-ghost">0</span></div>
+  </div>
+  <div id="hud-nav">
+    <button class="nav-btn" onclick="showScreen('city')" id="nav-city">City</button>
+    <button class="nav-btn" onclick="showScreen('ops')" id="nav-ops">Ops</button>
+    <button class="nav-btn" onclick="showScreen('crew')" id="nav-crew">Crew</button>
+    <button class="nav-btn" onclick="showScreen('biz')" id="nav-biz">Biz</button>
+    <button class="nav-btn" onclick="showScreen('faction')" id="nav-faction">Factions</button>
+    <button class="nav-btn" onclick="showScreen('worldmap')" id="nav-worldmap">Map</button>
+    <button class="nav-btn" onclick="showScreen('settings')" id="nav-settings">Save</button>
+    <button class="nav-btn danger" onclick="showScreen('menu')" id="nav-menu">Menu</button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 1: MENU ═══ -->
+<div id="screen-menu" class="screen active">
+  <div class="menu-rain" id="menu-rain"></div>
+  <div class="menu-inner">
+    <div class="menu-title" id="menu-title-text"></div>
+    <div class="menu-tagline" id="menu-tagline-text"></div>
+    <div class="menu-buttons">
+      <button class="menu-btn" onclick="startNewGame()" id="btn-new-game"></button>
+      <button class="menu-btn" onclick="showLoadMenu()" id="btn-load"></button>
+      <button class="menu-btn" onclick="showScreen('settings')" id="btn-settings-menu"></button>
+    </div>
+    <div class="menu-location" id="menu-location-text"></div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 2: CITY ═══ -->
+<div id="screen-city" class="screen">
+  <div id="district-panel">
+    <div id="dp-name">District</div>
+    <div class="dp-row"><span>Status</span><span id="dp-status"></span></div>
+    <div class="dp-row"><span>Income/sec</span><span id="dp-income" class="text-amber"></span></div>
+    <div class="dp-row"><span>Control</span><span id="dp-control" class="text-muted"></span></div>
+    <div style="margin-top:12px;font-size:0.65rem;color:var(--muted);line-height:1.6;" id="dp-desc"></div>
+  </div>
+  <div id="city-hint">Click a district to view info</div>
+</div>
+
+<!-- ═══ SCREEN 3: OPERATIONS ═══ -->
+<div id="screen-ops" class="screen">
+  <div class="screen-inner">
+    <div id="ops-income-banner">
+      <div><div class="banner-lbl">TOTAL INCOME / SEC</div><div class="banner-val" id="ops-total-income">$0.00</div></div>
+      <div><div class="banner-lbl">HEAT / SEC</div><div class="banner-val" id="ops-total-heat" style="color:var(--danger);">+0.00</div></div>
+      <button class="btn small" onclick="openUpgradeModal()">⬆ Upgrades</button>
+    </div>
+    <div id="ops-list"></div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 4: CREW ═══ -->
+<div id="screen-crew" class="screen">
+  <div class="screen-inner">
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title">Hire Crew</div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:10px;" id="crew-pool-display"></div>
+      <div class="crew-hire-panel" id="crew-hire-panel"></div>
+    </div>
+    <div class="panel-title" style="margin-bottom:12px;">Active Crew</div>
+    <div class="crew-grid" id="crew-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 5: BUSINESSES ═══ -->
+<div id="screen-biz" class="screen">
+  <div class="screen-inner">
+    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px;" id="biz-passive-info"></div>
+    <div class="grid-2" id="biz-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 6: FACTIONS ═══ -->
+<div id="screen-faction" class="screen">
+  <div class="screen-inner">
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title">Faction Relations</div>
+      <div style="font-size:0.75rem;color:var(--muted);" id="faction-intro"></div>
+    </div>
+    <div class="grid-3" id="faction-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 7: WORLD MAP ═══ -->
+<div id="screen-worldmap" class="screen">
+  <div class="wm-inner">
+    <div class="wm-title" id="wm-title-text"></div>
+    <div class="wm-subtitle" id="wm-subtitle-text"></div>
+    <div class="wm-grid" id="wm-grid"></div>
+    <div class="wm-expand-msg" id="wm-expand-msg"></div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 8: SETTINGS ═══ -->
+<div id="screen-settings" class="screen">
+  <div class="screen-inner">
+    <div class="autosave-banner" id="autosave-status">Autosave: Active — saves every 30 seconds</div>
+    <div id="save-slots-container"></div>
+  </div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   STRING CONSTANTS
+══════════════════════════════════════════════════════ */
+const STRINGS = {
+  TITLE: "Shadow Ledger",
+  TAGLINE: "Fair until I can't be",
+  BTN_NEW_GAME: "New Game",
+  BTN_LOAD: "Load Game",
+  BTN_SETTINGS: "Settings",
+  LOCATION: "El Paso, TX — Across the River",
+  CHARACTER_TITLE: "The Outsider",
+
+  // HUD
+  HUD_CASH: "Cash",
+  HUD_HEAT: "Heat",
+
+  // Screens
+  NAV_CITY: "City",
+  NAV_OPS: "Ops",
+  NAV_CREW: "Crew",
+  NAV_BIZ: "Biz",
+  NAV_FACTIONS: "Factions",
+  NAV_MAP: "Map",
+  NAV_SAVE: "Save",
+  NAV_MENU: "Menu",
+
+  // Districts
+  DISTRICT_WESTEP: "West EP",
+  DISTRICT_DOWNTOWN: "Downtown",
+  DISTRICT_BORDER: "Border Zone",
+  DISTRICT_JUAREZ: "Juárez Plaza",
+  DISTRICT_DESC_WESTEP: "Industrial warehouses and working-class barrios. Quiet money moves through here day and night.",
+  DISTRICT_DESC_DOWNTOWN: "City hall, finance, lawyers. Everyone here has something to hide. You own the shadows.",
+  DISTRICT_DESC_BORDER: "The crossing point. Contested ground — Los Fronterizos want it bad, and so do we.",
+  DISTRICT_DESC_JUAREZ: "Across the river. Enemy territory. La Sombra runs this, but nothing lasts forever.",
+
+  // Status
+  STATUS_CONTROLLED: "Controlled",
+  STATUS_CONTESTED: "Contested",
+  STATUS_ENEMY: "Enemy",
+
+  // Operations
+  OP_STREETTAX: "Street Tax",
+  OP_DRUGRUN: "Drug Run",
+  OP_PROTECTION: "Protection Racket",
+  OP_SMUGGLING: "Smuggling Route",
+  OP_INFOBROKER: "Information Broker",
+  OP_TERRITORY: "Territory Expansion",
+  OP_DESC_STREETTAX: "Collect tribute from local businesses. Low risk, steady flow.",
+  OP_DESC_DRUGRUN: "Move product through the corridors. High income, high heat.",
+  OP_DESC_PROTECTION: "Offer insurance policies nobody can refuse. Moderate risk.",
+  OP_DESC_SMUGGLING: "Cross-border logistics. Very profitable. Very dangerous.",
+  OP_DESC_INFOBROKER: "Trade in secrets and silence. Low heat, moderate income.",
+  OP_DESC_TERRITORY: "Push the boundary, claim new blocks. High heat, long game.",
+  OP_ACTIVE: "Active",
+  OP_INACTIVE: "Inactive",
+  OP_ACTIVATE: "Activate",
+  OP_DEACTIVATE: "Deactivate",
+  OP_INCOME: "Income/s",
+  OP_HEAT: "Heat/s",
+  OP_CREW: "Crew",
+
+  // Crew
+  CREW_RUNNER: "Runner",
+  CREW_SOLDIER: "Soldier",
+  CREW_FIXER: "Fixer",
+  CREW_SPECIALIST: "Specialist",
+  CREW_LOYALTY: "Loyalty",
+  CREW_ASSIGNED: "Assigned to:",
+  CREW_UNASSIGNED: "Unassigned",
+  CREW_HIRE: "Hire",
+  CREW_FIRE: "Fire",
+  CREW_HIRE_COST: "$500",
+  CREW_FIRE_REFUND: "+$250 refund",
+  CREW_MAX: "Crew at capacity (12 max)",
+  CREW_POOL_INFO: "Unassigned crew: {n} | Total crew: {t} / 12",
+
+  // Businesses
+  BIZ_TAQUERIA: "La Taquería Sombra",
+  BIZ_AUTOSHOP: "El Paso Auto Works",
+  BIZ_IMPORTEXPORT: "Frontera Import-Export",
+  BIZ_NIGHTCLUB: "Club Oscuro",
+  BIZ_LOCKED: "Locked",
+  BIZ_OPEN_COST: "Open for",
+  BIZ_UPGRADE: "Upgrade to Tier",
+  BIZ_TIER: "Tier",
+  BIZ_INCOME: "Income/s:",
+  BIZ_HEAT_REDUCTION: "Heat reduction:",
+  BIZ_PASSIVE: "Total business income: {n}/sec",
+
+  // Factions
+  FACTION_FRONTERIZOS: "Los Fronterizos",
+  FACTION_SOMBRA: "La Sombra",
+  FACTION_CROSSINGS: "Crossings Crew",
+  FACTION_INTRO: "Keep your friends close and your enemies guessing. Relations shift over time based on your operations.",
+  FACTION_ALLIED: "Allied",
+  FACTION_NEUTRAL: "Neutral",
+  FACTION_WARY: "Wary",
+  FACTION_HOSTILE: "Hostile",
+  FACTION_DESC_FRONTERIZOS: "Old money and older debts. They run the western corridors and respect power. The Border Zone is their prize.",
+  FACTION_DESC_SOMBRA: "Shadowy operators from across the river. Professional, dangerous, territorial. Tread carefully.",
+  FACTION_DESC_CROSSINGS: "Local crew with deep roots. Unpredictable but loyal to whoever holds Downtown.",
+
+  // World Map
+  WM_TITLE: "Territory Overview",
+  WM_SUBTITLE: "El Paso & Greater Region",
+  WM_EXPAND: "Expand your territory to unlock new districts — invest in Territory Expansion operations.",
+
+  // Settings
+  SAVE_SLOT: "Save Slot",
+  SAVE_HERE: "Save Here",
+  LOAD_SLOT: "Load",
+  CLEAR_SLOT: "Clear",
+  SAVE_EMPTY: "No save data",
+  AUTOSAVE: "Autosave",
+  AUTOSAVE_ACTIVE: "Autosave active — triggers every 30 seconds",
+
+  // Upgrades
+  UPG_OPS_T1: "Street Network",
+  UPG_OPS_T1_DESC: "+10% income from all operations",
+  UPG_OPS_T2: "Shadow Routes",
+  UPG_OPS_T2_DESC: "+25% income from all operations",
+  UPG_OPS_T3: "Ghost Protocol",
+  UPG_OPS_T3_DESC: "+50% op income, -20% heat generated",
+  UPG_CREW_T1: "Vetting",
+  UPG_CREW_T1_DESC: "+10 loyalty to all current crew",
+  UPG_CREW_T2: "Training Camp",
+  UPG_CREW_T2_DESC: "+25% loyalty gain rate for all crew",
+  UPG_CREW_T3: "Elite Squad",
+  UPG_CREW_T3_DESC: "Crew cap +4, minimum loyalty floor = 40",
+  UPG_TERR_T1: "Foothold",
+  UPG_TERR_T1_DESC: "+1 income multiplier to all districts",
+  UPG_TERR_T2: "Stronghold",
+  UPG_TERR_T2_DESC: "+2 district income, unlock additional op slot",
+  UPG_TERR_T3: "Iron Grip",
+  UPG_TERR_T3_DESC: "All district income x2",
+
+  // Toast messages
+  TOAST_NEW_GAME: "New game started. Welcome to El Paso.",
+  TOAST_SAVED: "Game saved.",
+  TOAST_LOADED: "Game loaded.",
+  TOAST_CLEARED: "Save slot cleared.",
+  TOAST_NO_SAVE: "No save data in that slot.",
+  TOAST_CANT_AFFORD: "Not enough cash.",
+  TOAST_CREW_MAX: "Crew roster is full.",
+  TOAST_HIRED: "{name} hired as {role}.",
+  TOAST_FIRED: "{name} cut loose.",
+  TOAST_BIZ_OPENED: "{name} is now open for business.",
+  TOAST_BIZ_UPGRADED: "{name} upgraded to Tier {tier}.",
+  TOAST_UPG_UNLOCKED: "Upgrade unlocked: {name}.",
+  TOAST_OP_ACTIVE: "{name} operation activated.",
+  TOAST_OP_DEACTIVE: "{name} operation deactivated.",
+};
+
+/* ══════════════════════════════════════════════════════
+   GAME STATE
+══════════════════════════════════════════════════════ */
+const gameState = {
+  cash: 1000,
+  heat: 5,
+  reputation: { respect: 10, fear: 5, loyalty: 10, ghost: 15 },
+  characterTitle: STRINGS.CHARACTER_TITLE,
+  playtime: 0,
+  crew: [],
+  operations: {},
+  businesses: {},
+  factions: {},
+  districts: {},
+  upgrades: {}
+};
+
+/* ── Definitions ── */
+const CREW_NAMES = {
+  Runner:     ["Marco", "Elena", "Cisco", "Yolanda", "Beto", "Lupe"],
+  Soldier:    ["Rudy", "Carmen", "Toro", "Mando", "Flaca", "Chato"],
+  Fixer:      ["Abuela", "Licenciado", "Doc", "La Fiera", "Slick"],
+  Specialist: ["El Técnico", "Sombra", "Ghost", "Cipher", "La Araña"]
+};
+const CREW_ROLES = ["Runner", "Soldier", "Fixer", "Specialist"];
+
+const OPERATIONS_DEF = [
+  { id:"streettax",   name:STRINGS.OP_STREETTAX,   desc:STRINGS.OP_DESC_STREETTAX,   basIncome:0.8,  heatPerSec:0.05 },
+  { id:"drugrun",     name:STRINGS.OP_DRUGRUN,      desc:STRINGS.OP_DESC_DRUGRUN,     basIncome:2.5,  heatPerSec:0.4  },
+  { id:"protection",  name:STRINGS.OP_PROTECTION,   desc:STRINGS.OP_DESC_PROTECTION,  basIncome:1.5,  heatPerSec:0.2  },
+  { id:"smuggling",   name:STRINGS.OP_SMUGGLING,    desc:STRINGS.OP_DESC_SMUGGLING,   basIncome:4.0,  heatPerSec:0.7  },
+  { id:"infobroker",  name:STRINGS.OP_INFOBROKER,   desc:STRINGS.OP_DESC_INFOBROKER,  basIncome:1.2,  heatPerSec:0.08 },
+  { id:"territory",   name:STRINGS.OP_TERRITORY,    desc:STRINGS.OP_DESC_TERRITORY,   basIncome:0.5,  heatPerSec:0.9  },
+];
+
+const BUSINESSES_DEF = [
+  {
+    id:"taqueria", name:STRINGS.BIZ_TAQUERIA, openCost:800,
+    tiers:[
+      { upgradeCost:1000,  incomePerSec:2,  heatReduction:0, label:"Fresh tortillas, steady flow."  },
+      { upgradeCost:5000,  incomePerSec:4,  heatReduction:5, label:"Expanded menu, second location." },
+      { upgradeCost:15000, incomePerSec:8,  heatReduction:10,label:"Franchise front. Full coverage."  },
+    ]
+  },
+  {
+    id:"autoshop", name:STRINGS.BIZ_AUTOSHOP, openCost:1500,
+    tiers:[
+      { upgradeCost:1000,  incomePerSec:3,  heatReduction:0, label:"Basic repairs, clean books."    },
+      { upgradeCost:5000,  incomePerSec:6,  heatReduction:5, label:"Custom shop, VIP clients."      },
+      { upgradeCost:15000, incomePerSec:12, heatReduction:10,label:"Chop shop integration. Maximum throughput." },
+    ]
+  },
+  {
+    id:"importexport", name:STRINGS.BIZ_IMPORTEXPORT, openCost:3000,
+    tiers:[
+      { upgradeCost:1000,  incomePerSec:5,  heatReduction:0, label:"Legitimate trade. Mostly."      },
+      { upgradeCost:5000,  incomePerSec:10, heatReduction:5, label:"Expanded routes, new markets."  },
+      { upgradeCost:15000, incomePerSec:20, heatReduction:10,label:"Cartel-grade logistics network." },
+    ]
+  },
+  {
+    id:"nightclub", name:STRINGS.BIZ_NIGHTCLUB, openCost:5000,
+    tiers:[
+      { upgradeCost:1000,  incomePerSec:4,  heatReduction:0, label:"Small venue, cash flows."       },
+      { upgradeCost:5000,  incomePerSec:8,  heatReduction:5, label:"VIP rooms and private tables."  },
+      { upgradeCost:15000, incomePerSec:16, heatReduction:10,label:"The hub of all social power."   },
+    ]
+  },
+];
+
+const FACTIONS_DEF = [
+  { id:"fronterizos", name:STRINGS.FACTION_FRONTERIZOS, startScore:50, desc:STRINGS.FACTION_DESC_FRONTERIZOS },
+  { id:"sombra",      name:STRINGS.FACTION_SOMBRA,      startScore:30, desc:STRINGS.FACTION_DESC_SOMBRA      },
+  { id:"crossings",   name:STRINGS.FACTION_CROSSINGS,   startScore:60, desc:STRINGS.FACTION_DESC_CROSSINGS   },
+];
+
+const DISTRICTS_DEF = [
+  { id:"westep",    name:STRINGS.DISTRICT_WESTEP,    status:"Controlled", color:[1.0, 0.55, 0.0], incomePerSec:1.5, desc:STRINGS.DISTRICT_DESC_WESTEP   },
+  { id:"downtown",  name:STRINGS.DISTRICT_DOWNTOWN,  status:"Controlled", color:[0.1, 0.4,  1.0], incomePerSec:2.0, desc:STRINGS.DISTRICT_DESC_DOWNTOWN  },
+  { id:"border",    name:STRINGS.DISTRICT_BORDER,    status:"Contested",  color:[0.1, 0.75, 0.2], incomePerSec:0.5, desc:STRINGS.DISTRICT_DESC_BORDER    },
+  { id:"juarez",    name:STRINGS.DISTRICT_JUAREZ,    status:"Enemy",      color:[0.8, 0.1,  0.1], incomePerSec:0.0, desc:STRINGS.DISTRICT_DESC_JUAREZ    },
+];
+
+const UPGRADES_DEF = [
+  { id:"ops_t1",  tree:"ops",  tier:1, name:STRINGS.UPG_OPS_T1,   desc:STRINGS.UPG_OPS_T1_DESC,   cost:2000,  prereq:null,      effect:{ opIncome:0.10 } },
+  { id:"ops_t2",  tree:"ops",  tier:2, name:STRINGS.UPG_OPS_T2,   desc:STRINGS.UPG_OPS_T2_DESC,   cost:8000,  prereq:"ops_t1",  effect:{ opIncome:0.25 } },
+  { id:"ops_t3",  tree:"ops",  tier:3, name:STRINGS.UPG_OPS_T3,   desc:STRINGS.UPG_OPS_T3_DESC,   cost:20000, prereq:"ops_t2",  effect:{ opIncome:0.50, heatMult:-0.20 } },
+  { id:"crew_t1", tree:"crew", tier:1, name:STRINGS.UPG_CREW_T1,  desc:STRINGS.UPG_CREW_T1_DESC,  cost:1500,  prereq:null,      effect:{ loyaltyBonus:10 } },
+  { id:"crew_t2", tree:"crew", tier:2, name:STRINGS.UPG_CREW_T2,  desc:STRINGS.UPG_CREW_T2_DESC,  cost:6000,  prereq:"crew_t1", effect:{ loyaltyRateMult:0.25 } },
+  { id:"crew_t3", tree:"crew", tier:3, name:STRINGS.UPG_CREW_T3,  desc:STRINGS.UPG_CREW_T3_DESC,  cost:15000, prereq:"crew_t2", effect:{ crewCapBonus:4, loyaltyFloor:40 } },
+  { id:"terr_t1", tree:"terr", tier:1, name:STRINGS.UPG_TERR_T1,  desc:STRINGS.UPG_TERR_T1_DESC,  cost:3000,  prereq:null,      effect:{ districtIncomeMult:1 } },
+  { id:"terr_t2", tree:"terr", tier:2, name:STRINGS.UPG_TERR_T2,  desc:STRINGS.UPG_TERR_T2_DESC,  cost:10000, prereq:"terr_t1", effect:{ districtIncomeFlat:2 } },
+  { id:"terr_t3", tree:"terr", tier:3, name:STRINGS.UPG_TERR_T3,  desc:STRINGS.UPG_TERR_T3_DESC,  cost:25000, prereq:"terr_t2", effect:{ districtIncomeX2:true } },
+];
+
+/* ══════════════════════════════════════════════════════
+   INIT GAME STATE
+══════════════════════════════════════════════════════ */
+function initGameState() {
+  gameState.cash = 1000;
+  gameState.heat = 5;
+  gameState.reputation = { respect:10, fear:5, loyalty:10, ghost:15 };
+  gameState.playtime = 0;
+  gameState.crew = [
+    { id: uid(), name:"Marco", role:"Runner",  loyalty:60, assigned:null },
+    { id: uid(), name:"Rudy",  role:"Soldier", loyalty:55, assigned:null },
+  ];
+  gameState.operations = {};
+  OPERATIONS_DEF.forEach(op => {
+    gameState.operations[op.id] = { active:false, crew:0 };
+  });
+  gameState.businesses = {};
+  BUSINESSES_DEF.forEach(biz => {
+    gameState.businesses[biz.id] = { open:false, tier:0 };
+  });
+  gameState.factions = {};
+  FACTIONS_DEF.forEach(f => {
+    gameState.factions[f.id] = { score: f.startScore };
+  });
+  gameState.districts = {};
+  DISTRICTS_DEF.forEach(d => {
+    gameState.districts[d.id] = { status: d.status };
+  });
+  gameState.upgrades = {};
+  UPGRADES_DEF.forEach(u => {
+    gameState.upgrades[u.id] = { unlocked: false };
+  });
+}
+
+function uid() { return '_' + Math.random().toString(36).slice(2,9); }
+
+/* ══════════════════════════════════════════════════════
+   SAVE / LOAD
+══════════════════════════════════════════════════════ */
+function saveGame(slot) {
+  const data = { ...JSON.parse(JSON.stringify(gameState)), savedAt: Date.now(), version: 1 };
+  localStorage.setItem(`shadowLedger_${slot}`, JSON.stringify(data));
+}
+function loadGame(slot) {
+  const raw = localStorage.getItem(`shadowLedger_${slot}`);
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    Object.assign(gameState, data);
+    return true;
+  } catch(e) { return false; }
+}
+function clearSlot(slot) {
+  localStorage.removeItem(`shadowLedger_${slot}`);
+}
+function getSlotData(slot) {
+  const raw = localStorage.getItem(`shadowLedger_${slot}`);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+function formatPlaytime(secs) {
+  const h = Math.floor(secs/3600);
+  const m = Math.floor((secs%3600)/60);
+  const s = secs%60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+function formatDate(ts) {
+  if (!ts) return "Unknown";
+  const d = new Date(ts);
+  return d.toLocaleDateString() + " " + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+
+/* ══════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════ */
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN MANAGEMENT
+══════════════════════════════════════════════════════ */
+let currentScreen = 'menu';
+const gameScreens = ['city','ops','crew','biz','faction','worldmap','settings'];
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + (name === 'worldmap' ? 'worldmap' : name));
+  if (el) el.classList.add('active');
+
+  const hud = document.getElementById('hud');
+  const canvas = document.getElementById('renderCanvas');
+
+  if (name === 'menu') {
+    hud.style.display = 'none';
+    canvas.style.display = 'none';
+  } else {
+    hud.style.display = 'flex';
+    if (name === 'city') {
+      canvas.style.display = 'block';
+    } else {
+      canvas.style.display = 'none';
+    }
+  }
+
+  // update active nav button
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const mapping = { city:'nav-city', ops:'nav-ops', crew:'nav-crew', biz:'nav-biz', faction:'nav-faction', worldmap:'nav-worldmap', settings:'nav-settings', menu:'nav-menu' };
+  const navBtn = document.getElementById(mapping[name]);
+  if (navBtn) navBtn.classList.add('active');
+
+  currentScreen = name;
+
+  // render appropriate screen content
+  if (name === 'ops')      renderOps();
+  if (name === 'crew')     renderCrew();
+  if (name === 'biz')      renderBiz();
+  if (name === 'faction')  renderFactions();
+  if (name === 'worldmap') renderWorldMap();
+  if (name === 'settings') renderSettings();
+  if (name === 'city')     document.getElementById('district-panel').classList.remove('visible');
+}
+
+/* ══════════════════════════════════════════════════════
+   CALC ENGINE
+══════════════════════════════════════════════════════ */
+function getUpgradeEffect(key) {
+  let total = 0;
+  let x2 = false;
+  UPGRADES_DEF.forEach(u => {
+    if (gameState.upgrades[u.id] && gameState.upgrades[u.id].unlocked) {
+      if (u.effect[key] !== undefined) {
+        if (key === 'districtIncomeX2' && u.effect[key]) x2 = true;
+        else total += u.effect[key];
+      }
+    }
+  });
+  if (key === 'districtIncomeX2') return x2;
+  return total;
+}
+
+function getOpIncomeMult() {
+  return 1.0 + getUpgradeEffect('opIncome');
+}
+function getHeatMult() {
+  return 1.0 + getUpgradeEffect('heatMult');
+}
+function getCrewCap() {
+  return 12 + getUpgradeEffect('crewCapBonus');
+}
+function getLoyaltyFloor() {
+  return getUpgradeEffect('loyaltyFloor');
+}
+
+function getCrewAssignedTo(opId) {
+  return gameState.crew.filter(c => c.assigned === opId).length;
+}
+function getUnassignedCrew() {
+  return gameState.crew.filter(c => !c.assigned);
+}
+
+function loyaltyMultiplier(loyalty) {
+  const clamped = Math.max(0, Math.min(100, loyalty));
+  return 0.3 + (clamped / 100) * 0.7;
+}
+
+function calcOpIncome(opDef) {
+  const state = gameState.operations[opDef.id];
+  if (!state || !state.active) return 0;
+  const crew = getCrewAssignedTo(opDef.id);
+  const crewMulti = crew > 0 ? (0.5 + crew * 0.5) : 0.5;
+  const assignedCrew = gameState.crew.filter(c => c.assigned === opDef.id);
+  const avgLoyalty = assignedCrew.length > 0
+    ? assignedCrew.reduce((s,c) => s + c.loyalty, 0) / assignedCrew.length
+    : 60;
+  const loyaltyMult = loyaltyMultiplier(avgLoyalty);
+  const opMult = getOpIncomeMult();
+  return opDef.basIncome * crewMulti * loyaltyMult * opMult;
+}
+
+function calcOpHeat(opDef) {
+  const state = gameState.operations[opDef.id];
+  if (!state || !state.active) return 0;
+  // Check for fixer on this op
+  const fixers = gameState.crew.filter(c => c.assigned === opDef.id && c.role === "Fixer");
+  const fixerReduction = fixers.length > 0 ? 0.30 : 0;
+  const heatMult = getHeatMult();
+  return opDef.heatPerSec * (1 - fixerReduction) * (1 + heatMult);
+}
+
+function calcBizIncome() {
+  let total = 0;
+  BUSINESSES_DEF.forEach(biz => {
+    const state = gameState.businesses[biz.id];
+    if (state && state.open && state.tier > 0) {
+      total += biz.tiers[state.tier - 1].incomePerSec;
+    }
+  });
+  return total;
+}
+
+function calcBizHeatReduction() {
+  let total = 0;
+  BUSINESSES_DEF.forEach(biz => {
+    const state = gameState.businesses[biz.id];
+    if (state && state.open && state.tier >= 2) {
+      total += biz.tiers[state.tier - 1].heatReduction;
+    }
+  });
+  return total;
+}
+
+function calcDistrictIncome() {
+  let total = 0;
+  DISTRICTS_DEF.forEach(d => {
+    const distState = gameState.districts[d.id];
+    if (!distState) return;
+    const status = distState.status;
+    if (status === "Controlled") {
+      let inc = d.incomePerSec;
+      inc += getUpgradeEffect('districtIncomeFlat') || 0;
+      if (getUpgradeEffect('districtIncomeX2')) inc *= 2;
+      total += inc;
+    } else if (status === "Contested") {
+      total += d.incomePerSec * 0.4;
+    }
+  });
+  return total;
+}
+
+function calcTotalIncome() {
+  let ops = 0;
+  OPERATIONS_DEF.forEach(op => { ops += calcOpIncome(op); });
+  return ops + calcBizIncome() + calcDistrictIncome();
+}
+
+function calcTotalHeat() {
+  let heatGain = 0;
+  OPERATIONS_DEF.forEach(op => { heatGain += calcOpHeat(op); });
+  heatGain -= calcBizHeatReduction() * 0.05; // flat reduction scaled down
+  return Math.max(0, heatGain);
+}
+
+/* ══════════════════════════════════════════════════════
+   IDLE LOOP
+══════════════════════════════════════════════════════ */
+let tickCount = 0;
+function gameTick() {
+  const income = calcTotalIncome();
+  const heatGain = calcTotalHeat();
+  const heatDrift = gameState.heat > 0 && heatGain < 0.1 ? -0.02 : 0; // slow natural decay
+
+  gameState.cash += income;
+  gameState.heat = Math.min(100, Math.max(0, gameState.heat + heatGain + heatDrift));
+  gameState.playtime++;
+  tickCount++;
+
+  // Loyalty updates
+  gameState.crew.forEach(c => {
+    const floor = getLoyaltyFloor();
+    const loyaltyRateMult = 1 + getUpgradeEffect('loyaltyRateMult');
+    if (c.assigned) {
+      // +1 loyalty per 30 ticks when assigned
+      if (tickCount % 30 === 0) {
+        c.loyalty = Math.min(100, c.loyalty + 1 * loyaltyRateMult);
+      }
+    } else {
+      // -1 loyalty per 60 ticks when unassigned
+      if (tickCount % 60 === 0) {
+        c.loyalty = Math.max(floor, c.loyalty - 1);
+      }
+    }
+    c.loyalty = Math.max(floor, c.loyalty);
+  });
+
+  // Autosave every 30 seconds
+  if (tickCount % 30 === 0) {
+    saveGame('autosave');
+  }
+
+  // Update all visible UI
+  updateHUD();
+  if (currentScreen === 'ops') updateOpsLive();
+  if (currentScreen === 'crew') renderCrew();
+  if (currentScreen === 'settings' && tickCount % 5 === 0) renderSettings();
+}
+
+/* ══════════════════════════════════════════════════════
+   HUD UPDATE
+══════════════════════════════════════════════════════ */
+function updateHUD() {
+  document.getElementById('hud-cash').textContent = formatCash(gameState.cash);
+  const heatPct = Math.round(gameState.heat);
+  const bar = document.getElementById('hud-heat-bar');
+  bar.style.width = heatPct + '%';
+  document.getElementById('hud-heat-val').textContent = heatPct + '%';
+  // color
+  bar.className = 'bar-fill heat-bar-fill';
+  if (heatPct > 80) bar.classList.add('danger');
+  else if (heatPct > 60) bar.classList.add('hot');
+  else if (heatPct > 30) bar.classList.add('warm');
+  document.getElementById('rep-respect').textContent = Math.round(gameState.reputation.respect);
+  document.getElementById('rep-fear').textContent    = Math.round(gameState.reputation.fear);
+  document.getElementById('rep-loyalty').textContent = Math.round(gameState.reputation.loyalty);
+  document.getElementById('rep-ghost').textContent   = Math.round(gameState.reputation.ghost);
+}
+
+function formatCash(n) {
+  const val = Math.floor(n);
+  if (val >= 1000000) return '$' + (val/1000000).toFixed(2) + 'M';
+  if (val >= 1000) return '$' + val.toLocaleString();
+  return '$' + val;
+}
+function formatCashFull(n) {
+  return '$' + Math.floor(n).toLocaleString();
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN 3: OPERATIONS
+══════════════════════════════════════════════════════ */
+function renderOps() {
+  const container = document.getElementById('ops-list');
+  container.innerHTML = '';
+  OPERATIONS_DEF.forEach(op => {
+    const state = gameState.operations[op.id];
+    const income = calcOpIncome(op);
+    const heat = calcOpHeat(op);
+    const assignedCount = getCrewAssignedTo(op.id);
+    const card = document.createElement('div');
+    card.className = 'op-card' + (state.active ? ' running' : '');
+    card.innerHTML = `
+      <div class="op-header">
+        <div class="op-name">${op.name}</div>
+        <span class="tag ${state.active?'active':'inactive'}">${state.active?STRINGS.OP_ACTIVE:STRINGS.OP_INACTIVE}</span>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-bottom:10px;">${op.desc}</div>
+      <div class="op-stats">
+        <span><span>${STRINGS.OP_INCOME}</span><strong>$${income.toFixed(2)}</strong></span>
+        <span><span>${STRINGS.OP_HEAT}</span><strong style="color:${heat>0.3?'var(--danger)':'var(--muted)'}">+${heat.toFixed(2)}</strong></span>
+        <span><span>${STRINGS.OP_CREW}</span><strong>${assignedCount}</strong></span>
+      </div>
+      <div class="op-crew-row">
+        <button class="btn small" onclick="addCrewToOp('${op.id}')">+ Crew</button>
+        <span class="crew-count" id="op-crew-${op.id}">${assignedCount}</span>
+        <button class="btn small danger" onclick="removeCrewFromOp('${op.id}')">− Crew</button>
+        <div style="flex:1;"></div>
+        <button class="btn small ${state.active?'danger':'success'}" onclick="toggleOp('${op.id}')">${state.active?STRINGS.OP_DEACTIVATE:STRINGS.OP_ACTIVATE}</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  updateOpsLive();
+}
+
+function updateOpsLive() {
+  let totalIncome = 0, totalHeat = 0;
+  OPERATIONS_DEF.forEach(op => {
+    totalIncome += calcOpIncome(op);
+    totalHeat   += calcOpHeat(op);
+  });
+  totalIncome += calcBizIncome() + calcDistrictIncome();
+  const heatEl = document.getElementById('ops-total-heat');
+  const incEl  = document.getElementById('ops-total-income');
+  if (incEl)  incEl.textContent  = '$' + totalIncome.toFixed(2);
+  if (heatEl) heatEl.textContent = '+' + totalHeat.toFixed(2);
+}
+
+function toggleOp(opId) {
+  const state = gameState.operations[opId];
+  state.active = !state.active;
+  const def = OPERATIONS_DEF.find(o => o.id === opId);
+  showToast(state.active ? STRINGS.TOAST_OP_ACTIVE.replace('{name}',def.name) : STRINGS.TOAST_OP_DEACTIVE.replace('{name}',def.name));
+  renderOps();
+}
+
+function addCrewToOp(opId) {
+  const unassigned = gameState.crew.filter(c => !c.assigned);
+  if (unassigned.length === 0) { showToast("No unassigned crew available."); return; }
+  unassigned[0].assigned = opId;
+  renderOps();
+}
+
+function removeCrewFromOp(opId) {
+  const assigned = gameState.crew.filter(c => c.assigned === opId);
+  if (assigned.length === 0) { showToast("No crew assigned to this operation."); return; }
+  assigned[assigned.length-1].assigned = null;
+  renderOps();
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN 4: CREW
+══════════════════════════════════════════════════════ */
+function renderCrew() {
+  const poolDisplay = document.getElementById('crew-pool-display');
+  const crewCap = getCrewCap();
+  const unassigned = getUnassignedCrew().length;
+  poolDisplay.textContent = STRINGS.CREW_POOL_INFO.replace('{n}', unassigned).replace('{t}', gameState.crew.length);
+
+  // hire panel
+  const hirePanel = document.getElementById('crew-hire-panel');
+  hirePanel.innerHTML = '';
+  if (gameState.crew.length >= crewCap) {
+    hirePanel.innerHTML = `<span class="text-muted text-sm">${STRINGS.CREW_MAX}</span>`;
+  } else {
+    CREW_ROLES.forEach(role => {
+      const btn = document.createElement('button');
+      btn.className = 'btn small';
+      btn.textContent = `Hire ${role} — $500`;
+      btn.onclick = () => hireCrew(role);
+      hirePanel.appendChild(btn);
+    });
+  }
+
+  // crew cards
+  const grid = document.getElementById('crew-grid');
+  grid.innerHTML = '';
+  gameState.crew.forEach(c => {
+    const loyPct = Math.round(c.loyalty);
+    const loyClass = loyPct >= 70 ? 'high' : loyPct >= 30 ? 'mid' : '';
+    const assignLabel = c.assigned
+      ? (STRINGS.CREW_ASSIGNED + ' ' + (OPERATIONS_DEF.find(o=>o.id===c.assigned)?.name || c.assigned))
+      : STRINGS.CREW_UNASSIGNED;
+    const card = document.createElement('div');
+    card.className = 'crew-card';
+    card.innerHTML = `
+      <div class="crew-name">${c.name}</div>
+      <div class="crew-role">${c.role}</div>
+      <div class="crew-loyalty-row"><span>${STRINGS.CREW_LOYALTY}</span><span style="color:${loyPct>=70?'var(--success)':loyPct>=30?'#ffaa00':'var(--danger)'};">${loyPct}%</span></div>
+      <div class="bar-bg loyalty-bar"><div class="bar-fill ${loyClass}" style="width:${loyPct}%"></div></div>
+      <div class="crew-assign">${assignLabel}</div>
+      <div style="margin-top:10px;display:flex;gap:6px;">
+        <button class="btn small danger" onclick="fireCrew('${c.id}')">${STRINGS.CREW_FIRE}</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function hireCrew(role) {
+  const crewCap = getCrewCap();
+  if (gameState.crew.length >= crewCap) { showToast(STRINGS.TOAST_CREW_MAX); return; }
+  if (gameState.cash < 500) { showToast(STRINGS.TOAST_CANT_AFFORD); return; }
+  const names = CREW_NAMES[role];
+  const usedNames = gameState.crew.map(c=>c.name);
+  const available = names.filter(n => !usedNames.includes(n));
+  const pool = available.length > 0 ? available : names;
+  const name = pool[Math.floor(Math.random() * pool.length)];
+  gameState.cash -= 500;
+  const newMember = { id:uid(), name, role, loyalty:50, assigned:null };
+  gameState.crew.push(newMember);
+  showToast(STRINGS.TOAST_HIRED.replace('{name}',name).replace('{role}',role));
+  renderCrew();
+  updateHUD();
+}
+
+function fireCrew(crewId) {
+  const idx = gameState.crew.findIndex(c => c.id === crewId);
+  if (idx === -1) return;
+  const member = gameState.crew[idx];
+  gameState.cash += 250;
+  gameState.crew.splice(idx, 1);
+  showToast(STRINGS.TOAST_FIRED.replace('{name}', member.name));
+  renderCrew();
+  updateHUD();
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN 5: BUSINESSES
+══════════════════════════════════════════════════════ */
+function renderBiz() {
+  const bizPassive = calcBizIncome();
+  document.getElementById('biz-passive-info').textContent =
+    STRINGS.BIZ_PASSIVE.replace('{n}', bizPassive.toFixed(2));
+
+  const grid = document.getElementById('biz-grid');
+  grid.innerHTML = '';
+  BUSINESSES_DEF.forEach(biz => {
+    const state = gameState.businesses[biz.id];
+    const card = document.createElement('div');
+    card.className = 'biz-card';
+    if (!state.open) {
+      card.innerHTML = `
+        <div class="biz-name">${biz.name}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-bottom:12px;">${STRINGS.BIZ_LOCKED}</div>
+        <div class="biz-stats">
+          Cost to open: <strong style="color:var(--amber)">$${biz.openCost.toLocaleString()}</strong><br>
+          Base income: <strong>$${biz.tiers[0].incomePerSec}/s</strong> at Tier 1
+        </div>
+        <button class="btn primary" onclick="openBiz('${biz.id}')">${STRINGS.BIZ_OPEN_COST} $${biz.openCost.toLocaleString()}</button>
+      `;
+    } else {
+      const tier = state.tier;
+      const tierDef = tier > 0 ? biz.tiers[tier-1] : null;
+      const nextTierDef = tier < 3 ? biz.tiers[tier] : null;
+      const dots = [1,2,3].map(t => `<div class="tier-dot${t<=tier?' filled':''}"></div>`).join('');
+      let upgradeBtn = '';
+      if (nextTierDef) {
+        upgradeBtn = `<button class="btn primary" onclick="upgradeBiz('${biz.id}')">${STRINGS.BIZ_UPGRADE} ${tier+1} — $${nextTierDef.upgradeCost.toLocaleString()}</button>`;
+      } else {
+        upgradeBtn = `<span class="tag active">Max Tier</span>`;
+      }
+      card.innerHTML = `
+        <div class="biz-name">${biz.name}</div>
+        <div class="biz-tier-dots">${dots}</div>
+        <div class="biz-stats">
+          ${tier > 0 ? tierDef.label + '<br>' : ''}
+          ${STRINGS.BIZ_INCOME} <strong>$${tierDef ? tierDef.incomePerSec : 0}/s</strong><br>
+          ${tier >= 2 ? STRINGS.BIZ_HEAT_REDUCTION + ' <strong>' + (tierDef.heatReduction || 0) + '</strong>' : ''}
+        </div>
+        ${upgradeBtn}
+      `;
+    }
+    grid.appendChild(card);
+  });
+}
+
+function openBiz(bizId) {
+  const def = BUSINESSES_DEF.find(b => b.id === bizId);
+  if (gameState.cash < def.openCost) { showToast(STRINGS.TOAST_CANT_AFFORD); return; }
+  gameState.cash -= def.openCost;
+  gameState.businesses[bizId] = { open:true, tier:1 };
+  showToast(STRINGS.TOAST_BIZ_OPENED.replace('{name}', def.name));
+  renderBiz();
+  updateHUD();
+}
+
+function upgradeBiz(bizId) {
+  const def = BUSINESSES_DEF.find(b => b.id === bizId);
+  const state = gameState.businesses[bizId];
+  if (state.tier >= 3) return;
+  const nextTier = def.tiers[state.tier];
+  if (gameState.cash < nextTier.upgradeCost) { showToast(STRINGS.TOAST_CANT_AFFORD); return; }
+  gameState.cash -= nextTier.upgradeCost;
+  state.tier++;
+  showToast(STRINGS.TOAST_BIZ_UPGRADED.replace('{name}',def.name).replace('{tier}',state.tier));
+  renderBiz();
+  updateHUD();
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN 6: FACTIONS
+══════════════════════════════════════════════════════ */
+function getFactionState(score) {
+  if (score >= 75) return { label:STRINGS.FACTION_ALLIED,  cls:'allied'  };
+  if (score >= 50) return { label:STRINGS.FACTION_NEUTRAL, cls:'neutral' };
+  if (score >= 25) return { label:STRINGS.FACTION_WARY,    cls:'wary'    };
+  return                 { label:STRINGS.FACTION_HOSTILE, cls:'hostile'  };
+}
+
+function renderFactions() {
+  document.getElementById('faction-intro').textContent = STRINGS.FACTION_INTRO;
+  const grid = document.getElementById('faction-grid');
+  grid.innerHTML = '';
+  FACTIONS_DEF.forEach(f => {
+    const state = gameState.factions[f.id];
+    const score = Math.round(state.score);
+    const rel = getFactionState(score);
+    const card = document.createElement('div');
+    card.className = 'faction-card';
+    card.innerHTML = `
+      <div class="faction-name">${f.name}</div>
+      <span class="tag ${rel.cls}">${rel.label}</span>
+      <div class="faction-score-row">
+        <span style="color:var(--muted);">Relations</span>
+        <span style="color:var(--text);font-weight:600;">${score}/100</span>
+      </div>
+      <div class="bar-bg" style="margin-bottom:10px;">
+        <div class="bar-fill" style="width:${score}%;background:${score>=75?'var(--success)':score>=50?'var(--blue)':score>=25?'#ffaa00':'var(--danger)'};"></div>
+      </div>
+      <div class="faction-desc">${f.desc}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN 7: WORLD MAP
+══════════════════════════════════════════════════════ */
+const LOCKED_DISTRICTS = [
+  "Las Cruces","Sunland Park","Canutillo","Socorro","Horizon City",
+  "San Elizario","Tornillo","Fort Hancock"
+];
+
+function renderWorldMap() {
+  document.getElementById('wm-title-text').textContent = STRINGS.WM_TITLE;
+  document.getElementById('wm-subtitle-text').textContent = STRINGS.WM_SUBTITLE;
+  document.getElementById('wm-expand-msg').textContent = STRINGS.WM_EXPAND;
+
+  const grid = document.getElementById('wm-grid');
+  grid.innerHTML = '';
+
+  // Active districts
+  DISTRICTS_DEF.forEach(d => {
+    const distState = gameState.districts[d.id];
+    const el = document.createElement('div');
+    el.className = 'wm-district-box active';
+    const statusColor = distState.status === 'Controlled' ? 'var(--success)' : distState.status === 'Contested' ? '#ffaa00' : 'var(--danger)';
+    el.innerHTML = `
+      <div style="font-size:1.4rem;">🏙️</div>
+      <div class="wm-district-name">${d.name}</div>
+      <div class="wm-district-status" style="color:${statusColor};">${distState.status}</div>
+    `;
+    grid.appendChild(el);
+  });
+
+  // Locked districts
+  LOCKED_DISTRICTS.forEach(name => {
+    const el = document.createElement('div');
+    el.className = 'wm-district-box locked';
+    el.innerHTML = `
+      <div class="wm-lock-icon">🔒</div>
+      <div class="wm-district-name">???</div>
+      <div class="wm-district-status" style="color:rgba(138,122,106,0.5);">${name}</div>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   SCREEN 8: SETTINGS
+══════════════════════════════════════════════════════ */
+function renderSettings() {
+  const slots = ['slot_1','slot_2','slot_3','autosave'];
+  const container = document.getElementById('save-slots-container');
+  container.innerHTML = '';
+  slots.forEach((slot, idx) => {
+    const data = getSlotData(slot);
+    const isAuto = slot === 'autosave';
+    const card = document.createElement('div');
+    card.className = 'save-slot-card';
+    const slotLabel = isAuto ? STRINGS.AUTOSAVE : (STRINGS.SAVE_SLOT + ' ' + (idx+1));
+    let infoHtml = `<div style="color:var(--muted);font-style:italic;font-size:0.7rem;">${STRINGS.SAVE_EMPTY}</div>`;
+    if (data) {
+      infoHtml = `<div class="save-slot-info">
+        Saved: <strong>${formatDate(data.savedAt)}</strong><br>
+        Cash: <strong style="color:var(--amber)">${formatCash(data.cash || 0)}</strong><br>
+        Playtime: <strong>${formatPlaytime(data.playtime || 0)}</strong><br>
+        Heat: <strong style="color:${(data.heat||0)>60?'var(--danger)':'var(--text)'}">${Math.round(data.heat||0)}%</strong>
+      </div>`;
+    }
+    card.innerHTML = `
+      <div class="save-slot-name">${slotLabel}</div>
+      ${infoHtml}
+      <div class="save-slot-btns">
+        ${!isAuto ? `<button class="btn small primary" onclick="doSave('${slot}')">${STRINGS.SAVE_HERE}</button>` : ''}
+        ${data ? `<button class="btn small" onclick="doLoad('${slot}')">${STRINGS.LOAD_SLOT}</button>` : ''}
+        ${data ? `<button class="btn small danger" onclick="doClear('${slot}')">${STRINGS.CLEAR_SLOT}</button>` : ''}
+        ${!data && isAuto ? `<span class="text-muted text-xs">No autosave yet</span>` : ''}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function doSave(slot) {
+  saveGame(slot);
+  showToast(STRINGS.TOAST_SAVED);
+  renderSettings();
+}
+function doLoad(slot) {
+  if (loadGame(slot)) {
+    showToast(STRINGS.TOAST_LOADED);
+    updateHUD();
+    if (currentScreen !== 'menu') {
+      const scr = currentScreen;
+      if (scr === 'ops') renderOps();
+      if (scr === 'crew') renderCrew();
+      if (scr === 'biz') renderBiz();
+      if (scr === 'faction') renderFactions();
+    }
+    renderSettings();
+  } else {
+    showToast(STRINGS.TOAST_NO_SAVE);
+  }
+}
+function doClear(slot) {
+  clearSlot(slot);
+  showToast(STRINGS.TOAST_CLEARED);
+  renderSettings();
+}
+
+/* ══════════════════════════════════════════════════════
+   UPGRADES MODAL
+══════════════════════════════════════════════════════ */
+function openUpgradeModal() {
+  renderUpgradeModal();
+  document.getElementById('upgrade-modal').classList.add('open');
+}
+function closeUpgradeModal() {
+  document.getElementById('upgrade-modal').classList.remove('open');
+}
+
+function renderUpgradeModal() {
+  const container = document.getElementById('upgrade-trees-container');
+  container.innerHTML = '';
+  const trees = { ops:"Operations", crew:"Crew", terr:"Territory" };
+  Object.entries(trees).forEach(([treeId, treeLabel]) => {
+    const col = document.createElement('div');
+    col.innerHTML = `<div class="upgrade-tree-title">${treeLabel}</div>`;
+    const nodes = UPGRADES_DEF.filter(u => u.tree === treeId);
+    nodes.forEach(node => {
+      const state = gameState.upgrades[node.id];
+      const prereqUnlocked = !node.prereq || (gameState.upgrades[node.prereq] && gameState.upgrades[node.prereq].unlocked);
+      const unlocked = state && state.unlocked;
+      const canAfford = gameState.cash >= node.cost;
+      let cls = 'upgrade-node';
+      if (unlocked) cls += ' unlocked';
+      else if (prereqUnlocked && canAfford) cls += ' available';
+      else cls += ' locked';
+      const div = document.createElement('div');
+      div.className = cls;
+      div.innerHTML = `
+        <div class="upgrade-node-name">${unlocked ? '✓ ' : ''}${node.name}</div>
+        <div class="upgrade-node-desc">${node.desc}</div>
+        <div class="upgrade-node-cost">${unlocked ? 'Unlocked' : '$' + node.cost.toLocaleString()}</div>
+      `;
+      if (!unlocked && prereqUnlocked && canAfford) {
+        div.onclick = () => purchaseUpgrade(node.id);
+      }
+      col.appendChild(div);
+    });
+    container.appendChild(col);
+  });
+}
+
+function purchaseUpgrade(upgradeId) {
+  const node = UPGRADES_DEF.find(u => u.id === upgradeId);
+  if (!node) return;
+  if (gameState.upgrades[upgradeId] && gameState.upgrades[upgradeId].unlocked) return;
+  if (gameState.cash < node.cost) { showToast(STRINGS.TOAST_CANT_AFFORD); return; }
+  const prereqOk = !node.prereq || (gameState.upgrades[node.prereq] && gameState.upgrades[node.prereq].unlocked);
+  if (!prereqOk) { showToast("Unlock the previous tier first."); return; }
+  gameState.cash -= node.cost;
+  gameState.upgrades[upgradeId] = { unlocked: true };
+  // Apply immediate effects
+  if (node.effect.loyaltyBonus) {
+    gameState.crew.forEach(c => {
+      c.loyalty = Math.min(100, c.loyalty + node.effect.loyaltyBonus);
+    });
+  }
+  showToast(STRINGS.TOAST_UPG_UNLOCKED.replace('{name}', node.name));
+  renderUpgradeModal();
+  updateHUD();
+}
+
+/* ══════════════════════════════════════════════════════
+   MENU RAIN CSS ANIMATION
+══════════════════════════════════════════════════════ */
+function buildMenuRain() {
+  const rain = document.getElementById('menu-rain');
+  rain.innerHTML = '';
+  for (let i = 0; i < 60; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'rain-drop';
+    const left = Math.random() * 100;
+    const dur  = 0.6 + Math.random() * 1.2;
+    const delay = -Math.random() * 2;
+    const height = 10 + Math.random() * 20;
+    const opacity = 0.1 + Math.random() * 0.4;
+    drop.style.cssText = `
+      left:${left}%;
+      height:${height}px;
+      animation-duration:${dur}s;
+      animation-delay:${delay}s;
+      opacity:${opacity};
+    `;
+    rain.appendChild(drop);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   NEW GAME / LOAD MENU
+══════════════════════════════════════════════════════ */
+function startNewGame() {
+  initGameState();
+  showToast(STRINGS.TOAST_NEW_GAME);
+  showScreen('city');
+  updateHUD();
+  startBabylon();
+}
+
+function showLoadMenu() {
+  // Show settings to pick a save slot to load from
+  showScreen('settings');
+  showToast("Select a save slot to load.");
+}
+
+/* ══════════════════════════════════════════════════════
+   BABYLON.JS SCENE
+══════════════════════════════════════════════════════ */
+let babylonEngine = null;
+let babylonScene  = null;
+let districtMeshes = [];
+let babylonStarted = false;
+
+function startBabylon() {
+  const canvas = document.getElementById('renderCanvas');
+  if (babylonStarted && babylonEngine) {
+    babylonEngine.resize();
+    return;
+  }
+  babylonStarted = true;
+
+  babylonEngine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer:true, stencil:true });
+  babylonScene  = createScene(babylonEngine, canvas);
+
+  babylonEngine.runRenderLoop(() => {
+    if (currentScreen === 'city') babylonScene.render();
+  });
+  window.addEventListener('resize', () => babylonEngine.resize());
+}
+
+function createScene(engine, canvas) {
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0.04, 0.04, 0.06, 1);
+
+  // ── Orthographic camera ──
+  const camera = new BABYLON.ArcRotateCamera("cam", Math.PI/2, 0, 8, BABYLON.Vector3.Zero(), scene);
+  camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+  camera.orthoLeft   = -5;
+  camera.orthoRight  =  5;
+  camera.orthoTop    =  5;
+  camera.orthoBottom = -5;
+  camera.lowerBetaLimit = 0;
+  camera.upperBetaLimit = 0;
+
+  // ── Lights ──
+  const ambientLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0,1,0), scene);
+  ambientLight.intensity = 0.2;
+  ambientLight.diffuse   = new BABYLON.Color3(0.3, 0.3, 0.5);
+
+  const amberLight = new BABYLON.PointLight("amber", new BABYLON.Vector3(-4, 3, -1), scene);
+  amberLight.diffuse    = new BABYLON.Color3(1.0, 0.55, 0.0);
+  amberLight.intensity  = 0.8;
+  amberLight.range      = 12;
+
+  const blueLight  = new BABYLON.PointLight("blue", new BABYLON.Vector3(4, 3, 1), scene);
+  blueLight.diffuse    = new BABYLON.Color3(0.0, 0.4, 1.0);
+  blueLight.intensity  = 0.6;
+  blueLight.range      = 12;
+
+  // ── Ground plane (wet street) ──
+  const ground = BABYLON.MeshBuilder.CreateGround("ground", { width:12, height:12 }, scene);
+  const groundMat = new BABYLON.PBRMaterial("groundMat", scene);
+  groundMat.albedoColor    = new BABYLON.Color3(0.05, 0.05, 0.08);
+  groundMat.metallic       = 0.8;
+  groundMat.roughness      = 0.1;
+  groundMat.reflectionColor = new BABYLON.Color3(0.3, 0.3, 0.5);
+  ground.material = groundMat;
+  ground.position.y = -0.05;
+
+  // ── Grid lines on ground ──
+  for (let i = -5; i <= 5; i++) {
+    const lineH = BABYLON.MeshBuilder.CreateBox("gh"+i, { width:12, height:0.001, depth:0.01 }, scene);
+    lineH.position.set(0, -0.04, i);
+    lineH.material = (() => { const m = new BABYLON.StandardMaterial("lm"+i,scene); m.emissiveColor=new BABYLON.Color3(0.1,0.1,0.2); m.alpha=0.3; return m; })();
+
+    const lineV = BABYLON.MeshBuilder.CreateBox("gv"+i, { width:0.01, height:0.001, depth:12 }, scene);
+    lineV.position.set(i, -0.04, 0);
+    lineV.material = (() => { const m = new BABYLON.StandardMaterial("lmv"+i,scene); m.emissiveColor=new BABYLON.Color3(0.1,0.1,0.2); m.alpha=0.3; return m; })();
+  }
+
+  // ── District zone markers: 2x2 grid ──
+  // positions: westep(-2,1), downtown(2,1), border(-2,-2), juarez(2,-2)
+  const districtPositions = [
+    { id:"westep",   x:-2.2, z: 2.2, color:new BABYLON.Color3(1.0, 0.55, 0.0) },
+    { id:"downtown", x: 2.2, z: 2.2, color:new BABYLON.Color3(0.1, 0.4,  1.0) },
+    { id:"border",   x:-2.2, z:-2.2, color:new BABYLON.Color3(0.1, 0.75, 0.2) },
+    { id:"juarez",   x: 2.2, z:-2.2, color:new BABYLON.Color3(0.8, 0.1,  0.1) },
+  ];
+
+  districtMeshes = [];
+  districtPositions.forEach(dp => {
+    const def = DISTRICTS_DEF.find(d => d.id === dp.id);
+    const box = BABYLON.MeshBuilder.CreateBox(dp.id, { width:1.5, height:0.08, depth:1.5 }, scene);
+    box.position.set(dp.x, 0.04, dp.z);
+
+    const mat = new BABYLON.PBRMaterial(dp.id + "_mat", scene);
+    mat.albedoColor   = dp.color.scale(0.3);
+    mat.emissiveColor = dp.color.scale(0.4);
+    mat.metallic      = 0.3;
+    mat.roughness     = 0.5;
+    box.material = mat;
+    box.metadata = { districtId: dp.id };
+
+    // Label disc
+    const disc = BABYLON.MeshBuilder.CreateDisc(dp.id+"_disc", { radius:0.6, tessellation:6 }, scene);
+    disc.rotation.x = Math.PI/2;
+    disc.position.set(dp.x, 0.09, dp.z);
+    const discMat = new BABYLON.StandardMaterial(dp.id+"_dmat", scene);
+    discMat.emissiveColor = dp.color.scale(0.15);
+    discMat.alpha = 0.5;
+    disc.material = discMat;
+    disc.metadata = { districtId: dp.id };
+
+    districtMeshes.push(box, disc);
+
+    // Pulse glow animation
+    let glowDir = 1;
+    let glowVal = 0.4;
+    scene.registerBeforeRender(() => {
+      glowVal += 0.005 * glowDir;
+      if (glowVal > 0.7) glowDir = -1;
+      if (glowVal < 0.2) glowDir = 1;
+      mat.emissiveColor = dp.color.scale(glowVal);
+    });
+  });
+
+  // ── Rain particles ──
+  const particleSystem = new BABYLON.ParticleSystem("rain", 300, scene);
+  particleSystem.emitter = new BABYLON.Vector3(0, 8, 0);
+  particleSystem.minEmitBox = new BABYLON.Vector3(-5, 0, -5);
+  particleSystem.maxEmitBox = new BABYLON.Vector3( 5, 0,  5);
+  particleSystem.color1     = new BABYLON.Color4(0.7, 0.9, 1.0, 0.6);
+  particleSystem.color2     = new BABYLON.Color4(0.5, 0.8, 1.0, 0.3);
+  particleSystem.colorDead  = new BABYLON.Color4(0, 0, 0, 0);
+  particleSystem.minSize    = 0.02;
+  particleSystem.maxSize    = 0.04;
+  particleSystem.minLifeTime = 0.5;
+  particleSystem.maxLifeTime = 1.2;
+  particleSystem.emitRate   = 300;
+  particleSystem.minEmitPower = 4;
+  particleSystem.maxEmitPower = 8;
+  particleSystem.direction1 = new BABYLON.Vector3(-0.05, -1, -0.05);
+  particleSystem.direction2 = new BABYLON.Vector3( 0.05, -1,  0.05);
+  particleSystem.gravity    = new BABYLON.Vector3(0, -9.8, 0);
+  particleSystem.blendMode  = BABYLON.ParticleSystem.BLENDMODE_ADD;
+  particleSystem.start();
+
+  // ── Click handler ──
+  scene.onPointerObservable.add(pointerInfo => {
+    if (pointerInfo.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
+    const pick = pointerInfo.pickInfo;
+    if (!pick || !pick.hit) return;
+    const meta = pick.pickedMesh && pick.pickedMesh.metadata;
+    if (meta && meta.districtId) {
+      showDistrictPanel(meta.districtId);
+    }
+  });
+
+  return scene;
+}
+
+function showDistrictPanel(districtId) {
+  const def   = DISTRICTS_DEF.find(d => d.id === districtId);
+  const state = gameState.districts[districtId];
+  if (!def || !state) return;
+
+  document.getElementById('dp-name').textContent   = def.name;
+  const statusEl = document.getElementById('dp-status');
+  statusEl.innerHTML = `<span class="tag ${state.status.toLowerCase()}">${state.status}</span>`;
+
+  let incomeVal = 0;
+  if (state.status === 'Controlled') incomeVal = def.incomePerSec;
+  else if (state.status === 'Contested') incomeVal = def.incomePerSec * 0.4;
+
+  document.getElementById('dp-income').textContent  = '$' + incomeVal.toFixed(2) + '/s';
+  document.getElementById('dp-control').textContent = state.status === 'Controlled' ? '100%' : state.status === 'Contested' ? '40%' : '0%';
+  document.getElementById('dp-desc').textContent    = def.desc;
+
+  document.getElementById('district-panel').classList.add('visible');
+}
+
+/* ══════════════════════════════════════════════════════
+   MENU INITIALIZATION
+══════════════════════════════════════════════════════ */
+function initMenu() {
+  document.getElementById('menu-title-text').textContent   = STRINGS.TITLE;
+  document.getElementById('menu-tagline-text').textContent = STRINGS.TAGLINE;
+  document.getElementById('btn-new-game').textContent      = STRINGS.BTN_NEW_GAME;
+  document.getElementById('btn-load').textContent          = STRINGS.BTN_LOAD;
+  document.getElementById('btn-settings-menu').textContent = STRINGS.BTN_SETTINGS;
+  document.getElementById('menu-location-text').textContent = STRINGS.LOCATION;
+  buildMenuRain();
+}
+
+/* ══════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════ */
+(function boot() {
+  initMenu();
+
+  // Populate HUD static text
+  document.getElementById('hud-title').textContent = '— ' + STRINGS.CHARACTER_TITLE + ' —';
+
+  // Start idle loop (always running)
+  setInterval(gameTick, 1000);
+})();
+</script>
+</body>
+</html>
