@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cascade Foundling</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+
+<!-- ===== Intro screen ===== -->
+<div id="introScreen" class="overlay">
+  <div class="intro-box">
+    <h1 class="game-title">CASCADE FOUNDLING</h1>
+    <div class="intro-sub">Mason County, Washington · 2:47 AM</div>
+    <div class="intro-text" id="introText">
+      <p>The rain finally let up around midnight. That's when you heard it — something small,
+      crying out past the barn, down by the tree line.</p>
+      <p>It's... a child. Not yours. Not <em>anyone's</em>. Skin like moonlit water, eyes like
+      two cyan lanterns. It grabbed your sleeve and wouldn't let go.</p>
+      <p>Now there are lights over the ridge. Shapes moving through the firs.
+      They're coming to your farm — and you don't know what they want.</p>
+      <p class="radio-line">📻 <em>"...all units, reports of unusual lights over the Tahuya
+      State Forest... do not approach... repeat, do not approach..."</em></p>
+    </div>
+    <div class="intro-controls">
+      <div class="ctl-col">
+        <b>ON FOOT</b>
+        <span>WASD — move · Mouse — look</span>
+        <span>Click — fire shotgun · R — reload</span>
+        <span>Shift — run · E — enter truck</span>
+      </div>
+      <div class="ctl-col">
+        <b>TRUCK</b>
+        <span>W/S — throttle & reverse</span>
+        <span>A/D — steer · Space — brake</span>
+        <span>E — exit truck</span>
+      </div>
+      <div class="ctl-col">
+        <b>XBOX PAD</b>
+        <span>Sticks — move/look · RT — fire</span>
+        <span>X — reload · Y — truck · LT — brake</span>
+      </div>
+    </div>
+    <div class="intro-bottom">
+      <button id="qualityBtn" class="pill-btn">Quality: HIGH</button>
+      <button id="muteBtn" class="pill-btn">Sound: ON</button>
+      <button id="startBtn">DEFEND THE FARM</button>
+    </div>
+    <div class="best-line" id="bestLine"></div>
+  </div>
+</div>
+
+<!-- ===== Loading ===== -->
+<div id="loadingScreen" class="overlay" style="display:none;">
+  <div class="loading-box">
+    <div class="loading-title">CASCADE FOUNDLING</div>
+    <div class="loading-bar"><div id="loadingFill"></div></div>
+    <div id="loadingMsg">Waking the farm...</div>
+  </div>
+</div>
+
+<!-- ===== HUD ===== -->
+<div id="hud" style="display:none;">
+  <div id="crosshair">+</div>
+  <div id="hitmarker">✕</div>
+  <div class="hud-tl">
+    <div class="hud-label">WAVE <span id="hudWave">1</span>/8</div>
+    <div class="hud-label small" id="hudWaveState">visitors inbound…</div>
+    <div class="hud-label small">SCORE <span id="hudScore">0</span></div>
+  </div>
+  <div class="hud-tr">
+    <div class="hud-label baby-label">👶 <span id="hudBaby">SAFE</span></div>
+  </div>
+  <div class="hud-bl">
+    <div class="hp-bar"><div id="hpFill"></div></div>
+    <div class="hud-label small" id="hudHp">100</div>
+  </div>
+  <div class="hud-br">
+    <div class="hud-label" id="hudAmmo">8 / 24</div>
+    <div class="hud-label small" id="hudReload"></div>
+  </div>
+  <div id="hudPrompt"></div>
+  <div id="radioTicker"></div>
+  <div id="damageVignette"></div>
+</div>
+
+<!-- ===== End screen ===== -->
+<div id="endScreen" class="overlay" style="display:none;">
+  <div class="intro-box">
+    <h1 class="game-title" id="endTitle">DAWN</h1>
+    <div class="intro-text" id="endText"></div>
+    <div class="end-stats" id="endStats"></div>
+    <div class="intro-bottom">
+      <button id="restartBtn">PLAY AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -101,6 +101,10 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-shadow{background:linear-gradient(180deg,#04060e 0%,#080d1a 40%,#0d1220 75%,#060810 100%);}
 .banner-shadow::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent,transparent 18px,rgba(255,140,0,0.04) 18px,rgba(255,140,0,0.04) 19px),repeating-linear-gradient(0deg,transparent,transparent 12px,rgba(34,102,255,0.03) 12px,rgba(34,102,255,0.03) 13px);}
 .banner-shadow::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 30% 60%,rgba(255,140,0,0.18) 0%,transparent 55%),radial-gradient(ellipse 40% 40% at 70% 40%,rgba(34,102,255,0.15) 0%,transparent 50%);}
+/* Cascade Foundling — Night Farm Visitors */
+.banner-cascade{background:linear-gradient(180deg,#020610 0%,#04101f 45%,#071b26 75%,#03110d 100%);}
+.banner-cascade::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 45% 35% at 70% 25%,rgba(80,220,255,0.35) 0%,rgba(40,160,255,0.12) 45%,transparent 70%),radial-gradient(circle 3px at 20% 30%,rgba(255,255,255,0.7),transparent),radial-gradient(circle 2px at 35% 18%,rgba(255,255,255,0.5),transparent),radial-gradient(circle 2px at 55% 12%,rgba(255,255,255,0.6),transparent),radial-gradient(circle 2px at 85% 40%,rgba(255,255,255,0.4),transparent);}
+.banner-cascade::after{content:'';position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(180deg,transparent,rgba(4,20,10,0.9)),radial-gradient(ellipse 30% 70% at 25% 100%,rgba(255,180,80,0.25) 0%,transparent 60%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -214,6 +218,16 @@ footer a{color:var(--purple);text-decoration:none;}
   </a>
 
   <!-- ===== IN PROGRESS ===== -->
+
+  <a class="card status-wip" href="cascade-foundling/index.html" data-tags="action arcade" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-cascade"><span class="banner-emoji">🛸🚜</span><span class="card-badge badge-new">3D FPS</span></div>
+    <div class="card-body">
+      <div class="card-genre">🛸 FPS · Driving Defense</div>
+      <div class="card-title">Cascade Foundling</div>
+      <div class="card-desc">A Washington farmer finds a lost alien child — and its family is coming to get it back. First-person shotgun defense + drivable deuce-and-a-half army truck, 8 waves to dawn. Babylon.js + Havok physics, Xbox controller support, procedural sound.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+  </a>
 
   <a class="card status-wip" href="../tilt/index.html" data-tags="arcade" data-status="wip" data-hidden="1">
     <div class="card-banner banner-marble"><span class="banner-emoji">🔵🏔️</span><span class="card-badge badge-new">3D</span></div>
