@@ -32,7 +32,7 @@ const CFG = {
   alienBaseSpeed: 2.3,
   alienCarrySpeed: 1.7,
   swipeRange: 2.4,
-  swipeDmg: 9,
+  swipeDmg: 6,
   repelScore: 100,
 };
 
@@ -270,6 +270,7 @@ async function boot() {
   engine.runRenderLoop(() => {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05);
     if (G.running && !G.over) update(dt);
+    else if (G.running && G.over) { updateShip(dt); updateBaby(dt); } // keep the departure cinematic alive
     scene.render();
   });
   window.addEventListener('resize', () => engine.resize());
@@ -526,8 +527,8 @@ function buildTruck() {
   // LESSON (V1): zero inertia on ANY axis makes Havok freeze angular velocity → dead steering.
   const body = new BABYLON.PhysicsBody(root, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
   body.shape = new BABYLON.PhysicsShapeBox(
-    new BABYLON.Vector3(0, 1.6, 0), BABYLON.Quaternion.Identity(),
-    new BABYLON.Vector3(2.5, 2.6, 7.4), scene);
+    new BABYLON.Vector3(0, 1.3, 0), BABYLON.Quaternion.Identity(),
+    new BABYLON.Vector3(2.5, 2.6, 7.4), scene); // bottom flush with wheel contact
   body.setMassProperties({
     mass: 3200,
     inertia: new BABYLON.Vector3(9000, 9000, 9000),
@@ -553,10 +554,11 @@ function buildPlayer(canvas) {
   // strip built-in keyboard control — we drive movement ourselves (run/gamepad support)
   camera.inputs.removeByType('FreeCameraKeyboardMoveInput');
   camera.angularSensibility = 1400;
-  camera.applyGravity = true;
+  // Flat farm — no built-in gravity (its per-frame ellipsoid resolution drifts);
+  // we hard-lock eye height each frame instead and keep collisions for walls.
+  camera.applyGravity = false;
   camera.checkCollisions = true;
-  camera.ellipsoid = new BABYLON.Vector3(0.55, 0.9, 0.55);
-  camera.ellipsoidOffset = new BABYLON.Vector3(0, 0.9, 0);
+  camera.ellipsoid = new BABYLON.Vector3(0.55, 0.85, 0.55);
   camera.setTarget(new BABYLON.Vector3(0, 1.8, 0));
   // shotgun viewmodel
   const gunRoot = new BABYLON.TransformNode('gunRoot', scene);
@@ -684,7 +686,10 @@ function wireInput(canvas) {
   window.addEventListener('keyup', e => { keys[e.code] = 0; });
   scene.onPointerDown = (evt) => {
     if (!G.running || G.over) return;
-    if (!document.pointerLockElement) { canvas.requestPointerLock(); return; }
+    if (!document.pointerLockElement) {
+      try { canvas.requestPointerLock(); } catch (e) { /* automation / iframe contexts */ }
+      return;
+    }
     if (evt.button === 0) input.fire = 1;
   };
   scene.onPointerUp = (evt) => { if (evt.button === 0) input.fire = 0; };
@@ -752,7 +757,9 @@ function spawnAlien() {
   armL.position.set(-0.5, 1.35, 0); armL.rotation.z = 0.35; armL.parent = root; armL.material = skin;
   const armR = armL.clone('aArmR'); armR.position.x = 0.5; armR.rotation.z = -0.35; armR.parent = root;
   const alien = {
-    root, hp: 1, state: 'advance',
+    root, state: 'advance',
+    // resolve = how many repels before it gives up and heads back to the trees
+    resolve: 1 + Math.floor((G.wave - 1) / 3) + (Math.random() < 0.25 ? 1 : 0),
     speed: CFG.alienBaseSpeed * (0.85 + Math.random() * 0.4) * (1 + G.wave * 0.06),
     knockV: null, knockT: 0, stunT: 0, bobPhase: Math.random() * 6,
     swipeCd: 0,
@@ -769,8 +776,13 @@ function repelAlien(alien, fromPos, scored) {
   const dir = away.normalize();
   alien.knockV = dir.scale(14).add(new BABYLON.Vector3(0, 5.5, 0));
   alien.knockT = 0.65;
-  alien.state = 'stunned';
-  alien.stunT = 1.4 + Math.random() * 0.8;
+  alien.resolve--;
+  if (alien.resolve <= 0) {
+    alien.state = 'fleeing'; // it gives up — back to the tree line
+  } else {
+    alien.state = 'stunned';
+    alien.stunT = 1.4 + Math.random() * 0.8;
+  }
   AudioFX.repel();
   burstParticles(alien.root.position.add(new BABYLON.Vector3(0, 1.4, 0)),
     new BABYLON.Color4(0.3, 0.95, 1, 1), 26);
@@ -817,6 +829,8 @@ function burstParticles(pos, color, count) {
   ps.start();
   // LESSON (V1): targetStopDuration does NOT stop manual bursts — stop explicitly or leak systems forever.
   setTimeout(() => { try { ps.stop(); } catch (e) {} }, 80);
+  // belt-and-suspenders: hard dispose well after max particle lifetime
+  setTimeout(() => { try { ps.dispose(); } catch (e) {} }, 1400);
 }
 
 let flareTex = null;
@@ -853,7 +867,7 @@ function spawnTracer(from, to) {
    ============================================================ */
 let fireCd = 0;
 function tryFire() {
-  if (G.reloading || fireCd > 0 || G.inTruck) return;
+  if (!G.running || G.over || G.reloading || fireCd > 0 || G.inTruck) return;
   if (G.ammo <= 0) { AudioFX.dryFire(); input.fire = 0; return; }
   G.ammo--; fireCd = 0.55;
   AudioFX.shotgun();
@@ -1095,6 +1109,7 @@ function updateOnFoot(dt) {
   const right = camera.getDirection(BABYLON.Vector3.Right()); right.y = 0; right.normalize();
   const move = fwd.scale((input.f - input.b) * speed).add(right.scale((input.r - input.l) * speed));
   camera.cameraDirection.addInPlace(move);
+  camera.position.y = 1.75; // flat ground, fixed eye height
   // subtle viewbob
   if (move.lengthSquared() > 0.0001 && world.gunRoot) {
     world._bob = (world._bob || 0) + dt * (input.run ? 11 : 7);
@@ -1105,7 +1120,7 @@ function updateOnFoot(dt) {
 function enterTruck() {
   G.inTruck = true;
   AudioFX.engineStart();
-  camera.applyGravity = false; camera.checkCollisions = false;
+  camera.checkCollisions = false;
   if (world.gunRoot) world.gunRoot.setEnabled(false);
 }
 
@@ -1114,8 +1129,8 @@ function exitTruck() {
   AudioFX.engineStop();
   const truck = world.truck;
   const side = truck.root.getDirection(new BABYLON.Vector3(1, 0, 0));
-  camera.position = truck.root.position.add(side.scale(2.6)).add(new BABYLON.Vector3(0, 1.8, 0));
-  camera.applyGravity = true; camera.checkCollisions = true;
+  camera.position = truck.root.position.add(side.scale(2.6)).add(new BABYLON.Vector3(0, 1.75, 0));
+  camera.checkCollisions = true;
   truck.body.setLinearVelocity(new BABYLON.Vector3(0, truck.body.getLinearVelocity().y, 0));
   if (world.gunRoot) world.gunRoot.setEnabled(true);
 }
@@ -1131,9 +1146,9 @@ function updateTruck(dt) {
   const throttle = input.f - input.b;
   const target = throttle > 0 ? CFG.truckTopSpeed * throttle
     : throttle < 0 ? CFG.truckReverse * -throttle : 0;
-  const accel = input.brake ? 18 : 7.5;
-  speed += (target - speed) * Math.min(1, accel * dt / Math.max(6, Math.abs(target - speed) + 4));
-  if (input.brake) speed *= Math.max(0, 1 - 2.4 * dt);
+  // heavy-diesel feel: strong low-end pull, eases off near top speed
+  speed += (target - speed) * Math.min(1, dt * 1.7);
+  if (input.brake) speed *= Math.max(0, 1 - 3.2 * dt);
 
   const newPlanar = fwd.scale(speed);
   body.setLinearVelocity(new BABYLON.Vector3(newPlanar.x, vel.y, newPlanar.z));
@@ -1184,7 +1199,7 @@ function updateAliens(dt) {
     if (a.state === 'stunned') {
       a.stunT -= dt;
       p.y = Math.abs(Math.sin(a.bobPhase * 2)) * 0.05;
-      if (a.stunT <= 0) a.state = G.babyState === 'carried' ? 'advance' : 'advance';
+      if (a.stunT <= 0) a.state = 'advance';
       continue;
     }
     if (a.state === 'fleeing') {
@@ -1207,9 +1222,9 @@ function updateAliens(dt) {
       if (p.length() > 56) { triggerEnd('taken'); return; }
       continue;
     }
-    // advance toward baby (or player if very close and baby unavailable)
-    let targetPos = baby.root.getAbsolutePosition();
-    if (G.babyState === 'carried' || G.babyState === 'ascending') targetPos = playerPos;
+    // advance toward the baby wherever it is — if it's being carried the
+    // others naturally cluster around the carrier like an escort
+    const targetPos = baby.root.getAbsolutePosition();
     const to = targetPos.subtract(p); to.y = 0;
     const d = to.length();
     if (d > 0.01) {
@@ -1234,8 +1249,8 @@ function updateAliens(dt) {
     // swipe the player if close
     a.swipeCd -= dt;
     if (a.swipeCd <= 0 && BABYLON.Vector3.Distance(p, playerPos) < CFG.swipeRange && !G.inTruck) {
-      a.swipeCd = 1.1;
-      damagePlayer(CFG.swipeDmg + Math.floor(Math.random() * 5));
+      a.swipeCd = 1.6;
+      damagePlayer(CFG.swipeDmg + Math.floor(Math.random() * 4) + Math.floor(G.wave / 2));
     }
   }
 }
@@ -1270,9 +1285,9 @@ function updateBaby(dt) {
     const under = new BABYLON.Vector3(ship.root.position.x, 0, ship.root.position.z);
     const to = under.subtract(b.root.position); to.y = 0;
     if (to.length() > 1.5) {
-      b.root.position.addInPlace(to.normalize().scale(3.2 * dt));
+      b.root.position.addInPlace(to.normalize().scale(9 * dt)); // running to the light
     } else {
-      b.root.position.y += 5.5 * dt;
+      b.root.position.y += 7 * dt;
     }
   }
 }
@@ -1338,7 +1353,7 @@ $('startBtn').addEventListener('click', async () => {
     await boot();
     dom.loading.style.display = 'none';
     startGame();
-    $('renderCanvas').requestPointerLock && $('renderCanvas').requestPointerLock();
+    try { $('renderCanvas').requestPointerLock(); } catch (e) { /* needs a fresh user gesture — next click grabs it */ }
   } catch (err) {
     dom.loadMsg.textContent = '⚠ ' + (err.message || err);
     console.error('[CascadeFoundling] boot failed:', err);
