@@ -8,7 +8,7 @@
 /* ---------------- Config & persistence ---------------- */
 const SAVE_KEY = 'cascade-foundling-save';
 const store = (() => {
-  let d = { best: 0, bestWave: 0, wins: 0, quality: 'high', muted: false };
+  let d = { best: 0, bestWave: 0, wins: 0, quality: 'high', muted: false, sens: 1 };
   try { Object.assign(d, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch (e) {}
   return {
     get: () => d,
@@ -62,7 +62,10 @@ const AudioFX = (() => {
     return b;
   }
   return {
-    setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.55; },
+    setMuted(m) {
+      muted = m; if (master) master.gain.value = m ? 0 : 0.55;
+      if (m) { try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {} }
+    },
     unlock() { ensure(); },
     shotgun() {
       ensure(); const t = ctx.currentTime;
@@ -138,6 +141,65 @@ const AudioFX = (() => {
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 4;
       const g = ctx.createGain(); env(g, t, 0.01, 0.1, 0.14);
       src.connect(bp).connect(g).connect(master); src.start(t); src.stop(t + 0.16);
+    },
+    /* Full simulated radio transmission: squelch → static bed → voice → squelch off.
+       Voice is real speechSynthesis when the browser has voices, else procedural
+       garbled "distant chatter" babble. Duration-matched static bed either way. */
+    radioCall(text) {
+      ensure(); const t = ctx.currentTime;
+      const spoken = (text || '').replace(/📻|"|\.\.\./g, ' ').replace(/\s+/g, ' ').trim();
+      const estDur = Math.min(9, Math.max(2, spoken.length / 14)); // ~14 chars/sec speech rate
+      // opening squelch click
+      this.radioBlip();
+      // static bed for the whole transmission
+      const bed = ctx.createBufferSource(); bed.buffer = noiseBuf(estDur + 0.6); bed.loop = false;
+      const bedBp = ctx.createBiquadFilter(); bedBp.type = 'bandpass'; bedBp.frequency.value = 1500; bedBp.Q.value = 0.7;
+      const bedG = ctx.createGain();
+      bedG.gain.setValueAtTime(0.0001, t);
+      bedG.gain.exponentialRampToValueAtTime(0.035, t + 0.15);
+      bedG.gain.setValueAtTime(0.035, t + estDur);
+      bedG.gain.exponentialRampToValueAtTime(0.0001, t + estDur + 0.5);
+      bed.connect(bedBp).connect(bedG).connect(master);
+      bed.start(t); bed.stop(t + estDur + 0.6);
+      // closing squelch
+      setTimeout(() => { try { this.radioBlip(); } catch (e) {} }, (estDur + 0.35) * 1000);
+      // the voice itself
+      if (!muted && window.speechSynthesis && speechSynthesis.getVoices().length > 0 && spoken) {
+        try {
+          speechSynthesis.cancel();
+          const utt = new SpeechSynthesisUtterance(spoken);
+          utt.rate = 1.12;   // dispatcher clip
+          utt.pitch = 0.85;  // flattened, tired, 3 AM
+          utt.volume = 0.75;
+          const voices = speechSynthesis.getVoices();
+          const en = voices.find(v => /en[-_]/i.test(v.lang)) || voices[0];
+          if (en) utt.voice = en;
+          speechSynthesis.speak(utt);
+        } catch (e) { this._babble(t, estDur); }
+      } else if (!muted) {
+        this._babble(t, estDur);
+      }
+    },
+    /* Garbled-transmission fallback: syllable-rate bandpassed blips with pitch contour */
+    _babble(t, dur) {
+      const syllables = Math.floor(dur * 5.5);
+      for (let i = 0; i < syllables; i++) {
+        // clustered like words: occasional gaps
+        if (i % 7 === 3 || i % 11 === 8) continue;
+        const st = t + 0.3 + i * (dur - 0.5) / syllables;
+        const o = ctx.createOscillator(); o.type = 'sawtooth';
+        const f0 = 110 + Math.sin(i * 2.7) * 25 + (i % 3) * 12;
+        o.frequency.setValueAtTime(f0, st);
+        o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.sin(i * 1.3) * 0.2), st + 0.09);
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+        bp.frequency.value = 1100 + Math.sin(i * 3.3) * 500; bp.Q.value = 2.5;
+        const g = ctx.createGain(); env(g, st, 0.015, 0.09, 0.1);
+        o.connect(bp).connect(g).connect(master);
+        o.start(st); o.stop(st + 0.14);
+      }
+    },
+    stopRadioVoice() {
+      try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
     },
     stinger(win) {
       ensure(); const t = ctx.currentTime;
@@ -220,6 +282,24 @@ const G = {
   quality: store.get().quality,
   lastSwipe: 0, chitterT: 0, cooT: 8,
 };
+
+/* Look-speed multiplier — cycles through presets, persisted, also [ / ] in-game */
+const SENS_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+function getSens() {
+  const s = store.get().sens;
+  return SENS_STEPS.includes(s) ? s : 1;
+}
+function applySens() {
+  // Babylon: HIGHER angularSensibility = SLOWER mouse. 3000 at 100% (gentler than engine default).
+  if (camera) camera.angularSensibility = 3000 / getSens();
+}
+function stepSens(dir) {
+  const i = SENS_STEPS.indexOf(getSens());
+  const next = SENS_STEPS[Math.min(SENS_STEPS.length - 1, Math.max(0, i + dir))];
+  store.get().sens = next; store.save();
+  applySens();
+  return next;
+}
 
 const RADIO_LINES = [
   '📻 "...Mason County dispatch, we\'ve got a dozen more calls about the lights..."',
@@ -553,7 +633,7 @@ function buildPlayer(canvas) {
   camera.attachControl(canvas, true);
   // strip built-in keyboard control — we drive movement ourselves (run/gamepad support)
   camera.inputs.removeByType('FreeCameraKeyboardMoveInput');
-  camera.angularSensibility = 1400;
+  applySens(); // sets camera.angularSensibility from the saved look-speed
   // Flat farm — no built-in gravity (its per-frame ellipsoid resolution drifts);
   // we hard-lock eye height each frame instead and keep collisions for walls.
   camera.applyGravity = false;
@@ -682,6 +762,8 @@ function wireInput(canvas) {
     keys[e.code] = 1;
     if (e.code === 'KeyE') input.interactEdge = true;
     if (e.code === 'KeyR') input.reloadEdge = true;
+    if (e.code === 'BracketLeft') announceSens(stepSens(-1));
+    if (e.code === 'BracketRight') announceSens(stepSens(1));
   });
   window.addEventListener('keyup', e => { keys[e.code] = 0; });
   scene.onPointerDown = (evt) => {
@@ -713,8 +795,9 @@ function wireInput(canvas) {
         if (lx < 0) input.l = Math.max(input.l, -lx);
         if (lx > 0) input.r = Math.max(input.r, lx);
         const rx = dz(gp.axes[2]), ry = dz(gp.axes[3]);
-        camera.rotation.y += rx * 0.045;
-        camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x + ry * 0.035));
+        const lookRate = 0.026 * getSens(); // rad/frame at full stick, scaled by look-speed setting
+        camera.rotation.y += rx * lookRate;
+        camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x + ry * lookRate * 0.8));
         if (gp.buttons[7] && gp.buttons[7].value > 0.4) input.fire = 1;
         else if (input.padFire) input.fire = 0;
         input.padFire = gp.buttons[7] && gp.buttons[7].value > 0.4;
@@ -724,6 +807,11 @@ function wireInput(canvas) {
         input.padX = gp.buttons[2] && gp.buttons[2].pressed;
         if (gp.buttons[3] && gp.buttons[3].pressed && !input.padY) input.interactEdge = true;
         input.padY = gp.buttons[3] && gp.buttons[3].pressed;
+        // LB / RB — look speed down / up
+        if (gp.buttons[4] && gp.buttons[4].pressed && !input.padLB) announceSens(stepSens(-1));
+        input.padLB = gp.buttons[4] && gp.buttons[4].pressed;
+        if (gp.buttons[5] && gp.buttons[5].pressed && !input.padRB) announceSens(stepSens(1));
+        input.padRB = gp.buttons[5] && gp.buttons[5].pressed;
       }
     }
   };
@@ -941,8 +1029,18 @@ function updateDawn() {
   if (world.starMesh) world.starMesh.visibility = 1 - t * 0.85;
 }
 
+let promptLockUntil = 0; // announceSens borrows the prompt; per-frame prompt code yields until this passes
+function announceSens(v) {
+  if (!dom.prompt) return;
+  promptLockUntil = performance.now() + 1300;
+  dom.prompt.textContent = `Look speed: ${Math.round(v * 100)}%`;
+  dom.prompt.className = 'show';
+  clearTimeout(announceSens._t);
+  announceSens._t = setTimeout(() => { dom.prompt.className = ''; }, 1300);
+}
+
 function showRadio(text) {
-  AudioFX.radioBlip();
+  AudioFX.radioCall(text); // full simulated transmission: squelch, static bed, voice
   dom.radio.textContent = text;
   dom.radio.classList.add('show');
   clearTimeout(showRadio._t);
@@ -971,7 +1069,7 @@ function startGame() {
 function triggerEnd(result) {
   // result: 'win' | 'dead' | 'taken'
   G.over = true;
-  AudioFX.engineStop(); AudioFX.cricketsStop();
+  AudioFX.engineStop(); AudioFX.cricketsStop(); AudioFX.stopRadioVoice();
   AudioFX.stinger(result === 'win');
   document.exitPointerLock && document.exitPointerLock();
   const s = store.get();
@@ -1057,12 +1155,16 @@ function update(dt) {
   }
   if (!G.inTruck) {
     updateOnFoot(dt);
-    dom.prompt.className = distToTruck < 5 ? 'show' : '';
-    dom.prompt.textContent = 'E — climb into the truck';
+    if (performance.now() > promptLockUntil) {
+      dom.prompt.className = distToTruck < 5 ? 'show' : '';
+      dom.prompt.textContent = 'E — climb into the truck';
+    }
   } else {
     updateTruck(dt);
-    dom.prompt.className = 'show';
-    dom.prompt.textContent = 'E — hop out';
+    if (performance.now() > promptLockUntil) {
+      dom.prompt.className = 'show';
+      dom.prompt.textContent = 'E — hop out';
+    }
   }
 
   /* ---- waves ---- */
@@ -1330,6 +1432,8 @@ function updateHud() {
 function refreshMenuButtons() {
   dom.qualityBtn.textContent = 'Quality: ' + G.quality.toUpperCase();
   dom.muteBtn.textContent = 'Sound: ' + (store.get().muted ? 'OFF' : 'ON');
+  const sb = $('sensBtn');
+  if (sb) sb.textContent = 'Look Speed: ' + Math.round(getSens() * 100) + '%';
   const s = store.get();
   dom.bestLine.textContent = s.best > 0
     ? `Best score ${s.best.toLocaleString()} · reached wave ${s.bestWave} · ${s.wins} dawn${s.wins === 1 ? '' : 's'} seen`
@@ -1339,6 +1443,15 @@ function refreshMenuButtons() {
 dom.qualityBtn.addEventListener('click', () => {
   G.quality = G.quality === 'high' ? 'low' : 'high';
   store.get().quality = G.quality; store.save();
+  refreshMenuButtons();
+});
+$('sensBtn').addEventListener('click', () => {
+  // cycle: step up, wrap to slowest after the fastest
+  const cur = getSens();
+  const i = SENS_STEPS.indexOf(cur);
+  const next = SENS_STEPS[(i + 1) % SENS_STEPS.length];
+  store.get().sens = next; store.save();
+  applySens();
   refreshMenuButtons();
 });
 dom.muteBtn.addEventListener('click', () => {
