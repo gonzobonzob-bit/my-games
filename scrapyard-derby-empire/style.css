@@ -944,7 +944,7 @@ body {
 .igm-btn:hover { border-color: var(--accent); }
 .igm-btn:last-child { margin-bottom: 0; }
 
-/* ===== STATS SCREEN ===== */
+/* ===== SETTINGS SCREEN ===== */
 .settings-content {
     flex: 1;
     display: flex;
@@ -981,6 +981,38 @@ body {
     font-weight: 800;
     color: var(--accent2);
 }
+
+/* ===== SETTINGS / PREFERENCES ===== */
+.settings-section {
+    width: 100%;
+    max-width: 360px;
+}
+.settings-section-title {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+.settings-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.settings-option-btn {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 8px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+}
+.settings-option-btn:hover { border-color: var(--accent); }
+.settings-option-btn.active { background: var(--accent); border-color: var(--accent2); color: #fff; }
 
 /* ===== TOAST ===== */
 .toast {

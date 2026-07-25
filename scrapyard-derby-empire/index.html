@@ -16,7 +16,7 @@
     <div class="menu-title">Scrapyard D-Derby Empire</div>
     <div class="menu-sub">Demolition Derby Tycoon</div>
     <div id="menu-slots" class="menu-slots"></div>
-    <button class="menu-btn" onclick="openSettings()">Stats</button>
+    <button class="menu-btn" onclick="openSettings()">Settings</button>
 </div>
 
 <!-- ===== GARAGE ===== -->
@@ -112,11 +112,11 @@
     </div>
 </div>
 
-<!-- ===== STATS ===== -->
+<!-- ===== SETTINGS ===== -->
 <div id="screen-settings" class="screen">
     <div class="top-bar">
-        <button class="menu-toggle" onclick="showScreen('menu')">&#8592;</button>
-        <span class="top-bar-title">Stats</span>
+        <button class="menu-toggle" onclick="showScreen(settingsReturnScreen || 'menu')">&#8592;</button>
+        <span class="top-bar-title">Settings</span>
         <span></span>
     </div>
     <div class="settings-content"></div>
@@ -127,6 +127,7 @@
     <div class="igm-panel">
         <div class="igm-title">Menu</div>
         <button class="igm-btn" onclick="igmResume()">Resume</button>
+        <button class="igm-btn" onclick="igmSettings()">Settings</button>
         <button class="igm-btn" onclick="igmMainMenu()">Main Menu</button>
     </div>
 </div>
