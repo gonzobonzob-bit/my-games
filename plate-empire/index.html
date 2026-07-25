@@ -781,8 +781,6 @@ function loadSlot(n){
 }
 function deleteSlot(n){
   try{ localStorage.removeItem(slotKey(n)); }catch(e){}
-  // migrate old single-key save to slot 0
-  try{ localStorage.removeItem('plate-empire-save-v2'); }catch(e){}
 }
 
 /* ---------- C. Boot ---------- */
@@ -844,9 +842,24 @@ function continueGame(slot){
   S={...defaultState(),...d,finances:{...defaultState().finances,...(d.finances||{})},
     bestDay:{...defaultState().bestDay,...(d.bestDay||{})},
     settings:{...defaultState().settings,...(d.settings||{})}};
-  if(!S.staff) S.staff=[];
-  if(!S.upgrades) S.upgrades=[];
-  if(!S.achievements) S.achievements=[];
+  // defensive normalization for saves migrated from older/simpler schemas
+  // (e.g. the pre-tier plate-empire-save-v2 single-key save) where these
+  // fields may be absent, wrong-typed, or out of range.
+  if(!Array.isArray(S.staff)) S.staff=[];
+  if(!Array.isArray(S.upgrades)) S.upgrades=[];
+  if(!Array.isArray(S.achievements)) S.achievements=[];
+  if(!Array.isArray(S.log)) S.log=[];
+  if(!Array.isArray(S.finances.history)) S.finances.history=[];
+  if(typeof S.tier!=='number'||S.tier<0||S.tier>=TIERS.length||!Number.isFinite(S.tier)) S.tier=0;
+  S.tier=Math.floor(S.tier);
+  if(typeof S.dayMsLeft!=='number'||!Number.isFinite(S.dayMsLeft)||S.dayMsLeft<=0) S.dayMsLeft=curTier().dayLen;
+  if(typeof S.day!=='number'||S.day<1) S.day=1;
+  S.rep=clamp(typeof S.rep==='number'&&Number.isFinite(S.rep)?S.rep:70,0,100);
+  S.cash=(typeof S.cash==='number'&&Number.isFinite(S.cash))?S.cash:0;
+  // drop any hired staff / bought upgrades that reference unknown ids
+  // (schema drift protection) so downstream lookups never see undefined defs
+  S.staff=S.staff.filter(id=>ALL_STAFF.some(s=>s.id===id));
+  S.upgrades=S.upgrades.filter(id=>UPGRADES.some(u=>u.id===id));
   startSession(); pushLog('Resumed service.','');
 }
 function startSession(){
