@@ -19,6 +19,8 @@ function defaultSave() {
     losses: 0,
     quality: 'high',
     muted: false,
+    rank: 0,      // Chrome Circuit Gauntlet streak — unlocked after beating Chrome Reaper
+    rankBest: 0,
   };
 }
 
@@ -143,6 +145,57 @@ function awardBattle(win, opponentIndex) {
     else if (opponentIndex === s.ladderIndex) s.ladderIndex = LEAGUE.length; // beat the last rung
   } else {
     s.losses++;
+  }
+  store.save();
+}
+
+/* ---------------- Chrome Circuit Gauntlet (post-ladder endgame loop) ----------------
+   Unlocked once the player has beaten every league opponent (ladderIndex >= LEAGUE.length).
+   Rather than invent new content, it remixes the existing league roster at escalating
+   difficulty/reward as the player's rank streak climbs, and rotates through the whole
+   roster so it doesn't turn into "fight Chrome Reaper forever." A loss softens the
+   streak instead of zeroing it outright, so a single bad match doesn't erase a long run. */
+function isGauntletUnlocked() {
+  return store.get().ladderIndex >= LEAGUE.length;
+}
+
+function rankOpponent(rank) {
+  const idx = rank % LEAGUE.length;
+  const loops = Math.floor(rank / LEAGUE.length);
+  const entry = LEAGUE[idx];
+  const s = entry.stats;
+  const mult = 1 + loops * 0.22 + idx * 0.03;
+  return {
+    name: `${entry.name} [Remix Rk ${rank + 1}]`,
+    reward: Math.round(entry.reward * (1.15 + loops * 0.4)),
+    flavor: `Gauntlet remix — rank ${rank + 1}. Tougher plating, tighter reflexes.`,
+    stats: {
+      hp: Math.round(s.hp * mult),
+      speed: Math.min(9, s.speed * (1 + loops * 0.06)),
+      accel: Math.min(7, s.accel * (1 + loops * 0.06)),
+      turn: Math.min(6, s.turn * (1 + loops * 0.05)),
+      weaponType: s.weaponType,
+      dmg: Math.round(s.dmg * mult),
+      cooldown: Math.max(0.35, s.cooldown * (1 - loops * 0.02)),
+      range: s.range,
+      knockback: s.knockback,
+      recoil: !!s.recoil,
+      flip: !!s.flip,
+      pierce: !!s.pierce,
+    },
+  };
+}
+
+function awardRankBattle(win, reward) {
+  const s = store.get();
+  if (win) {
+    s.credits += reward;
+    s.wins++;
+    s.rank = (s.rank || 0) + 1;
+    s.rankBest = Math.max(s.rankBest || 0, s.rank);
+  } else {
+    s.losses++;
+    s.rank = Math.floor((s.rank || 0) / 2); // a loss softens the streak instead of zeroing it
   }
   store.save();
 }

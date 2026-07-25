@@ -19,6 +19,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Ra
 .loading-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px;}
 
 .menu-panel{display:flex;flex-direction:column;gap:12px;width:340px;align-items:stretch;}
+.settings-row{display:flex;gap:10px;}
+.settings-row .btn-outline{flex:1;}
 .loading-panel{display:flex;flex-direction:column;align-items:center;width:320px;}
 .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--hazard);border-radius:50%;animation:spin 0.9s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -41,6 +43,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Ra
 .credits-tag{background:var(--steel2);border:1px solid var(--hazard);color:var(--hazard);font-weight:700;padding:6px 14px;border-radius:20px;font-size:14px;}
 .panel-footer{display:flex;justify-content:space-between;gap:10px;margin-top:16px;}
 
+.weight-info{background:#0a141fcc;border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);line-height:1.4;margin-bottom:12px;}
+.weight-info strong{color:var(--text);}
+
 .garage-slots{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;flex:1;}
 .slot-col{flex:1;min-width:210px;background:#0a141fcc;border:1px solid var(--border);border-radius:10px;padding:10px;overflow-y:auto;}
 .slot-col h3{font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
@@ -62,6 +67,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Ra
 .ladder-flavor{color:var(--muted);font-size:12px;margin-top:2px;}
 .ladder-reward{color:var(--hazard);font-weight:700;font-size:14px;min-width:70px;text-align:right;}
 
+.rank-panel{display:none;margin-top:10px;background:linear-gradient(135deg,#1a1206,#0d1b28);border:1px solid var(--hazard);border-radius:10px;padding:12px 14px;}
+.rank-panel.active{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.rank-info{flex:1;}
+.rank-title{font-family:'Oswald',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.5px;text-transform:uppercase;color:var(--hazard);}
+.rank-sub{color:var(--muted);font-size:12px;margin-top:2px;}
+.rank-sub strong{color:var(--text);}
+
 .battle-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;padding:16px 20px;gap:16px;pointer-events:none;}
 .battle-hud > *{pointer-events:auto;}
 .fighter-card{flex:1;max-width:340px;}
@@ -75,13 +87,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Ra
 .battle-center{display:flex;flex-direction:column;align-items:center;padding-top:2px;}
 .battle-timer{font-family:'Oswald',sans-serif;font-weight:700;font-size:20px;background:rgba(0,0,0,0.5);border-radius:8px;padding:4px 12px;text-shadow:0 2px 6px rgba(0,0,0,0.8);}
 /* Fixed to the viewport, not to .battle-hud — that bar is only ~59px tall, so
-   anchoring to its bottom would still leave these colliding with the HP bars. */
-.battle-quality-btn{position:fixed;bottom:16px;right:74px;font-size:10px;padding:6px 10px;background:rgba(10,20,30,0.72);}
-.battle-pause-btn{position:fixed;bottom:16px;right:16px;font-size:14px;padding:6px 12px;background:rgba(10,20,30,0.72);}
+   anchoring to its bottom would still leave these colliding with the HP bars.
+   A flex row (rather than per-button magic-number right offsets) keeps the
+   cluster from overlapping itself as buttons are added/removed. */
+.battle-bottom-bar{position:fixed;bottom:16px;right:16px;display:flex;gap:8px;align-items:center;}
+.battle-quality-btn{font-size:10px;padding:6px 10px;background:rgba(10,20,30,0.72);white-space:nowrap;}
+.battle-pause-btn{font-size:14px;padding:6px 12px;background:rgba(10,20,30,0.72);}
 
 .result-title{font-family:'Oswald',sans-serif;font-weight:700;font-size:30px;text-align:center;letter-spacing:1px;margin-bottom:10px;}
 .result-title.win{color:#5fd15f;}
 .result-title.lose{color:var(--rust);}
+.result-title.draw{color:var(--hazard);}
 .result-text{text-align:center;color:var(--muted);font-size:14px;margin-bottom:8px;}
 .result-reward{text-align:center;color:var(--hazard);font-weight:700;font-size:16px;margin-bottom:18px;}
 .result-scorecard{display:none;background:#0a141fcc;border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:14px;}

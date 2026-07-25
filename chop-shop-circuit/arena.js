@@ -21,6 +21,220 @@ const Arena = (() => {
   const ARENA_RADIUS = 15;
   let paused = false;
 
+  /* ============================================================
+     AUDIO — synthesized oscillator/noise SFX, no external files.
+     Everything routes through masterGain so the mute flag (and the
+     quality-menu-style toggle in game.js) is a single gain ramp,
+     not a scattered set of early-returns.
+     ============================================================ */
+  let audioCtx = null;
+  let masterGain = null;
+  let muted = false;
+  let crowdNodes = null;
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = muted ? 0 : 1;
+      masterGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function setMuted(m) {
+    muted = m;
+    if (masterGain && audioCtx) masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.05);
+  }
+
+  function noiseBuffer(ctx, seconds) {
+    const buf = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * seconds)), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    return buf;
+  }
+
+  /* Per-weapon-type impact stings — distinct enough to read by ear which
+     archetype just landed a hit, without looking at the HUD. */
+  function sfxHit(weaponType, big) {
+    if (muted) return;
+    const ctx = ensureAudioCtx();
+    const t = ctx.currentTime;
+    const vol = big ? 0.5 : 0.32;
+    if (weaponType === 'hspinner' || weaponType === 'vspinner') {
+      const osc1 = ctx.createOscillator(), osc2 = ctx.createOscillator(), gain = ctx.createGain();
+      osc1.type = 'triangle'; osc1.frequency.setValueAtTime(1400, t); osc1.frequency.exponentialRampToValueAtTime(220, t + 0.28);
+      osc2.type = 'square'; osc2.frequency.setValueAtTime(2000, t); osc2.frequency.exponentialRampToValueAtTime(300, t + 0.2);
+      gain.gain.setValueAtTime(vol, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc1.connect(gain); osc2.connect(gain); gain.connect(masterGain);
+      osc1.start(t); osc2.start(t); osc1.stop(t + 0.3); osc2.stop(t + 0.3);
+    } else if (weaponType === 'flipper') {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.setValueAtTime(160, t); osc.frequency.exponentialRampToValueAtTime(60, t + 0.22);
+      gain.gain.setValueAtTime(vol, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+      osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.24);
+      const hiss = ctx.createBufferSource(); hiss.buffer = noiseBuffer(ctx, 0.15);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+      const hissGain = ctx.createGain();
+      hissGain.gain.setValueAtTime(vol * 0.4, t); hissGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      hiss.connect(hp).connect(hissGain).connect(masterGain); hiss.start(t);
+    } else if (weaponType === 'crusher') {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'square'; osc.frequency.setValueAtTime(140, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+      gain.gain.setValueAtTime(vol * 1.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+      osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.42);
+      const noise = ctx.createBufferSource(); noise.buffer = noiseBuffer(ctx, 0.2);
+      const bp = ctx.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 500;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(vol * 0.5, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      noise.connect(bp).connect(ng).connect(masterGain); noise.start(t);
+    } else { // drum — quick stubby metallic clank
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'square'; osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.1);
+      gain.gain.setValueAtTime(vol, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.12);
+    }
+  }
+
+  function sfxFlip() {
+    if (muted) return;
+    const ctx = ensureAudioCtx(); const t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(300, t);
+    osc.frequency.linearRampToValueAtTime(900, t + 0.15);
+    osc.frequency.linearRampToValueAtTime(150, t + 0.35);
+    gain.gain.setValueAtTime(0.28, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+    osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.38);
+  }
+
+  function sfxKO() {
+    if (muted) return;
+    const ctx = ensureAudioCtx(); const t = ctx.currentTime;
+    const noise = ctx.createBufferSource(); noise.buffer = noiseBuffer(ctx, 0.5);
+    const bp = ctx.createBiquadFilter(); bp.type = 'lowpass';
+    bp.frequency.setValueAtTime(1200, t); bp.frequency.exponentialRampToValueAtTime(120, t + 0.5);
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.55, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+    noise.connect(bp).connect(ng).connect(masterGain); noise.start(t);
+    const osc = ctx.createOscillator(), og = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(90, t); osc.frequency.exponentialRampToValueAtTime(30, t + 0.5);
+    og.gain.setValueAtTime(0.5, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+    osc.connect(og).connect(masterGain); osc.start(t); osc.stop(t + 0.55);
+  }
+
+  /* Throttled edge-triggered zap — called once per pit "tick" from
+     updateBotAI rather than every physics frame, see bot.hazardSoundT. */
+  function sfxPitHazard() {
+    if (muted) return;
+    const ctx = ensureAudioCtx(); const t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(80, t);
+    const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
+    lfo.type = 'square'; lfo.frequency.value = 40; lfoGain.gain.value = 60;
+    lfo.connect(lfoGain).connect(osc.frequency);
+    gain.gain.setValueAtTime(0.22, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(gain).connect(masterGain);
+    osc.start(t); lfo.start(t); osc.stop(t + 0.25); lfo.stop(t + 0.25);
+  }
+
+  function sfxVictory() {
+    if (muted) return;
+    const ctx = ensureAudioCtx();
+    [523.25, 659.25, 784, 1046.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      const start = ctx.currentTime + i * 0.11;
+      gain.gain.setValueAtTime(0.3, start); gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35);
+      osc.connect(gain).connect(masterGain); osc.start(start); osc.stop(start + 0.35);
+    });
+  }
+
+  function sfxDefeat() {
+    if (muted) return;
+    const ctx = ensureAudioCtx();
+    [392, 329.63, 261.63].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sawtooth'; osc.frequency.value = freq;
+      const start = ctx.currentTime + i * 0.18;
+      gain.gain.setValueAtTime(0.26, start); gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
+      osc.connect(gain).connect(masterGain); osc.start(start); osc.stop(start + 0.4);
+    });
+  }
+
+  /* Mutual destruction gets its own dissonant sting — deliberately NOT
+     the plain defeat jingle, so a double KO reads as a distinct, fair
+     outcome rather than an ordinary loss. */
+  function sfxDoubleKo() {
+    if (muted) return;
+    const ctx = ensureAudioCtx(); const t = ctx.currentTime;
+    [370, 392].forEach(freq => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'square'; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.22, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.6);
+    });
+    const noise = ctx.createBufferSource(); noise.buffer = noiseBuffer(ctx, 0.4);
+    const bp = ctx.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 800;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.3, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    noise.connect(bp).connect(ng).connect(masterGain); noise.start(t);
+  }
+
+  function sfxUiClick() {
+    if (muted) return;
+    const ctx = ensureAudioCtx(); const t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(500, t);
+    gain.gain.setValueAtTime(0.12, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.08);
+  }
+
+  function sfxPurchase() {
+    if (muted) return;
+    const ctx = ensureAudioCtx(); const t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, t); osc.frequency.linearRampToValueAtTime(900, t + 0.18);
+    gain.gain.setValueAtTime(0.22, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t + 0.22);
+  }
+
+  /* Ambient crowd/arena bed — filtered noise loop with a slow amplitude
+     LFO so it reads as a murmuring crowd rather than a flat hiss. Runs
+     for the duration of a battle; stopped on resetToIdle(). */
+  function startCrowdAmbience() {
+    if (crowdNodes) return;
+    const ctx = ensureAudioCtx();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 550; bp.Q.value = 0.7;
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.13;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.025;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 1.2);
+    lfo.connect(lfoGain).connect(gain.gain);
+    src.connect(bp).connect(gain).connect(masterGain);
+    src.start(); lfo.start();
+    crowdNodes = { src, lfo, gain };
+  }
+
+  function stopCrowdAmbience() {
+    if (!crowdNodes || !audioCtx) { crowdNodes = null; return; }
+    const ctx = audioCtx;
+    const { src, lfo, gain } = crowdNodes;
+    try {
+      gain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+      setTimeout(() => { try { src.stop(); lfo.stop(); } catch (e) {} }, 900);
+    } catch (e) {}
+    crowdNodes = null;
+  }
+
   /* ---------------- boot ---------------- */
   async function boot(canvasId) {
     const canvas = document.getElementById(canvasId);
@@ -329,6 +543,7 @@ const Arena = (() => {
       circleDir: side === 'player' ? 1 : -1,
       // judges' scorecard tallies — see judgeDecision()
       dmgDealt: 0, hitsLanded: 0, attacksMade: 0, controlT: 0, hazardT: 0,
+      hazardSoundT: 0,
     };
   }
 
@@ -412,6 +627,7 @@ const Arena = (() => {
     B.enemy = buildBot(enemyStats, 'enemy', new BABYLON.Vector3(8, 0.3, -2), -Math.PI / 2);
     battleT = 0; slowmoT = 0; battleActive = true;
     world.camGoal = { alpha: -Math.PI / 2.3, beta: 1.05, radius: 20 };
+    startCrowdAmbience();
   }
 
   function forward(root) {
@@ -466,6 +682,7 @@ const Arena = (() => {
         const gyro = defender.stats.specialKind === 'gyro';
         defender.invertedT = gyro ? 0.7 : 2.2; // Gyro Stabilizer self-rights fast
         defender.knockedT = Math.max(defender.knockedT, defender.invertedT);
+        sfxFlip();
       }
       // Horizontal spinners throw themselves back just as hard as the target.
       if (attacker.stats.recoil) {
@@ -475,6 +692,7 @@ const Arena = (() => {
     const pos = defender.root.position.add(new BABYLON.Vector3(0, 0.6, 0));
     sparkBurst(pos, WEAPON_COLORS[attacker.stats.weaponType] || WEAPON_COLORS.drum, d > 18 ? 30 : 16);
     if (d >= 18) { debrisChunks(pos, 4); pulseAberration(0.35); triggerCameraCut(); }
+    sfxHit(attacker.stats.weaponType, d >= 18);
     if (!defender.hp) killFlash(defender);
   }
 
@@ -483,6 +701,7 @@ const Arena = (() => {
     flash.diffuse = new BABYLON.Color3(1, 0.6, 0.2); flash.intensity = 30; flash.range = 10;
     setTimeout(() => flash.dispose(), 200);
     debrisChunks(bot.root.position.add(new BABYLON.Vector3(0, 0.6, 0)), 8);
+    sfxKO();
   }
 
   /* Blend an outward push into the desired heading when the bot is near the
@@ -567,6 +786,11 @@ const Arena = (() => {
       bot.hazardT += dt; // taking hazard damage counts against your control score
       const cur = bot.body.getLinearVelocity();
       bot.body.setLinearVelocity(cur.scale(0.4));
+      // edge-triggered zap, re-armed every ~0.5s instead of firing every physics frame
+      if (bot.hazardSoundT <= 0) { sfxPitHazard(); bot.hazardSoundT = 0.5; }
+      else bot.hazardSoundT -= dt;
+    } else if (bot.hazardSoundT > 0) {
+      bot.hazardSoundT = 0;
     }
     // keep bots inside the ring — only right at the wall, so it can't fight the chase
     if (distFromCenter > ARENA_RADIUS - 1.0) {
@@ -612,19 +836,22 @@ const Arena = (() => {
     const timeUp = battleT >= MATCH_TIME;
     if (pDead || eDead || timeUp) {
       battleActive = false;
-      let win, byKo = true, scorecard = null;
+      let win, byKo = true, scorecard = null, doubleKo = false;
       if (eDead && !pDead) win = true;
       else if (pDead && !eDead) win = false;
-      else if (pDead && eDead) win = false;   // mutual destruction goes to the house bot
+      else if (pDead && eDead) { win = false; doubleKo = true; } // mutual destruction — distinct result, not a plain loss
       else {
         byKo = false;                          // clock ran out — go to the judges
         scorecard = judgeDecision(B.player, B.enemy);
         win = scorecard.winner === 'player';
       }
+      if (doubleKo) sfxDoubleKo();
+      else if (win) sfxVictory();
+      else sfxDefeat();
       slowmoT = 1.6;
       world.camGoal = { alpha: camera.alpha, beta: 0.9, radius: 9 };
       const resultHp = B.player.hp / B.player.maxHp;
-      setTimeout(() => { if (onDone) onDone({ win, byKo, scorecard, playerHpFrac: resultHp }); }, 1500);
+      setTimeout(() => { if (onDone) onDone({ win, byKo, doubleKo, scorecard, playerHpFrac: resultHp }); }, 1500);
     }
   }
 
@@ -686,6 +913,7 @@ const Arena = (() => {
     disposeBots();
     battleActive = false;
     world.camGoal = { alpha: -Math.PI / 2, beta: 1.15, radius: 22 };
+    stopCrowdAmbience();
   }
 
   function setPaused(p) { paused = p; }
@@ -700,5 +928,5 @@ const Arena = (() => {
     };
   }
 
-  return { boot, applyQuality, startBattle, resetToIdle, setPaused, getHudState };
+  return { boot, applyQuality, startBattle, resetToIdle, setPaused, getHudState, setMuted, sfxUiClick, sfxPurchase };
 })();

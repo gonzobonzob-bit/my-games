@@ -25,7 +25,10 @@
     <div class="tagline">Build it. Arm it. Watch it win.</div>
     <button id="btn-new-game" class="btn-large">New Game</button>
     <button id="btn-continue" class="btn-large">Continue</button>
-    <button id="quality-menu-btn" class="btn-outline">Graphics: HIGH</button>
+    <div class="settings-row">
+      <button id="quality-menu-btn" class="btn-outline">Graphics: HIGH</button>
+      <button id="btn-mute-menu" class="btn-outline">Sound: ON</button>
+    </div>
   </div>
 </div>
 
@@ -36,6 +39,7 @@
       <div id="garage-credits" class="credits-tag">0 cr</div>
       <button class="btn-outline btn-pause-open">☰</button>
     </div>
+    <div id="garage-weight-info" class="weight-info"></div>
     <div id="garage-slots" class="garage-slots"></div>
     <div class="panel-footer">
       <button id="btn-garage-to-menu" class="btn-outline">Main Menu</button>
@@ -51,6 +55,7 @@
       <button class="btn-outline btn-pause-open">☰</button>
     </div>
     <div id="ladder-list" class="ladder-list"></div>
+    <div id="rank-panel" class="rank-panel"></div>
     <div class="panel-footer">
       <button id="btn-ladder-to-garage" class="btn-outline">◀ Back to Garage</button>
     </div>
@@ -70,8 +75,11 @@
       <div id="battle-enemy-name" class="fighter-name">OPPONENT</div>
       <div class="hp-bar"><div id="hp-enemy-fill" class="hp-fill enemy"></div></div>
     </div>
-    <button id="quality-battle-btn" class="btn-outline battle-quality-btn">Graphics: HIGH</button>
-    <button class="btn-outline btn-pause-open battle-pause-btn">☰</button>
+    <div class="battle-bottom-bar">
+      <button id="quality-battle-btn" class="btn-outline battle-quality-btn">Graphics: HIGH</button>
+      <button id="btn-mute-battle" class="btn-outline battle-quality-btn">Sound: ON</button>
+      <button class="btn-outline btn-pause-open battle-pause-btn">☰</button>
+    </div>
   </div>
 </div>
 
