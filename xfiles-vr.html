@@ -2,8 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>X-FILES VR</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="xfiles-vr-aframe.min.js"></script>
 <script>
 // Register movement AFTER aframe loads, BEFORE scene parses
 AFRAME.registerComponent('gonzo-move', {
@@ -39,42 +40,132 @@ AFRAME.registerComponent('gonzo-move', {
       const p = this.el.object3D.position;
       p.x += (Math.sin(this.yaw) * -this.vel.z + Math.cos(this.yaw) * this.vel.x) * speed;
       p.z += (Math.cos(this.yaw) * this.vel.z  + Math.sin(this.yaw) * this.vel.x) * speed;
-      p.x = Math.max(-4.5, Math.min(4.5, p.x));
-      p.z = Math.max(-3.5, Math.min(3.8, p.z));
     }
     this.el.object3D.rotation.y = this.yaw;
+
+    // World-space room bounds + furniture collision, resolved every frame
+    // against the actual CAMERA world position (not just this rig's local
+    // position). This is required because desktop WASD movement is applied
+    // by A-Frame's wasd-controls directly to the camera child entity and
+    // never touches this component's own position updates at all — without
+    // this step a desktop player can walk straight through the walls and
+    // out of the room, and through the desk/cabinets, since only the VR
+    // joystick path was ever being clamped.
+    const camEl = this.camEl || (this.camEl = (this.el.sceneEl.camera && this.el.sceneEl.camera.el));
+    if (camEl) {
+      const wp = camEl.object3D.getWorldPosition(this._wp || (this._wp = new AFRAME.THREE.Vector3()));
+      let cx = wp.x, cz = wp.z;
+      cx = Math.max(-4.5, Math.min(4.5, cx));
+      cz = Math.max(-3.6, Math.min(3.9, cz));
+      let r = pushOutOfAABB(cx, cz, 0.1, 2.9, 1.25, 2.75);   // desk
+      cx = r.x; cz = r.z;
+      r = pushOutOfAABB(cx, cz, -4.4, -3.2, -2.55, -1.45);    // filing cabinet 1
+      cx = r.x; cz = r.z;
+      r = pushOutOfAABB(cx, cz, -4.4, -3.2, -1.35, -0.25);    // filing cabinet 2
+      cx = r.x; cz = r.z;
+      const dx = cx - wp.x, dz = cz - wp.z;
+      if (dx !== 0 || dz !== 0) {
+        this.el.object3D.position.x += dx;
+        this.el.object3D.position.z += dz;
+      }
+    }
   }
 });
+function pushOutOfAABB(x, z, minX, maxX, minZ, maxZ) {
+  if (x <= minX || x >= maxX || z <= minZ || z >= maxZ) return { x, z };
+  const dLeft = x - minX, dRight = maxX - x, dNear = z - minZ, dFar = maxZ - z;
+  const m = Math.min(dLeft, dRight, dNear, dFar);
+  if (m === dLeft) return { x: minX, z };
+  if (m === dRight) return { x: maxX, z };
+  if (m === dNear) return { x, z: minZ };
+  return { x, z: maxZ };
+}
 </script>
 <style>
 body{margin:0;background:#000;}
-#panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:500px;max-width:92vw;background:rgba(3,10,3,0.97);
+.opanel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:500px;max-width:92vw;max-height:90vh;overflow-y:auto;background:rgba(3,10,3,0.97);
   border:2px solid #00ff41;padding:26px;display:none;z-index:200;
-  font-family:'Courier New',monospace;color:#aaffaa;}
-#panel .pid{color:#88ff88;font-size:11px;margin-bottom:4px;}
-#panel .pcls{color:#ff3333;font-size:11px;margin-bottom:12px;letter-spacing:2px;}
-#panel h2{color:#fff;font-size:20px;letter-spacing:2px;margin:6px 0 14px;}
-#panel .div{height:1px;background:#003300;margin-bottom:12px;}
-#panel p{font-size:12px;line-height:1.85;margin-bottom:18px;}
-#panel button{background:transparent;border:1px solid #00ff41;color:#00ff41;
+  font-family:'Courier New',monospace;color:#aaffaa;box-sizing:border-box;}
+.opanel .pid{color:#88ff88;font-size:11px;margin-bottom:4px;}
+.opanel .pcls{color:#ff3333;font-size:11px;margin-bottom:12px;letter-spacing:2px;}
+.opanel h2{color:#fff;font-size:20px;letter-spacing:2px;margin:6px 0 14px;}
+.opanel .div{height:1px;background:#003300;margin:12px 0;}
+.opanel p{font-size:12px;line-height:1.85;margin-bottom:18px;}
+.opanel .obtn{background:transparent;border:1px solid #00ff41;color:#00ff41;
   font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;
-  padding:12px 24px;cursor:pointer;width:100%;}
+  padding:12px 14px;cursor:pointer;flex:1;min-width:0;}
+.opanel .obtn:hover{background:rgba(0,255,65,0.12);}
+.opanel .obtn:disabled{opacity:0.35;cursor:not-allowed;}
+.opanel .obtn.red{border-color:#ff3333;color:#ff3333;}
+.opanel .obtn.red:hover{background:rgba(255,51,51,0.12);}
+.opanel .obtn.active{background:#00ff41;color:#001a00;}
+.obtnrow{display:flex;gap:8px;margin-bottom:10px;}
+.setrow{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.setlabel{font-size:10px;letter-spacing:2px;color:#66aa66;width:110px;flex:none;}
+.statline{font-size:11px;letter-spacing:1px;color:#88ff88;margin-bottom:16px;}
+#startscreen,#pausescreen{z-index:300;}
+#panel{z-index:200;}
 #hud{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
   color:#00ff41;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;
   background:rgba(0,0,0,0.7);padding:7px 16px;border:1px solid #003300;
   pointer-events:none;z-index:100;white-space:nowrap;}
+#hud-progress{position:fixed;top:12px;left:50%;transform:translateX(-50%);
+  color:#00ff41;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;
+  background:rgba(0,0,0,0.7);padding:6px 14px;border:1px solid #003300;
+  pointer-events:none;z-index:100;white-space:nowrap;}
 </style>
 </head>
 <body>
-<div id="hud">LEFT STICK=MOVE · RIGHT STICK=TURN · TRIGGER=READ · DESKTOP: CLICK TO LOOK · WASD=MOVE</div>
-<div id="panel">
+<div id="hud-progress">FILES REVIEWED: <span id="hudProgress">0 / 11</span></div>
+<div id="hud">LEFT STICK=MOVE · RIGHT STICK=TURN · TRIGGER=READ/CLOSE · DESKTOP: CLICK TO LOOK · WASD=MOVE · ESC=PAUSE</div>
+
+<div id="panel" class="opanel">
   <div class="pid" id="pid"></div>
   <div class="pcls" id="pcls"></div>
   <h2 id="pttl"></h2>
   <div class="div"></div>
   <p id="psum"></p>
-  <button onclick="document.getElementById('panel').style.display='none'">[ CLOSE FILE ]</button>
+  <button class="obtn" style="width:100%" onclick="closeCasePanel()">[ CLOSE FILE ]</button>
+</div>
+
+<div id="startscreen" class="opanel" style="display:block;">
+  <div class="pid">F.B.I. — CLASSIFIED</div>
+  <h2>X-FILES VR</h2>
+  <div class="div"></div>
+  <p>Explore Agent Mulder's case-board archive. Walk the room, pull cards off the corkboard, and pull the trigger (or click) on a file to read it. Progress is saved automatically.</p>
+  <div class="statline">CASES REVIEWED: <span id="progressStat">0 / 11</span></div>
+  <div class="obtnrow">
+    <button class="obtn" onclick="enterExperience(true)">NEW ARCHIVE</button>
+    <button class="obtn" id="continueBtn" onclick="enterExperience(false)" disabled>CONTINUE</button>
+  </div>
+  <div class="div"></div>
+  <div class="setrow">
+    <span class="setlabel">MOVE SPEED</span>
+    <button class="obtn speedbtn" data-v="2.2" onclick="setSpeed(2.2)">SLOW</button>
+    <button class="obtn speedbtn" data-v="3.5" onclick="setSpeed(3.5)">NORMAL</button>
+    <button class="obtn speedbtn" data-v="5" onclick="setSpeed(5)">FAST</button>
+  </div>
+  <div class="setrow">
+    <span class="setlabel">SNAP TURN</span>
+    <button class="obtn turnbtn" data-v="15" onclick="setTurn(15)">15&deg;</button>
+    <button class="obtn turnbtn" data-v="30" onclick="setTurn(30)">30&deg;</button>
+    <button class="obtn turnbtn" data-v="45" onclick="setTurn(45)">45&deg;</button>
+  </div>
+  <div class="div"></div>
+  <p style="margin-bottom:0;font-size:10px;color:#558866;">LEFT STICK=MOVE · RIGHT STICK=TURN · DESKTOP: WASD=MOVE · MOUSE=LOOK · TRIGGER/CLICK=READ · ESC=PAUSE</p>
+</div>
+
+<div id="pausescreen" class="opanel">
+  <div class="pid">ARCHIVE ACCESS SUSPENDED</div>
+  <h2>PAUSED</h2>
+  <div class="div"></div>
+  <div class="statline">CASES REVIEWED: <span id="progressStatPause">0 / 11</span></div>
+  <div class="obtnrow">
+    <button class="obtn" onclick="resumeGame()">RESUME</button>
+    <button class="obtn" id="saveBtn" onclick="saveNow()">SAVE</button>
+    <button class="obtn red" onclick="returnToMainMenu()">MAIN MENU</button>
+  </div>
 </div>
 
 <script>
@@ -102,15 +193,233 @@ const CASES=[
   {id:"X-File 9002",title:"JOSE CHUNG",cls:"CONFLICTING ACCOUNTS",
    sum:"Three witnesses, three different accounts. Men in Black — one NOT human. Lord Kinbote referenced by unconnected sources. Truth: indeterminate."},
 ];
-function openCase(i){
-  const c=CASES[i];
-  document.getElementById('pid').textContent=c.id;
-  document.getElementById('pcls').textContent='⚠ '+c.cls+' ⚠';
-  document.getElementById('pttl').textContent=c.title;
-  document.getElementById('psum').textContent=c.sum;
-  document.getElementById('panel').style.display='block';
+const PIN_COLORS = ["#ff2222","#ffdd00","#9900cc","#00cc44","#ff3333","#ffcc00","#cc0000","#9900cc","#ffcc00","#ff3333","#00aaff"];
+const READ_COLOR = "#2f5c2f";
+function forVrText(s) { return s.replace(/—/g, '-'); }
+
+// ── SAVE / LOAD (versioned, defensive) ──────────────────────────────────
+const SAVE_KEY = 'xfiles-vr-save-v1';
+let saveData = { v: 1, casesRead: [], settings: { speed: 3.5, turnSnap: 30 } };
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.v === 1) {
+      if (Array.isArray(parsed.casesRead)) {
+        saveData.casesRead = parsed.casesRead.filter(i => Number.isInteger(i) && i >= 0 && i < CASES.length);
+      }
+      if (parsed.settings) {
+        if (typeof parsed.settings.speed === 'number') saveData.settings.speed = parsed.settings.speed;
+        if (typeof parsed.settings.turnSnap === 'number') saveData.settings.turnSnap = parsed.settings.turnSnap;
+      }
+    }
+  } catch (e) {
+    // Corrupt/unreadable save — degrade gracefully and start fresh.
+    saveData = { v: 1, casesRead: [], settings: { speed: 3.5, turnSnap: 30 } };
+  }
 }
-window.openCase=openCase;
+function writeSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+  } catch (e) { /* storage unavailable/full — non-fatal, just skip this save */ }
+}
+loadSave();
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let state = 'menu'; // 'menu' | 'playing' | 'paused'
+let currentCaseIndex = null;
+
+function updateProgressUI() {
+  const txt = saveData.casesRead.length + ' / ' + CASES.length;
+  const a = document.getElementById('progressStat'); if (a) a.textContent = txt;
+  const b = document.getElementById('progressStatPause'); if (b) b.textContent = txt;
+  const c = document.getElementById('hudProgress'); if (c) c.textContent = txt;
+  const cont = document.getElementById('continueBtn');
+  if (cont) cont.disabled = (saveData.casesRead.length === 0);
+}
+function refreshSettingsUI() {
+  document.querySelectorAll('.speedbtn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.v) === saveData.settings.speed));
+  document.querySelectorAll('.turnbtn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.v) === saveData.settings.turnSnap));
+}
+updateProgressUI();
+refreshSettingsUI();
+
+function applySettingsToRig() {
+  const rig = document.getElementById('rig');
+  if (rig) rig.setAttribute('gonzo-move', { speed: saveData.settings.speed, turnSnap: saveData.settings.turnSnap });
+}
+function setSpeed(v) { saveData.settings.speed = v; applySettingsToRig(); writeSave(); refreshSettingsUI(); }
+function setTurn(v) { saveData.settings.turnSnap = v; applySettingsToRig(); writeSave(); refreshSettingsUI(); }
+
+function markCaseRead(i) {
+  if (!saveData.casesRead.includes(i)) {
+    saveData.casesRead.push(i);
+    writeSave(); // save-on-important-transition
+    updateProgressUI();
+    const pin = document.getElementById('pin' + i);
+    if (pin) pin.setAttribute('color', READ_COLOR);
+  }
+}
+function resetPinColors() {
+  PIN_COLORS.forEach((c, i) => {
+    const p = document.getElementById('pin' + i);
+    if (p) p.setAttribute('color', c);
+  });
+}
+function applyReadPinColors() {
+  saveData.casesRead.forEach(i => {
+    const p = document.getElementById('pin' + i);
+    if (p) p.setAttribute('color', READ_COLOR);
+  });
+}
+
+function openCase(i) {
+  currentCaseIndex = i;
+  const c = CASES[i];
+  document.getElementById('pid').textContent = c.id;
+  document.getElementById('pcls').textContent = '⚠ ' + c.cls + ' ⚠';
+  document.getElementById('pttl').textContent = c.title;
+  document.getElementById('psum').textContent = c.sum;
+  const vpid = document.getElementById('vpid');
+  if (vpid) {
+    // A-Frame's bundled default text font has no glyph for an em dash (—)
+    // and silently drops it (and the text after it collapses awkwardly) —
+    // sanitize before feeding these same CASES strings into in-scene
+    // a-text. The DOM panel keeps the nicer em dash since a real browser
+    // font renders it fine there.
+    vpid.setAttribute('value', forVrText(c.id));
+    document.getElementById('vpcls').setAttribute('value', forVrText('(!) ' + c.cls + ' (!)'));
+    document.getElementById('vpttl').setAttribute('value', forVrText(c.title));
+    document.getElementById('vpsum').setAttribute('value', forVrText(c.sum));
+  }
+  markCaseRead(i);
+  syncPanelVisibility();
+}
+function closeCasePanel() {
+  currentCaseIndex = null;
+  syncPanelVisibility();
+}
+function syncPanelVisibility() {
+  const domPanel = document.getElementById('panel');
+  const vrPanel = document.getElementById('vr-panel');
+  const sceneEl = document.querySelector('a-scene');
+  const inVR = !!(sceneEl && sceneEl.is && sceneEl.is('vr-mode'));
+  if (currentCaseIndex === null) {
+    domPanel.style.display = 'none';
+    if (vrPanel) { vrPanel.setAttribute('visible', 'false'); vrPanel.setAttribute('position', '0 -100 0'); }
+  } else if (inVR) {
+    // Regular DOM overlays are not rendered inside an immersive WebXR
+    // session, so the file has to be shown as an in-scene entity attached
+    // to the camera while the headset is active.
+    domPanel.style.display = 'none';
+    if (vrPanel) { vrPanel.setAttribute('visible', 'true'); vrPanel.setAttribute('position', '0 0 -1.1'); }
+  } else {
+    domPanel.style.display = 'block';
+    if (vrPanel) { vrPanel.setAttribute('visible', 'false'); vrPanel.setAttribute('position', '0 -100 0'); }
+  }
+}
+window.openCase = openCase;
+window.closeCasePanel = closeCasePanel;
+
+// ── MENU / PAUSE FLOW ────────────────────────────────────────────────────
+function setControlsEnabled(enabled) {
+  const cam = document.getElementById('cam');
+  if (!cam) return;
+  cam.setAttribute('wasd-controls', 'enabled', enabled);
+  cam.setAttribute('look-controls', 'enabled', enabled);
+}
+function enterExperience(reset) {
+  if (reset) {
+    saveData.casesRead = [];
+    writeSave();
+    updateProgressUI();
+    resetPinColors();
+  }
+  document.getElementById('startscreen').style.display = 'none';
+  state = 'playing';
+  setControlsEnabled(true);
+  safeRequestPointerLock();
+}
+function pauseGame() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  setControlsEnabled(false);
+  try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+  updateProgressUI();
+  document.getElementById('pausescreen').style.display = 'block';
+}
+function resumeGame() {
+  if (state !== 'paused') return;
+  document.getElementById('pausescreen').style.display = 'none';
+  state = 'playing';
+  setControlsEnabled(true);
+  safeRequestPointerLock();
+}
+// requestPointerLock() returns a Promise in modern Chromium — an unhandled
+// rejection (e.g. because the automation/dev harness's document isn't a
+// valid pointer-lock target, or the user backgrounded the tab mid-request)
+// would otherwise surface as an uncaught console exception even though a
+// plain try/catch is in place, since try/catch does not catch async
+// rejections.
+function safeRequestPointerLock() {
+  const scene = document.querySelector('a-scene');
+  if (!scene || !scene.canvas) return;
+  try {
+    const p = scene.canvas.requestPointerLock();
+    if (p && typeof p.catch === 'function') p.catch(() => { /* ignore — user can click to look instead */ });
+  } catch (e) { /* ignore */ }
+}
+function saveNow() {
+  writeSave();
+  const btn = document.getElementById('saveBtn');
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = 'SAVED';
+    setTimeout(() => { btn.textContent = orig; }, 1200);
+  }
+}
+function returnToMainMenu() {
+  document.getElementById('pausescreen').style.display = 'none';
+  closeCasePanel();
+  state = 'menu';
+  setControlsEnabled(false);
+  try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+  updateProgressUI();
+  document.getElementById('startscreen').style.display = 'block';
+}
+window.enterExperience = enterExperience;
+window.resumeGame = resumeGame;
+window.saveNow = saveNow;
+window.returnToMainMenu = returnToMainMenu;
+window.setSpeed = setSpeed;
+window.setTurn = setTurn;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (currentCaseIndex !== null) { closeCasePanel(); return; }
+  if (state === 'playing') pauseGame();
+  else if (state === 'paused') resumeGame();
+});
+// Safety net: browsers release pointer lock on Esc themselves (can't be
+// prevented), and also on alt-tab / focus loss — auto-pause whenever that
+// happens mid-play so the player is never stuck looking at a frozen scene
+// with no visible way back to a menu.
+document.addEventListener('pointerlockchange', () => {
+  const scene = document.querySelector('a-scene');
+  const locked = scene && scene.canvas && document.pointerLockElement === scene.canvas;
+  if (!locked && state === 'playing') pauseGame();
+});
+
+// Autosave every 30s, plus on tab hide/close, per vault convention. Only
+// one interval is ever created for the lifetime of the page (no
+// start/stop menu cycle to stack it).
+setInterval(writeSave, 30000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') writeSave();
+});
+window.addEventListener('pagehide', writeSave);
 </script>
 
 <a-scene background="color:#2a1f0e" renderer="antialias:true;colorManagement:false" vr-mode-ui="enabled:true" loading-screen="backgroundColor:#000;dotsColor:#00ff41">
@@ -121,10 +430,21 @@ window.openCase=openCase;
   <a-light type="point" color="#ffdd88" intensity="2.5" distance="7" position="1.5 1.3 2"></a-light>
 
   <a-entity id="rig" position="0 0 3" gonzo-move="speed:3.5">
-    <a-camera look-controls="pointerLockEnabled:true" wasd-controls="acceleration:20" position="0 1.6 0">
+    <a-camera id="cam" look-controls="pointerLockEnabled:true;enabled:false" wasd-controls="acceleration:20;enabled:false" position="0 1.6 0">
       <a-entity cursor="fuse:false" raycaster="objects:.card;far:8"
         geometry="primitive:ring;radiusInner:0.012;radiusOuter:0.018"
         material="color:#00ff41;shader:flat" position="0 0 -1">
+      </a-entity>
+      <!-- In-scene case-file readout, attached to the camera so it stays in
+           view and — unlike the DOM #panel overlay — is actually visible
+           while inside an immersive WebXR session. -->
+      <a-entity id="vr-panel" visible="false" position="0 -100 0">
+        <a-plane width="1.3" height="0.85" color="#03140a" opacity="0.95" material="shader:flat;side:double"></a-plane>
+        <a-text id="vpid" value="" color="#88ff88" width="1.0" wrap-count="40" baseline="top" position="-0.58 0.36 0.01" align="left"></a-text>
+        <a-text id="vpcls" value="" color="#ff5555" width="1.0" wrap-count="40" baseline="top" position="-0.58 0.30 0.01" align="left"></a-text>
+        <a-text id="vpttl" value="" color="#ffffff" width="1.05" wrap-count="22" baseline="top" position="-0.58 0.22 0.01" align="left"></a-text>
+        <a-text id="vpsum" value="" color="#aaffaa" width="1.05" wrap-count="46" line-height="38" baseline="top" position="-0.58 0.09 0.01" align="left"></a-text>
+        <a-text value="PULL TRIGGER TO CLOSE FILE" color="#557755" width="1.8" wrap-count="40" position="0 -0.37 0.01" align="center"></a-text>
       </a-entity>
     </a-camera>
     <a-entity id="lhand" oculus-touch-controls="hand:left"></a-entity>
@@ -148,21 +468,21 @@ window.openCase=openCase;
   <a-box width="8.5" height="0.1" depth="0.1" color="#3a2800" position="0 0.34 -3.95"></a-box>
   <a-box width="0.1" height="2.9" depth="0.1" color="#3a2800" position="-4.2 1.7 -3.95"></a-box>
   <a-box width="0.1" height="2.9" depth="0.1" color="#3a2800" position="4.2 1.7 -3.95"></a-box>
-  <a-text value="X-FILES — CLASSIFIED CASE BOARD" color="#cc9900" width="5" position="0 3.14 -3.88" align="center"></a-text>
+  <a-text value="X-FILES - CLASSIFIED CASE BOARD" color="#cc9900" width="5" position="0 3.14 -3.88" align="center"></a-text>
   <a-text value="F.B.I. SPECIAL AGENT FOX MULDER" color="#664400" width="3.5" position="0 2.86 -3.88" align="center"></a-text>
 
   <!-- CARDS -->
-  <a-entity class="card" position="-3.2 2.55 -3.86" rotation="0 0 3" onclick="openCase(0)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 1013&#10;TOOMS" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#ff2222" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="-1.6 2.6 -3.86" rotation="0 0 -2" onclick="openCase(1)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 1214&#10;FLUKEMAN" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#ffdd00" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="0.1 2.65 -3.86" rotation="0 0 1" onclick="openCase(2)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 0467&#10;BLACK OIL" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#9900cc" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="1.8 2.55 -3.86" rotation="0 0 -3" onclick="openCase(3)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 7777&#10;COLONIZATION" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#00cc44" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="3.1 2.5 -3.86" rotation="0 0 2" onclick="openCase(4)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 2231&#10;DUANE BARRY" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#ff3333" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="-3.0 1.8 -3.86" rotation="0 0 -2" onclick="openCase(5)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 3301&#10;PUSHER" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#ffcc00" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="-1.0 1.75 -3.86" rotation="0 0 3" onclick="openCase(6)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 5512&#10;HOME" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#cc0000" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="0.8 1.85 -3.86" rotation="0 0 -1" onclick="openCase(7)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 6601&#10;SMOKING MAN" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#9900cc" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="2.5 1.8 -3.86" rotation="0 0 2" onclick="openCase(8)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 0001&#10;PILOT" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#ffcc00" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="-2.0 1.1 -3.86" rotation="0 0 -3" onclick="openCase(9)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 4400&#10;SAMANTHA" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#ff3333" position="0 0.2 0.02"></a-sphere></a-entity>
-  <a-entity class="card" position="0.5 1.05 -3.86" rotation="0 0 2" onclick="openCase(10)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 9002&#10;JOSE CHUNG" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere radius="0.016" color="#00aaff" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="-3.2 2.55 -3.86" rotation="0 0 3" onclick="openCase(0)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 1013&#10;TOOMS" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin0" radius="0.016" color="#ff2222" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="-1.6 2.6 -3.86" rotation="0 0 -2" onclick="openCase(1)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 1214&#10;FLUKEMAN" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin1" radius="0.016" color="#ffdd00" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="0.1 2.65 -3.86" rotation="0 0 1" onclick="openCase(2)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 0467&#10;BLACK OIL" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin2" radius="0.016" color="#9900cc" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="1.8 2.55 -3.86" rotation="0 0 -3" onclick="openCase(3)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 7777&#10;COLONIZATION" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin3" radius="0.016" color="#00cc44" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="3.1 2.5 -3.86" rotation="0 0 2" onclick="openCase(4)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 2231&#10;DUANE BARRY" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin4" radius="0.016" color="#ff3333" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="-3.0 1.8 -3.86" rotation="0 0 -2" onclick="openCase(5)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 3301&#10;PUSHER" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin5" radius="0.016" color="#ffcc00" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="-1.0 1.75 -3.86" rotation="0 0 3" onclick="openCase(6)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 5512&#10;HOME" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin6" radius="0.016" color="#cc0000" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="0.8 1.85 -3.86" rotation="0 0 -1" onclick="openCase(7)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 6601&#10;SMOKING MAN" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin7" radius="0.016" color="#9900cc" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="2.5 1.8 -3.86" rotation="0 0 2" onclick="openCase(8)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 0001&#10;PILOT" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin8" radius="0.016" color="#ffcc00" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="-2.0 1.1 -3.86" rotation="0 0 -3" onclick="openCase(9)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 4400&#10;SAMANTHA" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin9" radius="0.016" color="#ff3333" position="0 0.2 0.02"></a-sphere></a-entity>
+  <a-entity class="card" position="0.5 1.05 -3.86" rotation="0 0 2" onclick="openCase(10)"><a-plane width="0.52" height="0.37" color="#ede5c8"></a-plane><a-text value="X-File 9002&#10;JOSE CHUNG" color="#111" width="1.0" position="0 0.04 0.01" align="center" wrap-count="18"></a-text><a-sphere id="pin10" radius="0.016" color="#00aaff" position="0 0.2 0.02"></a-sphere></a-entity>
 
   <!-- STRINGS -->
   <a-entity line="start:-3.2 2.37 -3.87;end:0.1 2.47 -3.87;color:#ff2222;opacity:0.75"></a-entity>
@@ -210,8 +530,18 @@ window.openCase=openCase;
 
 <script>
 document.querySelector('a-scene').addEventListener('loaded', () => {
+  applyReadPinColors();
+  applySettingsToRig();
+  syncPanelVisibility();
+
+  const sceneEl = document.querySelector('a-scene');
+  sceneEl.addEventListener('enter-vr', syncPanelVisibility);
+  sceneEl.addEventListener('exit-vr', syncPanelVisibility);
+
   const rhand = document.getElementById('rhand');
-  rhand.addEventListener('triggerdown', () => {
+  const lhand = document.getElementById('lhand');
+  function handleTrigger() {
+    if (currentCaseIndex !== null) { closeCasePanel(); return; }
     const rc = rhand.components['raycaster'];
     if (!rc) return;
     const els = rc.intersectedEls;
@@ -223,7 +553,9 @@ document.querySelector('a-scene').addEventListener('loaded', () => {
     }
     if (el && el.onclick) el.onclick();
     else if (el) el.click();
-  });
+  }
+  rhand.addEventListener('triggerdown', handleTrigger);
+  if (lhand) lhand.addEventListener('triggerdown', handleTrigger);
 });
 </script>
 </body>
