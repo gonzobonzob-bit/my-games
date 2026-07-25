@@ -109,6 +109,22 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-chopshop{background:linear-gradient(180deg,#050a12 0%,#0b1622 45%,#0d1f2e 80%,#050a12 100%);}
 .banner-chopshop::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 50% 60% at 25% 40%,rgba(46,139,240,0.28) 0%,transparent 60%),radial-gradient(ellipse 50% 60% at 75% 60%,rgba(224,73,47,0.24) 0%,transparent 60%);}
 .banner-chopshop::after{content:'';position:absolute;inset:0;background:radial-gradient(circle 3px at 30% 20%,rgba(242,183,5,0.5),transparent),radial-gradient(circle 2px at 62% 30%,rgba(242,183,5,0.4),transparent),radial-gradient(circle 3px at 45% 70%,rgba(242,183,5,0.35),transparent),linear-gradient(180deg,transparent 85%,rgba(242,183,5,0.15) 100%);}
+/* Callsigns — Broadcast Waves */
+.banner-callsigns{background:linear-gradient(180deg,#1a0a02 0%,#331405 45%,#4a1d06 80%,#200e02 100%);}
+.banner-callsigns::before{content:'';position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 120%,transparent 0,transparent 18px,rgba(251,146,60,0.12) 19px,rgba(251,146,60,0.12) 20px);}
+.banner-callsigns::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% 100%,rgba(251,146,60,0.35) 0%,rgba(217,119,6,0.15) 40%,transparent 75%);}
+/* Outbreak Zero VR — Clinical Lab */
+.banner-outbreak{background:linear-gradient(180deg,#01120e 0%,#02241c 45%,#033226 80%,#011813 100%);}
+.banner-outbreak::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 22px,rgba(45,212,191,0.06) 22px,rgba(45,212,191,0.06) 23px),repeating-linear-gradient(90deg,transparent,transparent 22px,rgba(45,212,191,0.06) 22px,rgba(45,212,191,0.06) 23px);}
+.banner-outbreak::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 50% 45% at 50% 45%,rgba(45,212,191,0.3) 0%,rgba(20,184,166,0.12) 40%,transparent 70%);}
+/* The Thinning Manifest — Void World */
+.banner-thinning{background:linear-gradient(160deg,#0a0418 0%,#150a2e 45%,#0a1e28 80%,#050310 100%);}
+.banner-thinning::before{content:'';position:absolute;inset:0;background:radial-gradient(circle 2px at 22% 25%,rgba(255,255,255,0.6),transparent),radial-gradient(circle 2px at 68% 15%,rgba(255,255,255,0.4),transparent),radial-gradient(circle 3px at 80% 45%,rgba(255,255,255,0.5),transparent),radial-gradient(circle 2px at 40% 60%,rgba(255,255,255,0.3),transparent);}
+.banner-thinning::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 45% 50% at 50% 55%,rgba(139,92,246,0.3) 0%,rgba(45,212,191,0.15) 45%,transparent 75%);}
+/* X-Files VR — Case Room */
+.banner-xfilesvr{background:linear-gradient(135deg,#04030d 0%,#0a0820 50%,#050310 100%);}
+.banner-xfilesvr::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.4) 2px,rgba(0,0,0,0.4) 3px);}
+.banner-xfilesvr::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 65% at 50% 45%,rgba(99,102,241,0.28) 0%,rgba(139,92,246,0.12) 40%,transparent 70%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -151,8 +167,8 @@ footer a{color:var(--purple);text-decoration:none;}
   </div>
 </header>
 <div class="stats-bar">
-  <div class="stat"><span class="stat-val" id="s-total">5</span><span class="stat-lbl">Showing</span></div>
-  <div class="stat"><span class="stat-val" style="color:#16a34a;" id="s-complete">5</span><span class="stat-lbl">Complete</span></div>
+  <div class="stat"><span class="stat-val" id="s-total">4</span><span class="stat-lbl">Showing</span></div>
+  <div class="stat"><span class="stat-val" style="color:#16a34a;" id="s-complete">4</span><span class="stat-lbl">Complete</span></div>
   <div class="stat"><span class="stat-val" style="color:#fbbf24;" id="s-wip">0</span><span class="stat-lbl">In Progress</span></div>
   <div class="stat"><span class="stat-val">100%</span><span class="stat-lbl">Free</span></div>
 </div>
@@ -163,7 +179,7 @@ footer a{color:var(--purple);text-decoration:none;}
   <button class="filter-btn" onclick="filterGames('idle',this)">🎰 Idle / Tycoon</button>
   <button class="filter-btn" onclick="filterGames('td',this)">🏰 Tower Defense</button>
   <button class="filter-btn" onclick="filterGames('rpg',this)">🗡️ RPG</button>
-  <button class="filter-btn" onclick="filterGames('moba',this)">⚔️ MOBA</button>
+  <button class="filter-btn" onclick="filterGames('arena',this)">⚔️ Arena</button>
   <button class="filter-btn" onclick="filterGames('strategy',this)">🚂 Strategy</button>
   <button class="filter-btn" onclick="filterGames('transport',this)">🚛 Transport Tycoon</button>
 </div>
@@ -176,7 +192,7 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-body">
       <div class="card-genre">☀️ Idle Tycoon</div>
       <div class="card-title">Purr & Power Co.</div>
-      <div class="card-desc">Run El Paso's most cat-friendly solar company. Real payroll, real equipment costs (Silfab panels, SolarEdge inverters, Sunmodo SMR rails), 16 staff roles, break room, top-down map.</div>
+      <div class="card-desc">Run El Paso's most cat-friendly solar company. Real payroll, real equipment costs (Solcrest panels, GridWave inverters, IronRail rails), 16 staff roles, break room, top-down map, plus a real Las Cruces expansion once you've grown big enough.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
@@ -191,146 +207,186 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card status-complete" href="iron-frontier.html" data-tags="strategy idle" data-status="complete">
-    <div class="card-banner banner-frontier"><span class="banner-emoji">🚂⚙️</span><span class="card-badge badge-strategy">Strategy</span></div>
-    <div class="card-body">
-      <div class="card-genre">🚂 Steampunk Tycoon</div>
-      <div class="card-title">Steel Vanguard</div>
-      <div class="card-desc">Build a railway empire across the wild west. Lay tracks, connect towns, run steam trains, grow populations. Isometric hex map, BFS routing, full economy system. El Paso, 1871.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
-  </a>
-
-  <a class="card status-complete" href="wizard_tower_defense.html" data-tags="td" data-status="complete">
+  <a class="card status-complete" href="grimoire-siege.html" data-tags="td" data-status="complete">
     <div class="card-banner banner-wizard"><span class="banner-emoji">🧙‍♂️⚔️</span><span class="card-badge badge-td">Tower Defense</span></div>
     <div class="card-body">
       <div class="card-genre">🏰 Tower Defense</div>
       <div class="card-title">Grimoire Siege</div>
-      <div class="card-desc">10 tower types — Archer, Pyromage, Frost, Storm, Venom, Cannon, Arcane, Shadow, Divine, Dragon. 12 escalating waves with bosses, fast enemies, and brutes. Protect the crystal.</div>
+      <div class="card-desc">10 tower types — Archer, Pyromage, Frost, Storm, Venom, Cannon, Arcane, Shadow, Divine, Dragon. 12 escalating waves with bosses and fast enemies. Sell/upgrade towers mid-battle, high score tracking. Protect the crystal.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card status-complete" href="rift-legends.html" data-tags="moba" data-status="complete">
-    <div class="card-banner banner-rift"><span class="banner-emoji">⚔️🌀</span><span class="card-badge badge-moba">MOBA</span></div>
+  <a class="card status-complete" href="veil-legends.html" data-tags="arena" data-status="complete">
+    <div class="card-banner banner-rift"><span class="banner-emoji">⚔️🌀</span><span class="card-badge badge-moba">Arena</span></div>
     <div class="card-body">
-      <div class="card-genre">⚔️ Action MOBA</div>
+      <div class="card-genre">⚔️ Arena Horde-Survival</div>
       <div class="card-title">Veil Legends</div>
-      <div class="card-desc">Choose your champion — Warrior, Mage, Assassin, or Ranger. Mobile joystick controls, 3 abilities each, in-game shop, level up system. Survive 10 waves to claim victory.</div>
+      <div class="card-desc">Choose your champion — Warrior, Mage, Assassin, or Ranger — and fight solo through 10 escalating waves of enemies plus boss fights. Mobile joystick controls, 3 distinct abilities each, in-game shop, leveling.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
   <!-- ===== IN PROGRESS ===== -->
 
-  <a class="card status-wip" href="cascade-foundling/index.html" data-tags="action arcade" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="cascade-foundling/index.html" data-tags="action arcade" data-status="wip">
     <div class="card-banner banner-cascade"><span class="banner-emoji">🛸🚜</span><span class="card-badge badge-new">3D FPS</span></div>
     <div class="card-body">
       <div class="card-genre">🛸 FPS · Driving Defense</div>
       <div class="card-title">Cascade Foundling</div>
       <div class="card-desc">A Washington farmer finds a lost alien child — and its family is coming to get it back. First-person shotgun defense + drivable deuce-and-a-half army truck, 8 waves to dawn. Babylon.js + Havok physics, Xbox controller support, procedural sound.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="../tilt/index.html" data-tags="arcade" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="marble-descent/index.html" data-tags="arcade" data-status="wip">
     <div class="card-banner banner-marble"><span class="banner-emoji">🔵🏔️</span><span class="card-badge badge-new">3D</span></div>
     <div class="card-body">
       <div class="card-genre">🎱 3D Marble Physics</div>
       <div class="card-title">Marble Descent</div>
-      <div class="card-desc">Roll a marble through a 3D obstacle course. Babylon.js engine with Cannon.js physics — ramps, bridges, chasms, rotating blockers. Arrow/WASD tilt + spacebar jump. 3 lives, checkpoints, best time tracking.</div>
+      <div class="card-desc">Roll a marble through a 3D obstacle course. Babylon.js engine with Cannon.js physics — ramps, bridges, chasms, rotating blockers. Arrow/WASD tilt + spacebar jump, full audio. 3 lives, checkpoints, Continue support, best time tracking.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="scrapyard-derby-empire/index.html" data-tags="idle action" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="scrapyard-derby-empire/index.html" data-tags="idle action" data-status="wip">
     <div class="card-banner banner-derby"><span class="banner-emoji">🏎️💥</span><span class="card-badge badge-idle">Tycoon</span></div>
     <div class="card-body">
       <div class="card-genre">💥 Demolition Derby Tycoon</div>
       <div class="card-title">Scrapyard D-Derby Empire</div>
-      <div class="card-desc">Build a demolition derby empire from the junkyard up. Upgrade cars, hire drivers, smash opponents in 3D Havok-physics arenas, then scrap or repair the wreckage. Babylon.js 3D engine.</div>
+      <div class="card-desc">Build a demolition derby empire from the junkyard up. Upgrade cars, hire drivers, smash opponents in 3D Havok-physics arenas, then scrap or repair the wreckage. Babylon.js 3D engine, graphics quality settings.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="chop-shop-circuit/index.html" data-tags="idle action" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="chop-shop-circuit/index.html" data-tags="idle action" data-status="wip">
     <div class="card-banner banner-chopshop"><span class="banner-emoji">🤖⚙️</span><span class="card-badge badge-idle">Tycoon</span></div>
     <div class="card-body">
       <div class="card-genre">🤖 Battle-Bot Tycoon · Auto-Battler</div>
       <div class="card-title">Chop Shop Circuit</div>
-      <div class="card-desc">Build a combat robot from the chassis up — chassis, weapon, armor, drivetrain, special — then send it into physics-driven 3D arena battles you don't control. Climb a 6-bot league ladder, earn credits, upgrade your build. Babylon.js + Havok physics, broadcast-style camera cuts, slow-mo finishes.</div>
+      <div class="card-desc">Build a combat robot from the chassis up — chassis, weapon, armor, drivetrain, special — then send it into physics-driven 3D arena battles you don't control. Climb a 6-bot league ladder with a post-ladder rematch mode, earn credits, upgrade your build. Babylon.js + Havok physics, full audio, broadcast-style camera cuts, slow-mo finishes.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="plate-empire/index.html" data-tags="idle" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="plate-empire/index.html" data-tags="idle" data-status="wip">
     <div class="card-banner banner-plate"><span class="banner-emoji">🚚🍔</span><span class="card-badge badge-idle">Tycoon</span></div>
     <div class="card-body">
       <div class="card-genre">🍔 Restaurant Tycoon</div>
       <div class="card-title">Plate Empire</div>
       <div class="card-desc">Build a restaurant empire from a humble El Paso food truck to a grand resort. Serve order tickets, hire staff, buy upgrades, and climb 5 tiers. 25 dishes, achievements, random events, customer types, 2.5D scene. Charcoal/brass kitchen-ticket UI.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Full Game</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="cat-cafe-v4b.html" data-tags="idle" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="cat-cafe-v4b.html" data-tags="idle" data-status="wip">
     <div class="card-banner banner-cafe"><span class="banner-emoji">🐱☕</span><span class="card-badge badge-idle">Idle</span></div>
     <div class="card-body">
       <div class="card-genre">🐱 Idle Tycoon</div>
       <div class="card-title">Paws & Contempt</div>
-      <div class="card-desc">Build a cat café empire with witty sarcastic humor. 32 unique cat breeds, hire staff, upgrade your café, unlock prestige tiers. Day/night cycle, ambient sounds, 10 save slots.</div>
+      <div class="card-desc">Build a cat café empire with witty sarcastic humor. 32 unique cat breeds, hire staff, upgrade your café, unlock prestige tiers. Real day/night cycle, ambient sounds, 10 save slots.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Prestige Bug</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="neon-dynasty.html" data-tags="idle" data-status="wip" data-hidden="1">
-    <div class="card-banner banner-cyber"><div class="neon-streaks"></div><span class="banner-emoji">🏙️⚡</span><span class="card-badge badge-ai">AI Oracle</span></div>
+  <a class="card status-wip" href="neon-dynasty.html" data-tags="idle" data-status="wip">
+    <div class="card-banner banner-cyber"><div class="neon-streaks"></div><span class="banner-emoji">🏙️⚡</span><span class="card-badge badge-ai">Oracle</span></div>
     <div class="card-body">
       <div class="card-genre">🌆 Cyberpunk Tycoon</div>
       <div class="card-title">NEON DOMINION</div>
-      <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the live AI Oracle powered by Claude for real strategic advice.</div>
+      <div class="card-desc">Build a megacorp in a neon city. Hack systems, acquire divisions, run blacksite ops. Consult the Oracle for tactical advice, then push for a prestige rebirth once you've dominated.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Oracle Offline</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="epoch-mobile.html" data-tags="idle" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="epoch-mobile.html" data-tags="idle" data-status="wip">
     <div class="card-banner banner-forge"><span class="banner-emoji">⚒️🔥</span><span class="card-badge badge-idle">Idle</span></div>
     <div class="card-body">
       <div class="card-genre">⚒️ Idle Crafting</div>
       <div class="card-title">Anvil Epoch</div>
-      <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes, prestige to loop through time. Each age makes you stronger.</div>
+      <div class="card-desc">Forge legendary artifacts through the ages. Craft weapons and armor, unlock ancient recipes gated by real prestige tiers, loop through time. Each age makes you stronger.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Rune Bug</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="xfiles-pwa.html" data-tags="rpg idle" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="xfiles-pwa.html" data-tags="rpg idle" data-status="wip">
     <div class="card-banner banner-xfiles"><span class="banner-emoji">👁️🛸</span><span class="card-badge badge-rpg">RPG</span></div>
     <div class="card-body">
       <div class="card-genre">🗡️ Idle RPG</div>
       <div class="card-title">Phantom Dossier</div>
-      <div class="card-desc">Gather evidence, recruit field agents, expose conspiracies from Dark Mercury to Division Twelve. CRT terminal aesthetic. The veil is thin.</div>
+      <div class="card-desc">Gather evidence, recruit field agents, expose conspiracies from Dark Mercury to Division Twelve. Real prestige loop. CRT terminal aesthetic. The veil is thin.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Cost Check Bug</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="entangled-index.html" data-tags="rpg" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="entangled-index.html" data-tags="rpg" data-status="wip">
     <div class="card-banner banner-entangled"><span class="banner-emoji">💞🔮</span><span class="card-badge badge-vn">Visual Novel</span></div>
     <div class="card-body">
       <div class="card-genre">💞 Visual Novel · Dating Sim</div>
       <div class="card-title">Tangled Frequencies</div>
-      <div class="card-desc">Quantum romance visual novel with branching choices, multiple endings, and an AI inner voice powered by Claude. Episodes 1–6 playable. Episodes 7–12 in development.</div>
+      <div class="card-desc">Quantum romance visual novel with branching choices and 4 endings, across all 12 episodes. A reflective inner-voice companion follows your choices throughout.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Eps 7–12 Missing</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
-  <a class="card status-wip" href="shadow-ledger/index.html" data-tags="idle strategy" data-status="wip" data-hidden="1">
+  <a class="card status-wip" href="shadow-ledger/index.html" data-tags="idle strategy" data-status="wip">
     <div class="card-banner banner-shadow"><span class="banner-emoji">🌆🔫</span><span class="card-badge badge-idle">Crime Idle</span></div>
     <div class="card-body">
       <div class="card-genre">🔫 Crime Tycoon · Idle</div>
       <div class="card-title">Shadow Ledger</div>
-      <div class="card-desc">Run the El Paso underworld from the shadows. Manage crew, operations, front businesses, and faction politics across 4 districts. Passive income, heat management, loyalty systems. Babylon.js 3D top-down city.</div>
+      <div class="card-desc">Run the El Paso underworld from the shadows. Manage crew, operations, front businesses, and faction politics across a growing set of districts. Passive income, heat, reputation, and territory all now actually move. Babylon.js 3D top-down city.</div>
     </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 In Progress</span></div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
+  </a>
+
+  <a class="card status-wip" href="callsigns/index.html" data-tags="idle" data-status="wip">
+    <div class="card-banner banner-callsigns"><span class="banner-emoji">📻🎙️</span><span class="card-badge badge-idle">Tycoon</span></div>
+    <div class="card-body">
+      <div class="card-genre">📻 Radio Station Tycoon</div>
+      <div class="card-title">Callsigns</div>
+      <div class="card-desc">Run an independent radio station from the ground up. Hire DJs, manage the ad/listener balance, react to live on-air events, and grow your signal into a real broadcast empire.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
+  </a>
+
+  <a class="card status-wip" href="outbreak-zero.html" data-tags="vr strategy" data-status="wip">
+    <div class="card-banner banner-outbreak"><span class="banner-emoji">🧪🦠</span><span class="card-badge badge-new">VR</span></div>
+    <div class="card-body">
+      <div class="card-genre">🧪 VR Outbreak-Response Tycoon</div>
+      <div class="card-title">Outbreak Zero VR</div>
+      <div class="card-desc">Race a real Day-30 deadline to contain a spreading outbreak from inside a VR command lab. Fund research, deploy field teams, and get the vaccine out before infection wins. Room-scale VR or desktop.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
+  </a>
+
+  <a class="card status-wip" href="thinning-manifest.html" data-tags="vr rpg" data-status="wip">
+    <div class="card-banner banner-thinning"><span class="banner-emoji">🌌🐾</span><span class="card-badge badge-new">VR</span></div>
+    <div class="card-body">
+      <div class="card-genre">🌌 VR Creature Journal</div>
+      <div class="card-title">The Thinning Manifest</div>
+      <div class="card-desc">Three days before two worlds cancel each other out. Explore a dying reality, befriend and journal a dozen strange companion creatures before time runs out. Room-scale VR or desktop, saved journal progress.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
+  </a>
+
+  <a class="card status-wip" href="xfiles-vr.html" data-tags="vr" data-status="wip">
+    <div class="card-banner banner-xfilesvr"><span class="banner-emoji">🗂️👽</span><span class="card-badge badge-new">VR</span></div>
+    <div class="card-body">
+      <div class="card-genre">🗂️ VR Case File Browser</div>
+      <div class="card-title">X-Files VR</div>
+      <div class="card-desc">Walk a VR corkboard-and-desk case room, pull classified files, and read through a set of unsolved cases in first person. A quieter, atmosphere-first companion piece to Phantom Dossier's idle RPG.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
+  </a>
+
+  <a class="card status-wip" href="iron-frontier-vr.html" data-tags="vr td" data-status="wip">
+    <div class="card-banner banner-frontier"><span class="banner-emoji">🏰⚡</span><span class="card-badge badge-new">VR</span></div>
+    <div class="card-body">
+      <div class="card-genre">🏰 VR Tower Defense</div>
+      <div class="card-title">Iron Frontier VR</div>
+      <div class="card-desc">Defend a steampunk frontier fort against waves of raiders in first-person VR. Place watchtowers, cannons, bonfires, and tesla coils as enemies close in from all four compass points. Room-scale VR or desktop.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 Playtest Pending</span></div>
   </a>
 
   <!-- ===== DEV ===== -->
@@ -373,6 +429,9 @@ function filterGames(tag,btn,mode){
   document.getElementById('s-complete').textContent=complete;
   document.getElementById('s-wip').textContent=wip;
 }
+document.addEventListener('DOMContentLoaded',()=>{
+  filterGames('complete',document.getElementById('filter-complete'),'complete');
+});
 </script>
 </body>
 </html>

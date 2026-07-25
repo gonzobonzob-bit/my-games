@@ -1,7 +1,39 @@
 const SAVE_KEY_PREFIX = 'scrapyard_derby_empire_slot_';
 const SAVE_VERSION = 1;
 const SLOT_COUNT = 3;
+const PREFS_KEY = 'scrapyard_derby_empire_prefs_v1';
 let activeSlot = 0;
+
+// ── Player prefs (global, independent of save slot) ──
+function defaultPrefs() {
+    return {
+        sfxEnabled: true,
+        graphicsQuality: 'medium' // 'low' | 'medium' | 'high'
+    };
+}
+
+function loadPrefs() {
+    try {
+        const raw = localStorage.getItem(PREFS_KEY);
+        if (!raw) return defaultPrefs();
+        const data = JSON.parse(raw);
+        const prefs = defaultPrefs();
+        if (typeof data.sfxEnabled === 'boolean') prefs.sfxEnabled = data.sfxEnabled;
+        if (['low', 'medium', 'high'].includes(data.graphicsQuality)) prefs.graphicsQuality = data.graphicsQuality;
+        return prefs;
+    } catch (e) {
+        console.warn('Prefs load failed:', e);
+        return defaultPrefs();
+    }
+}
+
+function savePrefs(prefs) {
+    try {
+        localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch (e) {
+        console.warn('Prefs save failed:', e);
+    }
+}
 
 function slotKey(index) {
     return SAVE_KEY_PREFIX + index;

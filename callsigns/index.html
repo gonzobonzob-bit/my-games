@@ -1,0 +1,2288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#0a0e27">
+<title>Callsigns</title>
+<style>
+/* ============================================================
+   CALLSIGNS — radio tycoon
+   Palette shared with the station scene art:
+   night #0a0e27/#1a1040 · amber #fbbf24 · magenta #ec4899 · cyan #22d3ee
+   ============================================================ */
+:root{
+  --night:#0a0e27; --night2:#141a3a; --panel:#171d40; --panel2:#1e2550;
+  --border:#2c3468; --border-lit:#3d4795;
+  --amber:#fbbf24; --amber-dk:#f59e0b;
+  --magenta:#ec4899; --cyan:#22d3ee; --green:#34d399; --red:#f87171;
+  --text:#e8ecff; --muted:#8b93c4; --dim:#5d6598;
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  --r:14px; --r-sm:9px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  background:var(--night); color:var(--text);
+  font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  font-size:15px; line-height:1.45; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%,rgba(236,72,153,.10),transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 100%,rgba(34,211,238,.09),transparent 60%);
+}
+button{font-family:inherit;font-size:inherit;color:inherit;border:none;background:none;cursor:pointer;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ---------- screen router ---------- */
+.screen{position:fixed;inset:0;z-index:1;display:none;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* ---------- main menu ---------- */
+#screen-menu{align-items:center;justify-content:center;padding:24px;overflow-y:auto;}
+.menu-box{width:100%;max-width:420px;text-align:center;padding:20px 0;}
+.logo-mark{
+  font-size:11px;letter-spacing:5px;color:var(--cyan);text-transform:uppercase;
+  margin-bottom:6px;font-weight:700;
+}
+.logo{
+  font-size:clamp(44px,13vw,68px);font-weight:900;letter-spacing:-2px;line-height:1;
+  background:linear-gradient(135deg,var(--amber),var(--magenta) 55%,var(--cyan));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:10px;
+}
+.tagline{color:var(--muted);font-size:13px;margin-bottom:8px;}
+.onair-badge{
+  display:inline-flex;align-items:center;gap:7px;margin-bottom:28px;
+  border:1px solid rgba(251,191,36,.4);background:rgba(251,191,36,.08);
+  color:var(--amber);border-radius:20px;padding:5px 14px;
+  font-size:10px;font-weight:800;letter-spacing:2px;
+}
+.onair-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);}
+@media (prefers-reduced-motion:no-preference){
+  .onair-dot{animation:pulseDot 1.8s ease-in-out infinite;}
+  @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+}
+.menu-btns{display:flex;flex-direction:column;gap:11px;}
+.mbtn{
+  width:100%;padding:16px;border-radius:var(--r);font-weight:700;font-size:16px;
+  background:var(--panel);border:1px solid var(--border);color:var(--text);
+  transition:transform .12s,border-color .18s,background .18s;
+  min-height:54px;
+}
+.mbtn:hover:not(:disabled),.mbtn:active:not(:disabled){background:var(--panel2);border-color:var(--border-lit);}
+.mbtn:active:not(:disabled){transform:scale(.98);}
+.mbtn:disabled{opacity:.35;cursor:not-allowed;}
+.mbtn.primary{
+  background:linear-gradient(135deg,var(--amber-dk),var(--magenta));
+  border-color:transparent;color:#fff;
+  box-shadow:0 6px 22px rgba(236,72,153,.28);
+}
+.mbtn.primary:hover,.mbtn.primary:active{filter:brightness(1.1);}
+.menu-foot{margin-top:22px;font-size:11px;color:var(--dim);}
+
+/* ---------- top HUD ---------- */
+.hud{
+  flex-shrink:0;background:rgba(10,14,39,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding-top:env(safe-area-inset-top,0px);
+}
+.hud-row{display:flex;align-items:center;gap:10px;padding:9px 12px;}
+.hud-btn{
+  flex-shrink:0;width:38px;height:38px;border-radius:10px;
+  background:var(--panel);border:1px solid var(--border);
+  display:grid;place-items:center;font-size:17px;
+  transition:background .15s,border-color .15s;
+}
+.hud-btn:hover,.hud-btn:active{background:var(--panel2);border-color:var(--border-lit);}
+.station-id{flex:1;min-width:0;}
+.station-call{
+  font-weight:900;font-size:17px;letter-spacing:1px;line-height:1.1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.station-sub{font-size:10px;color:var(--muted);letter-spacing:.5px;}
+.day-chip{
+  flex-shrink:0;font-size:10px;font-weight:800;letter-spacing:1px;color:var(--cyan);
+  background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3);
+  border-radius:8px;padding:4px 9px;text-transform:uppercase;
+}
+.stats-strip{display:flex;border-top:1px solid var(--border);}
+.stat{
+  flex:1;min-width:0;padding:8px 6px;text-align:center;
+  border-right:1px solid var(--border);
+}
+.stat:last-child{border-right:none;}
+.stat-val{
+  display:block;font-size:16px;font-weight:800;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums;
+}
+.stat-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.9px;margin-top:1px;}
+.stat.cash .stat-val{color:var(--green);}
+.stat.listeners .stat-val{color:var(--cyan);}
+.stat.rep .stat-val{color:var(--amber);}
+.delta{font-size:9px;font-weight:700;margin-left:3px;}
+.delta.up{color:var(--green);} .delta.down{color:var(--red);}
+
+/* ---------- content area ---------- */
+.content{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:14px 12px 20px;}
+.tabpane{display:none;} .tabpane.active{display:block;}
+.wrap{max-width:940px;margin:0 auto;}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+  padding:14px;margin-bottom:12px;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;}
+.card-title{font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);}
+.card-note{font-size:11px;color:var(--dim);}
+
+/* ---------- scene banner ---------- */
+.scene-wrap{margin-bottom:12px;position:relative;}
+.scene-caption{
+  position:absolute;left:10px;bottom:10px;z-index:5;
+  background:rgba(10,14,39,.8);backdrop-filter:blur(6px);
+  border:1px solid var(--border-lit);border-radius:8px;padding:5px 11px;
+  font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--amber);
+}
+.scene-fallback{
+  width:100%;aspect-ratio:16/5;border-radius:12px;
+  background:linear-gradient(160deg,#0a0e27,#1a1040);
+  border:1px solid var(--border);display:grid;place-items:center;
+  color:var(--dim);font-size:12px;
+}
+
+/* ---------- schedule grid ---------- */
+.sched{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+@media (max-width:560px){.sched{grid-template-columns:repeat(2,1fr);}}
+.slot{
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:10px 8px;text-align:center;transition:border-color .18s,transform .12s;
+  min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+}
+.slot:hover,.slot:active{border-color:var(--border-lit);}
+.slot:active{transform:scale(.98);}
+.slot-part{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
+.slot-icon{font-size:26px;line-height:1;}
+.slot-show{font-size:12px;font-weight:800;}
+.slot-meta{font-size:9px;color:var(--muted);}
+.slot-dj{font-size:9px;color:var(--cyan);}
+
+/* ---------- generic list rows ---------- */
+.row{
+  display:flex;align-items:center;gap:11px;padding:11px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  margin-bottom:8px;
+}
+.row:last-child{margin-bottom:0;}
+.row-icon{
+  flex-shrink:0;width:42px;height:42px;border-radius:10px;
+  display:grid;place-items:center;font-size:20px;
+  background:rgba(255,255,255,.05);border:1px solid var(--border);
+}
+.row-body{flex:1;min-width:0;}
+.row-title{font-weight:700;font-size:14px;}
+.row-sub{font-size:11px;color:var(--muted);}
+.row-act{flex-shrink:0;display:flex;flex-direction:column;gap:5px;align-items:stretch;}
+
+.btn{
+  padding:8px 13px;border-radius:8px;font-size:12px;font-weight:700;
+  background:var(--panel);border:1px solid var(--border-lit);color:var(--text);
+  white-space:nowrap;transition:filter .15s,transform .1s;min-height:36px;
+}
+.btn:active:not(:disabled){transform:scale(.96);}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn.buy{background:linear-gradient(135deg,var(--amber-dk),var(--magenta));border-color:transparent;color:#fff;}
+.btn.buy:hover:not(:disabled){filter:brightness(1.12);}
+.btn.danger{border-color:rgba(248,113,113,.45);color:var(--red);}
+.btn.ghost{background:transparent;}
+.btn.sm{padding:5px 10px;font-size:11px;min-height:30px;}
+
+/* ---------- meters ---------- */
+.meter{height:6px;background:rgba(0,0,0,.35);border-radius:3px;overflow:hidden;margin-top:5px;}
+.meter-fill{height:100%;border-radius:3px;transition:width .5s ease;}
+.meter-fill.amber{background:linear-gradient(90deg,var(--amber-dk),var(--amber));}
+.meter-fill.cyan{background:linear-gradient(90deg,#0891b2,var(--cyan));}
+.meter-fill.magenta{background:linear-gradient(90deg,#be185d,var(--magenta));}
+
+.pill{
+  display:inline-block;font-size:9px;font-weight:800;letter-spacing:.8px;
+  padding:2px 7px;border-radius:20px;text-transform:uppercase;
+}
+.pill.locked{background:rgba(248,113,113,.14);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.pill.max{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.3);}
+.pill.new{background:rgba(34,211,238,.14);color:var(--cyan);border:1px solid rgba(34,211,238,.3);}
+
+/* ---------- log ---------- */
+.log-item{
+  padding:9px 11px;border-left:2px solid var(--border-lit);
+  background:var(--panel2);border-radius:0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom:7px;font-size:12px;
+}
+.log-item.good{border-left-color:var(--green);}
+.log-item.bad{border-left-color:var(--red);}
+.log-item.big{border-left-color:var(--amber);}
+.log-day{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
+
+/* ---------- bottom tab bar ---------- */
+.tabbar{
+  flex-shrink:0;display:flex;background:rgba(10,14,39,.96);backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);padding-bottom:var(--safe-b);
+}
+.tab{
+  flex:1;padding:9px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--dim);transition:color .18s;position:relative;min-height:56px;justify-content:center;
+}
+.tab.active{color:var(--amber);}
+.tab.active::before{
+  content:'';position:absolute;top:0;left:22%;right:22%;height:2px;
+  background:var(--amber);border-radius:0 0 3px 3px;
+}
+.tab-icon{font-size:19px;line-height:1;}
+.tab-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;}
+.tab-badge{
+  position:absolute;top:6px;right:50%;margin-right:-20px;
+  width:7px;height:7px;border-radius:50%;background:var(--magenta);
+}
+
+/* ---------- modal ---------- */
+.modal-back{
+  position:fixed;inset:0;z-index:50;background:rgba(5,7,20,.78);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;padding:18px;
+}
+.modal-back.open{display:flex;}
+.modal{
+  width:100%;max-width:440px;max-height:86vh;overflow-y:auto;
+  background:var(--panel);border:1px solid var(--border-lit);border-radius:var(--r);
+  padding:18px;
+}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:5px;}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:15px;}
+.modal-btns{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;}
+.modal-btns .btn{flex:1;min-width:110px;justify-content:center;}
+@media (prefers-reduced-motion:no-preference){
+  .modal-back.open .modal{animation:modalIn .22s cubic-bezier(.2,.9,.3,1.2);}
+  @keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+}
+
+/* ---------- toast ---------- */
+.toasts{
+  position:fixed;z-index:60;left:50%;transform:translateX(-50%);
+  bottom:calc(74px + var(--safe-b));display:flex;flex-direction:column;gap:7px;
+  pointer-events:none;width:calc(100% - 28px);max-width:400px;
+}
+.toast{
+  background:var(--panel2);border:1px solid var(--border-lit);border-radius:10px;
+  padding:9px 13px;font-size:12px;font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.toast.good{border-color:rgba(52,211,153,.5);}
+.toast.bad{border-color:rgba(248,113,113,.5);}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:toastIn .25s ease;}
+  @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+}
+
+/* ---------- options ---------- */
+.opt-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 0;border-bottom:1px solid var(--border);
+}
+.opt-row:last-child{border-bottom:none;}
+.opt-lbl{font-size:14px;font-weight:600;}
+.opt-desc{font-size:11px;color:var(--dim);margin-top:1px;}
+.switch{
+  flex-shrink:0;width:48px;height:28px;border-radius:14px;
+  background:var(--border);border:1px solid var(--border-lit);
+  position:relative;transition:background .2s;
+}
+.switch.on{background:var(--amber-dk);}
+.switch::after{
+  content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;
+  border-radius:50%;background:#fff;transition:transform .2s;
+}
+.switch.on::after{transform:translateX(20px);}
+.seg{display:flex;gap:5px;flex-shrink:0;}
+.seg-btn{
+  padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;
+  background:var(--panel2);border:1px solid var(--border);min-height:34px;
+}
+.seg-btn.on{background:var(--amber-dk);border-color:transparent;color:#fff;}
+
+/* ---------- gamepad focus cursor ---------- */
+.gp-focus{
+  outline:2px solid var(--cyan) !important;
+  outline-offset:2px;
+  box-shadow:0 0 0 4px rgba(34,211,238,.18),0 0 18px rgba(34,211,238,.35) !important;
+  border-radius:8px;
+}
+.pad-hint{
+  display:none;gap:14px;justify-content:center;flex-wrap:wrap;
+  padding:7px 10px;border-top:1px solid var(--border);
+  background:rgba(34,211,238,.05);font-size:10px;color:var(--muted);
+}
+body.pad-on .pad-hint{display:flex;}
+.pad-hint b{color:var(--cyan);font-weight:800;}
+
+.empty{text-align:center;padding:26px 14px;color:var(--dim);font-size:12px;}
+.hint{
+  font-size:11px;color:var(--muted);background:rgba(34,211,238,.06);
+  border:1px solid rgba(34,211,238,.18);border-radius:var(--r-sm);
+  padding:9px 11px;margin-bottom:12px;
+}
+.locked-panel{text-align:center;padding:30px 16px;}
+.locked-icon{font-size:40px;margin-bottom:10px;opacity:.5;}
+
+/* ---------- desktop ---------- */
+@media (min-width:900px){
+  .content{padding:18px 20px 26px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+  .two-col .card{margin-bottom:0;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ MAIN MENU ============ -->
+<div class="screen active" id="screen-menu">
+  <div class="menu-box">
+    <div class="logo-mark" id="menu-mark">ON THE DIAL</div>
+    <h1 class="logo">CALLSIGNS</h1>
+    <p class="tagline" id="menu-tagline"></p>
+    <div class="onair-badge"><span class="onair-dot"></span><span id="menu-badge">ON AIR</span></div>
+    <div class="menu-btns">
+      <button class="mbtn primary" id="btn-new"></button>
+      <button class="mbtn" id="btn-continue"></button>
+      <button class="mbtn" id="btn-options"></button>
+      <button class="mbtn" id="btn-quit"></button>
+    </div>
+    <p class="menu-foot" id="menu-foot"></p>
+  </div>
+</div>
+
+<!-- ============ GAME ============ -->
+<div class="screen" id="screen-game">
+  <div class="hud">
+    <div class="hud-row">
+      <button class="hud-btn" id="btn-pause" aria-label="Menu">☰</button>
+      <div class="station-id">
+        <div class="station-call" id="hud-call">KXXX</div>
+        <div class="station-sub" id="hud-sub"></div>
+      </div>
+      <div class="day-chip" id="hud-day">DAY 1</div>
+    </div>
+    <div class="stats-strip">
+      <div class="stat cash"><span class="stat-val" id="stat-cash">$0</span><span class="stat-lbl" id="lbl-cash"></span></div>
+      <div class="stat listeners"><span class="stat-val" id="stat-listeners">0</span><span class="stat-lbl" id="lbl-listeners"></span></div>
+      <div class="stat rep"><span class="stat-val" id="stat-rep">0</span><span class="stat-lbl" id="lbl-rep"></span></div>
+    </div>
+  </div>
+
+  <div class="content" id="game-content">
+    <div class="wrap">
+      <div class="tabpane active" id="pane-studio"></div>
+      <div class="tabpane" id="pane-gear"></div>
+      <div class="tabpane" id="pane-staff"></div>
+      <div class="tabpane" id="pane-empire"></div>
+      <div class="tabpane" id="pane-log"></div>
+    </div>
+  </div>
+
+  <div class="pad-hint">
+    <span><b>A</b> Select</span><span><b>B</b> Back</span>
+    <span><b>X</b> Pause</span><span><b>Y</b> Save</span>
+    <span><b>LB/RB</b> Tabs</span><span><b>☰</b> Menu</span>
+  </div>
+  <nav class="tabbar" id="tabbar"></nav>
+</div>
+
+<!-- ============ OPTIONS ============ -->
+<div class="screen" id="screen-options">
+  <div class="hud">
+    <div class="hud-row">
+      <button class="hud-btn" id="btn-opt-back" aria-label="Back">←</button>
+      <div class="station-id"><div class="station-call" id="opt-title"></div></div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="wrap"><div class="card" id="options-body"></div></div>
+  </div>
+</div>
+
+<div class="modal-back" id="modal-back"><div class="modal" id="modal"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* Callsigns — pure-CSS station scene system.
+   Two top-level consts: SCENE_CSS (all styles) and SCENE_TIERS (6 tiers).
+   No canvas, no images, no external assets. All classes prefixed sc-. */
+
+const SCENE_CSS = `
+.sc-stage,.sc-stage *{box-sizing:border-box}
+.sc-stage{position:relative;width:100%;aspect-ratio:16/5;overflow:hidden;border-radius:12px;
+container-type:inline-size;line-height:1;isolation:isolate;
+font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+font-size:11px;font-size:max(7px,1.45cqw);
+background:linear-gradient(180deg,#070a1e 0%,#0f0c2e 58%,#1a1040 100%);
+box-shadow:inset 0 0 0 1px rgba(148,163,255,.14)}
+.sc-t1{background:linear-gradient(180deg,#070a1e 0%,#0f0c2e 58%,#1a1040 100%)}
+.sc-t2{background:linear-gradient(180deg,#080b21 0%,#120e32 58%,#1a1040 100%)}
+.sc-t3{background:linear-gradient(180deg,#0a0e27 0%,#161038 55%,#241452 100%)}
+.sc-t4{background:linear-gradient(180deg,#0a0e27 0%,#1a1040 50%,#331a5e 100%)}
+.sc-t5{background:linear-gradient(180deg,#0a0e27 0%,#1d1147 48%,#431a63 100%)}
+.sc-t6{background:linear-gradient(180deg,#080b24 0%,#1a1040 42%,#5a1c66 100%)}
+
+/* --- sky layers --- */
+.sc-stars{position:absolute;inset:0 0 22% 0;z-index:0;opacity:.9;
+background-image:radial-gradient(1px 1px at 22% 28%,#fff,transparent),radial-gradient(1px 1px at 68% 62%,rgba(255,255,255,.7),transparent),radial-gradient(1px 1px at 44% 84%,rgba(199,210,254,.55),transparent);
+background-size:23% 41%,31% 57%,17% 33%}
+.sc-t4 .sc-stars{opacity:.65}.sc-t5 .sc-stars{opacity:.5}.sc-t6 .sc-stars{opacity:.45}
+.sc-glow{position:absolute;left:0;right:0;bottom:12%;height:52%;z-index:1;pointer-events:none;
+background:radial-gradient(62% 100% at 50% 100%,rgba(236,72,153,.26),rgba(34,211,238,.11) 46%,transparent 74%)}
+.sc-g-lo{opacity:.3}.sc-g-md{opacity:.6}.sc-g-hi{opacity:1}
+.sc-g-max{opacity:1;background:radial-gradient(70% 100% at 50% 100%,rgba(251,191,36,.22),rgba(236,72,153,.3) 34%,rgba(34,211,238,.14) 60%,transparent 80%)}
+
+/* --- ground / street --- */
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:22%;z-index:5;
+background:linear-gradient(180deg,#0d1030 0%,#070917 100%);
+border-top:1px solid rgba(148,163,255,.3)}
+.sc-ground::after{content:"";position:absolute;left:0;right:0;top:62%;height:1px;
+background:repeating-linear-gradient(90deg,rgba(251,191,36,.45) 0 2.5%,transparent 2.5% 6%)}
+
+/* --- skyline + buildings --- */
+.sc-skyline{position:absolute;left:0;right:0;bottom:20%;height:40%;z-index:3}
+.sc-sl-lo{height:22%}.sc-sl-md{height:38%}.sc-sl-hi{height:54%}.sc-sl-xl{height:70%}
+.sc-bldg{position:absolute;bottom:0;background:linear-gradient(180deg,#161c42,#0f1330);
+border-radius:2px 2px 0 0;box-shadow:inset 0 0 0 1px rgba(120,140,255,.15)}
+.sc-bldg::before{content:"";position:absolute;inset:7% 12% 0 12%;opacity:.4;
+background-image:radial-gradient(circle at 50% 50%,rgba(251,191,36,.9) 0 36%,transparent 40%);
+background-size:32% 15%}
+.sc-lit::before{opacity:.85}
+.sc-cyan::before{background-image:radial-gradient(circle at 50% 50%,rgba(34,211,238,.85) 0 36%,transparent 40%);opacity:.7}
+.sc-ant::after{content:"";position:absolute;left:50%;bottom:100%;width:1px;height:16%;
+background:linear-gradient(180deg,rgba(236,72,153,.8),rgba(148,163,255,.4))}
+.sc-b1{left:1%;width:7%;height:54%}.sc-b2{left:9.5%;width:5%;height:78%}
+.sc-b3{left:15.5%;width:8%;height:41%}.sc-b4{left:24.5%;width:6%;height:66%}
+.sc-b5{left:31.5%;width:9%;height:88%}.sc-b6{left:41.5%;width:5%;height:50%}
+.sc-b7{left:47.5%;width:7%;height:72%}.sc-b8{left:55.5%;width:6%;height:96%}
+.sc-b9{left:62.5%;width:8%;height:57%}.sc-b10{left:71.5%;width:5%;height:82%}
+.sc-b11{left:77.5%;width:9%;height:45%}.sc-b12{left:87.5%;width:6%;height:68%}
+.sc-b13{left:94.5%;width:7%;height:52%}.sc-b14{left:-1.5%;width:5%;height:34%}
+
+/* --- towers + beacons --- */
+.sc-tower{position:absolute;bottom:21%;z-index:4;width:7%;height:34%;left:50%;margin-left:-3.5%}
+.sc-tw-xs{width:1.6%;height:13%;margin-left:-.8%}
+.sc-tw-s{width:3%;height:18%;margin-left:-1.5%}
+.sc-tw-m{width:7%;height:36%;margin-left:-3.5%}
+.sc-tw-l{width:9%;height:52%;margin-left:-4.5%}
+.sc-tp-a{left:19%}.sc-tp-b{left:50%}.sc-tp-c{left:79%}.sc-tp-d{left:44%}.sc-tp-e{left:66%}
+.sc-tw-r1{bottom:39%;z-index:6}.sc-tw-r2{bottom:44%;z-index:6}
+.sc-mast{position:absolute;inset:0;background:linear-gradient(180deg,#9fb0e4,#4a5590);
+clip-path:polygon(45% 0,55% 0,100% 100%,85% 100%,50% 24%,15% 100%,0 100%)}
+.sc-mast::before{content:"";position:absolute;inset:0;
+background:repeating-linear-gradient(58deg,rgba(7,10,30,.6) 0 5%,transparent 5% 12%)}
+.sc-whip{position:absolute;inset:0;background:linear-gradient(180deg,#a5b4fc,#4a5590);
+clip-path:polygon(38% 0,62% 0,58% 100%,42% 100%)}
+.sc-whip::after{content:"";position:absolute;left:-90%;top:2%;width:280%;height:8%;
+background:linear-gradient(90deg,transparent,rgba(165,180,252,.85),transparent)}
+.sc-beacon{position:absolute;left:50%;width:14%;aspect-ratio:1;min-width:3px;border-radius:50%;
+margin-left:-7%;background:#ef4444;box-shadow:0 0 .9cqw .18cqw rgba(239,68,68,.85)}
+.sc-tw-xs .sc-beacon{width:34%;margin-left:-17%;box-shadow:0 0 .6cqw .1cqw rgba(239,68,68,.8)}
+.sc-tw-s .sc-beacon{width:22%;margin-left:-11%;box-shadow:0 0 .7cqw .12cqw rgba(239,68,68,.8)}
+.sc-bc-top{top:-3%}.sc-bc-mid{top:34%}.sc-bc-low{top:62%}
+
+/* --- signal waves --- */
+.sc-waves{position:absolute;z-index:2;width:0;height:0;left:50%;bottom:52%}
+.sc-wv-a{left:19%}.sc-wv-b{left:50%}.sc-wv-c{left:79%}.sc-wv-d{left:44%}.sc-wv-e{left:66%}
+.sc-wp-r1{bottom:51%}.sc-wp-r2{bottom:60%}.sc-wp-hi{bottom:70%}
+.sc-wave{position:absolute;left:0;top:0;width:26cqw;height:26cqw;margin:-13cqw 0 0 -13cqw;
+border-radius:50%;border:max(1px,.13cqw) solid rgba(34,211,238,.5);opacity:0;transform:scale(.14)}
+.sc-wv-l{width:42cqw;height:42cqw;margin:-21cqw 0 0 -21cqw}
+.sc-wv-xl{width:64cqw;height:64cqw;margin:-32cqw 0 0 -32cqw}
+.sc-wv-pink{border-color:rgba(236,72,153,.5)}
+.sc-wv-gold{border-color:rgba(251,191,36,.42)}
+
+/* --- ground building (garage / storefront) --- */
+.sc-house{position:absolute;bottom:20%;z-index:6;background:linear-gradient(180deg,#1b1f47,#12163a);
+border-radius:.3cqw;box-shadow:inset 0 0 0 1px rgba(148,163,255,.22)}
+.sc-hs-garage{left:33%;width:22%;height:18%}
+.sc-hs-shop{left:29%;width:30%;height:23%}
+.sc-roof{position:absolute;left:-5%;right:-5%;top:-9%;height:10%;border-radius:.3cqw;
+background:linear-gradient(180deg,#333c78,#242a5e)}
+.sc-bay{position:absolute;left:7%;bottom:0;width:44%;height:66%;border-radius:.2cqw 0 0 0;
+background:radial-gradient(120% 110% at 50% 30%,rgba(251,191,36,.34),rgba(10,14,39,.9) 78%);
+box-shadow:inset 0 0 0 1px rgba(251,191,36,.35)}
+.sc-desk{position:absolute;left:12%;bottom:10%;width:64%;height:16%;border-radius:.1cqw;
+background:linear-gradient(180deg,#4a5590,#2b3168)}
+.sc-mic{position:absolute;left:44%;bottom:26%;width:6%;height:34%;background:#8b95d6}
+.sc-mic::before{content:"";position:absolute;left:-110%;top:-46%;width:320%;height:56%;
+border-radius:40%;background:linear-gradient(180deg,#cbd5e1,#7c86c8)}
+.sc-shopwin{position:absolute;right:6%;bottom:12%;width:42%;height:62%;border-radius:.15cqw;
+background:radial-gradient(130% 130% at 50% 40%,rgba(251,191,36,.5),rgba(245,158,11,.12) 80%);
+box-shadow:inset 0 0 0 1px rgba(251,191,36,.55)}
+.sc-onair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;
+font-size:.62em;font-weight:800;letter-spacing:.1em;color:#160c02;background:#fbbf24;
+padding:.3em .5em;border-radius:.2cqw;box-shadow:0 0 1.1cqw .1cqw rgba(251,191,36,.95)}
+.sc-onair-sm{font-size:.5em;padding:.22em .4em}
+
+/* --- billboards --- */
+.sc-billboard{position:absolute;z-index:6;bottom:5%;width:19%;height:26%}
+.sc-bb-hi{bottom:34%;z-index:4}
+.sc-bb-sm{width:13%;height:18%}
+.sc-bp-a{left:5%}.sc-bp-b{left:62%}.sc-bp-c{left:33%}.sc-bp-d{left:85%}
+.sc-billboard::before,.sc-billboard::after{content:"";position:absolute;top:56%;bottom:0;
+width:max(1px,.28cqw);background:linear-gradient(180deg,#4a5590,#2b3168)}
+.sc-billboard::before{left:26%}.sc-billboard::after{right:26%}
+.sc-bb-panel{position:absolute;inset:0 0 44% 0;display:flex;flex-direction:column;
+align-items:center;justify-content:center;gap:.18em;overflow:hidden;border-radius:.35cqw;
+background:linear-gradient(135deg,#2b1550,#4c1d5f 55%,#151038);
+box-shadow:inset 0 0 0 max(1px,.13cqw) rgba(251,191,36,.6),0 0 2cqw rgba(236,72,153,.4)}
+.sc-bb-txt{font-size:.92em;font-weight:800;letter-spacing:.06em;color:#fbbf24;
+text-shadow:0 0 .55cqw rgba(251,191,36,.95)}
+.sc-bb-sub{font-size:.55em;letter-spacing:.16em;color:#22d3ee}
+.sc-bb-sm .sc-bb-txt{font-size:.66em}.sc-bb-sm .sc-bb-sub{display:none}
+
+/* --- vehicles (branded wraps) --- */
+.sc-veh{position:absolute;z-index:7;bottom:3%;width:12%;height:9%}
+.sc-bus{width:19%;height:11%}
+.sc-vp-b{left:57%}.sc-vp-c{left:30%}.sc-vp-d{right:6%}
+.sc-veh::before,.sc-veh::after{content:"";position:absolute;bottom:0;height:38%;width:auto;
+aspect-ratio:1;border-radius:50%;background:#0b0e26;box-shadow:inset 0 0 0 max(1px,.14cqw) #6b76b5}
+.sc-veh::before{left:13%}.sc-veh::after{right:13%}
+.sc-body{position:absolute;inset:0 0 20% 0;border-radius:.5cqw;
+background:linear-gradient(180deg,#232a5c,#141838);box-shadow:inset 0 0 0 1px rgba(148,163,255,.3)}
+.sc-cab{position:absolute;left:5%;top:16%;width:17%;height:40%;border-radius:.15cqw;
+background:linear-gradient(180deg,rgba(34,211,238,.65),rgba(34,211,238,.25))}
+.sc-wrap{position:absolute;left:26%;right:5%;top:16%;bottom:12%;overflow:hidden;
+display:flex;align-items:center;justify-content:center;border-radius:.15cqw;
+font-size:.44em;font-weight:800;letter-spacing:.04em;color:#160c02;white-space:nowrap;
+background:linear-gradient(100deg,#ec4899,#f59e0b)}
+.sc-bus .sc-wrap{font-size:.52em}
+
+/* --- streetlights --- */
+.sc-lamp{position:absolute;z-index:6;bottom:3%;width:max(1px,.3cqw);height:15%;
+background:linear-gradient(180deg,#5b6499,#2b3168)}
+.sc-lp-a{left:14%}.sc-lp-b{left:44%}.sc-lp-c{left:72%}.sc-lp-d{left:88%}.sc-lp-e{left:28%}
+.sc-lamp::before{content:"";position:absolute;left:-260%;top:-4%;width:620%;height:9%;
+border-radius:50%;background:#fbbf24;box-shadow:0 0 1.6cqw .28cqw rgba(251,191,36,.6)}
+.sc-lamp::after{content:"";position:absolute;left:-900%;top:0;width:1900%;height:640%;
+pointer-events:none;background:radial-gradient(50% 52% at 50% 0,rgba(251,191,36,.16),transparent 72%)}
+
+/* --- press flashes --- */
+.sc-flash{position:absolute;z-index:7;bottom:9%;width:.85%;aspect-ratio:1;min-width:2px;
+border-radius:50%;background:#fff;box-shadow:0 0 1.5cqw .3cqw rgba(255,255,255,.85);opacity:0}
+.sc-fp-a{left:24%}.sc-fp-b{left:48%}.sc-fp-c{left:69%}.sc-fp-d{left:86%}
+
+/* --- satellite / uplink / beams --- */
+.sc-dish{position:absolute;z-index:6;bottom:21%;left:4%;width:8%;height:15%}
+.sc-dish::before{content:"";position:absolute;inset:0 0 34% 0;border-radius:50%;
+transform:rotate(-30deg) scaleX(.52);
+background:linear-gradient(150deg,#e2e8f0,#7c86c8 60%,#3b4380)}
+.sc-dish::after{content:"";position:absolute;left:46%;top:56%;bottom:0;width:max(1px,.26cqw);
+background:linear-gradient(180deg,#5b6499,#2b3168)}
+.sc-orbit{position:absolute;z-index:2;left:0;right:0;top:11%;height:0}
+.sc-sat{position:absolute;top:0;left:6%;width:4%;height:4.5cqw}
+.sc-satcore{position:absolute;left:35%;top:26%;width:30%;height:44%;border-radius:.15cqw;
+background:linear-gradient(180deg,#f1f5f9,#94a3b8);box-shadow:0 0 1.2cqw rgba(226,232,240,.6)}
+.sc-wing{position:absolute;top:36%;width:33%;height:24%;
+background:repeating-linear-gradient(90deg,#22d3ee 0 28%,#0e7490 28% 56%)}
+.sc-wl{left:0}.sc-wr{right:0}
+.sc-beam{position:absolute;z-index:2;transform-origin:0 50%;height:max(1px,.2cqw);border-radius:2px;
+background:linear-gradient(90deg,rgba(34,211,238,.9),rgba(236,72,153,.5) 60%,transparent)}
+.sc-bm-a{left:8%;bottom:35%;width:17%;transform:rotate(-42deg)}
+.sc-bm-b{left:50%;bottom:72%;width:16%;transform:rotate(22deg)}
+.sc-bm-c{left:20%;bottom:57%;width:22%;transform:rotate(-12deg)}
+.sc-arc{position:absolute;z-index:1;left:8%;right:8%;top:6%;height:34%;pointer-events:none;
+border-top:max(1px,.12cqw) dashed rgba(34,211,238,.28);border-radius:50%/100% 100% 0 0}
+
+/* --- misc glow accents --- */
+.sc-halo{position:absolute;z-index:1;left:50%;bottom:20%;width:70cqw;height:34cqw;
+margin-left:-35cqw;pointer-events:none;
+background:radial-gradient(50% 50% at 50% 100%,rgba(251,191,36,.2),rgba(236,72,153,.12) 45%,transparent 72%)}
+
+@media (prefers-reduced-motion: no-preference){
+@keyframes sc-blink{0%,44%{opacity:1}50%,94%{opacity:.12}100%{opacity:1}}
+@keyframes sc-ring{0%{opacity:0;transform:scale(.14)}12%{opacity:.85}100%{opacity:0;transform:scale(1)}}
+@keyframes sc-flicker{0%,100%{opacity:1}7%{opacity:.42}9%{opacity:1}46%{opacity:1}48%{opacity:.28}51%{opacity:.95}53%{opacity:.5}56%{opacity:1}}
+@keyframes sc-pulse{0%,100%{opacity:1}50%{opacity:.72}}
+@keyframes sc-drift{0%{transform:translate(0,0)}25%{transform:translate(22cqw,-2.4cqw)}50%{transform:translate(44cqw,0)}75%{transform:translate(66cqw,2.4cqw)}100%{transform:translate(88cqw,0)}}
+@keyframes sc-flash{0%,88%{opacity:0}90%{opacity:1}94%{opacity:0}96%{opacity:.8}100%{opacity:0}}
+.sc-beacon{animation:sc-blink 2.2s ease-in-out infinite}
+.sc-bc-mid{animation-delay:.5s}.sc-bc-low{animation-delay:1s}
+.sc-tp-a .sc-beacon{animation-duration:2.6s}.sc-tp-c .sc-beacon{animation-duration:1.9s}
+.sc-wave{animation:sc-ring 4.2s ease-out infinite}
+.sc-d1{animation-delay:1.4s}.sc-d2{animation-delay:2.8s}.sc-d3{animation-delay:.7s}
+.sc-wv-a .sc-wave{animation-duration:5s}.sc-wv-c .sc-wave{animation-duration:3.6s}
+.sc-bay,.sc-flick{animation:sc-flicker 5.5s linear infinite}
+.sc-onair{animation:sc-pulse 3.4s ease-in-out infinite}
+.sc-bb-panel{animation:sc-pulse 4.6s ease-in-out infinite}
+.sc-bp-b .sc-bb-panel{animation-delay:1.1s}.sc-bp-d .sc-bb-panel{animation-delay:2.2s}
+.sc-lamp::before{animation:sc-pulse 6s ease-in-out infinite}
+.sc-sat{animation:sc-drift 26s linear infinite}
+.sc-beam{animation:sc-pulse 2.6s ease-in-out infinite}
+.sc-bm-b{animation-delay:.8s}.sc-bm-c{animation-delay:1.6s}
+.sc-flash{animation:sc-flash 3.2s linear infinite}
+.sc-fp-b{animation-delay:.9s}.sc-fp-c{animation-delay:1.8s}.sc-fp-d{animation-delay:2.5s}
+}
+`;
+
+const SCENE_TIERS = [
+  {
+    id: 'garage',
+    name: 'Garage Setup',
+    html: `<div class="sc-stage sc-t1">
+<div class="sc-stars"></div>
+<div class="sc-glow sc-g-lo"></div>
+<div class="sc-skyline sc-sl-lo">
+<div class="sc-bldg sc-b3"></div><div class="sc-bldg sc-b11"></div><div class="sc-bldg sc-b14"></div>
+</div>
+<div class="sc-tower sc-tw-xs sc-tw-r1 sc-tp-d"><div class="sc-whip"></div><div class="sc-beacon sc-bc-top"></div></div>
+<div class="sc-waves sc-wv-d sc-wp-r1"><div class="sc-wave"></div></div>
+<div class="sc-ground"></div>
+<div class="sc-house sc-hs-garage">
+<div class="sc-roof"></div>
+<div class="sc-bay"><div class="sc-desk"></div><div class="sc-mic"></div></div>
+<div class="sc-shopwin"><div class="sc-onair sc-onair-sm">ON AIR</div></div>
+</div>
+<div class="sc-lamp sc-lp-c sc-flick"></div>
+</div>`
+  },
+  {
+    id: 'storefront',
+    name: 'Storefront Studio',
+    html: `<div class="sc-stage sc-t2">
+<div class="sc-stars"></div>
+<div class="sc-glow sc-g-lo"></div>
+<div class="sc-skyline sc-sl-lo">
+<div class="sc-bldg sc-b1"></div><div class="sc-bldg sc-b3 sc-lit"></div><div class="sc-bldg sc-b6"></div>
+<div class="sc-bldg sc-b9"></div><div class="sc-bldg sc-b11"></div><div class="sc-bldg sc-b14"></div>
+</div>
+<div class="sc-tower sc-tw-s sc-tw-r2 sc-tp-d"><div class="sc-whip"></div><div class="sc-beacon sc-bc-top"></div></div>
+<div class="sc-waves sc-wv-d sc-wp-r2"><div class="sc-wave"></div><div class="sc-wave sc-d1"></div></div>
+<div class="sc-ground"></div>
+<div class="sc-house sc-hs-shop">
+<div class="sc-roof"></div>
+<div class="sc-bay"><div class="sc-desk"></div><div class="sc-mic"></div></div>
+<div class="sc-shopwin"><div class="sc-onair">ON AIR</div></div>
+</div>
+<div class="sc-lamp sc-lp-a"></div>
+<div class="sc-lamp sc-lp-c"></div>
+</div>`
+  },
+  {
+    id: 'tower',
+    name: 'Broadcast Tower',
+    html: `<div class="sc-stage sc-t3">
+<div class="sc-stars"></div>
+<div class="sc-glow sc-g-md"></div>
+<div class="sc-waves sc-wv-b sc-wp-hi">
+<div class="sc-wave"></div><div class="sc-wave sc-d1"></div>
+<div class="sc-wave sc-wv-l sc-d2"></div><div class="sc-wave sc-wv-l sc-wv-pink sc-d3"></div>
+</div>
+<div class="sc-skyline sc-sl-md">
+<div class="sc-bldg sc-b1"></div><div class="sc-bldg sc-b2 sc-lit"></div><div class="sc-bldg sc-b3"></div>
+<div class="sc-bldg sc-b6"></div><div class="sc-bldg sc-b7 sc-lit"></div><div class="sc-bldg sc-b9"></div>
+<div class="sc-bldg sc-b11"></div><div class="sc-bldg sc-b12 sc-cyan"></div><div class="sc-bldg sc-b14"></div>
+</div>
+<div class="sc-tower sc-tw-m sc-tp-b">
+<div class="sc-mast"></div>
+<div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div>
+</div>
+<div class="sc-ground"></div>
+<div class="sc-lamp sc-lp-a"></div>
+<div class="sc-lamp sc-lp-c"></div>
+<div class="sc-lamp sc-lp-d"></div>
+</div>`
+  },
+  {
+    id: 'citywide',
+    name: 'Citywide Reach',
+    html: `<div class="sc-stage sc-t4">
+<div class="sc-stars"></div>
+<div class="sc-glow sc-g-hi"></div>
+<div class="sc-waves sc-wv-b sc-wp-hi">
+<div class="sc-wave"></div><div class="sc-wave sc-wv-l sc-d1"></div>
+<div class="sc-wave sc-wv-xl sc-d2"></div><div class="sc-wave sc-wv-xl sc-wv-pink sc-d3"></div>
+</div>
+<div class="sc-skyline sc-sl-hi">
+<div class="sc-bldg sc-b1 sc-lit"></div><div class="sc-bldg sc-b2 sc-lit sc-ant"></div>
+<div class="sc-bldg sc-b3"></div><div class="sc-bldg sc-b4 sc-cyan"></div>
+<div class="sc-bldg sc-b5 sc-lit"></div><div class="sc-bldg sc-b6"></div>
+<div class="sc-bldg sc-b7 sc-lit"></div><div class="sc-bldg sc-b9 sc-cyan"></div>
+<div class="sc-bldg sc-b10 sc-lit sc-ant"></div><div class="sc-bldg sc-b11"></div>
+<div class="sc-bldg sc-b12 sc-lit"></div><div class="sc-bldg sc-b14"></div>
+</div>
+<div class="sc-tower sc-tw-l sc-tp-b">
+<div class="sc-mast"></div>
+<div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div><div class="sc-beacon sc-bc-low"></div>
+</div>
+<div class="sc-ground"></div>
+<div class="sc-billboard sc-bp-a">
+<div class="sc-bb-panel"><div class="sc-bb-txt">CALLSIGNS</div><div class="sc-bb-sub">98.6 FM</div></div>
+</div>
+<div class="sc-veh sc-vp-b">
+<div class="sc-body"><div class="sc-cab"></div><div class="sc-wrap">CALLSIGNS</div></div>
+</div>
+<div class="sc-lamp sc-lp-b"></div>
+<div class="sc-lamp sc-lp-d"></div>
+</div>`
+  },
+  {
+    id: 'network',
+    name: 'Regional Network',
+    html: `<div class="sc-stage sc-t5">
+<div class="sc-stars"></div>
+<div class="sc-glow sc-g-hi"></div>
+<div class="sc-waves sc-wv-a sc-wp-hi"><div class="sc-wave sc-wv-l"></div><div class="sc-wave sc-wv-xl sc-d2"></div></div>
+<div class="sc-waves sc-wv-b sc-wp-hi"><div class="sc-wave sc-wv-l sc-d1"></div><div class="sc-wave sc-wv-xl sc-wv-pink sc-d3"></div></div>
+<div class="sc-waves sc-wv-c sc-wp-hi"><div class="sc-wave sc-wv-l sc-d3"></div><div class="sc-wave sc-wv-xl sc-wv-gold"></div></div>
+<div class="sc-skyline sc-sl-hi">
+<div class="sc-bldg sc-b1 sc-lit"></div><div class="sc-bldg sc-b2 sc-lit sc-ant"></div>
+<div class="sc-bldg sc-b3 sc-lit"></div><div class="sc-bldg sc-b4 sc-cyan"></div>
+<div class="sc-bldg sc-b5 sc-lit sc-ant"></div><div class="sc-bldg sc-b6 sc-lit"></div>
+<div class="sc-bldg sc-b7 sc-lit"></div><div class="sc-bldg sc-b8 sc-lit sc-ant"></div>
+<div class="sc-bldg sc-b9 sc-cyan"></div><div class="sc-bldg sc-b10 sc-lit"></div>
+<div class="sc-bldg sc-b11 sc-lit"></div><div class="sc-bldg sc-b12 sc-lit"></div>
+<div class="sc-bldg sc-b13 sc-cyan"></div><div class="sc-bldg sc-b14 sc-lit"></div>
+</div>
+<div class="sc-tower sc-tw-m sc-tp-a"><div class="sc-mast"></div><div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div></div>
+<div class="sc-tower sc-tw-l sc-tp-b"><div class="sc-mast"></div><div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div><div class="sc-beacon sc-bc-low"></div></div>
+<div class="sc-tower sc-tw-m sc-tp-c"><div class="sc-mast"></div><div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div></div>
+<div class="sc-billboard sc-bb-hi sc-bb-sm sc-bp-b">
+<div class="sc-bb-panel"><div class="sc-bb-txt">CALLSIGNS</div></div>
+</div>
+<div class="sc-ground"></div>
+<div class="sc-billboard sc-bp-a">
+<div class="sc-bb-panel"><div class="sc-bb-txt">CALLSIGNS</div><div class="sc-bb-sub">THE NETWORK</div></div>
+</div>
+<div class="sc-billboard sc-bb-sm sc-bp-d">
+<div class="sc-bb-panel"><div class="sc-bb-txt">ON AIR</div></div>
+</div>
+<div class="sc-veh sc-bus sc-vp-c">
+<div class="sc-body"><div class="sc-cab"></div><div class="sc-wrap">CALLSIGNS NET</div></div>
+</div>
+<div class="sc-flash sc-fp-a"></div><div class="sc-flash sc-fp-b"></div>
+<div class="sc-flash sc-fp-c"></div><div class="sc-flash sc-fp-d"></div>
+<div class="sc-lamp sc-lp-b"></div>
+<div class="sc-lamp sc-lp-e"></div>
+</div>`
+  },
+  {
+    id: 'empire',
+    name: 'Media Empire',
+    html: `<div class="sc-stage sc-t6">
+<div class="sc-stars"></div>
+<div class="sc-glow sc-g-max"></div>
+<div class="sc-halo"></div>
+<div class="sc-arc"></div>
+<div class="sc-orbit"><div class="sc-sat">
+<div class="sc-wing sc-wl"></div><div class="sc-satcore"></div><div class="sc-wing sc-wr"></div>
+</div></div>
+<div class="sc-waves sc-wv-a sc-wp-hi"><div class="sc-wave sc-wv-l"></div><div class="sc-wave sc-wv-xl sc-d2"></div></div>
+<div class="sc-waves sc-wv-b sc-wp-hi"><div class="sc-wave sc-wv-xl sc-d1"></div><div class="sc-wave sc-wv-xl sc-wv-pink sc-d3"></div></div>
+<div class="sc-waves sc-wv-c sc-wp-hi"><div class="sc-wave sc-wv-l sc-d3"></div><div class="sc-wave sc-wv-xl sc-wv-gold"></div></div>
+<div class="sc-waves sc-wv-e sc-wp-hi"><div class="sc-wave sc-wv-xl sc-wv-pink sc-d2"></div></div>
+<div class="sc-beam sc-bm-a"></div><div class="sc-beam sc-bm-b"></div><div class="sc-beam sc-bm-c"></div>
+<div class="sc-skyline sc-sl-xl">
+<div class="sc-bldg sc-b1 sc-lit"></div><div class="sc-bldg sc-b2 sc-lit sc-ant"></div>
+<div class="sc-bldg sc-b3 sc-lit"></div><div class="sc-bldg sc-b4 sc-cyan sc-ant"></div>
+<div class="sc-bldg sc-b5 sc-lit sc-ant"></div><div class="sc-bldg sc-b6 sc-lit"></div>
+<div class="sc-bldg sc-b7 sc-lit"></div><div class="sc-bldg sc-b8 sc-lit sc-ant"></div>
+<div class="sc-bldg sc-b9 sc-lit"></div><div class="sc-bldg sc-b10 sc-lit sc-ant"></div>
+<div class="sc-bldg sc-b11 sc-cyan"></div><div class="sc-bldg sc-b12 sc-lit"></div>
+<div class="sc-bldg sc-b13 sc-lit"></div><div class="sc-bldg sc-b14 sc-lit"></div>
+</div>
+<div class="sc-tower sc-tw-m sc-tp-a"><div class="sc-mast"></div><div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div></div>
+<div class="sc-tower sc-tw-l sc-tp-b"><div class="sc-mast"></div><div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div><div class="sc-beacon sc-bc-low"></div></div>
+<div class="sc-tower sc-tw-m sc-tp-e"><div class="sc-mast"></div><div class="sc-beacon sc-bc-top"></div><div class="sc-beacon sc-bc-mid"></div></div>
+<div class="sc-billboard sc-bb-hi sc-bb-sm sc-bp-d">
+<div class="sc-bb-panel"><div class="sc-bb-txt">CALLSIGNS</div></div>
+</div>
+<div class="sc-ground"></div>
+<div class="sc-dish"></div>
+<div class="sc-billboard sc-bp-c">
+<div class="sc-bb-panel"><div class="sc-bb-txt">CALLSIGNS</div><div class="sc-bb-sub">WORLDWIDE</div></div>
+</div>
+<div class="sc-billboard sc-bb-sm sc-bp-b">
+<div class="sc-bb-panel"><div class="sc-bb-txt">98.6 FM</div></div>
+</div>
+<div class="sc-veh sc-bus sc-vp-d">
+<div class="sc-body"><div class="sc-cab"></div><div class="sc-wrap">CALLSIGNS 98.6</div></div>
+</div>
+<div class="sc-flash sc-fp-b"></div><div class="sc-flash sc-fp-c"></div>
+<div class="sc-lamp sc-lp-b"></div>
+<div class="sc-lamp sc-lp-e"></div>
+</div>`
+  }
+];
+
+</script>
+<script>
+/* ============================================================
+   CALLSIGNS — v1
+   All player-facing text lives in STR so an i18next EN/ES pass
+   later is a data swap, not a code hunt. t('key',{vars}) only.
+   ============================================================ */
+'use strict';
+
+const LANG = 'en';
+const STR = {
+  en: {
+    tagline: 'Build a radio station into a media empire.',
+    onair: 'ON AIR',
+    foot: 'v1.0 · autosaves as you play',
+    newGame: 'New Game', continueGame: 'Continue', options: 'Options', quit: 'Quit',
+
+    cash: 'Cash', listeners: 'Listeners', rep: 'Reputation',
+    day: 'Day {n}', dayShort: 'DAY {n}',
+
+    tabStudio: 'Studio', tabGear: 'Gear', tabStaff: 'Staff', tabEmpire: 'Empire', tabLog: 'Log',
+
+    schedule: 'Broadcast Schedule', scheduleNote: 'Tap a slot to change the show',
+    dailyBrief: 'Daily Brief',
+    noDj: 'No DJ', djLabel: '{name}',
+    unstaffed: 'Unstaffed — quality suffers',
+
+    partMorning: 'Morning Drive', partMidday: 'Midday', partEvening: 'Evening', partNight: 'Overnight',
+    showMusic: 'Music', showTalk: 'Talk', showNews: 'News', showAds: 'Ad Block',
+    showMusicDesc: 'Broad appeal, modest ad rates.',
+    showTalkDesc: 'Loyal audience, strong ad rates.',
+    showNewsDesc: 'Smaller reach, big reputation gains.',
+    showAdsDesc: 'Big money now, listeners tune out.',
+
+    pickShow: 'Choose a show', pickShowSub: '{part} · what goes out on this slot?',
+    pickDj: 'Assign a DJ', pickDjSub: 'A DJ\'s skill multiplies this slot\'s quality.',
+    assign: 'Assign', clear: 'Clear', cancel: 'Cancel', close: 'Close',
+
+    transmitter: 'Transmitter', antenna: 'Antenna',
+    reach: 'Reach', fidelity: 'Audio Fidelity',
+    tierOf: 'Tier {a} of {b}', maxTier: 'MAX',
+    upgrade: 'Upgrade', cost: '{amt}',
+    needRep: 'Needs {n} rep',
+    nextUp: 'Next: {name}',
+    boostReach: '+{n}% reach', boostFid: '+{n}% fidelity',
+
+    staffTitle: 'Payroll', hireTitle: 'Available for Hire',
+    roleDj: 'DJ', roleEng: 'Sound Engineer', roleSales: 'Sales Agent',
+    roleDjDesc: 'Raises show quality on their slot.',
+    roleEngDesc: 'Boosts fidelity, prevents breakdowns.',
+    roleSalesDesc: 'Sells more ad slots at better rates.',
+    skill: 'Skill {n}', salary: '{amt}/day',
+    hire: 'Hire', fire: 'Fire', train: 'Train',
+    trainCost: 'Train {amt}', maxSkill: 'Peak skill',
+    fireConfirm: 'Let {name} go?', fireConfirmSub: 'They walk with their skill. Hiring back costs full price.',
+    hiredMsg: '{name} joined as {role}.',
+    firedMsg: '{name} has left the station.',
+    trainedMsg: '{name} trained up to skill {n}.',
+    noStaff: 'Nobody on payroll. Hire a DJ to get real numbers.',
+    noCandidates: 'No candidates today. New talent turns up as your reputation grows.',
+    payroll: 'Payroll: {amt}/day',
+
+    empireTitle: 'The Empire', station2: 'Second Station',
+    lockedTitle: 'Not yet',
+    lockedSub: 'Reach {cash} and {rep} reputation to expand beyond one signal.',
+    unlockedTitle: 'Expansion unlocked',
+    unlockedSub: 'You have the capital and the name. A second callsign is within reach.',
+    progressTo: 'Progress to expansion',
+    foundStation: 'Found Second Station',
+    foundStationNote: 'One-time buildout cost of {amt}. The second station runs itself day to day, contributing a share of its take back to headquarters.',
+    secondStationTitle: 'Second Station',
+    secondStationSub: '{call} — signed on Day {day}.',
+    networkContribution: 'Network contribution (yesterday)',
+    networkTotal: 'Total earned by network',
+    foundedMsg: 'You founded a second station, {call}, feeding the network.',
+
+    logTitle: 'Station Log', noLog: 'Nothing logged yet.',
+
+    paused: 'Paused', resume: 'Resume', save: 'Save', saveExit: 'Save & Exit', mainMenu: 'Main Menu',
+    saved: 'Game saved.', loadFail: 'No save found.', speed: 'Speed',
+    optTitle: 'Options', optSpeed: 'Game speed', optSpeedDesc: 'How fast a broadcast day passes.',
+    optAutosave: 'Autosave', optAutosaveDesc: 'Save automatically every few days.',
+    optEvents: 'Event popups', optEventsDesc: 'Pause the game for big story moments.',
+    optMotion: 'Reduced motion', optMotionDesc: 'Calm down animated scene effects.',
+    optSound: 'Sound effects', optSoundDesc: 'Clicks, on-air chimes, and dead-air stings.',
+    optWipe: 'Delete save', optWipeDesc: 'Erase this station permanently.',
+    wipe: 'Delete', wipeConfirm: 'Delete your save?', wipeConfirmSub: 'This cannot be undone.',
+
+    newStationTitle: 'Sign On', newStationSub: 'Every station needs a callsign. Four letters, starts with K or W.',
+    start: 'Start Broadcasting', randomize: 'Random',
+
+    dayReport: 'Day {n} · {listeners} listeners · {money}',
+    breakdownMsg: 'The {gear} cut out mid-show. Listeners drifted.',
+    breakdownFixed: 'Your engineer caught the fault before anyone noticed.',
+
+    cashWarning: 'Cash reserves are negative. Cut costs or grow revenue before the station goes bankrupt.',
+    bankruptTitle: 'Station Bankrupt',
+    bankruptSub: '{call} has gone dark for good.',
+    bankruptNote: 'Payroll outran revenue for too many days running and the bills finally came due. This save has ended — start a new station to try again.',
+
+    scenes: {
+      garage: 'Garage Setup', storefront: 'Storefront Studio', tower: 'Broadcast Tower',
+      citywide: 'Citywide Signal', network: 'Regional Network', empire: 'Media Empire'
+    }
+  }
+};
+
+function t(key, vars) {
+  const path = key.split('.');
+  let s = STR[LANG];
+  for (const p of path) s = s && s[p];
+  if (s === undefined) return key;
+  if (vars) for (const k in vars) s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+  return s;
+}
+
+/* ---------------- static data ---------------- */
+
+const TX = [
+  { name: 'Bedroom Rig',      spec: '50 W',    reach: 1.00, cost: 0,      rep: 0  },
+  { name: 'Class A 500W',     spec: '500 W',   reach: 1.85, cost: 1400,   rep: 8  },
+  { name: 'Class B 5kW',      spec: '5 kW',    reach: 3.30, cost: 7200,   rep: 24 },
+  { name: 'Class C 25kW',     spec: '25 kW',   reach: 5.70, cost: 29000,  rep: 45 },
+  { name: 'Regional 100kW',   spec: '100 kW',  reach: 9.20, cost: 105000, rep: 66 }
+];
+
+const ANT = [
+  { name: 'Whip Antenna',     spec: 'omni',       fid: 1.00, cost: 0,     rep: 0  },
+  { name: 'Dipole Array',     spec: '2-bay',      fid: 1.22, cost: 1100,  rep: 6  },
+  { name: 'Yagi Stack',       spec: '4-bay',      fid: 1.46, cost: 5800,  rep: 21 },
+  { name: 'Panel Array',      spec: '8-bay',      fid: 1.72, cost: 23500, rep: 42 },
+  { name: 'HD Master',        spec: 'digital',    fid: 2.00, cost: 88000, rep: 63 }
+];
+
+const DAYPARTS = [
+  { id: 'morning', icon: '🌅', weight: 1.35 },
+  { id: 'midday',  icon: '☀️', weight: 0.85 },
+  { id: 'evening', icon: '🌆', weight: 1.15 },
+  { id: 'night',   icon: '🌙', weight: 0.55 }
+];
+
+const SHOWS = {
+  music: { icon: '🎵', appeal: 1.00, adRate: 0.90, rep:  0.35 },
+  talk:  { icon: '🎙️', appeal: 0.86, adRate: 1.20, rep:  0.55 },
+  news:  { icon: '📰', appeal: 0.70, adRate: 1.00, rep:  1.10 },
+  ads:   { icon: '💰', appeal: 0.42, adRate: 2.60, rep: -1.30 }
+};
+
+const ROLES = {
+  dj:    { icon: '🎧', baseSalary: 32 },
+  eng:   { icon: '🔧', baseSalary: 40 },
+  sales: { icon: '📈', baseSalary: 36 }
+};
+
+const FIRST = ['Ray','Dot','Cleo','Miles','Junie','Hollis','Sable','Ike','Marnie','Cass','Ozzie','Wren',
+  'Deke','Lula','Frankie','Nova','Bud','Reva','Sonny','Tess','Arlo','Vega','Moe','Birdie','Rex','Opal'];
+const LAST = ['Vance','Okoye','Ramirez','Kwan','Delacroix','Boone','Ferraro','Njoku','Sharpe','Ellis',
+  'Bright','Castellano','Mbeki','Duvall','Tran','Sorrentino','Fairbanks','Achebe','Lyle','Moreau'];
+
+const EVENTS = [
+  { id:'viral',    minDay:4,  w:10, type:'good',
+    msg:'A clip from your {part} show is everywhere online. New listeners pour in.',
+    apply:s=>{ s.listeners=Math.round(s.listeners*1.28)+40; s.rep=clamp(s.rep+3,0,100); } },
+  { id:'sponsor',  minDay:6,  w:9,  type:'good',
+    msg:'A local sponsor loved what they heard and paid up front.',
+    apply:s=>{ s.cash+=Math.round(120+s.rep*22); } },
+  { id:'guest',    minDay:10, w:7,  type:'good',
+    msg:'A touring act dropped by the studio unannounced. The phones lit up.',
+    apply:s=>{ s.rep=clamp(s.rep+4,0,100); s.listeners=Math.round(s.listeners*1.12)+20; } },
+  { id:'offnight', minDay:5,  w:9,  type:'bad',
+    msg:'{name} had a rough night on air. Dead air, twice.',
+    apply:s=>{ s.rep=clamp(s.rep-2.5,0,100); s.listeners=Math.round(s.listeners*0.93); } },
+  { id:'storm',    minDay:8,  w:7,  type:'bad',
+    msg:'Weather knocked the signal down for part of the day.',
+    apply:s=>{ s.listeners=Math.round(s.listeners*0.85); } },
+  { id:'poached',  minDay:14, w:5,  type:'bad',
+    msg:'A rival station has been calling your people. Morale dipped.',
+    apply:s=>{ s.rep=clamp(s.rep-2,0,100); } },
+  { id:'ratings',  minDay:12, w:8,  type:'good',
+    msg:'The new ratings book came in better than anyone expected.',
+    apply:s=>{ s.rep=clamp(s.rep+3.5,0,100); } },
+  { id:'fine',     minDay:16, w:4,  type:'bad',
+    msg:'A regulator took issue with an ad read. Small fine.',
+    apply:s=>{ s.cash-=Math.round(80+s.rep*14); } }
+];
+
+// Economy scale. LISTENER_BASE sets how many people one "reach unit" of a
+// perfect slot pulls; AD_VALUE is revenue per listener per ad-rate point.
+// These two dominate balance — retune here, not in the formula.
+const LISTENER_BASE = 260;
+const AD_VALUE      = 0.42;
+
+const UNLOCK_CASH = 150000;
+const UNLOCK_REP  = 70;
+const SAVE_KEY    = 'callsigns.save';
+const SAVE_VER    = 1;
+const SPEEDS      = { 1: 5000, 2: 2600, 3: 1400 };
+
+/* ---------------- helpers ---------------- */
+
+const $  = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const pick  = a => a[Math.floor(Math.random()*a.length)];
+const randInt = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function money(n){
+  const neg = n < 0; n = Math.abs(Math.round(n));
+  let s;
+  if (n >= 1e6) s = '$' + (n/1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M';
+  else if (n >= 1e4) s = '$' + (n/1e3).toFixed(0) + 'k';
+  else s = '$' + n.toLocaleString('en-US');
+  return (neg ? '-' : '') + s;
+}
+function num(n){
+  n = Math.round(n);
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e4) return (n/1e3).toFixed(1) + 'k';
+  return n.toLocaleString('en-US');
+}
+function randomCall(){
+  const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return pick(['K','W']) + pick(L.split('')) + pick(L.split('')) + pick(L.split(''));
+}
+/** Salary must stay well under the revenue a hire unlocks, or hiring is a
+    trap and the whole staff pillar is dead weight. Tuned against balance.js. */
+function salaryFor(role, skill){
+  return Math.round(ROLES[role].baseSalary * (0.50 + skill * 0.18));
+}
+function hireFee(p){ return p.salary * 8; }
+function trainCostFor(skill){ return Math.round(160 * Math.pow(1.5, skill)); }
+
+function makePerson(role, repLevel){
+  const spread = 2 + Math.floor(repLevel / 22);
+  const skill = clamp(randInt(1, 3 + spread), 1, 10);
+  return {
+    id: 'p' + Math.random().toString(36).slice(2, 9),
+    name: pick(FIRST) + ' ' + pick(LAST),
+    role, skill,
+    salary: salaryFor(role, skill)
+  };
+}
+
+/* ---------------- state ---------------- */
+
+let S = null;
+let timer = null;
+let candidates = [];
+
+function newState(call){
+  return {
+    v: SAVE_VER,
+    call: call || randomCall(),
+    freq: (87.9 + Math.round(Math.random() * 60) * 0.2).toFixed(1),
+    day: 1,
+    cash: 800,
+    listeners: 40,
+    rep: 5,
+    tx: 0, ant: 0,
+    schedule: {
+      morning: { show: 'music', dj: null },
+      midday:  { show: 'music', dj: null },
+      evening: { show: 'talk',  dj: null },
+      night:   { show: 'music', dj: null }
+    },
+    staff: [],
+    log: [],
+    unlockedExpansion: false,
+    secondStation: null,
+    lastDay: { listeners: 0, revenue: 0, costs: 0, net: 0, quality: 0, network: 0 },
+    opts: { speed: 1, autosave: true, eventPopups: true, reducedMotion: false, sound: true },
+    stats: { totalEarned: 0, peakListeners: 40, daysOnAir: 0 }
+  };
+}
+
+const SECOND_STATION_COST = 50000;
+const BANKRUPTCY_FLOOR = -4000;
+
+/* ---------------- simulation ---------------- */
+
+function staffOf(role){ return S.staff.filter(p => p.role === role); }
+function bestSkill(role){
+  const list = staffOf(role);
+  return list.length ? Math.max(...list.map(p => p.skill)) : 0;
+}
+/** Best hire leads; each additional one in the role adds sharply less.
+    Without this, a second engineer is pure salary with zero benefit. */
+function roleStrength(role){
+  return staffOf(role)
+    .map(p => p.skill).sort((a, b) => b - a)
+    .reduce((sum, s, i) => sum + s * Math.pow(0.40, i), 0);
+}
+function engBonus(){ return Math.min(0.42, roleStrength('eng') * 0.035); }
+function salesFill(){ return clamp(0.30 + roleStrength('sales') * 0.062, 0.30, 0.98); }
+function salesPrice(){ return 1 + roleStrength('sales') * 0.050; }
+
+/** How many slots a DJ is booked on — working the whole day wears them down. */
+function djLoad(id){
+  return DAYPARTS.reduce((n, p) => n + (S.schedule[p.id].dj === id ? 1 : 0), 0);
+}
+function djFatigue(id){ return clamp(1 - 0.18 * (djLoad(id) - 1), 0.40, 1); }
+
+function reachValue(){ return TX[S.tx].reach * (1 + engBonus() * 0.5); }
+function fidelityValue(){ return ANT[S.ant].fid * (1 + engBonus()); }
+
+function djFor(slot){
+  if (!slot.dj) return null;
+  return S.staff.find(p => p.id === slot.dj) || null;
+}
+
+/** One broadcast day. Returns a report object. */
+function simulateDay(){
+  const fid = fidelityValue();
+  const reach = reachValue();
+  const retention = clamp(fid * 0.78, 0.5, 1.65);
+  const fill = salesFill();
+  const price = salesPrice();
+
+  let totalListeners = 0, revenue = 0, qualitySum = 0, repPressure = 0;
+
+  for (const part of DAYPARTS) {
+    const slot = S.schedule[part.id];
+    const show = SHOWS[slot.show];
+    const dj = djFor(slot);
+    // Fatigue makes four dedicated DJs beat one host pulling a double shift.
+    const djSkill = dj ? dj.skill * djFatigue(dj.id) : 0;
+    // No DJ is a real penalty, not a zero — automation still airs something.
+    const quality = show.appeal * (dj ? 0.58 + djSkill * 0.052 : 0.32);
+
+    const potential = LISTENER_BASE * reach * part.weight * (1 + S.rep / 62);
+    const slotListeners = potential * quality * retention;
+
+    totalListeners += slotListeners;
+    qualitySum += quality;
+    repPressure += show.rep * (dj ? 1 + djSkill * 0.05 : 0.6);
+    revenue += slotListeners * show.adRate * AD_VALUE * fill * price * (1 + S.rep / 140);
+  }
+
+  const avgListeners = totalListeners / DAYPARTS.length;
+  const avgQuality = qualitySum / DAYPARTS.length;
+
+  // Equipment hiccup — engineer both lowers the odds and can catch it.
+  let breakdown = null;
+  const breakRisk = clamp(0.055 - engBonus() * 0.09, 0.006, 0.055);
+  if (Math.random() < breakRisk) {
+    const caught = Math.random() < bestSkill('eng') * 0.07;
+    if (caught) breakdown = { caught: true };
+    else {
+      breakdown = { caught: false, gear: Math.random() < 0.5 ? TX[S.tx].name : ANT[S.ant].name };
+      revenue *= 0.7;
+    }
+  }
+
+  const costs = S.staff.reduce((a, p) => a + p.salary, 0);
+  let net = revenue - costs;
+
+  // Second station (once founded) runs itself and wires a cut of its own
+  // take back to headquarters — scaled by reputation so it's not free money
+  // divorced from how well the flagship signal is actually doing.
+  let network = 0;
+  if (S.secondStation) {
+    network = revenue * 0.32 * clamp(S.rep / 100, 0.3, 1);
+    net += network;
+    S.secondStation.totalEarned += network;
+  }
+
+  S.cash += net;
+  S.listeners = Math.round(avgListeners * (breakdown && !breakdown.caught ? 0.82 : 1));
+  // Reputation drifts toward what you actually put on air — no free upward
+  // creep, or an unstaffed all-music station would coast into every rep gate.
+  const avgPressure = repPressure / DAYPARTS.length;
+  const repTarget = clamp(avgQuality * 78 + avgPressure * 14, 0, 100);
+  S.rep = clamp(S.rep + (repTarget - S.rep) * 0.05, 0, 100);
+  S.day++;
+  S.stats.daysOnAir++;
+  if (revenue > 0) S.stats.totalEarned += revenue + network;
+  S.stats.peakListeners = Math.max(S.stats.peakListeners, S.listeners);
+  S.lastDay = { listeners: S.listeners, revenue, costs, net, quality: avgQuality, network };
+
+  return { breakdown, net, revenue, costs };
+}
+
+function rollEvent(){
+  if (S.day < 4 || Math.random() > 0.17) return null;
+  const pool = EVENTS.filter(e => S.day >= e.minDay);
+  if (!pool.length) return null;
+  const total = pool.reduce((a, e) => a + e.w, 0);
+  let r = Math.random() * total;
+  const ev = pool.find(e => (r -= e.w) <= 0) || pool[0];
+
+  const djs = staffOf('dj');
+  const vars = {
+    part: t('part' + pick(DAYPARTS).id.replace(/^./, c => c.toUpperCase())),
+    name: djs.length ? pick(djs).name : 'Your overnight host'
+  };
+  ev.apply(S);
+  return { id: ev.id, type: ev.type, msg: t2(ev.msg, vars) };
+}
+// Event copy is inline (not in STR) so it stays adjacent to its effect;
+// still routed through a formatter so a localization pass has one seam.
+function t2(str, vars){
+  for (const k in vars) str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+  return str;
+}
+
+function addLog(msg, kind){
+  S.log.unshift({ day: S.day, msg, kind: kind || '' });
+  if (S.log.length > 60) S.log.length = 60;
+}
+
+function checkUnlock(){
+  if (!S.unlockedExpansion && S.cash >= UNLOCK_CASH && S.rep >= UNLOCK_REP) {
+    S.unlockedExpansion = true;
+    addLog('Expansion unlocked — you can found a second station.', 'big');
+    toast('🏆 ' + t('unlockedTitle'), 'good');
+    sfxOnAir();
+    pauseTick();
+    openModal(
+      t('unlockedTitle'),
+      t('unlockedSub'),
+      '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('foundStationNote', { amt: money(SECOND_STATION_COST) })) + '</p>',
+      [{ label: t('close'), cls: 'buy', act: dismissAutoModal }]
+    );
+    return true;
+  }
+  return false;
+}
+
+/* ---------------- game loop ---------------- */
+
+let running = false;
+
+function tick(){
+  const rep = simulateDay();
+
+  // Hard cash floor — payroll outrunning revenue can no longer spiral into
+  // arbitrary negative numbers forever. Check this before anything else this
+  // tick so a bankrupting day can't also open an event/unlock modal under it.
+  if (S.cash <= BANKRUPTCY_FLOOR) {
+    render();
+    triggerBankruptcy();
+    return;
+  }
+
+  if (rep.breakdown) {
+    if (rep.breakdown.caught) addLog(t('breakdownFixed'), 'good');
+    else {
+      addLog(t('breakdownMsg', { gear: rep.breakdown.gear }), 'bad');
+      toast('⚠️ ' + t('breakdownMsg', { gear: rep.breakdown.gear }), 'bad');
+      sfxDeadAir();
+    }
+  }
+
+  const ev = rollEvent();
+  if (ev) {
+    addLog(ev.msg, ev.type);
+    if (ev.type === 'good') sfxOnAir(); else sfxTrouble();
+    if (S.opts.eventPopups) {
+      pauseTick();
+      openModal(
+        ev.type === 'good' ? '📻 Good news' : '📻 Trouble',
+        ev.msg, '',
+        [{ label: t('resume'), cls: 'buy', act: dismissAutoModal }]
+      );
+    } else {
+      toast((ev.type === 'good' ? '📈 ' : '📉 ') + ev.msg, ev.type);
+    }
+  }
+
+  if (S.day % 7 === 0) refreshCandidates();
+  if (S.opts.autosave && S.day % 5 === 0) saveGame(true);
+  // checkUnlock() may itself open a modal (queued behind the event modal
+  // above, if one is already open — see openModal/dismissAutoModal).
+  checkUnlock();
+  render();
+}
+
+/** Cash has run dry for good. Ends the run: the save is cleared so a fresh
+    station starts clean rather than reloading straight back into the same
+    unrecoverable spiral. */
+function triggerBankruptcy(){
+  pauseTick();
+  sfxBankrupt();
+  addLog(t('bankruptSub', { call: S.call }), 'bad');
+  openModal(
+    '📉 ' + t('bankruptTitle'),
+    t('bankruptSub', { call: S.call }),
+    '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('bankruptNote')) + '</p>',
+    [{ label: t('mainMenu'), cls: 'danger', act: () => {
+        wipeSave(); S = null; closeModal(); stopTick(); showScreen('menu'); refreshMenu();
+      } }]
+  );
+}
+
+function startTick(){
+  stopTick();
+  running = true;
+  timer = setInterval(tick, SPEEDS[S.opts.speed] || SPEEDS[1]);
+}
+function stopTick(){ if (timer) clearInterval(timer); timer = null; }
+function pauseTick(){ running = false; stopTick(); }
+function resumeTick(){ if (!running) startTick(); }
+
+/* ---------------- save / load ---------------- */
+
+function saveGame(silent){
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    if (!silent) toast('💾 ' + t('saved'), 'good');
+    return true;
+  } catch (e) { toast('Save failed: ' + e.message, 'bad'); return false; }
+}
+function loadGame(){
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return null;
+    return migrate(data);
+  } catch (e) { return null; }
+}
+function migrate(data){
+  // Fill anything a newer version added so old saves keep loading.
+  const base = newState(data.call);
+  const merged = Object.assign(base, data);
+  merged.opts = Object.assign(base.opts, data.opts || {});
+  merged.stats = Object.assign(base.stats, data.stats || {});
+  merged.schedule = Object.assign(base.schedule, data.schedule || {});
+  merged.v = SAVE_VER;
+  return merged;
+}
+function hasSave(){ try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function wipeSave(){ try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+
+/* ---------------- scene ---------------- */
+
+function sceneTier(){
+  // Progression reads off the whole picture, not one stat.
+  const invested = TX.slice(0, S.tx + 1).reduce((a,x)=>a+x.cost,0) + ANT.slice(0, S.ant + 1).reduce((a,x)=>a+x.cost,0);
+  const score = (S.tx + S.ant) * 12 + S.rep * 0.9 + Math.log10(Math.max(10, S.listeners)) * 14 + Math.log10(Math.max(10, invested + 1)) * 5;
+  if (S.unlockedExpansion || score >= 118) return 5;
+  if (score >= 96) return 4;
+  if (score >= 74) return 3;
+  if (score >= 52) return 2;
+  if (score >= 32) return 1;
+  return 0;
+}
+
+function renderScene(){
+  const tier = sceneTier();
+  const have = typeof SCENE_TIERS !== 'undefined' && SCENE_TIERS && SCENE_TIERS[tier];
+  if (!have) return '<div class="scene-wrap"><div class="scene-fallback">📡</div></div>';
+  // The art ships with placeholder branding baked into the billboards and
+  // vehicle wraps — swap in this station's identity so the city advertises YOU.
+  const art = SCENE_TIERS[tier].html
+    .replace(/CALLSIGNS/g, esc(S.call))
+    .replace(/98\.6 FM/g, esc(S.freq + ' FM'))
+    .replace(/98\.6/g, esc(S.freq));
+  const name = t('scenes.' + SCENE_TIERS[tier].id);
+  return '<div class="scene-wrap">' + art +
+    '<div class="scene-caption">' + esc(name) + '</div></div>';
+}
+
+/* ---------------- UI: shell ---------------- */
+
+const TABS = [
+  { id: 'studio', icon: '🎚️', lbl: 'tabStudio' },
+  { id: 'gear',   icon: '📡', lbl: 'tabGear' },
+  { id: 'staff',  icon: '👥', lbl: 'tabStaff' },
+  { id: 'empire', icon: '🏙️', lbl: 'tabEmpire' },
+  { id: 'log',    icon: '📋', lbl: 'tabLog' }
+];
+let activeTab = 'studio';
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + id));
+}
+
+function buildTabs(){
+  $('tabbar').innerHTML = TABS.map(tb =>
+    '<button class="tab' + (tb.id === activeTab ? ' active' : '') + '" data-tab="' + tb.id + '">' +
+      '<span class="tab-icon">' + tb.icon + '</span>' +
+      '<span class="tab-lbl">' + esc(t(tb.lbl)) + '</span>' +
+      (tb.id === 'empire' && S && S.unlockedExpansion ? '<span class="tab-badge"></span>' : '') +
+    '</button>'
+  ).join('');
+}
+
+function setTab(id){
+  activeTab = id;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + id));
+  $('game-content').scrollTop = 0;
+  render();
+}
+
+/* ---------------- UI: render ---------------- */
+
+function render(){
+  if (!S) return;
+  $('hud-call').textContent = S.call;
+  $('hud-sub').textContent = TX[S.tx].spec + ' · ' + ANT[S.ant].name;
+  $('hud-day').textContent = t('dayShort', { n: S.day });
+  $('stat-cash').textContent = money(S.cash);
+  $('stat-cash').style.color = S.cash < 0 ? 'var(--red)' : '';
+  $('stat-listeners').textContent = num(S.listeners);
+  $('stat-rep').textContent = Math.round(S.rep);
+
+  if (activeTab === 'studio') $('pane-studio').innerHTML = viewStudio();
+  if (activeTab === 'gear')   $('pane-gear').innerHTML   = viewGear();
+  if (activeTab === 'staff')  $('pane-staff').innerHTML  = viewStaff();
+  if (activeTab === 'empire') $('pane-empire').innerHTML = viewEmpire();
+  if (activeTab === 'log')    $('pane-log').innerHTML    = viewLog();
+  buildTabs();
+}
+
+function viewStudio(){
+  const d = S.lastDay;
+  const netCls = d.net >= 0 ? 'up' : 'down';
+  let h = renderScene();
+
+  if (S.cash < 0) {
+    h += '<div class="hint" style="background:rgba(248,113,113,.10);border-color:rgba(248,113,113,.32);color:var(--red)">⚠️ ' +
+      esc(t('cashWarning')) + '</div>';
+  }
+
+  h += '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + esc(t('dailyBrief')) + '</span>' +
+    '<span class="card-note">' + esc(t('payroll', { amt: money(S.staff.reduce((a,p)=>a+p.salary,0)) })) + '</span>' +
+    '</div><div class="sched" style="grid-template-columns:repeat(3,1fr)">' +
+      brief(t('listeners'), num(d.listeners), 'cyan') +
+      brief(t('reach'), reachValue().toFixed(1) + '×', 'magenta') +
+      brief(t('fidelity'), fidelityValue().toFixed(2) + '×', 'amber') +
+    '</div>' +
+    '<div style="margin-top:11px;text-align:center;font-size:13px">' +
+      '<span style="color:var(--muted)">Yesterday: </span>' +
+      '<span style="color:var(--green);font-weight:700">' + money(d.revenue) + '</span>' +
+      '<span style="color:var(--muted)"> in · </span>' +
+      '<span style="color:var(--red);font-weight:700">' + money(d.costs) + '</span>' +
+      '<span style="color:var(--muted)"> out · </span>' +
+      '<span class="delta ' + netCls + '" style="font-size:13px">' + (d.net >= 0 ? '+' : '') + money(d.net) + '</span>' +
+    '</div></div>';
+
+  h += '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + esc(t('schedule')) + '</span>' +
+    '<span class="card-note">' + esc(t('scheduleNote')) + '</span></div><div class="sched">';
+
+  for (const part of DAYPARTS) {
+    const slot = S.schedule[part.id];
+    const show = SHOWS[slot.show];
+    const dj = djFor(slot);
+    const partName = t('part' + part.id.charAt(0).toUpperCase() + part.id.slice(1));
+    h += '<div class="slot" data-slot="' + part.id + '">' +
+      '<span class="slot-part">' + part.icon + ' ' + esc(partName) + '</span>' +
+      '<span class="slot-icon">' + show.icon + '</span>' +
+      '<span class="slot-show">' + esc(t('show' + slot.show.charAt(0).toUpperCase() + slot.show.slice(1))) + '</span>' +
+      '<span class="slot-' + (dj ? 'dj' : 'meta') + '">' + esc(dj ? '🎧 ' + dj.name.split(' ')[0] + ' · ' + dj.skill : t('noDj')) + '</span>' +
+    '</div>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+function brief(label, val, color){
+  return '<div style="text-align:center;padding:6px 2px">' +
+    '<div style="font-size:17px;font-weight:800;color:var(--' + color + ')">' + esc(val) + '</div>' +
+    '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.9px">' + esc(label) + '</div>' +
+  '</div>';
+}
+
+function viewGear(){
+  return '<div class="two-col">' +
+    gearCard('tx', TX, S.tx, t('transmitter'), '📡', 'reach') +
+    gearCard('ant', ANT, S.ant, t('antenna'), '🗼', 'fid') +
+  '</div>';
+}
+
+function gearCard(key, arr, idx, title, icon, statKey){
+  const cur = arr[idx];
+  const next = arr[idx + 1];
+  const maxed = !next;
+  const affordable = next && S.cash >= next.cost;
+  const repOk = next && S.rep >= next.rep;
+
+  let h = '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + icon + ' ' + esc(title) + '</span>' +
+    '<span class="card-note">' + esc(maxed ? t('maxTier') : t('tierOf', { a: idx + 1, b: arr.length })) + '</span>' +
+    '</div>';
+
+  h += '<div class="row"><div class="row-icon">' + icon + '</div><div class="row-body">' +
+    '<div class="row-title">' + esc(cur.name) + '</div>' +
+    '<div class="row-sub">' + esc(cur.spec) + ' · ' +
+      (statKey === 'reach' ? t('reach') + ' ' + cur.reach.toFixed(2) + '×' : t('fidelity') + ' ' + cur.fid.toFixed(2) + '×') +
+    '</div>' +
+    '<div class="meter"><div class="meter-fill ' + (statKey === 'reach' ? 'magenta' : 'cyan') + '" style="width:' + ((idx + 1) / arr.length * 100) + '%"></div></div>' +
+  '</div></div>';
+
+  if (maxed) {
+    h += '<div style="text-align:center;padding:10px"><span class="pill max">' + esc(t('maxTier')) + '</span></div>';
+  } else {
+    const gain = statKey === 'reach'
+      ? t('boostReach', { n: Math.round((next.reach / cur.reach - 1) * 100) })
+      : t('boostFid',   { n: Math.round((next.fid   / cur.fid   - 1) * 100) });
+    h += '<div class="row" style="margin-top:8px">' +
+      '<div class="row-icon">⬆️</div>' +
+      '<div class="row-body">' +
+        '<div class="row-title">' + esc(next.name) + '</div>' +
+        '<div class="row-sub" style="color:var(--green)">' + esc(gain) + ' · ' + esc(next.spec) + '</div>' +
+        (!repOk ? '<div class="row-sub" style="color:var(--red)">' + esc(t('needRep', { n: next.rep })) + '</div>' : '') +
+      '</div>' +
+      '<div class="row-act">' +
+        '<button class="btn buy" data-buy="' + key + '"' + (affordable && repOk ? '' : ' disabled') + '>' +
+          money(next.cost) +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  }
+  return h + '</div>';
+}
+
+function viewStaff(){
+  let h = '';
+  if (!S.staff.length) h += '<div class="hint">' + esc(t('noStaff')) + '</div>';
+
+  h += '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + esc(t('staffTitle')) + '</span>' +
+    '<span class="card-note">' + esc(t('payroll', { amt: money(S.staff.reduce((a,p)=>a+p.salary,0)) })) + '</span></div>';
+
+  if (!S.staff.length) {
+    h += '<div class="empty">—</div>';
+  } else {
+    for (const p of S.staff) {
+      const trainCost = trainCostFor(p.skill);
+      const maxed = p.skill >= 10;
+      h += '<div class="row">' +
+        '<div class="row-icon">' + ROLES[p.role].icon + '</div>' +
+        '<div class="row-body">' +
+          '<div class="row-title">' + esc(p.name) + '</div>' +
+          '<div class="row-sub">' + esc(roleName(p.role)) + ' · ' + esc(t('skill', { n: p.skill })) + ' · ' + esc(t('salary', { amt: money(p.salary) })) + '</div>' +
+          '<div class="meter"><div class="meter-fill amber" style="width:' + (p.skill * 10) + '%"></div></div>' +
+        '</div>' +
+        '<div class="row-act">' +
+          (maxed
+            ? '<span class="pill max">' + esc(t('maxSkill')) + '</span>'
+            : '<button class="btn sm" data-train="' + p.id + '"' + (S.cash >= trainCost ? '' : ' disabled') + '>' + esc(t('trainCost', { amt: money(trainCost) })) + '</button>') +
+          '<button class="btn sm danger" data-fire="' + p.id + '">' + esc(t('fire')) + '</button>' +
+        '</div>' +
+      '</div>';
+    }
+  }
+  h += '</div>';
+
+  h += '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('hireTitle')) + '</span></div>';
+  if (!candidates.length) {
+    h += '<div class="empty">' + esc(t('noCandidates')) + '</div>';
+  } else {
+    for (const p of candidates) {
+      const fee = hireFee(p);
+      h += '<div class="row">' +
+        '<div class="row-icon">' + ROLES[p.role].icon + '</div>' +
+        '<div class="row-body">' +
+          '<div class="row-title">' + esc(p.name) + '</div>' +
+          '<div class="row-sub">' + esc(roleName(p.role)) + ' · ' + esc(t('skill', { n: p.skill })) + ' · ' + esc(t('salary', { amt: money(p.salary) })) + '</div>' +
+          '<div class="row-sub" style="color:var(--dim)">' + esc(roleDesc(p.role)) + '</div>' +
+        '</div>' +
+        '<div class="row-act">' +
+          '<button class="btn buy" data-hire="' + p.id + '"' + (S.cash >= fee ? '' : ' disabled') + '>' + money(fee) + '</button>' +
+        '</div>' +
+      '</div>';
+    }
+  }
+  return h + '</div>';
+}
+
+function roleName(r){ return t(r === 'dj' ? 'roleDj' : r === 'eng' ? 'roleEng' : 'roleSales'); }
+function roleDesc(r){ return t(r === 'dj' ? 'roleDjDesc' : r === 'eng' ? 'roleEngDesc' : 'roleSalesDesc'); }
+
+function viewEmpire(){
+  const cashPct = clamp(S.cash / UNLOCK_CASH * 100, 0, 100);
+  const repPct  = clamp(S.rep / UNLOCK_REP * 100, 0, 100);
+
+  let h = '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('empireTitle')) + '</span></div>';
+  h += '<div class="row"><div class="row-icon">📻</div><div class="row-body">' +
+    '<div class="row-title">' + esc(S.call) + '</div>' +
+    '<div class="row-sub">' + esc(t('day', { n: S.day })) + ' · ' + num(S.stats.peakListeners) + ' peak · ' + money(S.stats.totalEarned) + ' earned</div>' +
+  '</div></div></div>';
+
+  if (S.unlockedExpansion && S.secondStation) {
+    const ss = S.secondStation;
+    h += '<div class="card"><div class="card-head">' +
+      '<span class="card-title">📡 ' + esc(t('secondStationTitle')) + '</span></div>' +
+      '<div class="row"><div class="row-icon">🏙️</div><div class="row-body">' +
+        '<div class="row-title">' + esc(t('secondStationSub', { call: ss.call, day: ss.foundedDay })) + '</div>' +
+        '<div class="row-sub">' + esc(t('networkContribution')) + ': ' +
+          '<span style="color:var(--green);font-weight:700">' + money(S.lastDay.network || 0) + '</span></div>' +
+        '<div class="row-sub">' + esc(t('networkTotal')) + ': ' +
+          '<span style="color:var(--amber);font-weight:700">' + money(ss.totalEarned) + '</span></div>' +
+      '</div></div></div>';
+  } else if (S.unlockedExpansion) {
+    const canAfford = S.cash >= SECOND_STATION_COST;
+    h += '<div class="card"><div class="locked-panel">' +
+      '<div class="locked-icon">🏙️</div>' +
+      '<div style="font-size:17px;font-weight:800;color:var(--amber);margin-bottom:5px">' + esc(t('unlockedTitle')) + '</div>' +
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:14px">' + esc(t('unlockedSub')) + '</div>' +
+      '<button class="btn buy" id="btn-found-station"' + (canAfford ? '' : ' disabled') + '>' +
+        esc(t('foundStation')) + ' · ' + money(SECOND_STATION_COST) +
+      '</button>' +
+      '<div style="font-size:11px;color:var(--dim);margin-top:12px;max-width:340px;margin-left:auto;margin-right:auto">' +
+        esc(t('foundStationNote', { amt: money(SECOND_STATION_COST) })) + '</div>' +
+    '</div></div>';
+  } else {
+    h += '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('progressTo')) + '</span></div>' +
+      '<div class="locked-panel" style="padding:14px 6px">' +
+        '<div class="locked-icon">🔒</div>' +
+        '<div style="font-size:13px;color:var(--muted);margin-bottom:16px">' +
+          esc(t('lockedSub', { cash: money(UNLOCK_CASH), rep: UNLOCK_REP })) + '</div>' +
+      '</div>' +
+      '<div class="row"><div class="row-icon">💵</div><div class="row-body">' +
+        '<div class="row-title">' + money(S.cash) + ' / ' + money(UNLOCK_CASH) + '</div>' +
+        '<div class="meter"><div class="meter-fill amber" style="width:' + cashPct + '%"></div></div>' +
+      '</div></div>' +
+      '<div class="row"><div class="row-icon">⭐</div><div class="row-body">' +
+        '<div class="row-title">' + Math.round(S.rep) + ' / ' + UNLOCK_REP + ' ' + esc(t('rep')) + '</div>' +
+        '<div class="meter"><div class="meter-fill magenta" style="width:' + repPct + '%"></div></div>' +
+      '</div></div>' +
+    '</div>';
+  }
+  return h;
+}
+
+function viewLog(){
+  let h = '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('logTitle')) + '</span></div>';
+  if (!S.log.length) return h + '<div class="empty">' + esc(t('noLog')) + '</div></div>';
+  for (const e of S.log) {
+    h += '<div class="log-item ' + e.kind + '">' +
+      '<div class="log-day">' + esc(t('dayShort', { n: e.day })) + '</div>' + esc(e.msg) +
+    '</div>';
+  }
+  return h + '</div>';
+}
+
+/* ---------------- audio ----------------
+   Tiny Web Audio synth — no asset files, nothing to vendor. Muted entirely
+   when S.opts.sound is off (default on) or before any game state exists. */
+
+let actx = null;
+function audioOn(){ return S ? S.opts.sound !== false : true; }
+function ensureAudioCtx(){
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { actx = null; }
+  }
+  if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  return actx;
+}
+function tone(freq, dur, type, vol, delay){
+  if (!audioOn()) return;
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime + (delay || 0);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol || 0.1, t0 + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.03);
+}
+function sfxClick(){ tone(760, 0.045, 'square', 0.045); }
+function sfxBuy(){ tone(520, 0.09, 'triangle', 0.08); tone(780, 0.12, 'triangle', 0.07, 0.06); }
+/** On-air chime — ascending major triad, for good events / good news. */
+function sfxOnAir(){
+  tone(660, 0.14, 'sine', 0.09);
+  tone(880, 0.18, 'sine', 0.09, 0.09);
+  tone(1320, 0.22, 'sine', 0.08, 0.2);
+}
+/** Dead-air sting — a low, sour drop for equipment breakdowns. */
+function sfxDeadAir(){
+  tone(180, 0.3, 'sawtooth', 0.09);
+  tone(120, 0.35, 'sawtooth', 0.08, 0.12);
+}
+function sfxTrouble(){
+  tone(320, 0.12, 'square', 0.06);
+  tone(230, 0.16, 'square', 0.055, 0.09);
+}
+function sfxBankrupt(){
+  tone(220, 0.5, 'sawtooth', 0.1);
+  tone(150, 0.6, 'sawtooth', 0.09, 0.16);
+  tone(90, 0.9, 'sawtooth', 0.08, 0.34);
+}
+
+/* ---------------- modals & toasts ---------------- */
+
+let modalActions = [];
+// Modals queue instead of last-write-wins: if a random event's modal and the
+// expansion-unlock modal (or any two modals) fire on the same tick, the
+// second call queues behind the first rather than overwriting it before the
+// player has read it.
+let modalQueue = [];
+
+function openModal(title, sub, bodyHtml, actions){
+  if ($('modal-back').classList.contains('open')) {
+    modalQueue.push({ title, sub, bodyHtml, actions });
+    return;
+  }
+  showModalNow(title, sub, bodyHtml, actions);
+}
+function showModalNow(title, sub, bodyHtml, actions){
+  modalActions = actions || [];
+  $('modal').innerHTML =
+    '<div class="modal-title">' + esc(title) + '</div>' +
+    (sub ? '<div class="modal-sub">' + esc(sub) + '</div>' : '') +
+    (bodyHtml || '') +
+    '<div class="modal-btns">' + modalActions.map((a, i) =>
+      '<button class="btn ' + (a.cls || '') + '" data-modal-act="' + i + '">' + esc(a.label) + '</button>'
+    ).join('') + '</div>';
+  $('modal-back').classList.add('open');
+}
+function closeModal(){
+  $('modal-back').classList.remove('open');
+  modalActions = [];
+  if (modalQueue.length) {
+    const next = modalQueue.shift();
+    setTimeout(() => showModalNow(next.title, next.sub, next.bodyHtml, next.actions), 30);
+  }
+}
+/** Used by modals the game itself opened mid-tick (random events, the
+    expansion unlock). Closes the current one; if another was queued behind
+    it, that one takes over and the tick stays paused. Only once the queue is
+    fully drained does the game actually resume. */
+function dismissAutoModal(){
+  const hadQueued = modalQueue.length > 0;
+  closeModal();
+  if (!hadQueued) resumeTick();
+}
+
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = msg;
+  $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3400);
+}
+
+/* ---------------- actions ---------------- */
+
+function refreshCandidates(){
+  const n = randInt(2, 3);
+  candidates = [];
+  const roles = ['dj', 'eng', 'sales'];
+  for (let i = 0; i < n; i++) candidates.push(makePerson(pick(roles), S.rep));
+  // Always keep a DJ available early — the game is unreadable without one.
+  if (S.day < 12 && !candidates.some(c => c.role === 'dj')) candidates[0] = makePerson('dj', S.rep);
+}
+
+function buyGear(key){
+  const arr = key === 'tx' ? TX : ANT;
+  const idx = key === 'tx' ? S.tx : S.ant;
+  const next = arr[idx + 1];
+  if (!next || S.cash < next.cost || S.rep < next.rep) return;
+  S.cash -= next.cost;
+  if (key === 'tx') S.tx++; else S.ant++;
+  addLog('Upgraded to ' + next.name + '.', 'big');
+  toast('📡 ' + next.name + ' installed', 'good');
+  sfxBuy();
+  saveGame(true);
+  render();
+}
+
+function hirePerson(id){
+  const p = candidates.find(c => c.id === id);
+  if (!p) return;
+  const fee = hireFee(p);
+  if (S.cash < fee) return;
+  S.cash -= fee;
+  S.staff.push(p);
+  candidates = candidates.filter(c => c.id !== id);
+  addLog(t('hiredMsg', { name: p.name, role: roleName(p.role) }), 'good');
+  toast(ROLES[p.role].icon + ' ' + t('hiredMsg', { name: p.name, role: roleName(p.role) }), 'good');
+  sfxBuy();
+  saveGame(true);
+  render();
+}
+
+function firePerson(id){
+  const p = S.staff.find(x => x.id === id);
+  if (!p) return;
+  openModal(t('fireConfirm', { name: p.name }), t('fireConfirmSub'), '', [
+    { label: t('cancel'), cls: 'ghost', act: closeModal },
+    { label: t('fire'), cls: 'danger', act: () => {
+        S.staff = S.staff.filter(x => x.id !== id);
+        for (const k in S.schedule) if (S.schedule[k].dj === id) S.schedule[k].dj = null;
+        addLog(t('firedMsg', { name: p.name }), 'bad');
+        closeModal(); saveGame(true); render();
+      } }
+  ]);
+}
+
+function trainPerson(id){
+  const p = S.staff.find(x => x.id === id);
+  if (!p || p.skill >= 10) return;
+  const cost = trainCostFor(p.skill);
+  if (S.cash < cost) return;
+  S.cash -= cost;
+  p.skill++;
+  p.salary = salaryFor(p.role, p.skill);
+  addLog(t('trainedMsg', { name: p.name, n: p.skill }), 'good');
+  toast('📈 ' + t('trainedMsg', { name: p.name, n: p.skill }), 'good');
+  sfxBuy();
+  saveGame(true);
+  render();
+}
+
+function foundSecondStation(){
+  if (!S.unlockedExpansion || S.secondStation || S.cash < SECOND_STATION_COST) return;
+  S.cash -= SECOND_STATION_COST;
+  const call2 = randomCall();
+  S.secondStation = { call: call2, foundedDay: S.day, totalEarned: 0 };
+  addLog(t('foundedMsg', { call: call2 }), 'big');
+  toast('🏙️ ' + t('foundedMsg', { call: call2 }), 'good');
+  sfxOnAir();
+  saveGame(true);
+  render();
+}
+
+function openSlotEditor(partId){
+  const part = DAYPARTS.find(p => p.id === partId);
+  const partName = t('part' + partId.charAt(0).toUpperCase() + partId.slice(1));
+  const slot = S.schedule[partId];
+
+  let body = '<div style="margin-bottom:6px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700">Show</div>';
+  for (const key in SHOWS) {
+    const sh = SHOWS[key];
+    const on = slot.show === key;
+    body += '<div class="row" data-setshow="' + key + '" style="cursor:pointer' + (on ? ';border-color:var(--amber)' : '') + '">' +
+      '<div class="row-icon">' + sh.icon + '</div>' +
+      '<div class="row-body">' +
+        '<div class="row-title">' + esc(t('show' + key.charAt(0).toUpperCase() + key.slice(1))) + (on ? ' ✓' : '') + '</div>' +
+        '<div class="row-sub">' + esc(t('show' + key.charAt(0).toUpperCase() + key.slice(1) + 'Desc')) + '</div>' +
+      '</div></div>';
+  }
+
+  const djs = staffOf('dj');
+  body += '<div style="margin:14px 0 6px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700">DJ</div>';
+  if (!djs.length) {
+    body += '<div class="empty" style="padding:14px">' + esc(t('unstaffed')) + '</div>';
+  } else {
+    body += '<div class="row" data-setdj="" style="cursor:pointer' + (!slot.dj ? ';border-color:var(--amber)' : '') + '">' +
+      '<div class="row-icon">🚫</div><div class="row-body"><div class="row-title">' + esc(t('noDj')) + (!slot.dj ? ' ✓' : '') + '</div>' +
+      '<div class="row-sub">' + esc(t('unstaffed')) + '</div></div></div>';
+    for (const p of djs) {
+      const on = slot.dj === p.id;
+      const elsewhere = Object.keys(S.schedule).filter(k => k !== partId && S.schedule[k].dj === p.id).length;
+      body += '<div class="row" data-setdj="' + p.id + '" style="cursor:pointer' + (on ? ';border-color:var(--amber)' : '') + '">' +
+        '<div class="row-icon">🎧</div><div class="row-body">' +
+        '<div class="row-title">' + esc(p.name) + (on ? ' ✓' : '') + '</div>' +
+        '<div class="row-sub">' + esc(t('skill', { n: p.skill })) + (elsewhere ? ' · on ' + elsewhere + ' other slot' + (elsewhere > 1 ? 's' : '') : '') + '</div>' +
+        '</div></div>';
+    }
+  }
+
+  openModal(partName, t('pickShowSub', { part: partName }), body, [
+    { label: t('close'), cls: 'buy', act: () => { closeModal(); saveGame(true); render(); } }
+  ]);
+  $('modal').dataset.slot = partId;
+}
+
+/* ---------------- flows ---------------- */
+
+function promptNewGame(){
+  const start = () => {
+    const input = document.querySelector('#modal input');
+    let call = (input && input.value.trim().toUpperCase()) || randomCall();
+    call = call.replace(/[^A-Z]/g, '').slice(0, 4) || randomCall();
+    S = newState(call);
+    refreshCandidates();
+    addLog('You signed on the air as ' + call + '.', 'big');
+    closeModal();
+    enterGame();
+  };
+
+  const body = '<input id="call-input" maxlength="4" placeholder="' + randomCall() + '" ' +
+    'style="width:100%;padding:14px;border-radius:10px;background:var(--panel2);border:1px solid var(--border-lit);' +
+    'color:var(--text);font-size:22px;font-weight:900;letter-spacing:5px;text-align:center;text-transform:uppercase;font-family:inherit">';
+
+  openModal(t('newStationTitle'), t('newStationSub'), body, [
+    { label: t('randomize'), cls: 'ghost', act: () => { const i = document.querySelector('#modal input'); if (i) i.value = randomCall(); } },
+    { label: t('start'), cls: 'buy', act: start }
+  ]);
+  setTimeout(() => { const i = document.querySelector('#modal input'); if (i) i.focus(); }, 60);
+}
+
+function enterGame(){
+  if (!candidates.length) refreshCandidates();
+  applyMotionPref();
+  showScreen('game');
+  activeTab = 'studio';
+  buildTabs();
+  setTab('studio');
+  startTick();
+}
+
+function openPauseMenu(){
+  pauseTick();
+  openModal(t('paused'), S.call + ' · ' + t('day', { n: S.day }), '', [
+    { label: t('resume'), cls: 'buy', act: () => { closeModal(); resumeTick(); } },
+    { label: t('save'), cls: '', act: () => { saveGame(); } },
+    { label: t('options'), cls: '', act: () => { closeModal(); openOptions('game'); } },
+    { label: t('mainMenu'), cls: 'danger', act: () => {
+        saveGame(true); closeModal(); stopTick(); showScreen('menu'); refreshMenu();
+      } }
+  ]);
+}
+
+/* ---------------- options ---------------- */
+
+let optionsReturn = 'menu';
+
+function openOptions(from){
+  optionsReturn = from || 'menu';
+  $('opt-title').textContent = t('optTitle');
+  renderOptions();
+  showScreen('options');
+}
+
+function renderOptions(){
+  const o = S ? S.opts : loadOpts();
+  let h = '';
+  h += '<div class="opt-row"><div><div class="opt-lbl">' + esc(t('optSpeed')) + '</div><div class="opt-desc">' + esc(t('optSpeedDesc')) + '</div></div>' +
+    '<div class="seg">' + [1,2,3].map(v =>
+      '<button class="seg-btn' + (o.speed === v ? ' on' : '') + '" data-speed="' + v + '">' + v + '×</button>'
+    ).join('') + '</div></div>';
+
+  h += optToggle('autosave', o.autosave, t('optAutosave'), t('optAutosaveDesc'));
+  h += optToggle('eventPopups', o.eventPopups, t('optEvents'), t('optEventsDesc'));
+  h += optToggle('reducedMotion', o.reducedMotion, t('optMotion'), t('optMotionDesc'));
+  h += optToggle('sound', o.sound, t('optSound'), t('optSoundDesc'));
+
+  h += '<div class="opt-row"><div><div class="opt-lbl">' + esc(t('optWipe')) + '</div><div class="opt-desc">' + esc(t('optWipeDesc')) + '</div></div>' +
+    '<button class="btn danger" id="btn-wipe">' + esc(t('wipe')) + '</button></div>';
+
+  $('options-body').innerHTML = h;
+}
+
+function optToggle(key, val, label, desc){
+  return '<div class="opt-row"><div><div class="opt-lbl">' + esc(label) + '</div><div class="opt-desc">' + esc(desc) + '</div></div>' +
+    '<button class="switch' + (val ? ' on' : '') + '" data-opt="' + key + '" aria-pressed="' + !!val + '"></button></div>';
+}
+
+function loadOpts(){
+  const s = loadGame();
+  return s ? s.opts : newState().opts;
+}
+
+function applyMotionPref(){
+  if (!S) return;
+  document.documentElement.style.setProperty('--motion', S.opts.reducedMotion ? 'none' : 'initial');
+  document.body.classList.toggle('no-motion', !!S.opts.reducedMotion);
+}
+
+/* ---------------- menu ---------------- */
+
+function refreshMenu(){
+  $('menu-tagline').textContent = t('tagline');
+  $('menu-badge').textContent = t('onair');
+  $('menu-foot').textContent = t('foot');
+  $('btn-new').textContent = t('newGame');
+  $('btn-continue').textContent = t('continueGame');
+  $('btn-options').textContent = t('options');
+  $('btn-quit').textContent = t('quit');
+  $('lbl-cash').textContent = t('cash');
+  $('lbl-listeners').textContent = t('listeners');
+  $('lbl-rep').textContent = t('rep');
+
+  const save = hasSave();
+  $('btn-continue').disabled = !save;
+  if (save) {
+    try {
+      const d = JSON.parse(localStorage.getItem(SAVE_KEY));
+      $('btn-continue').textContent = t('continueGame') + ' · ' + d.call + ' · ' + t('day', { n: d.day });
+    } catch (e) {}
+  }
+}
+
+/* ---------------- events ---------------- */
+
+function wire(){
+  $('btn-new').onclick = () => {
+    if (hasSave()) {
+      openModal(t('newGame'), 'Starting fresh overwrites your current station.', '', [
+        { label: t('cancel'), cls: 'ghost', act: closeModal },
+        { label: t('newGame'), cls: 'danger', act: () => { closeModal(); promptNewGame(); } }
+      ]);
+    } else promptNewGame();
+  };
+  $('btn-continue').onclick = () => {
+    const s = loadGame();
+    if (!s) { toast(t('loadFail'), 'bad'); return; }
+    S = s; refreshCandidates(); enterGame();
+  };
+  $('btn-options').onclick = () => openOptions('menu');
+  $('btn-quit').onclick = () => {
+    if (S) saveGame(true);
+    openModal(t('quit'), 'Your station is saved. You can close this tab.', '', [
+      { label: t('close'), cls: 'buy', act: closeModal }
+    ]);
+  };
+  $('btn-pause').onclick = openPauseMenu;
+  $('btn-opt-back').onclick = () => {
+    if (S) { saveGame(true); applyMotionPref(); }
+    if (optionsReturn === 'game') { showScreen('game'); render(); resumeTick(); }
+    else { showScreen('menu'); refreshMenu(); }
+  };
+
+  // Delegated clicks — the whole UI is re-rendered HTML, so nothing binds directly.
+  document.addEventListener('click', e => {
+    // One shared click blip for any interactive control; buy/hire/train get
+    // their own richer sfxBuy() on top of this further down.
+    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn, .switch, .slot')) sfxClick();
+
+    const tab = e.target.closest('[data-tab]');
+    if (tab) return setTab(tab.dataset.tab);
+
+    const act = e.target.closest('[data-modal-act]');
+    if (act) { const a = modalActions[+act.dataset.modalAct]; if (a && a.act) a.act(); return; }
+
+    const buy = e.target.closest('[data-buy]');
+    if (buy && !buy.disabled) return buyGear(buy.dataset.buy);
+
+    const hireB = e.target.closest('[data-hire]');
+    if (hireB && !hireB.disabled) return hirePerson(hireB.dataset.hire);
+
+    const fireB = e.target.closest('[data-fire]');
+    if (fireB) return firePerson(fireB.dataset.fire);
+
+    const trainB = e.target.closest('[data-train]');
+    if (trainB && !trainB.disabled) return trainPerson(trainB.dataset.train);
+
+    const foundB = e.target.closest('#btn-found-station');
+    if (foundB && !foundB.disabled) return foundSecondStation();
+
+    const slotEl = e.target.closest('[data-slot]');
+    if (slotEl) return openSlotEditor(slotEl.dataset.slot);
+
+    const setShow = e.target.closest('[data-setshow]');
+    if (setShow) {
+      const part = $('modal').dataset.slot;
+      S.schedule[part].show = setShow.dataset.setshow;
+      openSlotEditor(part);
+      return;
+    }
+    const setDj = e.target.closest('[data-setdj]');
+    if (setDj) {
+      const part = $('modal').dataset.slot;
+      S.schedule[part].dj = setDj.dataset.setdj || null;
+      openSlotEditor(part);
+      return;
+    }
+
+    const sp = e.target.closest('[data-speed]');
+    if (sp) {
+      const v = +sp.dataset.speed;
+      if (S) { S.opts.speed = v; if (running) startTick(); }
+      renderOptions();
+      return;
+    }
+    const op = e.target.closest('[data-opt]');
+    if (op) {
+      if (S) { S.opts[op.dataset.opt] = !S.opts[op.dataset.opt]; applyMotionPref(); }
+      renderOptions();
+      return;
+    }
+    if (e.target.closest('#btn-wipe')) {
+      openModal(t('wipeConfirm'), t('wipeConfirmSub'), '', [
+        { label: t('cancel'), cls: 'ghost', act: closeModal },
+        { label: t('wipe'), cls: 'danger', act: () => {
+            wipeSave(); S = null; stopTick(); closeModal(); showScreen('menu'); refreshMenu();
+          } }
+      ]);
+      return;
+    }
+    if (e.target === $('modal-back')) closeModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if ($('modal-back').classList.contains('open')) closeModal();
+      else if ($('screen-game').classList.contains('active')) openPauseMenu();
+    }
+  });
+
+  // Don't keep simulating in a hidden tab.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (running) { stopTick(); running = true; } }
+    else if (running) startTick();
+  });
+  window.addEventListener('beforeunload', () => { if (S) saveGame(true); });
+}
+
+/* ---------------- gamepad (Xbox / standard mapping) ----------------
+   The whole UI is DOM, so the pad drives a focus cursor rather than a
+   character. Spatial nav (nearest element in the pressed direction) keeps
+   the 2x2 schedule grid feeling right instead of a flat list walk.
+   A=activate  B=back  X=pause/resume  Y=save  LB/RB=tabs  Start=menu     */
+
+const PAD = { A:0, B:1, X:2, Y:3, LB:4, RB:5, BACK:8, START:9, UP:12, DOWN:13, LEFT:14, RIGHT:15 };
+const FOCUS_SEL = '.mbtn:not(:disabled), .tab, .btn:not(:disabled), .slot, .switch, .seg-btn, .hud-btn, [data-setshow], [data-setdj]';
+
+let padOn = false;
+let padIdx = -1;
+let prevBtn = {};
+let repeatAt = 0;
+
+function padScope(){
+  if ($('modal-back').classList.contains('open')) return $('modal');
+  if ($('screen-menu').classList.contains('active')) return $('screen-menu');
+  if ($('screen-options').classList.contains('active')) return $('screen-options');
+  return $('screen-game');
+}
+function focusables(){
+  return Array.from(padScope().querySelectorAll(FOCUS_SEL))
+    .filter(el => el.offsetParent !== null && !el.disabled);
+}
+function currentFocus(){
+  const list = focusables();
+  return { list, el: list[padIdx] || null };
+}
+function paintFocus(el){
+  document.querySelectorAll('.gp-focus').forEach(n => n.classList.remove('gp-focus'));
+  if (!el) return;
+  el.classList.add('gp-focus');
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function setFocus(i){
+  const list = focusables();
+  if (!list.length) { padIdx = -1; paintFocus(null); return; }
+  padIdx = clamp(i, 0, list.length - 1);
+  paintFocus(list[padIdx]);
+}
+
+/** Nearest focusable in a direction, weighting cross-axis drift heavily so
+    "down" prefers the thing below rather than something far to the side. */
+function moveFocus(dx, dy){
+  const { list, el } = currentFocus();
+  if (!list.length) return;
+  if (!el) return setFocus(0);
+  const a = el.getBoundingClientRect();
+  const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+  let best = null, bestScore = Infinity;
+  list.forEach((n, i) => {
+    if (n === el) return;
+    const r = n.getBoundingClientRect();
+    const bx = r.left + r.width / 2, by = r.top + r.height / 2;
+    const along = (bx - ax) * dx + (by - ay) * dy;
+    if (along <= 4) return;                       // not in the pressed direction
+    const cross = Math.abs((bx - ax) * dy - (by - ay) * dx);
+    const score = along + cross * 3;
+    if (score < bestScore) { bestScore = score; best = i; }
+  });
+  if (best !== null) setFocus(best);
+}
+
+function padActivate(){
+  const { el } = currentFocus();
+  if (!el) return setFocus(0);
+  el.click();
+  // The click almost always re-renders; re-anchor onto the same position.
+  setTimeout(() => setFocus(padIdx), 30);
+}
+function padBack(){
+  if ($('modal-back').classList.contains('open')) {
+    // Prefer the modal's own cancel/close so its side effects still run.
+    const btns = Array.from($('modal').querySelectorAll('[data-modal-act]'));
+    const cancel = btns.find(b => /cancel|close|resume/i.test(b.textContent));
+    if (cancel) cancel.click(); else closeModal();
+  } else if ($('screen-options').classList.contains('active')) {
+    $('btn-opt-back').click();
+  } else if ($('screen-game').classList.contains('active')) {
+    openPauseMenu();
+  }
+  setTimeout(() => setFocus(0), 40);
+}
+function cycleTab(dir){
+  if (!$('screen-game').classList.contains('active')) return;
+  if ($('modal-back').classList.contains('open')) return;
+  const i = TABS.findIndex(x => x.id === activeTab);
+  setTab(TABS[(i + dir + TABS.length) % TABS.length].id);
+  setTimeout(() => setFocus(0), 40);
+}
+
+function pollPad(){
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const gp = Array.from(pads).find(p => p && p.connected);
+  if (gp) {
+    if (!padOn) {
+      padOn = true;
+      document.body.classList.add('pad-on');
+      toast('🎮 Controller connected — A select, B back, LB/RB tabs', 'good');
+      setFocus(0);
+    }
+    const down = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const hit = i => { const d = down(i); const was = prevBtn[i]; prevBtn[i] = d; return d && !was; };
+
+    // Stick + d-pad share a repeat timer so held input scrolls at a sane rate.
+    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    const DZ = 0.55;
+    let dx = 0, dy = 0;
+    if (down(PAD.LEFT) || ax < -DZ) dx = -1;
+    else if (down(PAD.RIGHT) || ax > DZ) dx = 1;
+    else if (down(PAD.UP) || ay < -DZ) dy = -1;
+    else if (down(PAD.DOWN) || ay > DZ) dy = 1;
+
+    const now = performance.now();
+    if (dx || dy) {
+      if (now >= repeatAt) { moveFocus(dx, dy); repeatAt = now + (repeatAt ? 140 : 340); }
+    } else repeatAt = 0;
+
+    if (hit(PAD.A)) padActivate();
+    if (hit(PAD.B)) padBack();
+    if (hit(PAD.LB)) cycleTab(-1);
+    if (hit(PAD.RB)) cycleTab(1);
+    if (hit(PAD.START)) { if ($('screen-game').classList.contains('active')) openPauseMenu(); }
+    if (hit(PAD.X)) {
+      if ($('screen-game').classList.contains('active') && !$('modal-back').classList.contains('open')) {
+        running ? pauseTick() : resumeTick();
+        toast(running ? '▶️ Running' : '⏸️ Paused');
+      }
+    }
+    if (hit(PAD.Y)) { if (S) saveGame(); }
+  } else if (padOn) {
+    padOn = false;
+    document.body.classList.remove('pad-on');
+    paintFocus(null);
+  }
+  requestAnimationFrame(pollPad);
+}
+
+function initPad(){
+  window.addEventListener('gamepadconnected', () => { padOn = false; });
+  requestAnimationFrame(pollPad);
+}
+
+/* ---------------- boot ---------------- */
+
+function boot(){
+  if (typeof SCENE_CSS !== 'undefined' && SCENE_CSS) {
+    const st = document.createElement('style');
+    st.textContent = SCENE_CSS;
+    document.head.appendChild(st);
+  }
+  wire();
+  initPad();
+  refreshMenu();
+  showScreen('menu');
+}
+boot();
+
+</script>
+</body>
+</html>

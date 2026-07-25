@@ -486,6 +486,9 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); col
     <div class="wm-subtitle" id="wm-subtitle-text"></div>
     <div class="wm-grid" id="wm-grid"></div>
     <div class="wm-expand-msg" id="wm-expand-msg"></div>
+    <div style="max-width:320px;margin:10px auto 0;">
+      <div class="bar-bg"><div class="bar-fill" id="wm-progress-bar" style="background:var(--amber);width:0%;"></div></div>
+    </div>
   </div>
 </div>
 
@@ -667,7 +670,8 @@ const gameState = {
   businesses: {},
   factions: {},
   districts: {},
-  upgrades: {}
+  upgrades: {},
+  territory: { progress: 0 }
 };
 
 /* ── Definitions ── */
@@ -780,6 +784,7 @@ function initGameState() {
   UPGRADES_DEF.forEach(u => {
     gameState.upgrades[u.id] = { unlocked: false };
   });
+  gameState.territory = { progress: 0 };
 }
 
 function uid() { return '_' + Math.random().toString(36).slice(2,9); }
@@ -788,20 +793,42 @@ function uid() { return '_' + Math.random().toString(36).slice(2,9); }
    SAVE / LOAD
 ══════════════════════════════════════════════════════ */
 function saveGame(slot) {
-  const data = { ...JSON.parse(JSON.stringify(gameState)), savedAt: Date.now(), version: 1 };
-  localStorage.setItem(`shadowLedger_${slot}`, JSON.stringify(data));
+  try {
+    const data = { ...JSON.parse(JSON.stringify(gameState)), savedAt: Date.now(), version: 2 };
+    localStorage.setItem(`shadowLedger_${slot}`, JSON.stringify(data));
+  } catch (e) {
+    console.error('Shadow Ledger: save failed', e);
+  }
 }
 function loadGame(slot) {
   const raw = localStorage.getItem(`shadowLedger_${slot}`);
   if (!raw) return false;
   try {
     const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return false;
+    // Reset to fresh defaults first, then overlay saved data. This guarantees
+    // every field a current-version save expects exists even when loading an
+    // older (version 1) save that predates fields like `territory`.
+    initGameState();
     Object.assign(gameState, data);
+    if (!gameState.territory || typeof gameState.territory.progress !== 'number') {
+      gameState.territory = { progress: 0 };
+    }
+    if (!gameState.reputation) {
+      gameState.reputation = { respect:10, fear:5, loyalty:10, ghost:15 };
+    }
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    console.error('Shadow Ledger: load failed', e);
+    return false;
+  }
 }
 function clearSlot(slot) {
-  localStorage.removeItem(`shadowLedger_${slot}`);
+  try {
+    localStorage.removeItem(`shadowLedger_${slot}`);
+  } catch (e) {
+    console.error('Shadow Ledger: clear slot failed', e);
+  }
 }
 function getSlotData(slot) {
   const raw = localStorage.getItem(`shadowLedger_${slot}`);
@@ -838,6 +865,7 @@ function showToast(msg) {
    SCREEN MANAGEMENT
 ══════════════════════════════════════════════════════ */
 let currentScreen = 'menu';
+let gameStarted = false; // becomes true once startNewGame() or a successful doLoad() has run
 const gameScreens = ['city','ops','crew','biz','faction','worldmap','settings'];
 
 function showScreen(name) {
@@ -855,6 +883,9 @@ function showScreen(name) {
     hud.style.display = 'flex';
     if (name === 'city') {
       canvas.style.display = 'block';
+      // Defensive: whatever path got us here (new game, load, or direct nav),
+      // make sure the scene actually exists before we try to render into it.
+      if (!babylonStarted && gameStarted) startBabylon();
     } else {
       canvas.style.display = 'none';
     }
@@ -969,13 +1000,15 @@ function calcBizHeatReduction() {
 
 function calcDistrictIncome() {
   let total = 0;
-  DISTRICTS_DEF.forEach(d => {
+  const allDistrictDefs = DISTRICTS_DEF.concat(EXPANSION_DISTRICTS_DEF);
+  allDistrictDefs.forEach(d => {
     const distState = gameState.districts[d.id];
     if (!distState) return;
     const status = distState.status;
     if (status === "Controlled") {
       let inc = d.incomePerSec;
       inc += getUpgradeEffect('districtIncomeFlat') || 0;
+      inc *= (1 + getUpgradeEffect('districtIncomeMult')); // wires up terr_t1 "Foothold"
       if (getUpgradeEffect('districtIncomeX2')) inc *= 2;
       total += inc;
     } else if (status === "Contested") {
@@ -1003,6 +1036,12 @@ function calcTotalHeat() {
 ══════════════════════════════════════════════════════ */
 let tickCount = 0;
 function gameTick() {
+  // No game in progress yet (fresh page load, sitting at the main menu) — do
+  // nothing. This is what previously let a stale/empty gameState get written
+  // to the autosave slot if the tab idled on the menu for 30+ seconds, and
+  // also what let nav screens crash on bare {} sub-state before a game began.
+  if (!gameStarted) return;
+
   const income = calcTotalIncome();
   const heatGain = calcTotalHeat();
   const heatDrift = gameState.heat > 0 && heatGain < 0.1 ? -0.02 : 0; // slow natural decay
@@ -1029,6 +1068,16 @@ function gameTick() {
     }
     c.loyalty = Math.max(floor, c.loyalty);
   });
+
+  // Territory Expansion operation slowly claims/consolidates districts
+  advanceTerritory();
+
+  // Heat now carries real downstream risk instead of being cosmetic
+  processHeatConsequences();
+
+  // Reputation badges and faction relations actually move with play
+  updateReputationAndFactions();
+  updateFactionRelations();
 
   // Autosave every 30 seconds
   if (tickCount % 30 === 0) {
@@ -1333,42 +1382,176 @@ function renderFactions() {
 /* ══════════════════════════════════════════════════════
    SCREEN 7: WORLD MAP
 ══════════════════════════════════════════════════════ */
-const LOCKED_DISTRICTS = [
-  "Las Cruces","Sunland Park","Canutillo","Socorro","Horizon City",
-  "San Elizario","Tornillo","Fort Hancock"
+// Districts beyond the starting 4 — unlocked progressively by running the
+// "Territory Expansion" operation. Each one enters play as Contested (40%
+// income) and a later expansion tick can consolidate it to Controlled.
+const EXPANSION_DISTRICTS_DEF = [
+  { id:"lascruces",   name:"Las Cruces",    incomePerSec:1.0 },
+  { id:"sunlandpark", name:"Sunland Park",  incomePerSec:1.2 },
+  { id:"canutillo",   name:"Canutillo",     incomePerSec:0.9 },
+  { id:"socorro",     name:"Socorro",       incomePerSec:1.4 },
+  { id:"horizoncity", name:"Horizon City",  incomePerSec:1.6 },
+  { id:"sanelizario", name:"San Elizario",  incomePerSec:1.9 },
+  { id:"tornillo",    name:"Tornillo",      incomePerSec:2.2 },
+  { id:"forthancock", name:"Fort Hancock",  incomePerSec:2.6 },
 ];
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function getNextExpansionDistrict() {
+  return EXPANSION_DISTRICTS_DEF.find(d => !gameState.districts[d.id]);
+}
+
+function getNextContestedDistrictId() {
+  const allDefs = DISTRICTS_DEF.concat(EXPANSION_DISTRICTS_DEF);
+  for (const d of allDefs) {
+    const st = gameState.districts[d.id];
+    if (st && st.status === 'Contested') return d.id;
+  }
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════
+   TERRITORY EXPANSION (Ops screen "Territory Expansion" op)
+══════════════════════════════════════════════════════ */
+function advanceTerritory() {
+  const opState = gameState.operations['territory'];
+  if (!opState || !opState.active) return;
+  const crewCount = getCrewAssignedTo('territory');
+  const rate = 0.25 + crewCount * 0.2; // progress points per second
+  gameState.territory.progress += rate;
+  if (gameState.territory.progress >= 100) {
+    gameState.territory.progress -= 100;
+    expandTerritory();
+  }
+}
+
+function expandTerritory() {
+  // Prefer consolidating an existing Contested district to full Controlled
+  // before claiming brand-new ground.
+  const contestedId = getNextContestedDistrictId();
+  if (contestedId) {
+    gameState.districts[contestedId].status = 'Controlled';
+    const def = DISTRICTS_DEF.concat(EXPANSION_DISTRICTS_DEF).find(d => d.id === contestedId);
+    showToast(`${def ? def.name : contestedId} is now fully Controlled.`);
+    return;
+  }
+  const next = getNextExpansionDistrict();
+  if (next) {
+    gameState.districts[next.id] = { status: 'Contested' };
+    showToast(`New territory claimed: ${next.name} (Contested).`);
+    return;
+  }
+  showToast('All territory secured. The Ledger runs the whole valley.');
+}
+
+/* ══════════════════════════════════════════════════════
+   HEAT CONSEQUENCES
+══════════════════════════════════════════════════════ */
+function processHeatConsequences() {
+  if (gameState.heat < 70) return;
+  // Up to a 5%-per-second raid chance at max heat; effectively harmless
+  // just under the threshold and genuinely dangerous if you sit in the red.
+  const raidChance = ((gameState.heat - 70) / 30) * 0.05;
+  if (Math.random() >= raidChance) return;
+
+  const lossPct = 0.10 + Math.random() * 0.15;
+  const loss = gameState.cash * lossPct;
+  gameState.cash = Math.max(0, gameState.cash - loss);
+
+  const activeOps = OPERATIONS_DEF.filter(op => gameState.operations[op.id] && gameState.operations[op.id].active);
+  let shutName = null;
+  if (activeOps.length > 0) {
+    const victim = activeOps[Math.floor(Math.random() * activeOps.length)];
+    gameState.operations[victim.id].active = false;
+    shutName = victim.name;
+  }
+  gameState.heat = Math.max(0, gameState.heat - 25); // the raid itself relieves pressure
+
+  showToast(shutName
+    ? `Police raid! Lost ${formatCashFull(loss)} and ${shutName} went dark.`
+    : `Police raid! Lost ${formatCashFull(loss)}.`);
+}
+
+/* ══════════════════════════════════════════════════════
+   REPUTATION & FACTION RELATIONS
+══════════════════════════════════════════════════════ */
+function countDistrictsByStatus(status) {
+  let n = 0;
+  Object.values(gameState.districts).forEach(d => { if (d.status === status) n++; });
+  return n;
+}
+
+function updateReputationAndFactions() {
+  const rep = gameState.reputation;
+  const controlledDistricts = countDistrictsByStatus('Controlled');
+  const activeOps = OPERATIONS_DEF.filter(op => gameState.operations[op.id] && gameState.operations[op.id].active).length;
+  const avgCrewLoyalty = gameState.crew.length > 0
+    ? gameState.crew.reduce((s,c) => s + c.loyalty, 0) / gameState.crew.length
+    : rep.loyalty;
+
+  const respectTarget = clamp(10 + controlledDistricts * 8 + activeOps * 3, 0, 100);
+  const fearTarget    = clamp(5 + gameState.heat * 0.4 + activeOps * 2, 0, 100);
+  const loyaltyTarget = clamp(avgCrewLoyalty, 0, 100);
+  const ghostTarget   = clamp(100 - gameState.heat, 0, 100); // staying under the radar vs. running hot
+
+  rep.respect = clamp(rep.respect + (respectTarget - rep.respect) * 0.03, 0, 100);
+  rep.fear    = clamp(rep.fear    + (fearTarget    - rep.fear)    * 0.03, 0, 100);
+  rep.loyalty = clamp(rep.loyalty + (loyaltyTarget - rep.loyalty) * 0.03, 0, 100);
+  rep.ghost   = clamp(rep.ghost   + (ghostTarget   - rep.ghost)   * 0.03, 0, 100);
+}
+
+function updateFactionRelations() {
+  const distStatus = id => gameState.districts[id] ? gameState.districts[id].status : 'Enemy';
+  const targets = {
+    // Los Fronterizos want the Border Zone; taking it (or running hot) costs relations.
+    fronterizos: clamp(60 - (distStatus('border')  === 'Controlled' ? 30 : distStatus('border')  === 'Contested' ? 10 : 0) - gameState.heat * 0.15, 0, 100),
+    // La Sombra holds Juárez Plaza; pushing into it is a direct provocation.
+    sombra:      clamp(45 - (distStatus('juarez')  === 'Controlled' ? 35 : distStatus('juarez')  === 'Contested' ? 15 : 0) - gameState.heat * 0.20, 0, 100),
+    // Crossings Crew is loyal to whoever holds Downtown.
+    crossings:   clamp(50 + (distStatus('downtown')=== 'Controlled' ? 30 : distStatus('downtown')=== 'Contested' ? 10 : 0) - gameState.heat * 0.10, 0, 100),
+  };
+  Object.entries(targets).forEach(([id, target]) => {
+    const f = gameState.factions[id];
+    if (!f) return;
+    f.score = clamp(f.score + (target - f.score) * 0.02, 0, 100);
+  });
+}
 
 function renderWorldMap() {
   document.getElementById('wm-title-text').textContent = STRINGS.WM_TITLE;
   document.getElementById('wm-subtitle-text').textContent = STRINGS.WM_SUBTITLE;
-  document.getElementById('wm-expand-msg').textContent = STRINGS.WM_EXPAND;
+
+  const opState = gameState.operations['territory'];
+  const progress = Math.round(gameState.territory.progress);
+  const hint = opState && opState.active ? '' : ' — activate Territory Expansion in Ops to make progress';
+  document.getElementById('wm-expand-msg').textContent = `${STRINGS.WM_EXPAND} Progress to next gain: ${progress}%${hint}`;
+  const progressBar = document.getElementById('wm-progress-bar');
+  if (progressBar) progressBar.style.width = progress + '%';
 
   const grid = document.getElementById('wm-grid');
   grid.innerHTML = '';
 
-  // Active districts
-  DISTRICTS_DEF.forEach(d => {
+  const allDefs = DISTRICTS_DEF.concat(EXPANSION_DISTRICTS_DEF);
+  allDefs.forEach(d => {
     const distState = gameState.districts[d.id];
     const el = document.createElement('div');
-    el.className = 'wm-district-box active';
-    const statusColor = distState.status === 'Controlled' ? 'var(--success)' : distState.status === 'Contested' ? '#ffaa00' : 'var(--danger)';
-    el.innerHTML = `
-      <div style="font-size:1.4rem;">🏙️</div>
-      <div class="wm-district-name">${d.name}</div>
-      <div class="wm-district-status" style="color:${statusColor};">${distState.status}</div>
-    `;
-    grid.appendChild(el);
-  });
-
-  // Locked districts
-  LOCKED_DISTRICTS.forEach(name => {
-    const el = document.createElement('div');
-    el.className = 'wm-district-box locked';
-    el.innerHTML = `
-      <div class="wm-lock-icon">🔒</div>
-      <div class="wm-district-name">???</div>
-      <div class="wm-district-status" style="color:rgba(138,122,106,0.5);">${name}</div>
-    `;
+    if (!distState) {
+      el.className = 'wm-district-box locked';
+      el.innerHTML = `
+        <div class="wm-lock-icon">🔒</div>
+        <div class="wm-district-name">???</div>
+        <div class="wm-district-status" style="color:rgba(138,122,106,0.5);">${d.name}</div>
+      `;
+    } else {
+      el.className = 'wm-district-box active';
+      const statusColor = distState.status === 'Controlled' ? 'var(--success)' : distState.status === 'Contested' ? '#ffaa00' : 'var(--danger)';
+      el.innerHTML = `
+        <div style="font-size:1.4rem;">🏙️</div>
+        <div class="wm-district-name">${d.name}</div>
+        <div class="wm-district-status" style="color:${statusColor};">${distState.status}</div>
+      `;
+    }
     grid.appendChild(el);
   });
 }
@@ -1416,8 +1599,10 @@ function doSave(slot) {
 }
 function doLoad(slot) {
   if (loadGame(slot)) {
+    gameStarted = true;
     showToast(STRINGS.TOAST_LOADED);
     updateHUD();
+    startBabylon(); // was previously never called on load, leaving the City canvas blank
     if (currentScreen !== 'menu') {
       const scr = currentScreen;
       if (scr === 'ops') renderOps();
@@ -1529,6 +1714,7 @@ function buildMenuRain() {
    NEW GAME / LOAD MENU
 ══════════════════════════════════════════════════════ */
 function startNewGame() {
+  gameStarted = true;
   initGameState();
   showToast(STRINGS.TOAST_NEW_GAME);
   showScreen('city');
@@ -1735,12 +1921,20 @@ function initMenu() {
    BOOT
 ══════════════════════════════════════════════════════ */
 (function boot() {
+  // Populate gameState with valid nested structures (crew/operations/
+  // businesses/factions/districts/upgrades/territory) immediately, before
+  // the tick interval or any nav screen can possibly run against it. This is
+  // what previously let a bare-{} gameState crash Biz/Ops/Factions/Map after
+  // a couple of clicks on a fresh load. gameTick() itself is still gated on
+  // `gameStarted` so idling on the main menu can't stomp a real autosave.
+  initGameState();
+
   initMenu();
 
   // Populate HUD static text
   document.getElementById('hud-title').textContent = '— ' + STRINGS.CHARACTER_TITLE + ' —';
 
-  // Start idle loop (always running)
+  // Start idle loop (always running; gated internally by gameStarted)
   setInterval(gameTick, 1000);
 })();
 </script>

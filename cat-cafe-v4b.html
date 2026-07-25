@@ -594,6 +594,7 @@ function toggleSetting(key) {
   const btn = document.getElementById('toggle-'+key);
   if (btn) btn.className = 'toggle'+(settings[key]?' on':'');
   if (key==='music') { settings.music?startMusic():stopMusic(); }
+  if (key==='night') { applyDayNightVisuals(); }
   saveSettings();
   sfxClick();
 }
@@ -728,7 +729,7 @@ function loadSlot(i) {
   loadFromPayload(data);
   currentSlot = i;
   showScreen('gameScreen');
-  syncCatSprites(); updateUI();
+  syncCatSprites(); updateUI(); applyDayNightVisuals();
   sfxSave();
   showNotif(`📂 Slot ${i+1} loaded. Welcome back to the chaos.`);
 }
@@ -739,7 +740,7 @@ function loadAutoSave() {
     if (!data) return;
     loadFromPayload(data);
     showScreen('gameScreen');
-    syncCatSprites(); updateUI();
+    syncCatSprites(); updateUI(); applyDayNightVisuals();
     showNotif('🔄 Auto-save loaded!');
   } catch(e){}
 }
@@ -981,6 +982,37 @@ function buildSceneDOM() {
     t.innerHTML=`<div class="table-candle">🕯️</div><div class="table-top"></div><div class="table-leg"></div>`;
     tbl.appendChild(t);
   });
+  applyDayNightVisuals();
+}
+
+// ══════════════════════════════════════════
+// DAY/NIGHT CYCLE
+// ══════════════════════════════════════════
+function hexToRgb(hex){
+  const h=hex.replace('#','');
+  const num=parseInt(h,16);
+  return [(num>>16)&255,(num>>8)&255,num&255];
+}
+function lerpColor(c1,c2,t){
+  const a=hexToRgb(c1),b=hexToRgb(c2);
+  const r=Math.round(a[0]+(b[0]-a[0])*t);
+  const g=Math.round(a[1]+(b[1]-a[1])*t);
+  const bl=Math.round(a[2]+(b[2]-a[2])*t);
+  return `rgb(${r},${g},${bl})`;
+}
+function applyDayNightVisuals(){
+  const sky=document.getElementById('sky');
+  if(!sky)return;
+  const t=G.dayTime||0;
+  // 0 = dusk (brighter, warmer opening hours), 1 = deep night (darkest, starriest)
+  // Night Mode setting pins the scene at deep night permanently.
+  const night=settings.night?1:(Math.sin(t*Math.PI*2-Math.PI/2)+1)/2;
+  const duskTop='#150c3a',duskMid='#241454',duskBot='#331a66';
+  const nightTop='#04020e',nightMid='#0a0620',nightBot='#120a2c';
+  sky.style.background=`linear-gradient(180deg, ${lerpColor(duskTop,nightTop,night)} 0%, ${lerpColor(duskMid,nightMid,night)} 55%, ${lerpColor(duskBot,nightBot,night)} 100%)`;
+  sky.querySelectorAll('.sky-star').forEach(s=>{s.style.filter=`brightness(${(0.55+night*0.75).toFixed(2)})`;});
+  sky.querySelectorAll('.aurora').forEach(a=>{a.style.opacity=(0.2+night*0.4).toFixed(2);});
+  document.querySelectorAll('.win-moon').forEach(m=>{m.style.filter=`brightness(${(0.7+night*0.6).toFixed(2)})`;});
 }
 
 // ══════════════════════════════════════════
@@ -1281,6 +1313,7 @@ function buildScenePage(el){
   const staffCount=Object.values(G.staff||{}).reduce((a,b)=>a+b,0);
   const avgMood=catCount>0?Math.floor(owned.reduce((s,id)=>s+(G.catMoods[id]||80),0)/catCount):0;
   const cps=computeCPS();
+  const ascendThreshold=getAscendThreshold();
 
   let moodHtml='<div style="font-size:0.7rem;color:var(--muted);font-style:italic;padding:6px;">No cats yet. Adopt some from the Cats tab. 😺</div>';
   if(catCount>0){
@@ -1312,8 +1345,8 @@ function buildScenePage(el){
     <div class="sec">✨ Prestige</div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
       <div style="font-family:'Cinzel',serif;font-size:0.85rem;color:var(--white);margin-bottom:6px;">Ascend to Legend</div>
-      <div style="font-size:0.65rem;color:var(--muted);font-style:italic;margin-bottom:10px;line-height:1.5;">Restart the café with a permanent +50% magic bonus. Cats keep their opinions.</div>
-      <button onclick="doPrestige()" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f00;border:none;padding:9px 22px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;cursor:pointer;font-size:0.82rem;${G.coins<10000?'opacity:0.4;cursor:not-allowed;':''}">${G.coins>=10000?'✨ Ascend (+50% income)':'Need 10,000 beans to ascend'}</button>
+      <div style="font-size:0.65rem;color:var(--muted);font-style:italic;margin-bottom:10px;line-height:1.5;">Restart the café with a permanent +50% magic bonus. Cats keep their opinions. Each ascension raises the bar for the next.</div>
+      <button onclick="doPrestige()" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f00;border:none;padding:9px 22px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;cursor:pointer;font-size:0.82rem;${G.coins<ascendThreshold?'opacity:0.4;cursor:not-allowed;':''}">${G.coins>=ascendThreshold?'✨ Ascend (+50% income)':'Need '+fmt(ascendThreshold)+' beans to ascend'}</button>
     </div>`;
 }
 
@@ -1392,18 +1425,22 @@ function buildDecorPage(el){
     }).join('')+'</div>';
 }
 
+function getAscendThreshold(){
+  return 10000*Math.pow(3,G.prestigeCount||0);
+}
+
 function doPrestige(){
-  if(G.coins<10000){sfxError();showNotif('Need 10,000 beans to ascend.');return;}
+  const threshold=getAscendThreshold();
+  if(G.coins<threshold){sfxError();showNotif(`Need ${fmt(threshold)} beans to ascend.`);return;}
   showModal('Ascend to Legend?','The café restarts. Cats stay. +50% magic income forever.',
     [{label:'✨ Ascend',cls:'mbtn-confirm',cb:()=>{
       G.prestigeCount++;G.prestigeBonus*=1.5;
       const pc=G.prestigeCount,pb=G.prestigeBonus;
       const cats=JSON.parse(JSON.stringify(G.catsOwned));
       const moods=JSON.parse(JSON.stringify(G.catMoods));
-      const ms=JSON.parse(JSON.stringify(G.milestones||{}));
       Object.assign(G,freshState());
       G.prestigeCount=pc;G.prestigeBonus=pb;
-      G.catsOwned=cats;G.catMoods=moods;G.milestones=ms;
+      G.catsOwned=cats;G.catMoods=moods;
       sfxSave();showNotif('✨ Ascended! +50% magic forever. The cats are unimpressed, as always.');
       syncCatSprites();updateUI();goToPage(0);
     }},'Cancel']);
@@ -1493,7 +1530,7 @@ function gameLoop(now){
   if(quipTimer>=25&&Object.keys(G.catsOwned||{}).length>0){quipTimer=0;if(Math.random()<0.5)fireRandomQuip();}
 
   uiTimer+=dt;
-  if(uiTimer>=1){uiTimer=0;updateUI();}
+  if(uiTimer>=1){uiTimer=0;updateUI();applyDayNightVisuals();}
 
   autoSaveTimer+=dt;
   if(autoSaveTimer>=60){autoSaveTimer=0;autoSave();}
@@ -1523,10 +1560,18 @@ function buildHomeStars(){
   }
 }
 
-// Exit prompt
+// Exit prompt — only warn if there's an active café with real progress to lose.
+// Autosave runs regardless so nothing is actually lost, but a stray warning on
+// every navigation away (including from the home/settings screens) is just noise.
 window.addEventListener('beforeunload',e=>{
+  const gameEl=document.getElementById('gameScreen');
+  const inGame=gameEl&&!gameEl.classList.contains('hidden');
+  if(!inGame)return;
   autoSave();
-  e.preventDefault();e.returnValue='';
+  const hasProgress=G.coins>0||G.totalServed>0||Object.keys(G.catsOwned||{}).length>0;
+  if(!hasProgress)return;
+  e.preventDefault();
+  e.returnValue='';
 });
 
 // Swipe support on scene pages

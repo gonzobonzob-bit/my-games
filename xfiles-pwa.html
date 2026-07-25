@@ -22,10 +22,12 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 #ticker{background:var(--panel);border-bottom:1px solid var(--border);padding:4px 0;overflow:hidden;flex-shrink:0;}
 #ticker-inner{white-space:nowrap;font-size:9px;color:var(--muted);letter-spacing:1px;animation:tickerScroll 30s linear infinite;}
 @keyframes tickerScroll{0%{transform:translateX(100vw)}100%{transform:translateX(-200%)}}
-#topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+#topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:6px 12px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 8px;flex-shrink:0;}
 .agent-badge{font-family:'VT323',monospace;font-size:12px;color:var(--green);}
-.resources{display:flex;gap:8px;}
+.resources{display:flex;flex-wrap:wrap;gap:6px;}
 .res-chip{background:var(--card);border:1px solid var(--border);padding:2px 7px;font-size:10px;color:var(--green2);}
+.reset-btn{background:var(--card);border:1px solid var(--border);padding:2px 8px;font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px;flex-shrink:0;}
+.reset-btn:active{color:var(--red);border-color:var(--red);}
 .truth-bar-wrap{background:var(--panel);border-bottom:1px solid var(--border);padding:5px 12px;flex-shrink:0;}
 .truth-label{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:3px;}
 .truth-track{height:6px;background:var(--card);border:1px solid var(--border);}
@@ -76,7 +78,9 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="res-chip">EV:<span id="res-ev">0</span></div>
       <div class="res-chip">IN:<span id="res-in">0</span></div>
       <div class="res-chip">CR:<span id="res-cr">0</span></div>
+      <div class="res-chip" id="prestige-chip" style="display:none;">×<span id="res-prestige">1.0</span></div>
     </div>
+    <div class="reset-btn" onclick="resetGame()" title="Erase save and start over">⟲ NEW</div>
   </div>
   <div class="truth-bar-wrap">
     <div class="truth-label"><span>▶ EXPOSURE PROGRESS</span><span><span id="truth-pct">0</span>% — <span id="truth-stage">BASELINE</span></span></div>
@@ -143,12 +147,12 @@ const AGENTS=[
 ];
 
 const CONSPIRACIES=[
-  {id:'blackoil',name:'Dark Mercury Pathogen',icon:'🛢️',desc:'CLASSIFIED',reveal:'Extraterrestrial virus — controls hosts, prepares for convergence.',effect:'EV tap×2',cost:{ev:500,intel:200,cred:50},costEv:500,costIn:200,costCr:50},
-  {id:'syndicate',name:'The Syndicate',icon:'🚬',desc:'CLASSIFIED',reveal:'Powerful group collaborating with aliens. The Director leads.',effect:'+100 EV/s',cost:{ev:2000,intel:500,cred:100},costEv:2000,costIn:500,costCr:100},
-  {id:'supersoldiers',name:'Super Soldiers',icon:'💉',desc:'CLASSIFIED',reveal:'Alien-human hybrids. Indestructible. Working inside government.',effect:'×3 tap power',cost:{ev:5000,intel:1000,cred:300},costEv:5000,costIn:1000,costCr:300},
-  {id:'majestic',name:'Division Twelve',icon:'📋',desc:'CLASSIFIED',reveal:'Secret govt committee. Recovered crashed saucers since 1947.',effect:'+500 EV/s',cost:{ev:15000,intel:3000,cred:1000},costEv:15000,costIn:3000,costCr:1000},
-  {id:'colonization',name:'Convergence Plot',icon:'🌍',desc:'CLASSIFIED',reveal:'Full alien takeover scheduled. Date known to few.',effect:'×10 all rates',cost:{ev:50000,intel:10000,cred:5000},costEv:50000,costIn:10000,costCr:5000},
-  {id:'finaltruth',name:'The Final Truth',icon:'👁️',desc:'CLASSIFIED',reveal:'Everything Agent Voss ever believed — confirmed. The veil was always thin.',effect:'PRESTIGE UNLOCK',cost:{ev:200000,intel:50000,cred:20000},costEv:200000,costIn:50000,costCr:20000},
+  {id:'blackoil',name:'Dark Mercury Pathogen',icon:'🛢️',desc:'CLASSIFIED',reveal:'Extraterrestrial virus — controls hosts, prepares for convergence.',effect:'EV tap×2',cost:{ev:500,intel:200,cred:50}},
+  {id:'syndicate',name:'The Syndicate',icon:'🚬',desc:'CLASSIFIED',reveal:'Powerful group collaborating with aliens. The Director leads.',effect:'+100 EV/s',cost:{ev:2000,intel:500,cred:100}},
+  {id:'supersoldiers',name:'Super Soldiers',icon:'💉',desc:'CLASSIFIED',reveal:'Alien-human hybrids. Indestructible. Working inside government.',effect:'×3 tap power',cost:{ev:5000,intel:1000,cred:300}},
+  {id:'majestic',name:'Division Twelve',icon:'📋',desc:'CLASSIFIED',reveal:'Secret govt committee. Recovered crashed saucers since 1947.',effect:'+500 EV/s',cost:{ev:15000,intel:3000,cred:1000}},
+  {id:'colonization',name:'Convergence Plot',icon:'🌍',desc:'CLASSIFIED',reveal:'Full alien takeover scheduled. Date known to few.',effect:'×10 all rates',cost:{ev:50000,intel:10000,cred:5000}},
+  {id:'finaltruth',name:'The Final Truth',icon:'👁️',desc:'CLASSIFIED',reveal:'Everything Agent Voss ever believed — confirmed. The veil was always thin.',effect:'PRESTIGE: reset progress, permanent multiplier boost',cost:{ev:200000,intel:50000,cred:20000}},
 ];
 
 function fmt(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return Math.floor(n);}
@@ -208,8 +212,8 @@ function renderItems(){
   if(cl){cl.innerHTML=CONSPIRACIES.map(c=>{
     const owned=!!G.conspiracyOwned[c.id];
     const locked=!owned&&G.truth<CONSPIRACIES.indexOf(c)*16;
-    const can=!owned&&!locked&&G.ev>=c.costEv&&G.intel>=c.costIn&&G.cred>=c.costCr;
-    const costStr=`${fmt(c.costEv)} EV + ${fmt(c.costIn)} IN + ${fmt(c.costCr)} CR`;
+    const can=!owned&&!locked&&G.ev>=c.cost.ev&&G.intel>=c.cost.intel&&G.cred>=c.cost.cred;
+    const costStr=`${fmt(c.cost.ev)} EV + ${fmt(c.cost.intel)} IN + ${fmt(c.cost.cred)} CR`;
     return `<div class="item-row ${owned?'owned':can?'can':''}" onclick="${owned||locked?'':` buyConspiracy('${c.id}')`}">
       <div class="item-ico">${c.icon}</div>
       <div class="item-info">
@@ -227,7 +231,7 @@ function buyUpgrade(id){
   G.ev-=u.cost.ev;if(u.cost.intel)G.intel-=u.cost.intel;if(u.cost.cred)G.cred-=u.cost.cred;
   G.upgradeOwned[id]=true;u.effect();
   addLog('▶ UPGRADE: '+u.name+' acquired','important');
-  renderItems();updateUI();
+  updateUI();
 }
 function buyAgent(id){
   const a=AGENTS.find(x=>x.id===id);if(!a||G.agentOwned[id])return;
@@ -235,12 +239,16 @@ function buyAgent(id){
   G.ev-=a.cost.ev;if(a.cost.intel)G.intel-=a.cost.intel;if(a.cost.cred)G.cred-=a.cost.cred;
   G.agentOwned[id]=true;a.effect();
   addLog('▶ AGENT: '+a.name+' recruited','important');
-  renderItems();updateUI();
+  updateUI();
 }
 function buyConspiracy(id){
   const c=CONSPIRACIES.find(x=>x.id===id);if(!c||G.conspiracyOwned[id])return;
-  if(G.ev<c.costEv||G.intel<c.costIn||G.cred<c.costCr){showToast('Not enough resources');return;}
-  G.ev-=c.costEv;G.intel-=c.costIn;G.cred-=c.costCr;
+  if(G.ev<c.cost.ev||G.intel<c.cost.intel||G.cred<c.cost.cred){showToast('Not enough resources');return;}
+  if(id==='finaltruth'){
+    const nextMult=(1+(G.prestige+1)*0.5).toFixed(1);
+    if(!confirm('Trigger a PRESTIGE RESET?\n\nEV, Intel, Credibility, Upgrades and Agents will reset to zero. In exchange you gain a permanent x'+nextMult+' multiplier on all future EV/Intel/Credibility gains.\n\nProceed?')){return;}
+  }
+  G.ev-=c.cost.ev;G.intel-=c.cost.intel;G.cred-=c.cost.cred;
   G.conspiracyOwned[id]=true;
   // Apply effects
   if(id==='blackoil')G.tapMult*=2;
@@ -248,15 +256,31 @@ function buyConspiracy(id){
   if(id==='supersoldiers')G.tapPower*=3;
   if(id==='majestic')G.evRate+=500;
   if(id==='colonization'){G.evRate*=10;G.inRate*=10;G.crRate*=10;}
-  if(id==='finaltruth'){G.truth=100;addLog('▶▶▶ THE TRUTH IS REVEALED ◀◀◀','important');}
+  if(id==='finaltruth'){addLog('▶▶▶ THE TRUTH IS REVEALED ◀◀◀','important');doPrestige();}
   addLog('▶ CONSPIRACY EXPOSED: '+c.name,'important');
-  renderItems();updateUI();
+  updateUI();
+}
+
+function doPrestige(){
+  G.prestige+=1;
+  G.prestigeMult=1+G.prestige*0.5;
+  G.ev=0;G.intel=0;G.cred=0;
+  G.evRate=0;G.inRate=0;G.crRate=0;
+  G.tapPower=1;G.tapMult=1;
+  G.upgradeOwned={};G.agentOwned={};G.conspiracyOwned={};
+  G.truth=0;
+  addLog('▶▶▶ PRESTIGE '+G.prestige+': REALITY RESET — PERMANENT x'+G.prestigeMult.toFixed(1)+' MULTIPLIER ◀◀◀','important');
 }
 
 function updateUI(){
   document.getElementById('res-ev').textContent=fmt(G.ev);
   document.getElementById('res-in').textContent=fmt(G.intel);
   document.getElementById('res-cr').textContent=fmt(G.cred);
+  const prestigeChip=document.getElementById('prestige-chip');
+  if(prestigeChip){
+    if(G.prestige>0){prestigeChip.style.display='';document.getElementById('res-prestige').textContent=G.prestigeMult.toFixed(1);}
+    else{prestigeChip.style.display='none';}
+  }
   const stageIdx=Math.min(7,Math.floor(G.truth/12.5));
   document.getElementById('truth-pct').textContent=Math.floor(G.truth);
   document.getElementById('truth-stage').textContent=TRUTH_STAGES[stageIdx];
@@ -266,6 +290,9 @@ function updateUI(){
   if(lv>1)document.getElementById('agent-name').textContent=['VOSS','REYES','KOVA','OAKES','LIANG'][Math.min(4,lv-1)];
   const ll=document.getElementById('log-list');
   if(ll)ll.innerHTML=G.logEntries.map(e=>`<div class="log-entry ${e.cls}">${e.msg}</div>`).join('');
+  // renderItems() is driven from the same cadence as this function so buy-button
+  // affordability styling never lags behind the player's actual resource totals.
+  renderItems();
   save();
 }
 
@@ -283,8 +310,42 @@ function showToast(msg){
   document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
 
-function save(){try{localStorage.setItem('phantom_dossier_v1',JSON.stringify(G));}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem('phantom_dossier_v1'));if(d)Object.assign(G,d);}catch(e){}}
+const SAVE_KEY='phantom_dossier_v1';
+const OFFLINE_CAP_SEC=4*3600; // cap idle catch-up at 4 hours of absence
+let lastOfflineGain=null;
+
+function save(){try{G.lastSaved=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(G));}catch(e){}}
+
+function load(){
+  lastOfflineGain=null;
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    if(!d)return;
+    Object.assign(G,d);
+    if(typeof G.lastSaved==='number'){
+      const elapsedSec=Math.min((Date.now()-G.lastSaved)/1000,OFFLINE_CAP_SEC);
+      if(elapsedSec>10){
+        const gainEv=G.evRate*elapsedSec*G.prestigeMult;
+        const gainIn=G.inRate*elapsedSec*G.prestigeMult;
+        const gainCr=G.crRate*elapsedSec*G.prestigeMult;
+        G.ev+=gainEv;G.intel+=gainIn;G.cred+=gainCr;
+        G.totalEv+=gainEv;
+        G.truth=Math.min(100,G.truth+elapsedSec*0.01);
+        if(gainEv>0||gainIn>0||gainCr>0){
+          lastOfflineGain={sec:elapsedSec,ev:gainEv,intel:gainIn,cred:gainCr};
+        }
+      }
+    }
+  }catch(e){/* corrupt/missing save — start fresh */}
+}
+
+function resetGame(){
+  if(!confirm('Erase all progress and start a new investigation from scratch? This cannot be undone.'))return;
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+  location.reload();
+}
 
 function startGame(){
   document.getElementById('splash').style.display='none';
@@ -292,10 +353,18 @@ function startGame(){
   load();
   addLog('▶ PHANTOM DOSSIER — SYSTEM ONLINE','important');
   addLog('▶ Begin investigation. The veil is thin.');
-  renderItems();updateUI();
+  if(lastOfflineGain){
+    const hrs=Math.floor(lastOfflineGain.sec/3600);
+    const mins=Math.floor((lastOfflineGain.sec%3600)/60);
+    const durStr=hrs>0?`${hrs}h ${mins}m`:`${mins}m`;
+    addLog(`▶ WHILE YOU WERE AWAY (${durStr}): +${fmt(lastOfflineGain.ev)} EV, +${fmt(lastOfflineGain.intel)} IN, +${fmt(lastOfflineGain.cred)} CR`,'important');
+    showToast('Idle catch-up: +'+fmt(lastOfflineGain.ev)+' EV');
+  }
+  updateUI();
   setInterval(gameTick,100);
-  setInterval(renderItems,3000);
   setInterval(save,30000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save();});
+  window.addEventListener('pagehide',save);
 }
 </script>
 </body>

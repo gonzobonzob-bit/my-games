@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>THE THINNING MANIFEST</title>
+<script src="thinning-manifest-aframe.min.js"></script>
+<script>
+AFRAME.registerComponent('gonzo-move', {
+  schema: { speed: { default: 4 }, turnSnap: { default: 30 } },
+  init() {
+    this.vel = { x: 0, z: 0 };
+    this.rightX = 0;
+    this.canSnap = true;
+    this.yaw = 0;
+    this.keys = {};
+    this.camEl = null;
+    this.forward = new THREE.Vector3();
+    this.right = new THREE.Vector3();
+    this.worldUp = new THREE.Vector3(0, 1, 0);
+    // Keyboard
+    window.addEventListener('keydown', e => this.keys[e.code] = true);
+    window.addEventListener('keyup',   e => this.keys[e.code] = false);
+    // Quest controllers
+    this.el.sceneEl.addEventListener('loaded', () => {
+      this.camEl = this.el.querySelector('[camera]');
+      const lc = document.getElementById('lhand');
+      const rc = document.getElementById('rhand');
+      if (lc) lc.addEventListener('axismove', (e) => {
+        const ax = e.detail.axis;
+        this.vel.x = Math.abs(ax[0]) > 0.12 ? ax[0] : 0;
+        this.vel.z = Math.abs(ax[1]) > 0.12 ? ax[1] : 0;
+      });
+      if (rc) rc.addEventListener('axismove', (e) => {
+        const ax = e.detail.axis;
+        this.rightX = Math.abs(ax[0]) > 0.3 ? ax[0] : 0;
+      });
+    });
+  },
+  tick(t, dt) {
+    if (window.GONZO_PAUSED) return;
+    // Snap turn from right stick
+    if (this.rightX !== 0 && this.canSnap) {
+      this.yaw -= Math.sign(this.rightX) * this.data.turnSnap * (Math.PI / 180);
+      this.canSnap = false;
+    }
+    if (this.rightX === 0) this.canSnap = true;
+
+    // Keyboard turn with Q/E or arrow keys
+    if (this.keys['KeyQ'] || this.keys['ArrowLeft'])  this.yaw += 1.5 * (dt/1000);
+    if (this.keys['KeyE'] || this.keys['ArrowRight']) this.yaw -= 1.5 * (dt/1000);
+    this.el.object3D.rotation.y = this.yaw;
+
+    // Stick movement
+    let vx = this.vel.x, vz = this.vel.z;
+    // Keyboard movement (WASD)
+    if (this.keys['KeyW'] || this.keys['ArrowUp'])    vz = -1;
+    if (this.keys['KeyS'] || this.keys['ArrowDown'])  vz =  1;
+    if (this.keys['KeyA'])                            vx = -1;
+    if (this.keys['KeyD'])                            vx =  1;
+
+    if (vx !== 0 || vz !== 0) {
+      const speed = this.data.speed * (dt / 1000);
+      const p = this.el.object3D.position;
+      // Move relative to where the camera is actually facing (mouse-look on
+      // desktop, headset orientation in VR) rather than the rig's own yaw
+      // alone, so forward-move always matches what the player sees.
+      const camObj = this.camEl ? this.camEl.object3D : this.el.object3D;
+      camObj.getWorldDirection(this.forward);
+      this.forward.y = 0;
+      if (this.forward.lengthSq() < 1e-6) this.forward.set(0, 0, -1);
+      else this.forward.normalize();
+      this.right.crossVectors(this.forward, this.worldUp).normalize();
+      p.x += (this.right.x * vx + this.forward.x * -vz) * speed;
+      p.z += (this.right.z * vx + this.forward.z * -vz) * speed;
+      p.x = Math.max(-80, Math.min(80, p.x));
+      p.z = Math.max(-80, Math.min(80, p.z));
+    }
+  }
+});
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#050f03;overflow:hidden;font-family:'Courier New',monospace;}
+#titlescreen{position:fixed;inset:0;background:radial-gradient(ellipse at center,#0a1f05 0%,#020a01 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;text-align:center;padding:24px;}
+#titlescreen h1{font-size:clamp(26px,5vw,48px);color:#f0c87a;letter-spacing:8px;
+  text-shadow:0 0 40px rgba(240,200,122,0.5);margin-bottom:6px;line-height:1.1;}
+#titlescreen .tsub{font-size:10px;letter-spacing:6px;color:#6b4a1e;margin-bottom:20px;}
+#titlescreen .tdesc{font-size:12px;color:#8a7050;line-height:1.9;max-width:440px;margin-bottom:28px;}
+#titlescreen .tstart{padding:14px 44px;background:transparent;border:1px solid #f0c87a;
+  color:#f0c87a;font-family:'Courier New',monospace;font-size:12px;letter-spacing:4px;cursor:pointer;}
+#titlescreen .tstart:hover{background:rgba(240,200,122,0.08);}
+#hud{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;
+  padding:10px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.75),transparent);pointer-events:none;}
+.hl{font-size:8px;letter-spacing:3px;color:#7a5a2a;}.hv{font-size:16px;color:#f0c87a;}
+#notif{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;
+  pointer-events:none;opacity:0;transition:opacity 0.4s;z-index:200;}
+#ntitle{font-size:24px;letter-spacing:4px;color:#f0c87a;text-shadow:0 0 20px rgba(240,200,122,0.6);}
+#nsub{font-size:10px;letter-spacing:3px;color:#8a7050;margin-top:6px;max-width:340px;}
+#journal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:520px;max-width:93vw;background:rgba(5,8,3,0.97);border:1px solid #6b4a1e;
+  padding:26px;display:none;z-index:300;}
+#journal .jtop{font-size:8px;letter-spacing:5px;color:#6b4a1e;margin-bottom:8px;}
+#journal .jname{font-size:22px;color:#f0c87a;letter-spacing:3px;margin-bottom:4px;}
+#journal .jclass{font-size:9px;letter-spacing:4px;color:#8a7050;margin-bottom:12px;}
+#journal .jdiv{height:1px;background:#1a1208;margin:10px 0;}
+#journal .jdesc{font-size:11px;color:#b89860;line-height:1.9;margin-bottom:14px;}
+#journal .jgreet{font-size:11px;color:#6b8050;font-style:italic;margin-bottom:14px;}
+#journal .jbtns{display:flex;gap:6px;flex-wrap:wrap;}
+#journal .jbtn{flex:1;min-width:80px;background:transparent;border:1px solid #4a3010;color:#8a7050;
+  font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;padding:10px 6px;cursor:pointer;text-align:center;}
+#journal .jbtn:hover,.jbtn.hi{border-color:#f0c87a;color:#f0c87a;}
+#journal .jbtn.red{border-color:#5a2010;color:#5a2010;}
+#nearby{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  color:#6b4a1e;font-size:10px;letter-spacing:3px;pointer-events:none;
+  opacity:0;transition:opacity 0.4s;white-space:nowrap;}
+#companions{position:fixed;bottom:16px;left:16px;pointer-events:none;}
+#companions .cl{font-size:8px;letter-spacing:3px;color:#4a3010;margin-bottom:4px;}
+#companions .cv{font-size:18px;display:flex;gap:6px;flex-wrap:wrap;max-width:220px;}
+.companion-dot{display:inline-block;width:13px;height:13px;border-radius:50%;
+  box-shadow:0 0 6px 1px currentColor;border:1px solid rgba(255,255,255,0.3);}
+#mcount{position:fixed;bottom:16px;right:16px;text-align:right;pointer-events:none;}
+#mcount .ml{font-size:8px;letter-spacing:3px;color:#4a3010;}
+#mcount .mv{font-size:18px;color:#f0c87a;}
+#hint{position:fixed;bottom:6px;left:50%;transform:translateX(-50%);
+  color:#3a2808;font-size:9px;letter-spacing:2px;pointer-events:none;white-space:nowrap;text-align:center;max-width:94vw;}
+#muteBtn{position:fixed;top:10px;right:14px;z-index:600;pointer-events:auto;
+  width:30px;height:30px;border:1px solid #4a3010;background:rgba(5,8,3,0.75);color:#8a7050;
+  font-size:14px;line-height:28px;text-align:center;cursor:pointer;border-radius:3px;}
+#muteBtn:hover{border-color:#f0c87a;color:#f0c87a;}
+#muteBtn.muted{color:#5a2010;border-color:#5a2010;}
+#pauseOverlay{position:fixed;inset:0;background:rgba(2,5,1,0.88);z-index:400;display:none;
+  flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+#pauseOverlay h2{font-size:22px;letter-spacing:8px;color:#f0c87a;margin-bottom:26px;}
+#pauseOverlay .pbtn{display:block;width:220px;margin:6px auto;padding:12px;background:transparent;
+  border:1px solid #4a3010;color:#8a7050;font-family:'Courier New',monospace;font-size:11px;
+  letter-spacing:3px;cursor:pointer;}
+#pauseOverlay .pbtn:hover{border-color:#f0c87a;color:#f0c87a;}
+#pauseOverlay .psaved{font-size:9px;letter-spacing:2px;color:#6b8050;margin-top:14px;height:12px;}
+#titlescreen .tcontinue{font-size:10px;letter-spacing:2px;color:#6b8050;margin-bottom:16px;}
+#titlescreen .treset{margin-top:14px;font-size:9px;letter-spacing:2px;color:#5a3818;
+  cursor:pointer;text-decoration:underline;background:none;border:none;font-family:inherit;}
+#titlescreen .treset:hover{color:#8a5020;}
+</style>
+</head>
+<body>
+
+<div id="titlescreen">
+  <h1>THE THINNING<br>MANIFEST</h1>
+  <div class="tsub">AETHERMOOR · 1878</div>
+  <div class="tdesc">
+    The membrane between worlds is thinning.<br>
+    Creatures are crossing over.<br>
+    Someone left you a journal.<br>
+    The last entry is dated three days from now.<br><br>
+    <em style="color:#6b4a1e">Complete the Manifest before the worlds cancel each other.</em>
+  </div>
+  <div class="tcontinue" id="tcontinue" style="display:none"></div>
+  <button class="tstart" id="startBtn">▶ ENTER AETHERMOOR</button>
+  <button class="treset" id="resetBtn" style="display:none">Begin a new journal instead</button>
+</div>
+
+<button id="muteBtn" title="Mute ambient audio">♪</button>
+
+<div id="hud">
+  <div><div class="hl">DAY</div><div class="hv" id="hday">1</div></div>
+  <div style="text-align:center"><div class="hl">COMPANIONS</div><div class="hv" id="hcomp">0</div></div>
+  <div style="text-align:right"><div class="hl">MANIFEST</div><div class="hv" id="hmani">0/12</div></div>
+</div>
+<div id="notif"><div id="ntitle"></div><div id="nsub"></div></div>
+<div id="nearby">✦ CREATURE NEARBY</div>
+<div id="companions"><div class="cl">WITH YOU</div><div class="cv" id="clist"></div></div>
+<div id="mcount"><div class="ml">CATALOGUED</div><div class="mv" id="mnum">0</div></div>
+<div id="hint">WASD/ARROWS=MOVE · Q/E=TURN · DRAG=LOOK · CLICK CREATURE=INTERACT · ESC=PAUSE</div>
+
+<div id="pauseOverlay">
+  <h2>PAUSED</h2>
+  <button class="pbtn" id="resumeBtn">▶ RESUME</button>
+  <button class="pbtn" id="saveNowBtn">SAVE MANIFEST</button>
+  <button class="pbtn" id="mainMenuBtn">MAIN MENU</button>
+  <div class="psaved" id="psavedMsg"></div>
+</div>
+
+<div id="journal">
+  <div class="jtop">THE THINNING MANIFEST — FIELD ENTRY</div>
+  <div class="jname" id="jname"></div>
+  <div class="jclass" id="jclass"></div>
+  <div class="jdiv"></div>
+  <div class="jgreet" id="jgreet"></div>
+  <div class="jdesc" id="jdesc"></div>
+  <div class="jbtns" id="jbtns"></div>
+</div>
+
+<a-scene
+  background="color:#1a2e0a"
+  renderer="antialias:true;colorManagement:false"
+  vr-mode-ui="enabled:true"
+  loading-screen="backgroundColor:#020a01;dotsColor:#f0c87a"
+  stats="false"
+>
+  <!-- LIGHTS — strong enough to see everything -->
+  <a-light type="ambient" color="#aabb88" intensity="3.0"></a-light>
+  <a-light type="directional" id="sun" color="#f0c87a" intensity="2.5" position="-3 8 -5"></a-light>
+  <a-light type="directional" color="#8899ff" intensity="0.8" position="4 4 4"></a-light>
+  <a-light type="point" color="#ffeecc" intensity="2.5" distance="30" position="0 5 0"></a-light>
+
+  <!-- RIG — Quest controllers + keyboard/mouse -->
+  <a-entity id="rig" position="0 0 6" gonzo-move="speed:4">
+    <a-entity id="cam" camera look-controls="pointerLockEnabled:false" position="0 1.65 0">
+      <a-entity cursor="fuse:false"
+        raycaster="objects:.creature;far:7"
+        geometry="primitive:ring;radiusInner:0.009;radiusOuter:0.014"
+        material="color:#f0c87a;shader:flat;opacity:0.8"
+        position="0 0 -1">
+      </a-entity>
+    </a-entity>
+    <a-entity id="lhand" oculus-touch-controls="hand:left"></a-entity>
+    <a-entity id="rhand" oculus-touch-controls="hand:right"
+      laser-controls="hand:right"
+      raycaster="objects:.creature;far:7;showLine:true;lineColor:#f0c87a;lineOpacity:0.4">
+    </a-entity>
+  </a-entity>
+
+  <!-- SKY -->
+  <a-sky id="sky" color="#0d2008"></a-sky>
+
+  <!-- TWO MOONS -->
+  <a-sphere position="-35 40 -70" radius="3"
+    material="color:#f0e8c0;emissive:#d4c880;emissiveIntensity:0.5;shader:flat"></a-sphere>
+  <a-sphere position="25 30 -65" radius="1.4"
+    material="color:#c0ccf0;emissive:#a0b0e0;emissiveIntensity:0.4;shader:flat"></a-sphere>
+
+  <!-- GROUND -->
+  <a-plane rotation="-90 0 0" width="200" height="200"
+    material="color:#2a4a18;roughness:1" position="0 0 0"></a-plane>
+
+  <!-- GROUND COLOR PATCHES — make it feel varied -->
+  <a-plane rotation="-90 0 0" width="25" height="18" material="color:#3a5a20;opacity:0.6;transparent:true" position="18 0.01 -22"></a-plane>
+  <a-plane rotation="-90 0 0" width="20" height="30" material="color:#1a3a10;opacity:0.5;transparent:true" position="-22 0.01 12"></a-plane>
+  <a-plane rotation="-90 0 0" width="35" height="16" material="color:#486028;opacity:0.4;transparent:true" position="8 0.01 28"></a-plane>
+
+  <!-- HEARTHWICK HOMESTEAD -->
+  <a-entity position="-10 0 -10">
+    <a-box width="5" height="3.2" depth="4.2" material="color:#5a3a18" position="0 1.6 0"></a-box>
+    <a-cone radius-bottom="3.4" radius-top="0.1" height="2.2" material="color:#3a2008" position="0 4.1 0" segments-radial="4" rotation="0 45 0"></a-cone>
+    <a-plane width="0.65" height="0.55" material="color:#ffdd88;emissive:#ffcc44;emissiveIntensity:0.9;shader:flat" position="0.9 1.7 -2.12"></a-plane>
+    <a-plane width="0.65" height="0.55" material="color:#ffdd88;emissive:#ffcc44;emissiveIntensity:0.9;shader:flat" position="-0.9 1.7 -2.12"></a-plane>
+    <a-box width="1" height="1.9" depth="0.12" material="color:#2a1a08" position="0 0.95 -2.12"></a-box>
+    <a-box width="0.55" height="1.6" depth="0.55" material="color:#4a2a10" position="1.3 4.5 0.6"></a-box>
+    <a-box width="6" height="0.08" depth="0.08" material="color:#5a3018" position="0 0.85 -3.6"></a-box>
+    <a-box width="0.08" height="0.85" depth="0.08" material="color:#5a3018" position="-3 0.42 -3.6"></a-box>
+    <a-box width="0.08" height="0.85" depth="0.08" material="color:#5a3018" position="0 0.42 -3.6"></a-box>
+    <a-box width="0.08" height="0.85" depth="0.08" material="color:#5a3018" position="3 0.42 -3.6"></a-box>
+    <a-text value="HEARTHWICK" color="#f0c87a" width="2.8" position="0 1.5 -3.58" align="center"></a-text>
+    <a-light type="point" color="#ffaa44" intensity="2" distance="8" position="0 2.5 0"></a-light>
+  </a-entity>
+
+  <!-- SETTLER TOWN — distant -->
+  <a-entity position="22 0 -18">
+    <a-box width="6" height="4.5" depth="5" material="color:#4a3010" position="0 2.25 0"></a-box>
+    <a-box width="7.2" height="0.35" depth="1.2" material="color:#3a2008" position="0 4.62 -2.6"></a-box>
+    <a-text value="THE WANDERING MULE" color="#f0c87a" width="4.5" position="0 5.1 -2.55" align="center"></a-text>
+    <a-box width="4" height="3.8" depth="4" material="color:#5a3818" position="8 1.9 0"></a-box>
+    <a-text value="SHIMMER GOODS" color="#c9a84c" width="3.2" position="8 4.1 -2" align="center"></a-text>
+    <a-box width="5" height="3.2" depth="4.5" material="color:#2a1a08" position="-8 1.6 0"></a-box>
+    <a-cylinder radius="0.35" height="2.2" material="color:#1a1a1a" position="-8 4.5 0.6"></a-cylinder>
+    <a-sphere radius="0.28" position="-8 5.7 0.6" material="color:#ff6600;emissive:#cc3300;emissiveIntensity:1;shader:flat"
+      animation="property:scale;from:1 1 1;to:1.3 1.3 1.3;dur:400;dir:alternate;loop:true"></a-sphere>
+    <a-sphere radius="1.8" scale="1 0.55 1" position="0 13 0" material="color:#8b4513"></a-sphere>
+    <a-cylinder radius="0.06" height="9" material="color:#5a3018" position="0 9 0"></a-cylinder>
+    <a-light type="point" color="#ff9933" intensity="2" distance="12" position="0 3.5 0"></a-light>
+  </a-entity>
+
+  <!-- BRASS FOREST trees — west -->
+  <a-entity id="brassforest"></a-entity>
+
+  <!-- MOUNTAINS — distant silhouettes -->
+  <a-cone radius-bottom="10" height="14" material="color:#1a0d05" segments-radial="6" position="-55 6 -65"></a-cone>
+  <a-cone radius-bottom="13" height="18" material="color:#1a0c04" segments-radial="6" position="-28 8 -68"></a-cone>
+  <a-cone radius-bottom="15" height="22" material="color:#150b03" segments-radial="6" position="5 10 -72"></a-cone>
+  <a-cone radius-bottom="11" height="16" material="color:#1a0d05" segments-radial="6" position="38 7 -65"></a-cone>
+  <a-cone radius-bottom="9" height="12" material="color:#1a0d05" segments-radial="6" position="60 5 -58"></a-cone>
+
+  <!-- AETHERIC PARTICLES -->
+  <a-entity id="particles"></a-entity>
+
+  <!-- WILDFLOWERS -->
+  <a-entity id="flowers"></a-entity>
+
+  <!-- CREATURE CONTAINER -->
+  <a-entity id="creatures"></a-entity>
+
+  <!-- STARS -->
+  <a-entity id="stars"></a-entity>
+
+</a-scene>
+
+<script>
+// ── CREATURE DATA ────────────────────────────────────────────────────────────
+const CREATURES=[
+  {id:'glintfox',name:'GLINTFOX',cls:'LAND · COMMON',color:'#cc6600',glow:'#ffaa33',
+   desc:'A fox whose fur shifts color with its mood — blue when curious, gold when happy, deep red when it wants to be left alone. Will steal your Manifest if you leave it unattended.',
+   greeting:'The Glintfox tilts its head. Its fur flickers gold.',
+   actions:['OFFER KINDNESS','OBSERVE QUIETLY','SHARE FOOD'],
+   results:['The Glintfox bumps its head against your hand. It begins to follow.','The Glintfox appreciates your restraint. It inches closer.','The Glintfox blazes gold. It sits at your feet.'],
+   followChance:0.65,wanderChance:0.3},
+  {id:'drumhare',name:'DRUMHARE',cls:'LAND · COMMON',color:'#997744',glow:'#ccaa55',
+   desc:'An oversized hare whose back feet produce complex rhythmic patterns. The rhythm is a language. The Moor Wanderers say they\'re telling jokes, mostly.',
+   greeting:'The Drumhare thumps twice. A pause. Three times.',
+   actions:['TAP BACK','STAY STILL','MOVE SLOWLY PAST'],
+   results:['The Drumhare goes wild with thumping — apparently delighted.','The Drumhare approves. It hops closer.','After a long moment — it follows.'],
+   followChance:0.45,wanderChance:0.5},
+  {id:'velvet_stalker',name:'VELVET STALKER',cls:'LAND · RARE',color:'#220033',glow:'#8800cc',
+   desc:'A large black cat with luminescent spots that pulse like a heartbeat. Does not hunt prey — hunts secrets. Is drawn to things being concealed.',
+   greeting:'The Velvet Stalker was not here a moment ago. Now it is. It blinks once, slowly.',
+   actions:['SHOW THE MANIFEST','ACKNOWLEDGE IT','WAIT'],
+   results:['The Stalker stares at the Manifest for a long time. Then walks. You follow.','The Stalker dips its head. This is respect.','The Velvet Stalker sits. So do you. Eventually it moves closer.'],
+   followChance:0.3,wanderChance:0.6},
+  {id:'prismatic_heron',name:'PRISMATIC HERON',cls:'AIR · UNCOMMON',color:'#0044aa',glow:'#44aaff',
+   desc:'A large wading bird whose wings refract light like living prisms, casting rainbow patterns across the ground when it flies.',
+   greeting:'The Heron opens its wings briefly. Rainbows scatter across the grass.',
+   actions:['BOW SLIGHTLY','OFFER A BERRY','WATCH IT FLY'],
+   results:['The Heron lands nearer and regards you with one amber eye.','The Heron takes the berry with extraordinary delicacy and stays.','It circles back and lands beside you.'],
+   followChance:0.4,wanderChance:0.4},
+  {id:'saltsprite',name:'SALTSPRITE',cls:'WATER · UNCOMMON',color:'#007755',glow:'#00ffaa',
+   desc:'Tiny. Looks like a seahorse with a translucent body containing a miniature weather system. The one in your coat pocket is named Brindlethwaite. It has opinions about direction.',
+   greeting:'Something moves in your coat pocket. Brindlethwaite points urgently northeast.',
+   actions:['FOLLOW ITS DIRECTION','CHECK YOUR POCKET','SAY HELLO'],
+   results:['You follow where Brindlethwaite points. Something interesting is that way.','Brindlethwaite has redecorated your pocket.','A tiny storm forms inside it and dissipates. You take this as warmth.'],
+   followChance:0.9,wanderChance:0.15},
+  {id:'cogbull',name:'COGBULL',cls:'LAND · UNCOMMON',color:'#885522',glow:'#cc8833',
+   desc:'A massive bovine with brass-plated forehead and gearwork along the spine. Was a regular bull in someone\'s world. Does not seem bothered by its transformation.',
+   greeting:'The Cogbull turns one enormous eye toward you. Its gears tick softly.',
+   actions:['APPROACH SLOWLY','PLACE HAND ON FLANK','STAND BESIDE IT'],
+   results:['The gears tick faster — pleasure, you think.','The Cogbull leans into your hand with the weight of a small building.','You are accepted.'],
+   followChance:0.55,wanderChance:0.25},
+  {id:'thundermother',name:'THUNDERMOTHER',cls:'AIR · RARE',color:'#331166',glow:'#aa44ff',
+   desc:'An enormous moth with an eight-foot wingspan. Wings absorb lightning and release it as soft bioluminescent light. The air smells like ozone when it is near.',
+   greeting:'The Thundermother\'s wings pulse with soft violet light.',
+   actions:['STAND IN ITS LIGHT','REACH TOWARD IT','OBSERVE FROM DISTANCE'],
+   results:['It settles its wings around you like a cloak of living light.','You feel a gentle static charge. Its antennae drift toward you.','It drifts closer, wings casting shifting purple light.'],
+   followChance:0.35,wanderChance:0.45},
+  {id:'gloomweaver',name:'GLOOMWEAVER',cls:'UNDERGROUND · UNCOMMON',color:'#112211',glow:'#44ff88',
+   desc:'Spider-adjacent. Dog-sized. Spins webs of solidified darkness that hold up tunnel ceilings. Performing a civic service. Aware of this. Smug.',
+   greeting:'The Gloomweaver pauses its work and regards you with all eight eyes.',
+   actions:['ADMIRE ITS WEB','INTRODUCE YOURSELF','OFFER ASSISTANCE'],
+   results:['You\'ve said the right thing. It spins you a small darkness-web — a gift.','It touches one leg briefly to your boot. You have been acknowledged.','You help position materials. You are now colleagues.'],
+   followChance:0.4,wanderChance:0.35},
+  {id:'ember_lynx',name:'EMBER LYNX',cls:'LAND · RARE',color:'#aa2200',glow:'#ff6622',
+   desc:'A lynx wreathed in a slow candle-flame that scorches nothing it touches. Territorial to the point of theatrics, but fiercely loyal once trust is earned.',
+   greeting:'The Ember Lynx flares brighter for a moment, sizing you up.',
+   actions:['HOLD YOUR GROUND','LOWER YOUR EYES','LET THE FLAME NEAR YOU'],
+   results:['It respects the challenge. The flame settles to a low, calm glow.','It relaxes its shoulders. You have not been read as a threat.','The flame warms your hand without burning it. Trust, apparently, feels like that.'],
+   followChance:0.4,wanderChance:0.4},
+  {id:'tidecaller',name:'TIDECALLER',cls:'WATER · RARE',color:'#004466',glow:'#22ccff',
+   desc:'An amphibious sentinel the height of a barrel, skin like wet slate. Its low bass croak is said to summon the tide, even out here where there is no sea for miles.',
+   greeting:'A croak rolls through your chest before you hear it. The Tidecaller surfaces from the reeds.',
+   actions:['CROAK BACK','SIT AT THE WATERLINE','OFFER SILENCE'],
+   results:['Your attempt is terrible. It seems delighted anyway.','It settles beside you, throat sac pulsing slow and content.','The silence is apparently the correct offering. It draws closer.'],
+   followChance:0.3,wanderChance:0.5},
+  {id:'whisperbramble',name:'WHISPERBRAMBLE',cls:'UNDERGROUND · COMMON',color:'#2a3a10',glow:'#99ff44',
+   desc:'A tangle of root and thorn that walks on a dozen thin legs. Hums a single sustained note when it is content, and it is content almost all the time.',
+   greeting:'A low hum rises from the undergrowth. The bramble unfolds itself toward you.',
+   actions:['HUM ALONG','TOUCH A ROOT','CLEAR IT A PATH'],
+   results:['The note shifts into a harmony. This seems to be a very good sign.','The root is warm and faintly pulses, like a slow heartbeat.','It rustles through gratefully, leaving a small glowing bud behind.'],
+   followChance:0.6,wanderChance:0.2},
+  {id:'clockwork_rook',name:'CLOCKWORK ROOK',cls:'AIR · UNCOMMON',color:'#333333',glow:'#ffcc00',
+   desc:'A crow-sized bird whose feathers are thin brass plates that click faintly in flight. Collects small shiny objects obsessively — it may already be carrying one of yours.',
+   greeting:'A brassy clicking descends from above. The Rook lands, head cocked, studying your pockets.',
+   actions:['SHOW EMPTY HANDS','OFFER A COIN','CHECK YOUR POCKETS'],
+   results:['It clicks approvingly and hops onto a nearby branch to watch you.','It snatches the coin from the air, delighted, and does not leave.','Something small and shiny is indeed missing. The Rook looks extremely innocent.'],
+   followChance:0.5,wanderChance:0.4},
+];
+const MANIFEST_TARGET=CREATURES.length;
+
+const G={day:1,manifest:[],companions:[],yaw:0,ac:null,masterGain:null,muted:false,hour:8,paused:false,
+  intervals:{proximity:null,day:null,autosave:null}};
+const WORLD=[];
+const SAVE_KEY='thinning-manifest-save-v1';
+const MUTE_KEY='thinning-manifest-muted';
+
+// ── SAVE / LOAD ───────────────────────────────────────────────────────────────
+function saveGame(){
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify({
+      v:1,day:G.day,hour:G.hour,manifest:G.manifest,companions:G.companions,savedAt:Date.now()
+    }));
+    return true;
+  }catch(e){ console.warn('Thinning Manifest: save failed',e); return false; }
+}
+function loadGame(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return false;
+    const d=JSON.parse(raw);
+    if(!d||typeof d!=='object')return false;
+    const validIds=CREATURES.map(c=>c.id);
+    if(Array.isArray(d.manifest)) G.manifest=d.manifest.filter(id=>validIds.includes(id));
+    if(Array.isArray(d.companions)) G.companions=d.companions.filter(id=>G.manifest.includes(id));
+    if(Number.isFinite(d.day)&&d.day>=1) G.day=d.day;
+    if(Number.isFinite(d.hour)&&d.hour>=0&&d.hour<24) G.hour=d.hour;
+    return true;
+  }catch(e){ console.warn('Thinning Manifest: save data corrupt, starting fresh',e); return false; }
+}
+function loadMutePref(){
+  try{
+    const m=localStorage.getItem(MUTE_KEY);
+    G.muted=m==='1';
+  }catch(e){ G.muted=false; }
+}
+
+// ── GAME LOOP MANAGEMENT (guarded against duplicate stacking) ────────────────
+function startGameLoops(){
+  if(G.intervals.proximity)return; // already running — never stack a second set
+  G.intervals.proximity=setInterval(proximityTick,2000);
+  G.intervals.day=setInterval(dayTick,8000);
+  G.intervals.autosave=setInterval(()=>{ try{ saveGame(); }catch(e){} },30000);
+}
+function stopGameLoops(){
+  Object.keys(G.intervals).forEach(k=>{
+    if(G.intervals[k]){ clearInterval(G.intervals[k]); G.intervals[k]=null; }
+  });
+}
+
+// ── SCENE LOADED (fires once) ─────────────────────────────────────────────────
+document.querySelector('a-scene').addEventListener('loaded',()=>{
+  buildBrassForest();
+  buildParticles();
+  buildFlowers();
+  buildStars();
+  spawnCreatures();
+  setupTrigger();
+  loadMutePref();
+  initAudio();
+  applyMuteState();
+
+  const hadSave=loadGame();
+  updateHUD();
+  updateCompanions();
+
+  if(hadSave&&(G.manifest.length>0||G.companions.length>0)){
+    const tc=document.getElementById('tcontinue');
+    tc.textContent=`A journal already lies open — Day ${G.day} · ${G.manifest.length}/${MANIFEST_TARGET} recorded`;
+    tc.style.display='block';
+    document.getElementById('startBtn').textContent='▶ CONTINUE';
+    document.getElementById('resetBtn').style.display='inline';
+  }
+});
+
+document.getElementById('startBtn').onclick=()=>{
+  document.getElementById('titlescreen').style.display='none';
+  if(G.ac&&G.ac.state==='suspended') G.ac.resume().catch(()=>{});
+  startGameLoops();
+};
+
+document.getElementById('resetBtn').onclick=(e)=>{
+  e.stopPropagation();
+  if(!confirm('Discard the current journal and start over?'))return;
+  try{ localStorage.removeItem(SAVE_KEY); }catch(err){}
+  G.day=1;G.hour=8;G.manifest=[];G.companions=[];
+  updateHUD();updateCompanions();
+  document.getElementById('tcontinue').style.display='none';
+  document.getElementById('startBtn').textContent='▶ ENTER AETHERMOOR';
+  document.getElementById('resetBtn').style.display='none';
+};
+
+// ── PAUSE OVERLAY ─────────────────────────────────────────────────────────────
+function pauseGame(){
+  if(G.paused)return;
+  G.paused=true;
+  window.GONZO_PAUSED=true;
+  stopGameLoops();
+  document.getElementById('pauseOverlay').style.display='flex';
+}
+function resumeGame(){
+  if(!G.paused)return;
+  G.paused=false;
+  window.GONZO_PAUSED=false;
+  document.getElementById('pauseOverlay').style.display='none';
+  startGameLoops();
+}
+document.getElementById('resumeBtn').onclick=resumeGame;
+document.getElementById('saveNowBtn').onclick=()=>{
+  const ok=saveGame();
+  const msg=document.getElementById('psavedMsg');
+  msg.textContent=ok?'Manifest saved.':'Save failed — storage unavailable.';
+  setTimeout(()=>{ msg.textContent=''; },2200);
+};
+document.getElementById('mainMenuBtn').onclick=()=>{
+  saveGame();
+  G.paused=false;
+  window.GONZO_PAUSED=false;
+  stopGameLoops();
+  document.getElementById('pauseOverlay').style.display='none';
+  const tc=document.getElementById('tcontinue');
+  if(G.manifest.length>0||G.companions.length>0){
+    tc.textContent=`A journal already lies open — Day ${G.day} · ${G.manifest.length}/${MANIFEST_TARGET} recorded`;
+    tc.style.display='block';
+    document.getElementById('startBtn').textContent='▶ CONTINUE';
+    document.getElementById('resetBtn').style.display='inline';
+  }
+  document.getElementById('titlescreen').style.display='flex';
+};
+window.addEventListener('keydown',(e)=>{
+  if(e.code!=='Escape')return;
+  if(document.getElementById('titlescreen').style.display!=='none')return;
+  if(document.getElementById('journal').style.display==='block'){ closeJournal(); return; }
+  if(G.paused) resumeGame(); else pauseGame();
+});
+
+// ── DESKTOP vs VR HINT TEXT ────────────────────────────────────────────────────
+(function(){
+  const scene=document.querySelector('a-scene');
+  const hint=document.getElementById('hint');
+  const DESKTOP_HINT='WASD/ARROWS=MOVE · Q/E=TURN · DRAG=LOOK · CLICK CREATURE=INTERACT · ESC=PAUSE';
+  const VR_HINT='LEFT STICK=MOVE · RIGHT STICK=TURN · AIM+TRIGGER=INTERACT';
+  scene.addEventListener('enter-vr',()=>{ hint.textContent=VR_HINT; });
+  scene.addEventListener('exit-vr',()=>{ hint.textContent=DESKTOP_HINT; });
+})();
+
+// ── PERSIST ON BACKGROUND / CLOSE ─────────────────────────────────────────────
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){ try{ saveGame(); }catch(e){} }
+});
+window.addEventListener('pagehide',()=>{ try{ saveGame(); }catch(e){} });
+
+// ── ENVIRONMENT BUILDERS ─────────────────────────────────────────────────────
+function buildBrassForest(){
+  const bf=document.getElementById('brassforest');
+  bf.setAttribute('position','-38 0 -8');
+  for(let i=0;i<14;i++){
+    const x=(Math.random()-0.5)*28,z=(Math.random()-0.5)*28;
+    const h=4+Math.random()*7;
+    const trunk=document.createElement('a-cylinder');
+    trunk.setAttribute('radius',(0.18+Math.random()*0.25).toFixed(2));
+    trunk.setAttribute('height',h.toFixed(1));
+    trunk.setAttribute('position',`${x.toFixed(1)} ${(h/2).toFixed(1)} ${z.toFixed(1)}`);
+    trunk.setAttribute('material','color:#8b6914;metalness:0.5;roughness:0.5');
+    bf.appendChild(trunk);
+    const canopy=document.createElement('a-sphere');
+    canopy.setAttribute('radius',(1.2+Math.random()*1.8).toFixed(1));
+    canopy.setAttribute('position',`${x.toFixed(1)} ${(h+1.2).toFixed(1)} ${z.toFixed(1)}`);
+    canopy.setAttribute('material',`color:#cc9922;emissive:#886611;emissiveIntensity:0.2;metalness:0.4`);
+    bf.appendChild(canopy);
+  }
+}
+
+function buildParticles(){
+  const pc=document.getElementById('particles');
+  const cols=['#f0c87a','#88ff88','#cc88ff','#44ddff','#ff8844','#aaffcc'];
+  for(let i=0;i<25;i++){
+    const p=document.createElement('a-sphere');
+    const x=(Math.random()-0.5)*50,y=0.5+Math.random()*2.5,z=(Math.random()-0.5)*50;
+    p.setAttribute('radius',(0.04+Math.random()*0.06).toFixed(2));
+    p.setAttribute('position',`${x.toFixed(1)} ${y.toFixed(2)} ${z.toFixed(1)}`);
+    const c=cols[Math.floor(Math.random()*cols.length)];
+    p.setAttribute('material',`color:${c};emissive:${c};emissiveIntensity:0.9;shader:flat;opacity:0.55;transparent:true`);
+    p.setAttribute('animation',`property:position;from:${x.toFixed(1)} ${y.toFixed(2)} ${z.toFixed(1)};to:${(x+(Math.random()-0.5)*4).toFixed(1)} ${(y+0.4+Math.random()*0.8).toFixed(2)} ${(z+(Math.random()-0.5)*4).toFixed(1)};dur:${3000+Math.floor(Math.random()*4000)};dir:alternate;loop:true;easing:easeInOutSine`);
+    pc.appendChild(p);
+  }
+}
+
+function buildFlowers(){
+  const fc=document.getElementById('flowers');
+  const cols=['#ff88cc','#ffcc44','#cc88ff','#ff6644','#44ddff','#88ff44','#ff44aa','#44ffcc'];
+  for(let i=0;i<50;i++){
+    const x=(Math.random()-0.5)*90,z=(Math.random()-0.5)*90;
+    const f=document.createElement('a-sphere');
+    f.setAttribute('radius',(0.07+Math.random()*0.1).toFixed(2));
+    f.setAttribute('position',`${x.toFixed(1)} ${(0.15+Math.random()*0.25).toFixed(2)} ${z.toFixed(1)}`);
+    const c=cols[Math.floor(Math.random()*cols.length)];
+    f.setAttribute('material',`color:${c};emissive:${c};emissiveIntensity:0.5;shader:flat`);
+    fc.appendChild(f);
+    // Stem
+    const s=document.createElement('a-cylinder');
+    s.setAttribute('radius','0.02');s.setAttribute('height',(0.15+Math.random()*0.2).toFixed(2));
+    s.setAttribute('position',`${x.toFixed(1)} 0.06 ${z.toFixed(1)}`);
+    s.setAttribute('material','color:#3a6018');
+    fc.appendChild(s);
+  }
+}
+
+function buildStars(){
+  const sc=document.getElementById('stars');
+  for(let i=0;i<200;i++){
+    const s=document.createElement('a-sphere');
+    const th=Math.random()*Math.PI*2,ph=Math.random()*Math.PI*0.48,r=115;
+    s.setAttribute('radius',(0.08+Math.random()*0.16).toFixed(2));
+    s.setAttribute('position',`${(r*Math.sin(ph)*Math.cos(th)).toFixed(1)} ${(r*Math.cos(ph)+8).toFixed(1)} ${(r*Math.sin(ph)*Math.sin(th)).toFixed(1)}`);
+    s.setAttribute('material',`color:#ffffff;emissive:#ffffff;emissiveIntensity:${(0.4+Math.random()*0.6).toFixed(2)};shader:flat`);
+    s.setAttribute('segments-width','4');s.setAttribute('segments-height','4');
+    sc.appendChild(s);
+  }
+}
+
+// ── CREATURE SPAWNING ────────────────────────────────────────────────────────
+const SPAWN_POS=[
+  [6,8],[14,4],[4,-14],[20,16],[-6,14],
+  [10,-10],[18,-6],[-14,6],[-18,-12],[22,-14],
+  [8,22],[-10,-20],[26,6],[-22,16],[12,-22]
+];
+
+function spawnCreatures(){
+  const cont=document.getElementById('creatures');
+  CREATURES.forEach((c,i)=>{
+    const [bx,bz]=SPAWN_POS[i%SPAWN_POS.length];
+    const x=bx+(Math.random()-0.5)*5;
+    const z=bz+(Math.random()-0.5)*5;
+    const el=buildCreature(c,x,z);
+    cont.appendChild(el);
+    WORLD.push({def:c,el,x,z,wanderTimer:5+Math.random()*15});
+  });
+}
+
+function mk(tag,attrs){
+  const el=document.createElement('a-'+tag);
+  Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+  return el;
+}
+
+function buildCreature(c,x,z){
+  const g=document.createElement('a-entity');
+  g.setAttribute('class','creature');
+  g.setAttribute('position',`${x.toFixed(2)} 0 ${z.toFixed(2)}`);
+  g.dataset.cid=c.id;
+
+  // Idle bob
+  g.setAttribute('animation',`property:position;from:${x.toFixed(2)} 0 ${z.toFixed(2)};to:${x.toFixed(2)} 0.08 ${z.toFixed(2)};dur:${1400+Math.floor(Math.random()*800)};dir:alternate;loop:true;easing:easeInOutSine`);
+
+  // Build body based on creature type
+  const body=buildBody(c,g);
+
+  // Glowing name label
+  const lbl=mk('text',{value:c.name,color:c.glow,'position':'0 1.6 0',align:'center',width:'3','look-at':'#cam'});
+  g.appendChild(lbl);
+
+  // Ground glow ring
+  const ring=mk('torus',{radius:'0.45','radius-tubular':'0.025',material:`color:${c.glow};emissive:${c.glow};emissiveIntensity:0.5;opacity:0.35;transparent:true`,'position':'0 0.03 0',rotation:'-90 0 0'});
+  ring.setAttribute('animation','property:scale;from:1 1 1;to:1.12 1.12 1.12;dur:1200;dir:alternate;loop:true');
+  g.appendChild(ring);
+
+  // Point light
+  g.appendChild(mk('light',{type:'point',color:c.glow,intensity:'1',distance:'4','position':'0 0.6 0'}));
+
+  g.addEventListener('click',()=>openJournal(c.id));
+  return g;
+}
+
+function buildBody(c,g){
+  const col=c.color,glow=c.glow;
+  switch(c.id){
+    case 'glintfox':{
+      // Body
+      const b=mk('box',{width:'0.44',height:'0.26',depth:'0.68',material:`color:${col};roughness:0.8`,'position':'0 0.28 0'});
+      b.setAttribute('animation','property:scale;from:1 1 1;to:1 1.04 1;dur:1800;dir:alternate;loop:true');g.appendChild(b);
+      // Head
+      const h=mk('sphere',{radius:'0.17',material:`color:${col}`,'position':'0 0.44 0.3'});
+      h.setAttribute('animation','property:rotation;from:0 0 0;to:6 0 0;dur:2200;dir:alternate;loop:true');g.appendChild(h);
+      g.appendChild(mk('box',{width:'0.09',height:'0.07',depth:'0.12',material:'color:#cc8844','position':'0 0.39 0.43'}));
+      g.appendChild(mk('sphere',{radius:'0.035',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.06 0.47 0.44'}));
+      g.appendChild(mk('sphere',{radius:'0.035',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'-0.06 0.47 0.44'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.045','radius-top':'0.008',height:'0.13',material:`color:${col}`,'position':'0.09 0.59 0.25',rotation:'-8 0 18'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.045','radius-top':'0.008',height:'0.13',material:`color:${col}`,'position':'-0.09 0.59 0.25',rotation:'-8 0 -18'}));
+      const tail=mk('sphere',{radius:'0.13',scale:'0.7 0.7 1.5',material:`color:${col}`,'position':'0 0.3 -0.4'});
+      tail.setAttribute('animation','property:rotation;from:0 0 -25;to:0 0 25;dur:750;dir:alternate;loop:true');g.appendChild(tail);
+      [['0.14','0.1','0.18'],['-.14','0.1','0.18'],['0.14','0.1','-0.2'],['-0.14','0.1','-0.2']].forEach(([x,y,z])=>g.appendChild(mk('cylinder',{radius:'0.045',height:'0.2',material:`color:${col}`,'position':`${x} ${y} ${z}`})));
+      break;
+    }
+    case 'drumhare':{
+      const b=mk('sphere',{radius:'0.22',scale:'0.85 1.1 0.85',material:`color:${col};roughness:0.9`,'position':'0 0.28 0'});
+      b.setAttribute('animation','property:scale;from:0.85 1.1 0.85;to:0.88 1.14 0.88;dur:1100;dir:alternate;loop:true');g.appendChild(b);
+      g.appendChild(mk('sphere',{radius:'0.15',material:`color:${col}`,'position':'0 0.52 0.1'}));
+      g.appendChild(mk('sphere',{radius:'0.055',material:'color:#ffcccc','position':'0 0.5 0.24'}));
+      g.appendChild(mk('sphere',{radius:'0.028',material:`color:${glow};emissive:${glow};emissiveIntensity:0.9;shader:flat`,'position':'0.05 0.55 0.24'}));
+      g.appendChild(mk('sphere',{radius:'0.028',material:`color:${glow};emissive:${glow};emissiveIntensity:0.9;shader:flat`,'position':'-0.05 0.55 0.24'}));
+      const e1=mk('cylinder',{radius:'0.038',height:'0.36',material:`color:${col}`,'position':'0.07 0.8 0.08',rotation:'0 0 8'});
+      e1.setAttribute('animation','property:rotation;from:0 0 8;to:0 0 18;dur:1500;dir:alternate;loop:true');g.appendChild(e1);
+      const e2=mk('cylinder',{radius:'0.038',height:'0.36',material:`color:${col}`,'position':'-0.07 0.8 0.08',rotation:'0 0 -8'});
+      e2.setAttribute('animation','property:rotation;from:0 0 -8;to:0 0 -18;dur:1300;dir:alternate;loop:true');g.appendChild(e2);
+      g.appendChild(mk('sphere',{radius:'0.09',scale:'0.65 0.38 1.7',material:`color:${col}`,'position':'0.1 0.05 -0.14'}));
+      g.appendChild(mk('sphere',{radius:'0.09',scale:'0.65 0.38 1.7',material:`color:${col}`,'position':'-0.1 0.05 -0.14'}));
+      g.appendChild(mk('sphere',{radius:'0.06',material:`color:${col}`,'position':'0.09 0.12 0.18'}));
+      g.appendChild(mk('sphere',{radius:'0.06',material:`color:${col}`,'position':'-0.09 0.12 0.18'}));
+      g.appendChild(mk('sphere',{radius:'0.09',material:'color:#ffffff;roughness:1','position':'0 0.26 -0.21'}));
+      break;
+    }
+    case 'velvet_stalker':{
+      const b=mk('box',{width:'0.48',height:'0.3',depth:'0.82',material:'color:#110022;roughness:0.6','position':'0 0.34 0'});
+      b.setAttribute('animation','property:scale;from:1 1 1;to:1 1.05 1;dur:2400;dir:alternate;loop:true');g.appendChild(b);
+      g.appendChild(mk('sphere',{radius:'0.19',material:'color:#110022','position':'0 0.5 0.42'}));
+      ['0.14 0.48 0.1','-0.14 0.48 0.1','0.14 0.48 -0.1','-0.14 0.48 -0.1','0 0.48 0.25','0 0.48 -0.25'].forEach(pos=>{
+        const sp=mk('sphere',{radius:'0.038',material:`color:${glow};emissive:${glow};emissiveIntensity:0.9;shader:flat`,'position':pos});
+        sp.setAttribute('animation',`property:material.opacity;from:0.4;to:1;dur:${900+Math.random()*900};dir:alternate;loop:true`);g.appendChild(sp);
+      });
+      g.appendChild(mk('sphere',{radius:'0.038',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.07 0.54 0.59'}));
+      g.appendChild(mk('sphere',{radius:'0.038',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'-0.07 0.54 0.59'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.055','radius-top':'0.008',height:'0.13',material:'color:#110022','position':'0.09 0.66 0.36',rotation:'-5 0 14'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.055','radius-top':'0.008',height:'0.13',material:'color:#110022','position':'-0.09 0.66 0.36',rotation:'-5 0 -14'}));
+      const tail=mk('cylinder',{radius:'0.038',height:'0.68',material:'color:#110022','position':'0 0.38 -0.53',rotation:'28 0 0'});
+      tail.setAttribute('animation','property:rotation;from:28 0 -18;to:28 0 18;dur:1100;dir:alternate;loop:true');g.appendChild(tail);
+      [['0.17','0.13','0.24'],['-.17','0.13','0.24'],['0.17','0.13','-0.24'],['-0.17','0.13','-0.24']].forEach(([x,y,z])=>g.appendChild(mk('cylinder',{radius:'0.048',height:'0.26',material:'color:#110022','position':`${x} ${y} ${z}`})));
+      break;
+    }
+    case 'prismatic_heron':{
+      g.appendChild(mk('sphere',{radius:'0.16',scale:'0.75 1.15 0.9',material:'color:#e0eaff;roughness:0.3','position':'0 0.75 0'}));
+      const neck=mk('cylinder',{radius:'0.055',height:'0.38',material:'color:#e0eaff','position':'0 1.08 0.07',rotation:'-12 0 0'});
+      neck.setAttribute('animation','property:rotation;from:-12 0 0;to:-22 0 0;dur:2000;dir:alternate;loop:true');g.appendChild(neck);
+      g.appendChild(mk('sphere',{radius:'0.1',material:'color:#e0eaff','position':'0 1.32 0.2'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.028','radius-top':'0.008',height:'0.18',material:'color:#ffcc44','position':'0 1.3 0.36',rotation:'88 0 0'}));
+      g.appendChild(mk('sphere',{radius:'0.024',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.048 1.35 0.27'}));
+      g.appendChild(mk('sphere',{radius:'0.024',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'-0.048 1.35 0.27'}));
+      const wr=mk('box',{width:'0.85',height:'0.04',depth:'0.42',material:`color:${glow};emissive:${glow};emissiveIntensity:0.4;opacity:0.8;transparent:true`,'position':'0.48 0.78 0'});
+      wr.setAttribute('animation','property:rotation;from:0 0 -6;to:0 0 -20;dur:1500;dir:alternate;loop:true');g.appendChild(wr);
+      const wl=mk('box',{width:'0.85',height:'0.04',depth:'0.42',material:`color:${glow};emissive:${glow};emissiveIntensity:0.4;opacity:0.8;transparent:true`,'position':'-0.48 0.78 0'});
+      wl.setAttribute('animation','property:rotation;from:0 0 6;to:0 0 20;dur:1500;dir:alternate;loop:true');g.appendChild(wl);
+      g.appendChild(mk('cylinder',{radius:'0.028',height:'0.65',material:'color:#ffcc44','position':'0.07 0.32 0'}));
+      g.appendChild(mk('cylinder',{radius:'0.028',height:'0.65',material:'color:#ffcc44','position':'-0.07 0.32 0'}));
+      break;
+    }
+    case 'saltsprite':{
+      const b=mk('sphere',{radius:'0.09',scale:'0.55 1.15 0.45',material:`color:${col};emissive:${glow};emissiveIntensity:0.25`,'position':'0 0.38 0'});
+      b.setAttribute('animation','property:rotation;from:0 0 -7;to:0 0 7;dur:900;dir:alternate;loop:true');g.appendChild(b);
+      g.appendChild(mk('cylinder',{radius:'0.022',height:'0.1',material:`color:${col}`,'position':'0 0.46 0.1',rotation:'65 0 0'}));
+      g.appendChild(mk('sphere',{radius:'0.022',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.04 0.48 0.08'}));
+      const storm=mk('sphere',{radius:'0.055',material:`color:#aaddff;emissive:#88ccff;emissiveIntensity:0.9;opacity:0.45;transparent:true;wireframe:true`,'position':'0 0.36 0'});
+      storm.setAttribute('animation','property:rotation;from:0 0 0;to:0 360 0;dur:1800;dir:normal;loop:true;easing:linear');g.appendChild(storm);
+      g.appendChild(mk('torus',{radius:'0.07','radius-tubular':'0.018',material:`color:${col}`,'position':'0 0.25 0',rotation:'90 0 0',arc:'180'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.055','radius-top':'0.008',height:'0.09',material:`color:${glow};opacity:0.55;transparent:true`,'position':'0.055 0.44 0',rotation:'0 0 -55'}));
+      break;
+    }
+    case 'cogbull':{
+      const b=mk('box',{width:'0.78',height:'0.52',depth:'1.18',material:'color:#7a4a22;roughness:0.7;metalness:0.1','position':'0 0.62 0'});
+      b.setAttribute('animation','property:scale;from:1 1 1;to:1 1.03 1;dur:2800;dir:alternate;loop:true');g.appendChild(b);
+      g.appendChild(mk('box',{width:'0.32',height:'0.18',depth:'0.07',material:'color:#cc9933;metalness:0.8;roughness:0.3','position':'0 0.95 0.5'}));
+      const h=mk('box',{width:'0.4',height:'0.36',depth:'0.48',material:'color:#7a4a22;roughness:0.7','position':'0 0.85 0.6'});
+      h.setAttribute('animation','property:rotation;from:0 0 0;to:3 0 0;dur:3000;dir:alternate;loop:true');g.appendChild(h);
+      g.appendChild(mk('sphere',{radius:'0.038',material:'color:#882200;emissive:#550000;emissiveIntensity:0.5','position':'0.13 0.92 0.83'}));
+      g.appendChild(mk('sphere',{radius:'0.038',material:'color:#882200;emissive:#550000;emissiveIntensity:0.5','position':'-0.13 0.92 0.83'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.038','radius-top':'0.009',height:'0.2',material:'color:#cc9933;metalness:0.7','position':'0.17 1.06 0.58',rotation:'-8 0 28'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.038','radius-top':'0.009',height:'0.2',material:'color:#cc9933;metalness:0.7','position':'-0.17 1.06 0.58',rotation:'-8 0 -28'}));
+      ['0 0.9 0.1','0 0.9 -0.1','0 0.9 -0.3','0 0.9 -0.5'].forEach((pos,gi)=>{
+        const gear=mk('torus',{radius:'0.095','radius-tubular':'0.022',material:'color:#cc9933;metalness:0.8','position':pos});
+        gear.setAttribute('animation',`property:rotation;from:0 0 0;to:0 0 ${gi%2===0?360:-360};dur:${3000+gi*500};dir:normal;loop:true;easing:linear`);g.appendChild(gear);
+      });
+      [['0.28','0.26','0.34'],['-.28','0.26','0.34'],['0.28','0.26','-0.34'],['-0.28','0.26','-0.34']].forEach(([x,y,z])=>g.appendChild(mk('cylinder',{radius:'0.095',height:'0.52',material:'color:#6a3a18','position':`${x} ${y} ${z}`})));
+      const tail=mk('cylinder',{radius:'0.038',height:'0.38',material:'color:#7a4a22','position':'0 0.58 -0.63',rotation:'28 0 0'});
+      tail.setAttribute('animation','property:rotation;from:28 0 -14;to:28 0 14;dur:650;dir:alternate;loop:true');g.appendChild(tail);
+      break;
+    }
+    case 'thundermother':{
+      g.appendChild(mk('sphere',{radius:'0.17',scale:'0.65 1.18 0.65',material:'color:#220033;roughness:0.6','position':'0 0.65 0'}));
+      g.appendChild(mk('sphere',{radius:'0.11',material:'color:#220033','position':'0 0.94 0.1'}));
+      const a1=mk('cylinder',{radius:'0.013',height:'0.38',material:`color:${glow};emissive:${glow};emissiveIntensity:0.7`,'position':'0.07 1.12 0.1',rotation:'-18 0 22'});
+      a1.setAttribute('animation','property:rotation;from:-18 0 22;to:-18 0 38;dur:1100;dir:alternate;loop:true');g.appendChild(a1);
+      const a2=mk('cylinder',{radius:'0.013',height:'0.38',material:`color:${glow};emissive:${glow};emissiveIntensity:0.7`,'position':'-0.07 1.12 0.1',rotation:'-18 0 -22'});
+      a2.setAttribute('animation','property:rotation;from:-18 0 -22;to:-18 0 -38;dur:950;dir:alternate;loop:true');g.appendChild(a2);
+      g.appendChild(mk('sphere',{radius:'0.028',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.045 0.96 0.2'}));
+      g.appendChild(mk('sphere',{radius:'0.028',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'-0.045 0.96 0.2'}));
+      const wu1=mk('box',{width:'0.88',height:'0.038',depth:'0.62',material:`color:${glow};emissive:${glow};emissiveIntensity:0.55;opacity:0.72;transparent:true`,'position':'0.52 0.7 -0.04'});
+      wu1.setAttribute('animation','property:rotation;from:0 0 -4;to:0 0 -17;dur:1300;dir:alternate;loop:true');g.appendChild(wu1);
+      const wu2=mk('box',{width:'0.88',height:'0.038',depth:'0.62',material:`color:${glow};emissive:${glow};emissiveIntensity:0.55;opacity:0.72;transparent:true`,'position':'-0.52 0.7 -0.04'});
+      wu2.setAttribute('animation','property:rotation;from:0 0 4;to:0 0 17;dur:1300;dir:alternate;loop:true');g.appendChild(wu2);
+      const wl1=mk('box',{width:'0.58',height:'0.038',depth:'0.42',material:'color:#441166;emissive:#881188;emissiveIntensity:0.35;opacity:0.62;transparent:true','position':'0.42 0.56 0.04'});
+      wl1.setAttribute('animation','property:rotation;from:0 0 -7;to:0 0 -21;dur:1000;dir:alternate;loop:true');g.appendChild(wl1);
+      const wl2=mk('box',{width:'0.58',height:'0.038',depth:'0.42',material:'color:#441166;emissive:#881188;emissiveIntensity:0.35;opacity:0.62;transparent:true','position':'-0.42 0.56 0.04'});
+      wl2.setAttribute('animation','property:rotation;from:0 0 7;to:0 0 21;dur:1000;dir:alternate;loop:true');g.appendChild(wl2);
+      break;
+    }
+    case 'gloomweaver':{
+      const abd=mk('sphere',{radius:'0.21',material:'color:#112211;roughness:0.5','position':'0 0.33 -0.1'});
+      abd.setAttribute('animation','property:scale;from:1 1 1;to:1.05 1.05 1.05;dur:2000;dir:alternate;loop:true');g.appendChild(abd);
+      g.appendChild(mk('sphere',{radius:'0.15',material:'color:#0a1a0a','position':'0 0.36 0.16'}));
+      [['0.07','0.46','0.28'],['-.07','0.46','0.28'],['0.04','0.42','0.3'],['-.04','0.42','0.3'],['0.11','0.42','0.24'],['-.11','0.42','0.24'],['0.14','0.38','0.2'],['-.14','0.38','0.2']].forEach(([x,y,z])=>
+        g.appendChild(mk('sphere',{radius:'0.02',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':`${x} ${y} ${z}`})));
+      [['0.22','0.36','0.08','-38 0 55'],['-.22','0.36','0.08','-38 0 -55'],['0.28','0.3','0','-20 0 68'],['-.28','0.3','0','-20 0 -68'],['0.24','0.3','-0.08','-10 0 62'],['-.24','0.3','-0.08','-10 0 -62'],['0.18','0.34','-0.14','5 0 50'],['-.18','0.34','-0.14','5 0 -50']].forEach(([x,y,z,rot])=>
+        g.appendChild(mk('cylinder',{radius:'0.022',height:'0.32',material:'color:#0a1a0a','position':`${x} ${y} ${z}`,rotation:rot})));
+      g.appendChild(mk('cylinder',{radius:'0.006',height:'0.55',material:'color:#113311;opacity:0.65;transparent:true','position':'0.14 0.08 -0.09',rotation:'8 0 5'}));
+      g.appendChild(mk('cylinder',{radius:'0.006',height:'0.45',material:'color:#113311;opacity:0.65;transparent:true','position':'-0.11 0.1 -0.07',rotation:'-7 0 -4'}));
+      break;
+    }
+    case 'ember_lynx':{
+      const b=mk('box',{width:'0.4',height:'0.3',depth:'0.62',material:`color:${col};roughness:0.7`,'position':'0 0.34 0'});
+      b.setAttribute('animation','property:scale;from:1 1 1;to:1.03 1.06 1.03;dur:900;dir:alternate;loop:true');g.appendChild(b);
+      g.appendChild(mk('sphere',{radius:'0.18',material:`color:${col}`,'position':'0 0.52 0.32'}));
+      g.appendChild(mk('sphere',{radius:'0.03',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.07 0.56 0.47'}));
+      g.appendChild(mk('sphere',{radius:'0.03',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'-0.07 0.56 0.47'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.055','radius-top':'0.008',height:'0.16',material:`color:${col}`,'position':'0.1 0.68 0.28',rotation:'-10 0 16'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.055','radius-top':'0.008',height:'0.16',material:`color:${col}`,'position':'-0.1 0.68 0.28',rotation:'-10 0 -16'}));
+      const flame=mk('cone',{'radius-bottom':'0.09','radius-top':'0.005',height:'0.28',material:`color:${glow};emissive:${glow};emissiveIntensity:1.1;shader:flat;opacity:0.85;transparent:true`,'position':'0 0.62 -0.05'});
+      flame.setAttribute('animation','property:scale;from:1 1 1;to:1.2 0.85 1.2;dur:400;dir:alternate;loop:true');g.appendChild(flame);
+      const tail=mk('cylinder',{radius:'0.05',height:'0.5',material:`color:${col}`,'position':'0 0.32 -0.42',rotation:'35 0 0'});
+      tail.setAttribute('animation','property:rotation;from:35 0 -14;to:35 0 14;dur:800;dir:alternate;loop:true');g.appendChild(tail);
+      [['0.13','0.1','0.2'],['-.13','0.1','0.2'],['0.13','0.1','-0.2'],['-0.13','0.1','-0.2']].forEach(([x,y,z])=>g.appendChild(mk('cylinder',{radius:'0.05',height:'0.2',material:`color:${col}`,'position':`${x} ${y} ${z}`})));
+      break;
+    }
+    case 'tidecaller':{
+      const b=mk('sphere',{radius:'0.32',scale:'1 0.72 1.15',material:`color:${col};roughness:0.3`,'position':'0 0.32 0'});
+      b.setAttribute('animation','property:scale;from:1 0.72 1.15;to:1.04 0.76 1.15;dur:1600;dir:alternate;loop:true');g.appendChild(b);
+      g.appendChild(mk('sphere',{radius:'0.19',material:`color:${col}`,'position':'0 0.5 0.34'}));
+      g.appendChild(mk('sphere',{radius:'0.06',material:'color:#ddeeff;roughness:0.1','position':'0.09 0.58 0.46'}));
+      g.appendChild(mk('sphere',{radius:'0.06',material:'color:#ddeeff;roughness:0.1','position':'-0.09 0.58 0.46'}));
+      g.appendChild(mk('sphere',{radius:'0.03',material:'color:#082018','position':'0.09 0.58 0.5'}));
+      g.appendChild(mk('sphere',{radius:'0.03',material:'color:#082018','position':'-0.09 0.58 0.5'}));
+      const sac=mk('sphere',{radius:'0.09',material:`color:${glow};emissive:${glow};emissiveIntensity:0.6;opacity:0.75;transparent:true`,'position':'0 0.36 0.4'});
+      sac.setAttribute('animation','property:scale;from:0.8 0.8 0.8;to:1.3 1.3 1.3;dur:1200;dir:alternate;loop:true');g.appendChild(sac);
+      [['0.24','0.12','0.2'],['-.24','0.12','0.2'],['0.24','0.12','-0.24'],['-0.24','0.12','-0.24']].forEach(([x,y,z])=>g.appendChild(mk('box',{width:'0.16',height:'0.1',depth:'0.22',material:`color:${col}`,'position':`${x} ${y} ${z}`})));
+      break;
+    }
+    case 'whisperbramble':{
+      const core=mk('sphere',{radius:'0.24',material:'color:#1a2a08;roughness:1','position':'0 0.3 0'});
+      core.setAttribute('animation','property:scale;from:1 1 1;to:1.06 1.06 1.06;dur:1800;dir:alternate;loop:true');g.appendChild(core);
+      for(let i=0;i<10;i++){
+        const ang=(i/10)*360;
+        const leg=mk('cylinder',{radius:'0.018',height:'0.34',material:'color:#1a2a08','position':`${(0.2*Math.cos(ang*Math.PI/180)).toFixed(2)} 0.12 ${(0.2*Math.sin(ang*Math.PI/180)).toFixed(2)}`,rotation:`0 0 ${(20+((i%2)*20)).toFixed(0)}`});
+        g.appendChild(leg);
+      }
+      [['0.1','0.36','0.14'],['-.1','0.36','0.14'],['0.14','0.4','-0.06'],['-.14','0.4','-0.06'],['0','0.44','0.05']].forEach(([x,y,z])=>{
+        const bud=mk('sphere',{radius:'0.03',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':`${x} ${y} ${z}`});
+        bud.setAttribute('animation',`property:material.emissiveIntensity;from:0.5;to:1.3;dur:${1000+Math.random()*800};dir:alternate;loop:true`);g.appendChild(bud);
+      });
+      break;
+    }
+    case 'clockwork_rook':{
+      g.appendChild(mk('sphere',{radius:'0.15',scale:'0.85 1 1.15',material:'color:#2a2a2a;metalness:0.6;roughness:0.4','position':'0 0.5 0'}));
+      g.appendChild(mk('sphere',{radius:'0.09',material:'color:#2a2a2a;metalness:0.6','position':'0 0.62 0.16'}));
+      g.appendChild(mk('cone',{'radius-bottom':'0.03','radius-top':'0.006',height:'0.14',material:`color:${glow};metalness:0.5`,'position':'0 0.6 0.28',rotation:'85 0 0'}));
+      g.appendChild(mk('sphere',{radius:'0.022',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'0.05 0.65 0.22'}));
+      g.appendChild(mk('sphere',{radius:'0.022',material:`color:${glow};emissive:${glow};emissiveIntensity:1;shader:flat`,'position':'-0.05 0.65 0.22'}));
+      const wr=mk('box',{width:'0.5','height':'0.02',depth:'0.24',material:'color:#3a3a3a;metalness:0.7;roughness:0.3','position':'0.28 0.52 0'});
+      wr.setAttribute('animation','property:rotation;from:0 0 -8;to:0 0 -34;dur:500;dir:alternate;loop:true');g.appendChild(wr);
+      const wl=mk('box',{width:'0.5','height':'0.02',depth:'0.24',material:'color:#3a3a3a;metalness:0.7;roughness:0.3','position':'-0.28 0.52 0'});
+      wl.setAttribute('animation','property:rotation;from:0 0 8;to:0 0 34;dur:500;dir:alternate;loop:true');g.appendChild(wl);
+      g.appendChild(mk('cylinder',{radius:'0.016',height:'0.22',material:`color:${glow};metalness:0.6`,'position':'0.04 0.24 0'}));
+      g.appendChild(mk('cylinder',{radius:'0.016',height:'0.22',material:`color:${glow};metalness:0.6`,'position':'-0.04 0.24 0'}));
+      break;
+    }
+    default:{
+      g.appendChild(mk('sphere',{radius:'0.3',material:`color:${c.color};emissive:${c.glow};emissiveIntensity:0.4`,'position':'0 0.4 0'}));
+    }
+  }
+}
+
+// ── JOURNAL ──────────────────────────────────────────────────────────────────
+function openJournal(id){
+  const c=CREATURES.find(x=>x.id===id);if(!c)return;
+  document.getElementById('jname').textContent=c.name;
+  document.getElementById('jclass').textContent=c.cls;
+  document.getElementById('jgreet').textContent=c.greeting;
+  document.getElementById('jdesc').textContent=c.desc;
+  const btns=document.getElementById('jbtns');btns.innerHTML='';
+  const inManifest=G.manifest.includes(id);
+  const isComp=G.companions.includes(id);
+  if(!inManifest){
+    addBtn(btns,'RECORD IN MANIFEST','hi',()=>{
+      G.manifest.push(id);notify('RECORDED',c.name+' added to the Manifest.',c.glow);
+      updateHUD();saveGame();closeJournal();beep(440,0.08);setTimeout(()=>beep(660,0.06),120);
+    });
+  }
+  if(!isComp){
+    c.actions.forEach((action,i)=>{
+      addBtn(btns,action,'',()=>{
+        notify(action,c.results[i],c.glow);
+        if(!G.manifest.includes(id)){G.manifest.push(id);updateHUD();}
+        if(Math.random()<c.followChance){
+          G.companions.push(id);
+          notify('NEW COMPANION',c.name+' has joined your journey.',c.glow);
+          updateCompanions();
+        }
+        saveGame();
+        closeJournal();beep(330,0.07);setTimeout(()=>beep(440,0.06),100);
+      });
+    });
+  } else {
+    addBtn(btns,'SPEND TIME TOGETHER','',()=>{
+      if(Math.random()<c.wanderChance){
+        G.companions=G.companions.filter(x=>x!==id);
+        notify('WANDERED OFF',c.name+' has gone exploring. They may return.',c.color);
+        updateCompanions();
+      } else {
+        notify('COMPANION BOND','Your connection deepens.',c.glow);
+      }
+      saveGame();
+      closeJournal();
+    });
+  }
+  addBtn(btns,'CLOSE','red',closeJournal);
+  document.getElementById('journal').style.display='block';
+  beep(220,0.05);
+}
+
+function addBtn(parent,label,cls,fn){
+  const b=document.createElement('button');
+  b.className='jbtn'+(cls?' '+cls:'');
+  b.textContent=label;b.onclick=fn;
+  parent.appendChild(b);
+}
+
+function closeJournal(){document.getElementById('journal').style.display='none';}
+window.closeJournal=closeJournal;
+
+// ── TRIGGER SETUP ─────────────────────────────────────────────────────────────
+function setupTrigger(){
+  const rh=document.getElementById('rhand');
+  if(!rh)return;
+  rh.addEventListener('triggerdown',()=>{
+    const rc=rh.components['raycaster'];if(!rc)return;
+    const els=rc.intersectedEls;if(!els.length)return;
+    let t=els[0];
+    while(t&&!t.dataset.cid)t=t.parentElement||t.parentNode;
+    if(t&&t.dataset.cid)openJournal(t.dataset.cid);
+  });
+}
+
+// ── PROXIMITY CHECK ───────────────────────────────────────────────────────────
+function proximityTick(){
+  const rig=document.getElementById('rig');if(!rig)return;
+  const rp=rig.object3D.position;
+  let nearest=null,nd=Infinity;
+  WORLD.forEach(wc=>{
+    wc.wanderTimer-=2;
+    if(wc.wanderTimer<=0){
+      const nx=Math.max(-70,Math.min(70,wc.x+(Math.random()-0.5)*7));
+      const nz=Math.max(-70,Math.min(70,wc.z+(Math.random()-0.5)*7));
+      wc.x=nx;wc.z=nz;
+      if(wc.el)wc.el.setAttribute('position',`${nx.toFixed(2)} 0 ${nz.toFixed(2)}`);
+      wc.wanderTimer=8+Math.random()*14;
+    }
+    const dx=wc.x-rp.x,dz=wc.z-rp.z,d=Math.sqrt(dx*dx+dz*dz);
+    if(d<nd){nd=d;nearest=wc;}
+  });
+  const nb=document.getElementById('nearby');
+  if(nd<8&&nearest){nb.style.opacity='1';nb.textContent='✦ '+nearest.def.name+' NEARBY';}
+  else nb.style.opacity='0';
+}
+
+// ── DAY CYCLE ─────────────────────────────────────────────────────────────────
+function dayTick(){
+  G.hour=(G.hour+1)%24;
+  if(G.hour===0){
+    G.day++;
+    document.getElementById('hday').textContent=G.day;
+    saveGame(); // save on day-change transition
+  }
+  const sky=document.getElementById('sky'),sun=document.getElementById('sun');
+  if(G.hour>=6&&G.hour<12){sky.setAttribute('color','#0d2008');sun.setAttribute('color','#f0c87a');sun.setAttribute('intensity','1.5');}
+  else if(G.hour>=12&&G.hour<18){sky.setAttribute('color','#183a10');sun.setAttribute('color','#ffe8a0');sun.setAttribute('intensity','1.8');}
+  else if(G.hour>=18&&G.hour<21){sky.setAttribute('color','#0a1808');sun.setAttribute('color','#ff9944');sun.setAttribute('intensity','0.9');}
+  else{sky.setAttribute('color','#050f03');sun.setAttribute('intensity','0.1');}
+  // Companions wander
+  if(Math.random()<0.06&&G.companions.length>0){
+    const wid=G.companions[Math.floor(Math.random()*G.companions.length)];
+    const wc=CREATURES.find(x=>x.id===wid);
+    if(wc&&Math.random()<wc.wanderChance){
+      G.companions=G.companions.filter(x=>x!==wid);
+      notify('WANDERED',wc.name+' has gone exploring.',wc.color);
+      updateCompanions();
+      saveGame();
+    }
+  }
+}
+
+// ── HUD & NOTIFY ─────────────────────────────────────────────────────────────
+function updateHUD(){
+  document.getElementById('hday').textContent=G.day;
+  document.getElementById('hcomp').textContent=G.companions.length;
+  document.getElementById('hmani').textContent=G.manifest.length+'/'+MANIFEST_TARGET;
+  document.getElementById('mnum').textContent=G.manifest.length;
+}
+function updateCompanions(){
+  const clist=document.getElementById('clist');
+  clist.innerHTML='';
+  G.companions.forEach(id=>{
+    const c=CREATURES.find(x=>x.id===id);
+    if(!c)return;
+    const dot=document.createElement('span');
+    dot.className='companion-dot';
+    dot.style.color=c.glow;
+    dot.style.background=c.glow;
+    dot.title=c.name;
+    clist.appendChild(dot);
+  });
+  document.getElementById('hcomp').textContent=G.companions.length;
+}
+function notify(title,sub,color='#f0c87a'){
+  document.getElementById('ntitle').textContent=title;
+  document.getElementById('ntitle').style.color=color;
+  document.getElementById('nsub').textContent=sub;
+  const el=document.getElementById('notif');el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',3500);
+}
+
+// ── AUDIO ─────────────────────────────────────────────────────────────────────
+function initAudio(){
+  try{
+    G.ac=new(window.AudioContext||window.webkitAudioContext)();
+    G.masterGain=G.ac.createGain();
+    G.masterGain.gain.value=G.muted?0:1;
+    G.masterGain.connect(G.ac.destination);
+    const buf=G.ac.createBuffer(1,G.ac.sampleRate*3,G.ac.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.25;
+    const src=G.ac.createBufferSource();src.buffer=buf;src.loop=true;
+    const f=G.ac.createBiquadFilter();f.type='lowpass';f.frequency.value=220;
+    const gn=G.ac.createGain();gn.gain.value=0.025;
+    src.connect(f);f.connect(gn);gn.connect(G.masterGain);src.start();
+    chime();
+  }catch(e){}
+}
+function chime(){
+  if(!G.ac)return;
+  const freqs=[523,659,784,880,1046];
+  const f=freqs[Math.floor(Math.random()*freqs.length)];
+  const o=G.ac.createOscillator(),gn=G.ac.createGain();
+  o.type='sine';o.frequency.value=f;
+  o.connect(gn);gn.connect(G.masterGain||G.ac.destination);
+  gn.gain.setValueAtTime(0,G.ac.currentTime);
+  gn.gain.linearRampToValueAtTime(0.035,G.ac.currentTime+0.1);
+  gn.gain.exponentialRampToValueAtTime(0.001,G.ac.currentTime+2.5);
+  o.start();o.stop(G.ac.currentTime+2.5);
+  setTimeout(chime,7000+Math.random()*12000);
+}
+function beep(freq,vol=0.08){
+  if(!G.ac)return;
+  const o=G.ac.createOscillator(),gn=G.ac.createGain();
+  o.connect(gn);gn.connect(G.masterGain||G.ac.destination);
+  o.frequency.value=freq;
+  gn.gain.setValueAtTime(vol,G.ac.currentTime);
+  gn.gain.linearRampToValueAtTime(0,G.ac.currentTime+0.14);
+  o.start();o.stop(G.ac.currentTime+0.14);
+}
+function applyMuteState(){
+  const btn=document.getElementById('muteBtn');
+  if(G.masterGain) G.masterGain.gain.setTargetAtTime(G.muted?0:1,G.ac.currentTime,0.05);
+  btn.textContent=G.muted?'✕':'♪';
+  btn.classList.toggle('muted',G.muted);
+  btn.title=G.muted?'Unmute ambient audio':'Mute ambient audio';
+}
+document.getElementById('muteBtn').onclick=()=>{
+  G.muted=!G.muted;
+  try{ localStorage.setItem(MUTE_KEY,G.muted?'1':'0'); }catch(e){}
+  applyMuteState();
+  if(G.ac&&G.ac.state==='suspended') G.ac.resume().catch(()=>{});
+};
+
+updateHUD();
+</script>
+</body>
+</html>

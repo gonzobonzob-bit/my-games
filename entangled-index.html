@@ -194,7 +194,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .cht2{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--text);line-height:1.6;margin-bottom:.4rem;}
 .chs3{font-size:.85rem;color:var(--muted);font-style:italic;line-height:1.5;}
 
-/* AI INNER VOICE */
+/* INNER VOICE */
 .inner-voice{display:none;background:rgba(232,64,106,.06);border:1px solid rgba(232,64,106,.2);border-left:3px solid var(--neon);padding:1rem 1.2rem;margin-bottom:1.2rem;animation:mi .5s ease forwards;}
 .inner-voice.act{display:block;}
 .iv-label{font-size:.66rem;letter-spacing:.3em;color:var(--neon);text-transform:uppercase;margin-bottom:.35rem;display:flex;align-items:center;gap:.4rem;}
@@ -442,15 +442,15 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       </div>
       <div class="slbl">Phase 3 — The Unraveling</div>
       <div class="epg">
-        <div class="epc lk" id="ec7"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">07</div><div class="ept">"Patterns"</div><div class="epd">Your choices get reflected back at you.</div></div>
-        <div class="epc lk" id="ec8"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">08</div><div class="ept">"The Confession"</div><div class="epd">Someone tells their truth.</div></div>
-        <div class="epc lk" id="ec9"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">09</div><div class="ept">"It All Comes Out"</div><div class="epd">Everything collides at once.</div></div>
+        <div class="epc lk" id="ec7" onclick="startEp(7)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">07</div><div class="ept">"Patterns"</div><div class="epd">Your choices get reflected back at you.</div></div>
+        <div class="epc lk" id="ec8" onclick="startEp(8)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">08</div><div class="ept">"The Confession"</div><div class="epd">Someone tells their truth.</div></div>
+        <div class="epc lk" id="ec9" onclick="startEp(9)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">09</div><div class="ept">"It All Comes Out"</div><div class="epd">Everything collides at once.</div></div>
       </div>
       <div class="slbl">Phase 4 — The Resolution</div>
       <div class="epg">
-        <div class="epc lk" id="ec10"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">10</div><div class="ept">"The Talk"</div><div class="epd">Define the relationship.</div></div>
-        <div class="epc lk" id="ec11"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">11</div><div class="ept">"Growth or Repeat"</div><div class="epd">Two paths. Choose one.</div></div>
-        <div class="epc lk" id="ec12"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">12</div><div class="ept">"Entangled or Free"</div><div class="epd">The finale.</div></div>
+        <div class="epc lk" id="ec10" onclick="startEp(10)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">10</div><div class="ept">"The Talk"</div><div class="epd">Define the relationship.</div></div>
+        <div class="epc lk" id="ec11" onclick="startEp(11)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">11</div><div class="ept">"Growth or Repeat"</div><div class="epd">Two paths. Choose one.</div></div>
+        <div class="epc lk" id="ec12" onclick="startEp(12)"><div class="epst">🔒</div><div class="epph">Episode</div><div class="epn">12</div><div class="ept">"Entangled or Free"</div><div class="epd">The finale.</div></div>
       </div>
     </div>
     <div id="csec" style="display:none;">
@@ -510,7 +510,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <div class="chs3" id="chs3"></div>
     </div>
 
-    <!-- AI Inner Voice -->
+    <!-- Inner Voice -->
     <div class="inner-voice" id="inner-voice">
       <div class="iv-label"><span class="iv-dot"></span> Your Inner Voice</div>
       <div class="iv-txt" id="iv-txt"></div>
@@ -559,7 +559,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     <div class="sh"><div class="sl">Preferences</div><div class="st">Settings</div></div>
     <div class="ssec"><div class="sstl">Experience</div>
       <div class="sr2"><div><div class="sl2">Voice Narration</div><div class="ss2">Characters and narrator speak aloud</div></div><button class="tog" id="voice-tog" onclick="toggleSpeechSetting()"></button></div>
-      <div class="sr2"><div><div class="sl2">AI Inner Voice</div><div class="ss2">Live conscience reaction after choices</div></div><button class="tog on" id="ai-tog" onclick="this.classList.toggle('on')"></button></div>
+      <div class="sr2"><div><div class="sl2">Inner Voice</div><div class="ss2">Conscience reaction shown after choices</div></div><button class="tog on" id="iv-tog" onclick="this.classList.toggle('on')"></button></div>
       <div class="sr2"><div><div class="sl2">Psychology Insights</div><div class="ss2">Shown in episode debrief</div></div><button class="tog on" onclick="this.classList.toggle('on')"></button></div>
       <div class="sr2"><div><div class="sl2">Pattern Tracking</div><div class="ss2">Tracks choices across playthroughs</div></div><button class="tog on" onclick="this.classList.toggle('on')"></button></div>
     </div>
@@ -1125,19 +1125,60 @@ const SCENE_MOODS={
   debrief:'warm', narrator:'ambient', choice:'ambient'
 };
 
-// ══════════════ AI INNER VOICE ══════════════
-async function triggerInnerVoice(choiceText, charName, context){
-  // Alias — calls the full version
-  triggerInnerVoiceAndContinue(choiceText, charName, context);
+// ══════════════ INNER VOICE (local, no network calls) ══════════════
+// Canned reaction bank keyed by backstory tone (see bsVoice()) x choice
+// valence bucket. Replaces a former client-side call to api.anthropic.com,
+// which shipped with no key and always failed silently (see vault CLAUDE.md).
+const INNER_VOICE_BANK={
+  guarded:{
+    flagged:[`Yeah — pull back. Feels safer than actually finding out.`,`There's the wall. Right on schedule.`,`Keeping {name} at arm's length again. You know the drill.`],
+    strong:[`Okay. Said the real thing. Didn't die.`,`That was more honest than you planned. Sit with that.`,`You let {name} see something real. Weird how that didn't blow up.`],
+    mild:[`Safe answer. Nobody gets close, nobody gets hurt.`,`Middle of the road. Again.`,`Not brave. Not a disaster either. Just careful.`]
+  },
+  independent:{
+    flagged:[`There it is — doing it alone again instead of letting anyone in.`,`You don't need {name}. You keep telling yourself that.`,`Solo mode, activated. Old habit.`],
+    strong:[`You let someone matter for a second. That's new for you.`,`Needing {name}'s answer felt strange. You didn't hate it.`,`You leaned on someone instead of handling it alone. Noted.`],
+    mild:[`Fine. Independent, as always.`,`You kept your own counsel. Same as every time.`,`Nothing risked, nothing changed.`]
+  },
+  healing:{
+    flagged:[`Old wound, new person. Same reflex.`,`You know this pattern. You're doing it anyway.`,`That's the thing you're supposed to be unlearning. Hi again.`],
+    strong:[`That's what healed looks like in real time.`,`You did the thing therapy talks about. Out loud. With {name}.`,`Progress isn't a feeling, it's a choice. You just made one.`],
+    mild:[`Not a breakthrough. Not a setback either. Just a Tuesday.`,`Middle-of-the-work moment. Those count too.`,`You're still figuring out where the line is. Fair.`]
+  },
+  hopeful:{
+    flagged:[`Hope doesn't mean ignoring what you just saw.`,`You wanted this to be different so badly you skipped past the red flag.`,`Optimism is good. This wasn't that.`],
+    strong:[`This is what hope looks like when it's paired with actual attention.`,`You believed in {name} AND stayed clear-eyed. Rare combo.`,`That's the hope that doesn't need to lie to itself.`],
+    mild:[`Cautiously hopeful. Reasonable place to land.`,`You're rooting for this without betting the house on it.`,`Still hoping. Still watching. Both, at once.`]
+  },
+  avoidant:{
+    flagged:[`Deflect and disappear. Your favorite {name}-proofing move.`,`You felt something and immediately looked for the exit.`,`There's the distance. Your favorite room to stand in.`],
+    strong:[`You stayed in it instead of leaving. That's the hard part.`,`No joke, no exit line. You just answered honestly.`,`Didn't dodge. Didn't disappear. Progress.`],
+    mild:[`Kept it light. Kept it safe. Kept it exactly where you like it.`,`Casual as ever. You'll let them in eventually. Maybe.`,`Non-committal, as usual.`]
+  },
+  romantic:{
+    flagged:[`You wanted the fairy tale so bad you ignored the plot twist.`,`Love doesn't mean pretending you didn't see that.`,`Even romantics have to read the room sometimes.`],
+    strong:[`This is the good kind of romantic — eyes open, heart still in it.`,`You said the soft thing and meant it. With {name}, no less.`,`That's what real feels like. Not the movie version. The actual thing.`],
+    mild:[`Sweet. Safe. A little guarded around the edges, but sweet.`,`You're still writing the story in your head. Keep going.`,`Romantic, but hedging your bets. Understandable.`]
+  },
+  open:{
+    flagged:[`You saw the pattern and did it anyway. At least you're consistent.`,`That's an old habit talking, not you.`,`Familiar move. Doesn't mean it's the right one.`],
+    strong:[`That was a genuinely good call. With {name}, with yourself, all of it.`,`You showed up as exactly who you are. That's rare.`,`Clean, honest, no performance. More of that.`],
+    mild:[`Reasonable. Not everything has to be a breakthrough.`,`You're just figuring it out in real time. That's allowed.`,`Neutral ground. Not every choice needs to mean something.`]
+  }
+};
+function pickInnerVoiceLine(voice,bucket,charName){
+  const tone=INNER_VOICE_BANK[voice]||INNER_VOICE_BANK.open;
+  const lines=tone[bucket]||tone.mild;
+  const line=lines[Math.floor(Math.random()*lines.length)];
+  return line.replace(/\{name\}/g,charName||'them');
 }
-
-async function triggerInnerVoiceAndContinue(choiceText, charName, context){
+function triggerInnerVoiceAndContinue(choiceText,charName,context,meta){
   const iv=document.getElementById('inner-voice');
   const ivTxt=document.getElementById('iv-txt');
-  const aiTogEl=document.getElementById('ai-tog');
-  const aiOn=!aiTogEl||aiTogEl.classList.contains('on');
+  const ivTogEl=document.getElementById('iv-tog');
+  const ivOn=!ivTogEl||ivTogEl.classList.contains('on');
 
-  if(!aiOn){
+  if(!ivOn){
     iv.classList.remove('act');
     addCont();
     return;
@@ -1146,48 +1187,21 @@ async function triggerInnerVoiceAndContinue(choiceText, charName, context){
   iv.classList.add('act');
   ivTxt.innerHTML='<span class="iv-loading">thinking…</span>';
 
-  const prompt=`You are the player's inner voice in an interactive dating game called TANGLED FREQUENCIES.
+  const voice=bsVoice();
+  const flagged=!!(meta&&meta.flagged);
+  const strong=!!(meta&&meta.intensity>=6);
+  const bucket=flagged?'flagged':strong?'strong':'mild';
 
-Player name: ${G.nm}
-Last relationship ended: ${G.bs1||'unknown'}
-Looking for: ${G.bs2||'unknown'}
-Friends describe them as: ${G.bs3||'unknown'}
-
-They just chose: "${choiceText}"
-In a conversation with: ${charName}
-Context: ${context}
-
-Respond as their immediate internal reaction.
-- 1-2 sentences MAX
-- First person, raw and honest
-- No therapy-speak — sound like a real thought
-- Match backstory tone: guarded = sharper, romantic = softer`;
-
-  try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:80,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await res.json();
-    const txt=data.content?.[0]?.text||'';
-    if(txt){
-      ivTxt.textContent=txt;
-      speak(txt,'inner');
-    } else {
-      iv.classList.remove('act');
-    }
-  } catch(e){
-    iv.classList.remove('act');
-  }
-
-  // Continue button ALWAYS appears after AI responds (or fails)
-  // Player decides when to move on — not a timer
-  addCont();
+  // Brief pause so the "thinking…" beat still lands — this is a local
+  // lookup, not a network call, but an instant flip reads as janky.
+  setTimeout(()=>{
+    const txt=pickInnerVoiceLine(voice,bucket,charName);
+    ivTxt.textContent=txt;
+    speak(txt,'inner');
+    // Continue button appears once the reaction is shown.
+    // Player decides when to move on — not a timer.
+    addCont();
+  },380);
 }
 
 // ══════════════ CAST DATA ══════════════
@@ -1841,11 +1855,11 @@ function pick(c,btn,allChoices){
   iv.classList.add('act');
   ivTxt.innerHTML='<span class="iv-loading">thinking…</span>';
 
-  // Trigger AI inner voice — Continue button appears when it's done
+  // Trigger inner voice reaction — Continue button appears when it's done
   const charKey=c.c||'narrator';
   const charName=CAST[charKey]?CAST[charKey].n:charKey;
   const context=c.fb||'a key decision moment';
-  triggerInnerVoiceAndContinue(c.t, charName, context);
+  triggerInnerVoiceAndContinue(c.t, charName, context, {flagged:!!c.f, intensity:c.i||0, psy:c.psy||''});
 }
 
 function addCont(){
@@ -2426,11 +2440,6 @@ function updHub(){
       if(n&&n.classList.contains('lk')){n.classList.remove('lk');n.querySelector('.epst').textContent='▶';}
     }
   });
-  // Wire up ec7-ec12 onclick
-  for(let i=7;i<=12;i++){
-    const el=document.getElementById(`ec${i}`);
-    if(el&&!el.dataset.wired){el.onclick=()=>startEp(i);el.dataset.wired='1';}
-  }
 }
 function navH(btn,id){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('act'));

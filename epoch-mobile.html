@@ -42,6 +42,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 .item-card:active{transform:scale(0.97);}
 .item-card.can{border-color:rgba(212,160,48,0.5);}
 .item-card.maxed{opacity:0.5;cursor:default;}
+.item-card.locked{opacity:0.35;cursor:default;filter:grayscale(0.6);}
 .item-ico{font-size:26px;flex-shrink:0;}
 .item-info{flex:1;}
 .item-name{font-family:'Cinzel',serif;font-size:12px;color:var(--text);}
@@ -80,6 +81,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
       <div class="forge-label">STRIKE THE FORGE</div>
       <div class="forge-rate" id="forge-rate">+1 metal per strike</div>
       <div style="margin-top:6px;font-size:10px;color:var(--muted);">Prestige: <span id="prestige-count" style="color:#a060e0">0</span> × | Multiplier: <span id="prestige-mult" style="color:#a060e0">1×</span></div>
+      <div style="margin-top:4px;font-size:10px;color:var(--muted);">Passive: 🪙<span id="rate-gold">0</span>/s 🪨<span id="rate-stone">0</span>/s 🔥<span id="rate-ember">0</span>/s</div>
     </div>
     <div class="tabs">
       <div class="tab active" onclick="showTab('craft')">⚔️ Craft</div>
@@ -115,10 +117,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 </div>
 <script>
 const G={gold:0,stone:0,ember:0,metal:0,totalMetal:0,
-  forgeRate:1,goldRate:0,stoneRate:0,emberRate:0,craftMult:1,
+  forgeRate:1,goldRate:0,stoneRate:0,emberRate:0,craftMult:1,rateMult:1,
   prestige:0,prestigeMult:1,craftCounts:{},upgradeOwned:{},artifactOwned:{},
-  prestigeHistory:[]};
-const SK='epoch_v1';
+  prestigeHistory:[],lastTick:Date.now()};
 
 const CRAFTS=[
   {id:'sword',name:'Iron Sword',icon:'⚔️',desc:'Basic weapon. Sells for gold.',cost:{metal:10},gives:{gold:5},repeatable:true},
@@ -129,6 +130,8 @@ const CRAFTS=[
   {id:'armor',name:'Plate Armor',icon:'🦺',desc:'Full protection set.',cost:{metal:80,stone:30},gives:{gold:60},repeatable:true},
   {id:'ring',name:'Gold Ring',icon:'💍',desc:'Pure gold value.',cost:{gold:50,ember:5},gives:{gold:120},repeatable:true},
   {id:'crown',name:'Iron Crown',icon:'👑',desc:'Rule the forge.',cost:{metal:200,gold:100,stone:50},gives:{gold:500},repeatable:true},
+  {id:'ageblade',name:'Age-Wrought Blade',icon:'🗡️',desc:'Forged from metal that has looped through time. Requires Age 1.',cost:{metal:500,gold:200,ember:50},gives:{gold:1200},repeatable:true,reqAge:1},
+  {id:'chronocrown',name:'Chronarch Crown',icon:'👑',desc:'A crown that remembers every prior age. Requires Age 2.',cost:{metal:2000,gold:1000,stone:300,ember:200},gives:{gold:5000},repeatable:true,reqAge:2},
 ];
 
 const UPGRADES=[
@@ -140,15 +143,15 @@ const UPGRADES=[
   {id:'rune',name:'Rune Inscription',icon:'🔮',desc:'×1.5 all craft value',cost:{gold:300,ember:50},effect:()=>G.craftMult*=1.5},
   {id:'dragon',name:'Dragon Heart',icon:'🐉',desc:'×3 forge rate',cost:{gold:1000,ember:200},effect:()=>G.forgeRate*=3},
   {id:'time',name:'Time Crystal',icon:'💎',desc:'Auto-forge 5× /s',cost:{gold:2000,ember:500},effect:()=>{}},
+  {id:'agesmith',name:'Age-Smith Technique',icon:'🕰️',desc:'×2 all craft value. Unlocked by looping the ages. Requires Age 1.',cost:{gold:500,ember:100},effect:()=>G.craftMult*=2,reqAge:1},
+  {id:'eternalforge',name:'Eternal Forge Mastery',icon:'♾️',desc:'×2 forge rate. Requires Age 2.',cost:{gold:3000,ember:800},effect:()=>G.forgeRate*=2,reqAge:2},
 ];
 
 const ARTIFACTS=[
   {id:'hammer',name:"Titan's Hammer",icon:'🔨',desc:'Survives prestige. +10 forge power.',cost:{gold:5000,ember:1000},effect:()=>G.forgeRate+=10},
-  {id:'amulet',name:'Forge Amulet',icon:'📿',desc:'Survives prestige. +50% all passive rates.',cost:{gold:10000,ember:2000},effect:()=>{G.goldRate=Math.floor(G.goldRate*1.5);G.stoneRate=Math.floor(G.stoneRate*1.5);G.emberRate=Math.floor(G.emberRate*1.5);}},
+  {id:'amulet',name:'Forge Amulet',icon:'📿',desc:'Survives prestige. +50% all passive rates, permanently.',cost:{gold:10000,ember:2000},effect:()=>{G.rateMult=1.5;}},
   {id:'tome',name:"Anvil Epoch Tome",icon:'📖',desc:'Survives prestige. +1 prestige multiplier.',cost:{gold:20000,ember:5000},effect:()=>G.prestigeMult+=1},
 ];
-
-let craftCounts={};
 
 function fmt(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return Math.floor(n);}
 
@@ -172,15 +175,25 @@ function canAfford(cost){
 }
 function deduct(cost){Object.entries(cost).forEach(([r,v])=>G[r]-=v);}
 
+function dataCost(cost){return encodeURIComponent(JSON.stringify(cost));}
+
 function renderItems(){
   // Crafts
   const cl=document.getElementById('craft-list');
   if(cl){cl.innerHTML=CRAFTS.map(c=>{
+    const locked=c.reqAge&&G.prestige<c.reqAge;
+    if(locked){
+      return `<div class="item-card locked">
+        <div class="item-ico">🔒</div>
+        <div class="item-info"><div class="item-name">${c.name}</div><div class="item-desc">Unlocks at Age ${c.reqAge}</div></div>
+        <div class="item-cost">LOCKED</div>
+      </div>`;
+    }
     const owned=G.craftCounts[c.id]||0;
     const affordable=canAfford(c.cost);
     const done=!c.repeatable&&owned>0;
     const costStr=Object.entries(c.cost).map(([r,v])=>`${fmt(v)} ${r}`).join(' + ');
-    return `<div class="item-card ${done?'maxed':affordable?'can':''}" onclick="${done?'':` craftItem('${c.id}')`}">
+    return `<div class="item-card ${done?'maxed':affordable?'can':''}" data-cost="${dataCost(c.cost)}" onclick="${done?'':` craftItem('${c.id}')`}">
       <div class="item-ico">${c.icon}</div>
       <div class="item-info"><div class="item-name">${c.name}${owned>0?' (×'+owned+')':''}</div><div class="item-desc">${c.desc}</div></div>
       <div class="item-cost ${affordable?'':'cant'}">${done?'CRAFTED':costStr}</div>
@@ -190,10 +203,18 @@ function renderItems(){
   // Upgrades
   const ul=document.getElementById('upgrade-list');
   if(ul){ul.innerHTML=UPGRADES.map(u=>{
+    const locked=u.reqAge&&G.prestige<u.reqAge;
+    if(locked){
+      return `<div class="item-card locked">
+        <div class="item-ico">🔒</div>
+        <div class="item-info"><div class="item-name">${u.name}</div><div class="item-desc">Unlocks at Age ${u.reqAge}</div></div>
+        <div class="item-cost">LOCKED</div>
+      </div>`;
+    }
     const owned=!!G.upgradeOwned[u.id];
     const affordable=canAfford(u.cost);
     const costStr=Object.entries(u.cost).map(([r,v])=>`${fmt(v)} ${r}`).join(' + ');
-    return `<div class="item-card ${owned?'maxed':affordable?'can':''}" onclick="${owned?'':` buyUpgrade('${u.id}')`}">
+    return `<div class="item-card ${owned?'maxed':affordable?'can':''}" data-cost="${dataCost(u.cost)}" onclick="${owned?'':` buyUpgrade('${u.id}')`}">
       <div class="item-ico">${u.icon}</div>
       <div class="item-info"><div class="item-name">${u.name}</div><div class="item-desc">${u.desc}</div></div>
       <div class="item-cost ${affordable?'':'cant'}">${owned?'OWNED':costStr}</div>
@@ -206,16 +227,33 @@ function renderItems(){
     const owned=!!G.artifactOwned[a.id];
     const affordable=canAfford(a.cost);
     const costStr=Object.entries(a.cost).map(([r,v])=>`${fmt(v)} ${r}`).join(' + ');
-    return `<div class="item-card ${owned?'maxed':affordable?'can':''}" onclick="${owned?'':` buyArtifact('${a.id}')`}">
+    return `<div class="item-card ${owned?'maxed':affordable?'can':''}" data-cost="${dataCost(a.cost)}" onclick="${owned?'':` buyArtifact('${a.id}')`}">
       <div class="item-ico">${a.icon}</div>
       <div class="item-info"><div class="item-name">${a.name}</div><div class="item-desc">${a.desc}</div></div>
       <div class="item-cost ${affordable?'':'cant'}">${owned?'✓ FORGED':costStr}</div>
     </div>`;
   }).join('');}
+
+  refreshAffordability();
+}
+
+// Lightweight, event-driven affordability refresh: called every tick/purchase
+// instead of blindly re-rendering (and rebuilding) the full item lists.
+function refreshAffordability(){
+  document.querySelectorAll('.item-card[data-cost]').forEach(el=>{
+    if(el.classList.contains('maxed'))return;
+    let cost;
+    try{cost=JSON.parse(decodeURIComponent(el.getAttribute('data-cost')));}catch(e){return;}
+    const afford=canAfford(cost);
+    el.classList.toggle('can',afford);
+    const costEl=el.querySelector('.item-cost');
+    if(costEl)costEl.classList.toggle('cant',!afford);
+  });
 }
 
 function craftItem(id){
   const c=CRAFTS.find(x=>x.id===id);if(!c)return;
+  if(c.reqAge&&G.prestige<c.reqAge){showToast('Unlocks at Age '+c.reqAge+'!');return;}
   if(!canAfford(c.cost)){showToast('Not enough resources!');return;}
   if(!c.repeatable&&(G.craftCounts[id]||0)>0){showToast('Already crafted!');return;}
   deduct(c.cost);
@@ -227,18 +265,19 @@ function craftItem(id){
     else G[r]=(G[r]||0)+Math.floor(v*G.craftMult);
   });
   showToast('⚒️ '+c.name+' crafted!');
-  renderItems();updateUI();
+  renderItems();updateUI();save();
 }
 
 function buyUpgrade(id){
   const u=UPGRADES.find(x=>x.id===id);if(!u)return;
+  if(u.reqAge&&G.prestige<u.reqAge){showToast('Unlocks at Age '+u.reqAge+'!');return;}
   if(G.upgradeOwned[id]){showToast('Already owned!');return;}
   if(!canAfford(u.cost)){showToast('Need more resources!');return;}
   deduct(u.cost);
   G.upgradeOwned[id]=true;
   u.effect();
   showToast('📈 '+u.name+' activated!');
-  renderItems();updateUI();
+  renderItems();updateUI();save();
 }
 
 function buyArtifact(id){
@@ -249,7 +288,7 @@ function buyArtifact(id){
   G.artifactOwned[id]=true;
   a.effect();
   showToast('✨ '+a.name+' forged — survives prestige!');
-  renderItems();updateUI();
+  renderItems();updateUI();save();
 }
 
 function doPrestige(){
@@ -257,7 +296,8 @@ function doPrestige(){
   G.prestigeHistory.push({age:G.prestige+1,metal:G.totalMetal,upgrades:Object.keys(G.upgradeOwned).length});
   G.prestige++;
   G.prestigeMult=Math.pow(1.5,G.prestige);
-  // Reset
+  // Reset (note: rateMult is intentionally NOT reset here — it's a persistent
+  // artifact bonus, not a run-scoped rate. See amulet effect below.)
   G.gold=0;G.stone=0;G.ember=0;G.metal=0;G.totalMetal=0;
   G.forgeRate=1;G.goldRate=0;G.stoneRate=0;G.emberRate=0;G.craftMult=1;
   G.craftCounts={};G.upgradeOwned={};
@@ -265,8 +305,10 @@ function doPrestige(){
   Object.keys(G.artifactOwned).forEach(id=>{
     const a=ARTIFACTS.find(x=>x.id===id);if(a)a.effect();
   });
-  showToast('🌀 Age '+G.prestige+' begins! ×'+G.prestigeMult.toFixed(1)+' power!');
+  const newTier=CRAFTS.concat(UPGRADES).some(x=>x.reqAge===G.prestige);
+  showToast('🌀 Age '+G.prestige+' begins! ×'+G.prestigeMult.toFixed(1)+' power!'+(newTier?' New recipes unlocked!':''));
   renderItems();updateUI();
+  save(); // important transition — save immediately, don't wait for autosave
 }
 
 function updateUI(){
@@ -276,17 +318,21 @@ function updateUI(){
   document.getElementById('forge-rate').textContent='+'+Math.floor(G.forgeRate*G.prestigeMult)+' metal per strike | '+fmt(G.totalMetal)+' total forged';
   document.getElementById('prestige-count').textContent=G.prestige;
   document.getElementById('prestige-mult').textContent=G.prestigeMult.toFixed(1)+'×';
+  const rg=document.getElementById('rate-gold'),rs=document.getElementById('rate-stone'),re=document.getElementById('rate-ember');
+  if(rg)rg.textContent=(G.goldRate*G.rateMult).toFixed(1);
+  if(rs)rs.textContent=(G.stoneRate*G.rateMult).toFixed(1);
+  if(re)re.textContent=(G.emberRate*G.rateMult).toFixed(1);
   const req=document.getElementById('prestige-req');
   if(req)req.textContent=G.totalMetal>=5000?'✅ Ready to prestige!':'Forge '+fmt(5000-G.totalMetal)+' more metal to prestige';
   const hist=document.getElementById('prestige-history');
   if(hist)hist.innerHTML=G.prestigeHistory.slice().reverse().map(h=>`🌀 Age ${h.age}: ${fmt(h.metal)} metal | ${h.upgrades} upgrades`).join('<br>')||'No previous ages yet.';
-  save();
+  refreshAffordability();
 }
 
 function gameTick(){
-  if(G.goldRate>0)G.gold+=G.goldRate/10;
-  if(G.stoneRate>0)G.stone+=G.stoneRate/10;
-  if(G.emberRate>0)G.ember+=G.emberRate/10;
+  if(G.goldRate>0)G.gold+=G.goldRate*G.rateMult/10;
+  if(G.stoneRate>0)G.stone+=G.stoneRate*G.rateMult/10;
+  if(G.emberRate>0)G.ember+=G.emberRate*G.rateMult/10;
   // Auto-forge if time crystal
   if(G.upgradeOwned.time)G.metal+=Math.floor(G.forgeRate*G.prestigeMult*5/10);
   updateUI();
@@ -298,37 +344,113 @@ function spawnFloat(txt,x,y,col){
   el.textContent=txt;document.body.appendChild(el);
   setTimeout(()=>el.remove(),1000);
 }
-function showToast(msg){
+function showToast(msg,dur){
+  dur=dur||2500;
   const ex=document.querySelector('.toast');if(ex)ex.remove();
   const t=document.createElement('div');t.className='toast';t.textContent=msg;
-  document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
+  t.style.animationDuration=dur+'ms';
+  if(msg.length>42){t.style.whiteSpace='normal';t.style.maxWidth='85vw';t.style.textAlign='center';}
+  document.body.appendChild(t);setTimeout(()=>t.remove(),dur);
 }
 
-const SK2='epoch_v1';
-function save(){try{const data=Object.assign({},G,{saveVersion:1});localStorage.setItem(SK2,JSON.stringify(data));}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(SK2));if(d){delete d.saveVersion;Object.assign(G,d);}}catch(e){}}
+function fmtDuration(sec){
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
+  if(h>0)return h+'h '+m+'m';
+  if(m>0)return m+'m';
+  return sec+'s';
+}
 
+const SK='epoch_v1';
+let offlineReport=null;
+
+function save(){
+  try{
+    G.lastTick=Date.now();
+    const data=Object.assign({},G,{saveVersion:1});
+    localStorage.setItem(SK,JSON.stringify(data));
+  }catch(e){}
+}
+
+function load(){
+  offlineReport=null;
+  try{
+    const raw=localStorage.getItem(SK);
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    if(!d)return;
+    const savedAt=d.lastTick||Date.now();
+    delete d.saveVersion;
+    Object.assign(G,d);
+    // Offline / idle catch-up: grant passive resources earned while the tab
+    // was closed or backgrounded, capped so it can't be abused into an
+    // unbounded windfall.
+    const OFFLINE_CAP_SEC=8*3600; // 8 hours
+    let elapsedSec=Math.floor((Date.now()-savedAt)/1000);
+    if(elapsedSec>5){
+      elapsedSec=Math.min(elapsedSec,OFFLINE_CAP_SEC);
+      const goldGain=G.goldRate*G.rateMult*elapsedSec;
+      const stoneGain=G.stoneRate*G.rateMult*elapsedSec;
+      const emberGain=G.emberRate*G.rateMult*elapsedSec;
+      let metalGain=0;
+      if(G.upgradeOwned.time)metalGain=Math.floor(G.forgeRate*G.prestigeMult*5*elapsedSec);
+      G.gold+=goldGain;G.stone+=stoneGain;G.ember+=emberGain;
+      G.metal+=metalGain;G.totalMetal+=metalGain;
+      if(goldGain>0||stoneGain>0||emberGain>0||metalGain>0){
+        offlineReport={elapsedSec,goldGain,stoneGain,emberGain,metalGain};
+      }
+    }
+    G.lastTick=Date.now();
+  }catch(e){}
+}
+
+let gameTickInterval=null;
 let autosaveInterval=null;
+let gameStarted=false;
 
 function startGame(){
   document.getElementById('splash').style.display='none';
   document.getElementById('app').classList.add('show');
-  load();
+  if(!gameStarted){
+    load();
+    gameStarted=true;
+  }
   renderItems();updateUI();
-  setInterval(gameTick,100);
-  setInterval(renderItems,3000);
-  // Autosave every 30 seconds
-  autosaveInterval=setInterval(function(){save();showToast('💾 Autosaved');},30000);
-  showToast('⚒️ Welcome to Anvil Epoch!');
+  // Guard against interval-stacking: only wire tick/autosave once. These
+  // are cleared in backToMenu(), so re-entering Start Game after a menu
+  // trip creates fresh intervals rather than piling duplicates on top.
+  if(!gameTickInterval)gameTickInterval=setInterval(gameTick,100);
+  if(!autosaveInterval)autosaveInterval=setInterval(function(){save();showToast('💾 Autosaved');},30000);
+  if(offlineReport){
+    const r=offlineReport;offlineReport=null;
+    let parts=[];
+    if(r.goldGain>0)parts.push('+'+fmt(r.goldGain)+' gold');
+    if(r.stoneGain>0)parts.push('+'+fmt(r.stoneGain)+' stone');
+    if(r.emberGain>0)parts.push('+'+fmt(r.emberGain)+' ember');
+    if(r.metalGain>0)parts.push('+'+fmt(r.metalGain)+' metal');
+    showToast('⏳ Welcome back! Away '+fmtDuration(r.elapsedSec)+' — '+parts.join(', ')+' earned while the forge idled.',4000);
+  }else{
+    showToast('⚒️ Welcome to Anvil Epoch!');
+  }
 }
 
 function backToMenu(){
-  // Stop autosave
+  // Stop all game intervals so returning to Start Game later can't stack
+  // duplicate tickers.
+  if(gameTickInterval){clearInterval(gameTickInterval);gameTickInterval=null;}
   if(autosaveInterval){clearInterval(autosaveInterval);autosaveInterval=null;}
   save();
   document.getElementById('app').classList.remove('show');
   document.getElementById('splash').style.display='flex';
 }
+
+// Save on backgrounding/closing so offline catch-up has an accurate
+// timestamp to work from, per vault save-robustness conventions.
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden&&gameStarted)save();
+});
+window.addEventListener('pagehide',function(){
+  if(gameStarted)save();
+});
 </script>
 </body>
 </html>

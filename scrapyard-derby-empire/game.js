@@ -134,7 +134,15 @@ const S = {
     cosmeticUnlocked: 'Cosmetic Unlocked: {name}!',
     goldBumpers: 'Gold Bumpers',
     chromeWheels: 'Chrome Wheels',
-    neonUnderglow: 'Neon Underglow'
+    neonUnderglow: 'Neon Underglow',
+    preferences: 'Preferences',
+    sound: 'Sound',
+    soundOn: 'On',
+    soundOff: 'Off',
+    graphicsQuality: 'Graphics Quality',
+    qualityLow: 'Low',
+    qualityMedium: 'Medium',
+    qualityHigh: 'High'
 };
 
 // ── Config ──
@@ -182,6 +190,7 @@ const RIVAL_TEAMS = [
 // ── Sound (Web Audio synthesis — no external files) ──
 let audioCtx = null;
 let sfxEnabled = true;
+let graphicsQuality = 'medium'; // 'low' | 'medium' | 'high' — see loadPrefs()/applyGraphicsQuality()
 let lastCrashTime = 0;
 
 function ensureAudioCtx() {
@@ -292,6 +301,11 @@ let derbyCars = [];
 let derbyTimer = 0;
 let derbyRunning = false;
 let havokInstance = null;
+let derbyShadowGen = null;
+let derbyPipeline = null;
+let derbyGlowLayer = null;
+let derbyKeyLight = null;
+let derbyCamera = null;
 let derbyTimeScale = 1;
 let derbySlowMoTimer = 0;
 let derbyFastForward = false;
@@ -302,6 +316,9 @@ let survivalPlayerWrecks = 0;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
+    const prefs = loadPrefs();
+    sfxEnabled = prefs.sfxEnabled;
+    graphicsQuality = prefs.graphicsQuality;
     initHavok();
     showScreen('menu');
 });
@@ -387,20 +404,61 @@ function slotDelete(index) {
     renderMainMenu();
 }
 
+let settingsReturnScreen = 'menu';
+
 function openSettings() {
+    settingsReturnScreen = (currentScreen && currentScreen !== 'settings') ? currentScreen : 'menu';
     showScreen('settings');
+}
+
+function toggleSfx() {
+    sfxEnabled = !sfxEnabled;
+    savePrefs({ sfxEnabled, graphicsQuality });
+    renderSettings();
+    if (sfxEnabled) sfxUpgrade(); // audible confirmation that sound is back on
+}
+
+function setGraphicsQuality(level) {
+    if (!['low', 'medium', 'high'].includes(level)) return;
+    graphicsQuality = level;
+    savePrefs({ sfxEnabled, graphicsQuality });
+    renderSettings();
+    // Live-apply if a derby is currently rendering (e.g. changed via the in-game menu)
+    if (derbyEngine && derbyScene) applyGraphicsQuality(level);
+}
+
+function renderPreferencesHtml() {
+    return '<div class="settings-section">' +
+        '<div class="settings-section-title">' + S.sound + '</div>' +
+        '<div class="settings-row">' +
+            '<button class="settings-option-btn' + (sfxEnabled ? ' active' : '') + '" onclick="toggleSfx()">' +
+                (sfxEnabled ? '&#128266; ' + S.soundOn : '&#128263; ' + S.soundOff) +
+            '</button>' +
+        '</div>' +
+        '<div class="settings-section-title">' + S.graphicsQuality + '</div>' +
+        '<div class="settings-row">' +
+            ['low', 'medium', 'high'].map(q =>
+                '<button class="settings-option-btn' + (graphicsQuality === q ? ' active' : '') + '" onclick="setGraphicsQuality(\'' + q + '\')">' +
+                    S['quality' + q.charAt(0).toUpperCase() + q.slice(1)] +
+                '</button>'
+            ).join('') +
+        '</div>' +
+    '</div>';
 }
 
 function renderSettings() {
     const container = document.querySelector('#screen-settings .settings-content');
     if (!container) return;
+    const backTarget = settingsReturnScreen || 'menu';
     if (!state) {
-        container.innerHTML = '<div style="color:var(--muted);font-size:14px">' + S.stats + '</div>' +
-            '<button class="menu-btn" onclick="showScreen(\'menu\')">' + S.back + '</button>';
+        container.innerHTML = renderPreferencesHtml() +
+            '<button class="menu-btn" onclick="showScreen(\'' + backTarget + '\')">' + S.back + '</button>';
         return;
     }
     const st = state.stats;
     container.innerHTML =
+        renderPreferencesHtml() +
+        '<div class="settings-section-title">' + S.stats + '</div>' +
         '<div class="stats-grid">' +
             '<div class="stats-card"><div class="stats-card-label">' + S.statDerbiesPlayed + '</div><div class="stats-card-value">' + st.derbiesPlayed + '</div></div>' +
             '<div class="stats-card"><div class="stats-card-label">' + S.statDerbiesWon + '</div><div class="stats-card-value">' + st.derbiesWon + '</div></div>' +
@@ -413,7 +471,7 @@ function renderSettings() {
             '<div class="stats-card"><div class="stats-card-label">' + S.statDriverCount + '</div><div class="stats-card-value">' + state.drivers.length + '</div></div>' +
             '<div class="stats-card"><div class="stats-card-label">' + S.statUsedParts + '</div><div class="stats-card-value">' + state.usedParts.length + '</div></div>' +
         '</div>' +
-        '<button class="menu-btn" onclick="showScreen(\'menu\')">' + S.back + '</button>';
+        '<button class="menu-btn" onclick="showScreen(\'' + backTarget + '\')">' + S.back + '</button>';
 }
 
 // ── Toast ──
@@ -950,6 +1008,11 @@ function igmMainMenu() {
     showScreen('menu');
 }
 
+function igmSettings() {
+    document.getElementById('overlay-igm').classList.remove('active');
+    openSettings();
+}
+
 // ── Derby Lineup ──
 function startDerby() {
     showScreen('lineup');
@@ -1059,6 +1122,62 @@ function confirmLineup() {
 
 // ── Derby ──
 
+/* ============================================================
+   Graphics quality — Low / Medium / High (Settings screen).
+   Low keeps weak-GPU machines smooth (no shadows/post-process,
+   scaled-down render resolution). Medium adds light post-process
+   for a sharper image at native res. High adds real-time shadows
+   from the key light and a bloom/vignette pipeline plus a glow
+   layer that makes the neon-underglow cosmetic and flame livery
+   actually glow instead of just being a flat emissive color.
+   ============================================================ */
+function applyGraphicsQuality(level) {
+    if (!derbyEngine || !derbyScene) return;
+    const tier = level === 'high' ? 2 : level === 'low' ? 0 : 1;
+
+    derbyEngine.setHardwareScalingLevel(tier === 0 ? 1.4 : tier === 1 ? 1.1 : 1);
+
+    // Shadows (high only)
+    if (derbyShadowGen) { derbyShadowGen.dispose(); derbyShadowGen = null; }
+    const ground = derbyScene.getMeshByName('ground');
+    if (tier === 2 && derbyKeyLight) {
+        const sg = new BABYLON.ShadowGenerator(1024, derbyKeyLight);
+        sg.usePercentageCloserFiltering = true;
+        sg.filteringQuality = BABYLON.ShadowGenerator.QUALITY_LOW;
+        derbyShadowGen = sg;
+        // Any cars already spawned before a live quality change need to opt in too
+        for (const c of derbyCars) {
+            if (c.mesh) sg.addShadowCaster(c.mesh, true);
+        }
+    }
+    if (ground) ground.receiveShadows = tier === 2;
+
+    // Post-process pipeline (medium+)
+    if (derbyPipeline) { derbyPipeline.dispose(); derbyPipeline = null; }
+    if (tier >= 1 && derbyCamera) {
+        const pp = new BABYLON.DefaultRenderingPipeline('derbyPP', true, derbyScene, [derbyCamera]);
+        pp.fxaaEnabled = true;
+        pp.imageProcessing.vignetteEnabled = true;
+        pp.imageProcessing.vignetteWeight = tier === 2 ? 1.6 : 0.9;
+        pp.imageProcessing.contrast = tier === 2 ? 1.15 : 1.05;
+        if (tier === 2) {
+            pp.bloomEnabled = true;
+            pp.bloomThreshold = 0.7;
+            pp.bloomWeight = 0.35;
+            pp.bloomKernel = 48;
+        }
+        derbyPipeline = pp;
+    }
+
+    // Glow layer (high only) — makes neon underglow / flame livery emissives pop
+    if (derbyGlowLayer) { derbyGlowLayer.dispose(); derbyGlowLayer = null; }
+    if (tier === 2) {
+        const glow = new BABYLON.GlowLayer('derbyGlow', derbyScene, { blurKernelSize: 24 });
+        glow.intensity = 0.5;
+        derbyGlowLayer = glow;
+    }
+}
+
 async function initDerby() {
     const canvas = document.getElementById('derby-canvas');
     derbyEngine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
@@ -1078,12 +1197,14 @@ async function initDerby() {
     camera.lowerRadiusLimit = 20;
     camera.upperRadiusLimit = 50;
     camera.attachControl(canvas, false);
+    derbyCamera = camera;
 
     // Lights
     const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), derbyScene);
     hemi.intensity = 0.7;
     const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(-1, -2, 1), derbyScene);
     dir.intensity = 0.5;
+    derbyKeyLight = dir;
 
     // Floodlights at arena corners
     const flood1 = new BABYLON.PointLight('flood1', new BABYLON.Vector3(-18, 12, -18), derbyScene);
@@ -1207,6 +1328,9 @@ async function initDerby() {
         d.material = debrisMat;
     }
 
+    // Graphics quality tier — hardware scaling, shadows, post-process (see Settings)
+    applyGraphicsQuality(graphicsQuality);
+
     // Spawn positions — smaller arena for 1v1
     const spawns = is1v1 ? [
         new BABYLON.Vector3(-4, 0.5, -5),
@@ -1239,6 +1363,7 @@ async function initDerby() {
         usedNames.add(car.name);
         derbyCars.push(createDerbyCar(derbyScene, {
             name: car.name,
+            hudId: 'hud' + derbyCars.length,
             position: spawns[spawnIdx++],
             color: paint.color,
             paintId: car.paint || 'rust',
@@ -1280,6 +1405,7 @@ async function initDerby() {
         const rival = aiIdx < rivalCount ? rivalPicks[aiIdx] : null;
         derbyCars.push(createDerbyCar(derbyScene, {
             name: name,
+            hudId: 'hud' + derbyCars.length,
             position: spawns[spawnIdx++],
             color: rival ? rival.color : AI_COLORS[spawnIdx % AI_COLORS.length],
             engine: eng,
@@ -1343,10 +1469,10 @@ async function initDerby() {
         const now = performance.now();
         for (const car of alive) {
             if (car.staggerTimer > 0) {
-                const lastTime = lastSkidTime[car.name] || 0;
+                const lastTime = lastSkidTime[car.hudId] || 0;
                 if (now - lastTime > 100) {
                     createSkidMark(derbyScene, car.mesh.position);
-                    lastSkidTime[car.name] = now;
+                    lastSkidTime[car.hudId] = now;
                 }
             }
         }
@@ -1573,10 +1699,14 @@ function createDerbyCar(scene, opts) {
         aggregate.body.setLinearDamping(0.04);
     }
 
+    // Cast shadows when the current graphics quality tier has a shadow generator active
+    if (derbyShadowGen) derbyShadowGen.addShadowCaster(body, true);
+
     return {
         mesh: body,
         aggregate,
         name: opts.name,
+        hudId: opts.hudId || ('hud_' + Math.random().toString(36).slice(2)),
         isPlayer: opts.isPlayer || opts.isTeam || false,
         isTeam: opts.isTeam || false,
         teamCarId: opts.teamCarId || null,
@@ -1852,7 +1982,7 @@ function renderDerbyHUD() {
     for (const car of derbyCars) {
         const div = document.createElement('div');
         div.className = 'derby-car-hp' + (car.isPlayer ? ' player' : '');
-        div.id = 'hp-' + car.name.replace(/\s/g, '-');
+        div.id = 'hp-' + car.hudId;
         const prefix = car.isPlayer ? '★ ' : '';
         const teamSuffix = car.rivalTeam ? ' [' + car.rivalTeam + ']' : '';
         div.innerHTML = `
@@ -1865,7 +1995,7 @@ function renderDerbyHUD() {
 
 function updateDerbyHUD() {
     for (const car of derbyCars) {
-        const el = document.getElementById('hp-' + car.name.replace(/\s/g, '-'));
+        const el = document.getElementById('hp-' + car.hudId);
         if (!el) continue;
         const pct = Math.max(0, (car.health / car.maxHealth) * 100);
         const fill = el.querySelector('.derby-hp-fill');
@@ -2027,10 +2157,15 @@ function cleanupDerby() {
     derbyRunning = false;
     if (derbyEngine) {
         derbyEngine.stopRenderLoop();
-        derbyEngine.dispose();
+        derbyEngine.dispose(); // disposes the scene and every resource owned by it (shadows, pipeline, glow)
         derbyEngine = null;
     }
     derbyScene = null;
+    derbyShadowGen = null;
+    derbyPipeline = null;
+    derbyGlowLayer = null;
+    derbyKeyLight = null;
+    derbyCamera = null;
     derbyCars = [];
     // Clear announcer
     clearTimeout(announcerTimeout);
@@ -2103,6 +2238,31 @@ function scrapCar(id) {
     sfxScrap();
 }
 
+// Strip HTML-meta characters and clamp length so a player-typed name can never
+// break markup (car names are interpolated into innerHTML all over the UI) or
+// overflow the fixed-width name badges. Then dedupe against every name already
+// in the fleet so two cars never collide on name-keyed lookups/DOM ids.
+function sanitizeCarName(raw, fallback) {
+    let name = String(raw == null ? '' : raw)
+        .replace(/[<>&"'`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (name.length > 20) name = name.slice(0, 20).trim();
+    return name || fallback;
+}
+
+function dedupeCarName(name) {
+    const existing = new Set((state.cars || []).map(c => c.name));
+    if (!existing.has(name)) return name;
+    let n = 2;
+    let candidate = name + ' (' + n + ')';
+    while (existing.has(candidate)) {
+        n++;
+        candidate = name + ' (' + n + ')';
+    }
+    return candidate;
+}
+
 function repairCar(id) {
     if (state.cars.length >= MAX_TEAM_ENTRIES) return;
     const idx = state.junkyardCars.findIndex(c => c.id === id);
@@ -2113,7 +2273,7 @@ function repairCar(id) {
     state.stats.carsRepaired++;
 
     const customName = prompt('Name your new car:', jc.name);
-    const finalName = (customName && customName.trim()) ? customName.trim() : jc.name;
+    const finalName = dedupeCarName(sanitizeCarName(customName, jc.name));
 
     state.cars.push({
         id: jc.id,
