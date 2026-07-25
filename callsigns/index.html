@@ -890,9 +890,14 @@ const STR = {
     lockedSub: 'Reach {cash} and {rep} reputation to expand beyond one signal.',
     unlockedTitle: 'Expansion unlocked',
     unlockedSub: 'You have the capital and the name. A second callsign is within reach.',
-    comingSoon: 'Coming soon',
-    comingSoonNote: 'Multi-station management arrives in a future update. The license is yours — the build is not finished.',
     progressTo: 'Progress to expansion',
+    foundStation: 'Found Second Station',
+    foundStationNote: 'One-time buildout cost of {amt}. The second station runs itself day to day, contributing a share of its take back to headquarters.',
+    secondStationTitle: 'Second Station',
+    secondStationSub: '{call} — signed on Day {day}.',
+    networkContribution: 'Network contribution (yesterday)',
+    networkTotal: 'Total earned by network',
+    foundedMsg: 'You founded a second station, {call}, feeding the network.',
 
     logTitle: 'Station Log', noLog: 'Nothing logged yet.',
 
@@ -902,6 +907,7 @@ const STR = {
     optAutosave: 'Autosave', optAutosaveDesc: 'Save automatically every few days.',
     optEvents: 'Event popups', optEventsDesc: 'Pause the game for big story moments.',
     optMotion: 'Reduced motion', optMotionDesc: 'Calm down animated scene effects.',
+    optSound: 'Sound effects', optSoundDesc: 'Clicks, on-air chimes, and dead-air stings.',
     optWipe: 'Delete save', optWipeDesc: 'Erase this station permanently.',
     wipe: 'Delete', wipeConfirm: 'Delete your save?', wipeConfirmSub: 'This cannot be undone.',
 
@@ -911,6 +917,11 @@ const STR = {
     dayReport: 'Day {n} · {listeners} listeners · {money}',
     breakdownMsg: 'The {gear} cut out mid-show. Listeners drifted.',
     breakdownFixed: 'Your engineer caught the fault before anyone noticed.',
+
+    cashWarning: 'Cash reserves are negative. Cut costs or grow revenue before the station goes bankrupt.',
+    bankruptTitle: 'Station Bankrupt',
+    bankruptSub: '{call} has gone dark for good.',
+    bankruptNote: 'Payroll outran revenue for too many days running and the bills finally came due. This save has ended — start a new station to try again.',
 
     scenes: {
       garage: 'Garage Setup', storefront: 'Storefront Studio', tower: 'Broadcast Tower',
@@ -1080,11 +1091,15 @@ function newState(call){
     staff: [],
     log: [],
     unlockedExpansion: false,
-    lastDay: { listeners: 0, revenue: 0, costs: 0, net: 0, quality: 0 },
-    opts: { speed: 1, autosave: true, eventPopups: true, reducedMotion: false },
+    secondStation: null,
+    lastDay: { listeners: 0, revenue: 0, costs: 0, net: 0, quality: 0, network: 0 },
+    opts: { speed: 1, autosave: true, eventPopups: true, reducedMotion: false, sound: true },
     stats: { totalEarned: 0, peakListeners: 40, daysOnAir: 0 }
   };
 }
+
+const SECOND_STATION_COST = 50000;
+const BANKRUPTCY_FLOOR = -4000;
 
 /* ---------------- simulation ---------------- */
 
@@ -1162,7 +1177,17 @@ function simulateDay(){
   }
 
   const costs = S.staff.reduce((a, p) => a + p.salary, 0);
-  const net = revenue - costs;
+  let net = revenue - costs;
+
+  // Second station (once founded) runs itself and wires a cut of its own
+  // take back to headquarters — scaled by reputation so it's not free money
+  // divorced from how well the flagship signal is actually doing.
+  let network = 0;
+  if (S.secondStation) {
+    network = revenue * 0.32 * clamp(S.rep / 100, 0.3, 1);
+    net += network;
+    S.secondStation.totalEarned += network;
+  }
 
   S.cash += net;
   S.listeners = Math.round(avgListeners * (breakdown && !breakdown.caught ? 0.82 : 1));
@@ -1173,9 +1198,9 @@ function simulateDay(){
   S.rep = clamp(S.rep + (repTarget - S.rep) * 0.05, 0, 100);
   S.day++;
   S.stats.daysOnAir++;
-  if (revenue > 0) S.stats.totalEarned += revenue;
+  if (revenue > 0) S.stats.totalEarned += revenue + network;
   S.stats.peakListeners = Math.max(S.stats.peakListeners, S.listeners);
-  S.lastDay = { listeners: S.listeners, revenue, costs, net, quality: avgQuality };
+  S.lastDay = { listeners: S.listeners, revenue, costs, net, quality: avgQuality, network };
 
   return { breakdown, net, revenue, costs };
 }
@@ -1213,13 +1238,14 @@ function checkUnlock(){
     S.unlockedExpansion = true;
     addLog('Expansion unlocked — you can found a second station.', 'big');
     toast('🏆 ' + t('unlockedTitle'), 'good');
+    sfxOnAir();
+    pauseTick();
     openModal(
       t('unlockedTitle'),
       t('unlockedSub'),
-      '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('comingSoonNote')) + '</p>',
-      [{ label: t('close'), cls: 'buy', act: closeModal }]
+      '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('foundStationNote', { amt: money(SECOND_STATION_COST) })) + '</p>',
+      [{ label: t('close'), cls: 'buy', act: dismissAutoModal }]
     );
-    pauseTick();
     return true;
   }
   return false;
@@ -1232,20 +1258,34 @@ let running = false;
 function tick(){
   const rep = simulateDay();
 
+  // Hard cash floor — payroll outrunning revenue can no longer spiral into
+  // arbitrary negative numbers forever. Check this before anything else this
+  // tick so a bankrupting day can't also open an event/unlock modal under it.
+  if (S.cash <= BANKRUPTCY_FLOOR) {
+    render();
+    triggerBankruptcy();
+    return;
+  }
+
   if (rep.breakdown) {
     if (rep.breakdown.caught) addLog(t('breakdownFixed'), 'good');
-    else { addLog(t('breakdownMsg', { gear: rep.breakdown.gear }), 'bad'); toast('⚠️ ' + t('breakdownMsg', { gear: rep.breakdown.gear }), 'bad'); }
+    else {
+      addLog(t('breakdownMsg', { gear: rep.breakdown.gear }), 'bad');
+      toast('⚠️ ' + t('breakdownMsg', { gear: rep.breakdown.gear }), 'bad');
+      sfxDeadAir();
+    }
   }
 
   const ev = rollEvent();
   if (ev) {
     addLog(ev.msg, ev.type);
+    if (ev.type === 'good') sfxOnAir(); else sfxTrouble();
     if (S.opts.eventPopups) {
       pauseTick();
       openModal(
         ev.type === 'good' ? '📻 Good news' : '📻 Trouble',
         ev.msg, '',
-        [{ label: t('resume'), cls: 'buy', act: () => { closeModal(); resumeTick(); } }]
+        [{ label: t('resume'), cls: 'buy', act: dismissAutoModal }]
       );
     } else {
       toast((ev.type === 'good' ? '📈 ' : '📉 ') + ev.msg, ev.type);
@@ -1254,8 +1294,27 @@ function tick(){
 
   if (S.day % 7 === 0) refreshCandidates();
   if (S.opts.autosave && S.day % 5 === 0) saveGame(true);
+  // checkUnlock() may itself open a modal (queued behind the event modal
+  // above, if one is already open — see openModal/dismissAutoModal).
   checkUnlock();
   render();
+}
+
+/** Cash has run dry for good. Ends the run: the save is cleared so a fresh
+    station starts clean rather than reloading straight back into the same
+    unrecoverable spiral. */
+function triggerBankruptcy(){
+  pauseTick();
+  sfxBankrupt();
+  addLog(t('bankruptSub', { call: S.call }), 'bad');
+  openModal(
+    '📉 ' + t('bankruptTitle'),
+    t('bankruptSub', { call: S.call }),
+    '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('bankruptNote')) + '</p>',
+    [{ label: t('mainMenu'), cls: 'danger', act: () => {
+        wipeSave(); S = null; closeModal(); stopTick(); showScreen('menu'); refreshMenu();
+      } }]
+  );
 }
 
 function startTick(){
@@ -1368,6 +1427,7 @@ function render(){
   $('hud-sub').textContent = TX[S.tx].spec + ' · ' + ANT[S.ant].name;
   $('hud-day').textContent = t('dayShort', { n: S.day });
   $('stat-cash').textContent = money(S.cash);
+  $('stat-cash').style.color = S.cash < 0 ? 'var(--red)' : '';
   $('stat-listeners').textContent = num(S.listeners);
   $('stat-rep').textContent = Math.round(S.rep);
 
@@ -1383,6 +1443,11 @@ function viewStudio(){
   const d = S.lastDay;
   const netCls = d.net >= 0 ? 'up' : 'down';
   let h = renderScene();
+
+  if (S.cash < 0) {
+    h += '<div class="hint" style="background:rgba(248,113,113,.10);border-color:rgba(248,113,113,.32);color:var(--red)">⚠️ ' +
+      esc(t('cashWarning')) + '</div>';
+  }
 
   h += '<div class="card"><div class="card-head">' +
     '<span class="card-title">' + esc(t('dailyBrief')) + '</span>' +
@@ -1545,13 +1610,28 @@ function viewEmpire(){
     '<div class="row-sub">' + esc(t('day', { n: S.day })) + ' · ' + num(S.stats.peakListeners) + ' peak · ' + money(S.stats.totalEarned) + ' earned</div>' +
   '</div></div></div>';
 
-  if (S.unlockedExpansion) {
+  if (S.unlockedExpansion && S.secondStation) {
+    const ss = S.secondStation;
+    h += '<div class="card"><div class="card-head">' +
+      '<span class="card-title">📡 ' + esc(t('secondStationTitle')) + '</span></div>' +
+      '<div class="row"><div class="row-icon">🏙️</div><div class="row-body">' +
+        '<div class="row-title">' + esc(t('secondStationSub', { call: ss.call, day: ss.foundedDay })) + '</div>' +
+        '<div class="row-sub">' + esc(t('networkContribution')) + ': ' +
+          '<span style="color:var(--green);font-weight:700">' + money(S.lastDay.network || 0) + '</span></div>' +
+        '<div class="row-sub">' + esc(t('networkTotal')) + ': ' +
+          '<span style="color:var(--amber);font-weight:700">' + money(ss.totalEarned) + '</span></div>' +
+      '</div></div></div>';
+  } else if (S.unlockedExpansion) {
+    const canAfford = S.cash >= SECOND_STATION_COST;
     h += '<div class="card"><div class="locked-panel">' +
       '<div class="locked-icon">🏙️</div>' +
       '<div style="font-size:17px;font-weight:800;color:var(--amber);margin-bottom:5px">' + esc(t('unlockedTitle')) + '</div>' +
       '<div style="font-size:13px;color:var(--muted);margin-bottom:14px">' + esc(t('unlockedSub')) + '</div>' +
-      '<button class="btn buy" disabled style="opacity:.6">' + esc(t('station2')) + ' · ' + esc(t('comingSoon')) + '</button>' +
-      '<div style="font-size:11px;color:var(--dim);margin-top:12px;max-width:340px;margin-left:auto;margin-right:auto">' + esc(t('comingSoonNote')) + '</div>' +
+      '<button class="btn buy" id="btn-found-station"' + (canAfford ? '' : ' disabled') + '>' +
+        esc(t('foundStation')) + ' · ' + money(SECOND_STATION_COST) +
+      '</button>' +
+      '<div style="font-size:11px;color:var(--dim);margin-top:12px;max-width:340px;margin-left:auto;margin-right:auto">' +
+        esc(t('foundStationNote', { amt: money(SECOND_STATION_COST) })) + '</div>' +
     '</div></div>';
   } else {
     h += '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('progressTo')) + '</span></div>' +
@@ -1584,11 +1664,76 @@ function viewLog(){
   return h + '</div>';
 }
 
+/* ---------------- audio ----------------
+   Tiny Web Audio synth — no asset files, nothing to vendor. Muted entirely
+   when S.opts.sound is off (default on) or before any game state exists. */
+
+let actx = null;
+function audioOn(){ return S ? S.opts.sound !== false : true; }
+function ensureAudioCtx(){
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { actx = null; }
+  }
+  if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  return actx;
+}
+function tone(freq, dur, type, vol, delay){
+  if (!audioOn()) return;
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime + (delay || 0);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol || 0.1, t0 + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.03);
+}
+function sfxClick(){ tone(760, 0.045, 'square', 0.045); }
+function sfxBuy(){ tone(520, 0.09, 'triangle', 0.08); tone(780, 0.12, 'triangle', 0.07, 0.06); }
+/** On-air chime — ascending major triad, for good events / good news. */
+function sfxOnAir(){
+  tone(660, 0.14, 'sine', 0.09);
+  tone(880, 0.18, 'sine', 0.09, 0.09);
+  tone(1320, 0.22, 'sine', 0.08, 0.2);
+}
+/** Dead-air sting — a low, sour drop for equipment breakdowns. */
+function sfxDeadAir(){
+  tone(180, 0.3, 'sawtooth', 0.09);
+  tone(120, 0.35, 'sawtooth', 0.08, 0.12);
+}
+function sfxTrouble(){
+  tone(320, 0.12, 'square', 0.06);
+  tone(230, 0.16, 'square', 0.055, 0.09);
+}
+function sfxBankrupt(){
+  tone(220, 0.5, 'sawtooth', 0.1);
+  tone(150, 0.6, 'sawtooth', 0.09, 0.16);
+  tone(90, 0.9, 'sawtooth', 0.08, 0.34);
+}
+
 /* ---------------- modals & toasts ---------------- */
 
 let modalActions = [];
+// Modals queue instead of last-write-wins: if a random event's modal and the
+// expansion-unlock modal (or any two modals) fire on the same tick, the
+// second call queues behind the first rather than overwriting it before the
+// player has read it.
+let modalQueue = [];
 
 function openModal(title, sub, bodyHtml, actions){
+  if ($('modal-back').classList.contains('open')) {
+    modalQueue.push({ title, sub, bodyHtml, actions });
+    return;
+  }
+  showModalNow(title, sub, bodyHtml, actions);
+}
+function showModalNow(title, sub, bodyHtml, actions){
   modalActions = actions || [];
   $('modal').innerHTML =
     '<div class="modal-title">' + esc(title) + '</div>' +
@@ -1599,7 +1744,23 @@ function openModal(title, sub, bodyHtml, actions){
     ).join('') + '</div>';
   $('modal-back').classList.add('open');
 }
-function closeModal(){ $('modal-back').classList.remove('open'); modalActions = []; }
+function closeModal(){
+  $('modal-back').classList.remove('open');
+  modalActions = [];
+  if (modalQueue.length) {
+    const next = modalQueue.shift();
+    setTimeout(() => showModalNow(next.title, next.sub, next.bodyHtml, next.actions), 30);
+  }
+}
+/** Used by modals the game itself opened mid-tick (random events, the
+    expansion unlock). Closes the current one; if another was queued behind
+    it, that one takes over and the tick stays paused. Only once the queue is
+    fully drained does the game actually resume. */
+function dismissAutoModal(){
+  const hadQueued = modalQueue.length > 0;
+  closeModal();
+  if (!hadQueued) resumeTick();
+}
 
 function toast(msg, kind){
   const el = document.createElement('div');
@@ -1629,6 +1790,7 @@ function buyGear(key){
   if (key === 'tx') S.tx++; else S.ant++;
   addLog('Upgraded to ' + next.name + '.', 'big');
   toast('📡 ' + next.name + ' installed', 'good');
+  sfxBuy();
   saveGame(true);
   render();
 }
@@ -1643,6 +1805,7 @@ function hirePerson(id){
   candidates = candidates.filter(c => c.id !== id);
   addLog(t('hiredMsg', { name: p.name, role: roleName(p.role) }), 'good');
   toast(ROLES[p.role].icon + ' ' + t('hiredMsg', { name: p.name, role: roleName(p.role) }), 'good');
+  sfxBuy();
   saveGame(true);
   render();
 }
@@ -1671,6 +1834,19 @@ function trainPerson(id){
   p.salary = salaryFor(p.role, p.skill);
   addLog(t('trainedMsg', { name: p.name, n: p.skill }), 'good');
   toast('📈 ' + t('trainedMsg', { name: p.name, n: p.skill }), 'good');
+  sfxBuy();
+  saveGame(true);
+  render();
+}
+
+function foundSecondStation(){
+  if (!S.unlockedExpansion || S.secondStation || S.cash < SECOND_STATION_COST) return;
+  S.cash -= SECOND_STATION_COST;
+  const call2 = randomCall();
+  S.secondStation = { call: call2, foundedDay: S.day, totalEarned: 0 };
+  addLog(t('foundedMsg', { call: call2 }), 'big');
+  toast('🏙️ ' + t('foundedMsg', { call: call2 }), 'good');
+  sfxOnAir();
   saveGame(true);
   render();
 }
@@ -1786,6 +1962,7 @@ function renderOptions(){
   h += optToggle('autosave', o.autosave, t('optAutosave'), t('optAutosaveDesc'));
   h += optToggle('eventPopups', o.eventPopups, t('optEvents'), t('optEventsDesc'));
   h += optToggle('reducedMotion', o.reducedMotion, t('optMotion'), t('optMotionDesc'));
+  h += optToggle('sound', o.sound, t('optSound'), t('optSoundDesc'));
 
   h += '<div class="opt-row"><div><div class="opt-lbl">' + esc(t('optWipe')) + '</div><div class="opt-desc">' + esc(t('optWipeDesc')) + '</div></div>' +
     '<button class="btn danger" id="btn-wipe">' + esc(t('wipe')) + '</button></div>';
@@ -1865,6 +2042,10 @@ function wire(){
 
   // Delegated clicks — the whole UI is re-rendered HTML, so nothing binds directly.
   document.addEventListener('click', e => {
+    // One shared click blip for any interactive control; buy/hire/train get
+    // their own richer sfxBuy() on top of this further down.
+    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn, .switch, .slot')) sfxClick();
+
     const tab = e.target.closest('[data-tab]');
     if (tab) return setTab(tab.dataset.tab);
 
@@ -1882,6 +2063,9 @@ function wire(){
 
     const trainB = e.target.closest('[data-train]');
     if (trainB && !trainB.disabled) return trainPerson(trainB.dataset.train);
+
+    const foundB = e.target.closest('#btn-found-station');
+    if (foundB && !foundB.disabled) return foundSecondStation();
 
     const slotEl = e.target.closest('[data-slot]');
     if (slotEl) return openSlotEditor(slotEl.dataset.slot);
