@@ -2,8 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>IRON FRONTIER VR</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="iron-frontier-vr-aframe.min.js"></script>
 <script>
 AFRAME.registerComponent('gonzo-move', {
   schema: { speed: { default: 5 }, turnSnap: { default: 30 } },
@@ -60,23 +61,67 @@ body{margin:0;background:#0a0500;}
 #gameover p{color:#c9a84c;letter-spacing:3px;margin:14px 0 28px;font-size:12px;}
 #gameover button{padding:14px 40px;background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Courier New',monospace;font-size:12px;letter-spacing:4px;cursor:pointer;}
 #info{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);color:#7a5522;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;pointer-events:none;z-index:50;text-align:center;white-space:nowrap;}
+.panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-width:92vw;max-height:88vh;overflow-y:auto;background:rgba(10,6,2,0.97);border:2px solid #c9a84c;padding:26px;display:none;z-index:400;font-family:'Courier New',monospace;text-align:center;}
+.panel h1{font-size:30px;color:#c0431a;letter-spacing:6px;text-shadow:0 0 20px rgba(192,67,26,0.6);margin:0 0 6px;}
+.panel .psub{font-size:11px;letter-spacing:4px;color:#c9a84c;margin-bottom:16px;}
+.panel p{font-size:12px;line-height:1.8;color:#c9a84c;margin:0 0 16px;}
+.pdiv{height:1px;background:#3a2800;margin:14px 0;}
+.statgrid{display:flex;justify-content:space-around;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.statgrid .sk{font-size:8px;letter-spacing:2px;color:#7a5522;margin-bottom:3px;}
+.statgrid .sv{font-size:16px;color:#c9a84c;}
+.pbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+.pbtn{flex:1;min-width:110px;background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;padding:12px 10px;cursor:pointer;text-align:center;}
+.pbtn:hover{border-color:#fff;background:rgba(201,168,76,0.12);color:#fff;}
+.pbtn.red{border-color:#c0431a;color:#c0431a;}
+.pbtn.red:hover{background:rgba(192,67,26,0.15);color:#fff;}
+#pausebtn{position:fixed;top:54px;right:14px;z-index:110;pointer-events:auto;background:rgba(8,4,0,0.9);border:1px solid #3a2800;color:#c9a84c;font-family:'Courier New',monospace;font-size:13px;padding:6px 10px;cursor:pointer;display:none;}
+#pausebtn:hover{border-color:#c9a84c;color:#fff;}
 </style>
 </head>
 <body>
-<div id="hud">
+<div id="hud" style="display:none;">
   <div><div class="hl">GOLD</div><div class="hv" id="gv">150</div></div>
   <div style="text-align:center"><div class="hl">WAVE</div><div class="hv" id="wv">0</div></div>
   <div style="text-align:right"><div class="hl">LIVES</div><div class="hv" id="lv">&#9829;&#9829;&#9829;&#9829;&#9829;</div></div>
 </div>
-<div id="tmenu">
+<div id="tmenu" style="display:none;">
   <button class="tb sel" onclick="selT('watchtower',this)"><div class="ti">&#128307;</div>WATCH<br>TOWER<div class="tc">40g</div></button>
   <button class="tb" onclick="selT('cannon',this)"><div class="ti">&#128163;</div>CANNON<div class="tc">80g</div></button>
   <button class="tb" onclick="selT('bonfire',this)"><div class="ti">&#128293;</div>BONFIRE<div class="tc">50g</div></button>
   <button class="tb" onclick="selT('tesla',this)"><div class="ti">&#9889;</div>TESLA<div class="tc">110g</div></button>
 </div>
 <div id="banner"><div id="btitle">WAVE 1</div><div id="bsub">RAIDERS FROM THE NORTH</div></div>
-<div id="gameover"><h1>FORT FALLEN</h1><p id="fs">SURVIVED 0 WAVES</p><button onclick="restartGame()">&#8635; TRY AGAIN</button></div>
-<div id="info">LEFT STICK=MOVE · RIGHT STICK=TURN · TRIGGER=PLACE · DESKTOP: CLICK TO LOOK · WASD=MOVE</div>
+<div id="gameover"><h1>FORT FALLEN</h1><p id="fs">SURVIVED 0 WAVES</p><p id="gobest" style="font-size:10px;letter-spacing:2px;color:#7a5522;margin:-16px 0 26px;"></p><button onclick="restartGame()">&#8635; TRY AGAIN</button><button onclick="returnToMenu()" style="margin-top:12px;border-color:#7a5522;color:#7a5522;">MAIN MENU</button></div>
+<div id="info" style="display:none;">LEFT STICK=MOVE · RIGHT STICK=TURN · TRIGGER=PLACE · DESKTOP: CLICK TO LOOK · WASD=MOVE · ESC=PAUSE</div>
+<button id="pausebtn" onclick="pauseGame()" title="Pause">&#10073;&#10073; PAUSE</button>
+
+<div id="startscreen" class="panel">
+  <h1>IRON FRONTIER VR</h1>
+  <div class="psub">TOWER DEFENSE</div>
+  <p>Raiders ride out of the badlands night after night. Place watchtowers, cannons, bonfires and tesla coils to hold the fort. Survive as many waves as you can &mdash; lose all five lives and the fort falls.</p>
+  <div class="statgrid">
+    <div><div class="sk">BEST WAVE</div><div class="sv" id="bestWaveDisp">0</div></div>
+    <div><div class="sk">HIGH SCORE</div><div class="sv" id="highScoreDisp">0</div></div>
+    <div><div class="sk">SOUND</div><div class="sv" id="soundStateDisp">ON</div></div>
+  </div>
+  <div class="pbtns">
+    <button class="pbtn" onclick="startGame(false)">NEW GAME</button>
+    <button class="pbtn" id="continueBtn" style="display:none;" onclick="startGame(true)">CONTINUE</button>
+    <button class="pbtn" onclick="toggleMute()">TOGGLE SOUND</button>
+  </div>
+  <div class="pdiv"></div>
+  <p style="margin-bottom:0;font-size:10px;color:#7a5522;">LEFT STICK=MOVE &middot; RIGHT STICK=TURN &middot; TRIGGER=PLACE &middot; DESKTOP: WASD=MOVE &middot; CLICK=LOOK &middot; ESC=PAUSE</p>
+</div>
+
+<div id="pausescreen" class="panel">
+  <h1 style="font-size:24px;">PAUSED</h1>
+  <div class="pdiv"></div>
+  <div class="pbtns">
+    <button class="pbtn" onclick="resumeGame()">RESUME</button>
+    <button class="pbtn" id="saveBtn" onclick="manualSave()">SAVE</button>
+    <button class="pbtn red" onclick="returnToMenu()">MAIN MENU</button>
+  </div>
+</div>
 
 <a-scene background="color:#1a0d08" renderer="antialias:true;colorManagement:false" vr-mode-ui="enabled:true" loading-screen="backgroundColor:#000;dotsColor:#c9a84c">
   <a-light type="ambient" color="#aaa077" intensity="3.5"></a-light>
@@ -150,30 +195,90 @@ window.addEventListener('load',()=>{
   }
 });
 
-const G={gold:150,lives:5,wave:0,score:0,running:false,waveActive:false,selType:'watchtower',towers:[],enemies:[],projs:[],nE:0,nT:0,nP:0,ac:null};
+const G={gold:150,lives:5,wave:0,score:0,running:false,paused:false,mode:'menu',waveActive:false,selType:'watchtower',towers:[],enemies:[],projs:[],nE:0,nT:0,nP:0,ac:null,muted:false,autosaveIv:null,mainIv:null};
 const TD={watchtower:{cost:40,range:12,dmg:15,rate:1200,col:'#8B6914',h:2.5,r:0.3,pc:'#ffcc44',ps:22},cannon:{cost:80,range:9,dmg:45,rate:2800,col:'#555555',h:1.8,r:0.45,pc:'#888888',ps:16,aoe:2.5},bonfire:{cost:50,range:6,dmg:8,rate:600,col:'#ff6600',h:1.2,r:0.5,pc:'#ff4400',ps:20,slow:true},tesla:{cost:110,range:8,dmg:30,rate:1600,col:'#44aaff',h:3.0,r:0.25,pc:'#88ddff',ps:28,chain:3}};
 const ED={raider:{hp:60,spd:3.5,rew:10,col:'#882200',sc:1.0},horseman:{hp:40,spd:6.0,rew:15,col:'#553311',sc:0.85},dynamiter:{hp:80,spd:2.5,rew:18,col:'#664400',sc:1.1},armored:{hp:220,spd:1.8,rew:35,col:'#444444',sc:1.3},boss:{hp:600,spd:1.5,rew:80,col:'#220000',sc:2.0}};
 const SPAWNS=[{x:0,z:-55},{x:55,z:0},{x:0,z:55},{x:-55,z:0}];
 const DIRS=['NORTH','EAST','SOUTH','WEST'];
+const SAVE_KEY='ironFrontierVR-save-v1';
 
 function selT(type,btn){G.selType=type;document.querySelectorAll('.tb').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');}
 
+// ---------------- Save / persistence ----------------
+function loadSave(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return {version:1,bestWave:0,highScore:0,muted:false,checkpoint:null};
+    const data=JSON.parse(raw);
+    if(!data||typeof data!=='object')throw new Error('malformed save');
+    return {
+      version:1,
+      bestWave:Number(data.bestWave)||0,
+      highScore:Number(data.highScore)||0,
+      muted:!!data.muted,
+      checkpoint:(data.checkpoint&&typeof data.checkpoint==='object')?data.checkpoint:null
+    };
+  }catch(e){
+    console.warn('Iron Frontier VR: save load failed, starting fresh',e);
+    return {version:1,bestWave:0,highScore:0,muted:false,checkpoint:null};
+  }
+}
+function writeSave(patch){
+  try{
+    const current=loadSave();
+    const merged=Object.assign({},current,patch,{version:1});
+    localStorage.setItem(SAVE_KEY,JSON.stringify(merged));
+  }catch(e){
+    console.warn('Iron Frontier VR: save write failed',e);
+  }
+}
+// Checkpoints capture the run at the last wave boundary (or the state at
+// the moment of saving, if mid-wave) — resuming a mid-wave save restarts
+// that wave fresh rather than trying to reconstruct exact enemy state.
+function saveCheckpoint(){
+  if(G.mode!=='playing'||!G.running)return;
+  try{
+    const resumeWave=G.waveActive?G.wave:G.wave+1;
+    const checkpoint={
+      gold:G.gold,lives:G.lives,score:G.score,wave:resumeWave,
+      towers:G.towers.map(t=>({type:t.type,x:t.x,z:t.z}))
+    };
+    writeSave({checkpoint});
+  }catch(e){console.warn('Iron Frontier VR: autosave failed',e);}
+}
+function clearCheckpoint(){writeSave({checkpoint:null});}
+function recordRunEnd(){
+  const save=loadSave();
+  const bestWave=Math.max(save.bestWave,G.wave);
+  const highScore=Math.max(save.highScore,G.score);
+  writeSave({bestWave,highScore,checkpoint:null});
+  return {bestWave,highScore};
+}
+
+function buildTower(type,x,z){
+  const def=TD[type];
+  const cont=document.getElementById('towers');
+  const g=document.createElement('a-entity');g.setAttribute('position',`${x.toFixed(2)} 0 ${z.toFixed(2)}`);
+  const base=document.createElement('a-cylinder');base.setAttribute('radius',(def.r+0.15).toFixed(2));base.setAttribute('height','0.15');base.setAttribute('position','0 0.07 0');base.setAttribute('material',`color:#2d1505`);g.appendChild(base);
+  const body=document.createElement('a-cylinder');body.setAttribute('radius',def.r.toFixed(2));body.setAttribute('height',def.h.toFixed(2));body.setAttribute('position',`0 ${(def.h/2).toFixed(2)} 0`);body.setAttribute('material',`color:${def.col}`);g.appendChild(body);
+  if(type==='bonfire'){const fl=document.createElement('a-cone');fl.setAttribute('radius-bottom',(def.r*0.8).toFixed(2));fl.setAttribute('radius-top','0.02');fl.setAttribute('height','0.7');fl.setAttribute('position',`0 ${(def.h+0.35).toFixed(2)} 0`);fl.setAttribute('material','color:#ff6600;emissive:#cc2200;emissiveIntensity:0.9');fl.setAttribute('animation','property:scale;from:1 1 1;to:0.85 1.15 0.85;dur:220;dir:alternate;loop:true');g.appendChild(fl);}
+  if(type==='tesla'){const ring=document.createElement('a-torus');ring.setAttribute('radius','0.4');ring.setAttribute('radius-tubular','0.06');ring.setAttribute('position',`0 ${(def.h+0.1).toFixed(2)} 0`);ring.setAttribute('material','color:#44aaff;emissive:#2266ff;emissiveIntensity:0.8');ring.setAttribute('animation','property:rotation;from:0 0 0;to:0 360 0;dur:2000;loop:true;easing:linear');g.appendChild(ring);}
+  if(type==='cannon'){const bar=document.createElement('a-cylinder');bar.setAttribute('radius','0.1');bar.setAttribute('height','0.9');bar.setAttribute('rotation','90 0 0');bar.setAttribute('position',`0 ${(def.h-0.2).toFixed(2)} -0.5`);bar.setAttribute('material','color:#333333');g.appendChild(bar);}
+  if(type==='watchtower'){const top=document.createElement('a-box');top.setAttribute('width','0.8');top.setAttribute('height','0.5');top.setAttribute('depth','0.8');top.setAttribute('position',`0 ${(def.h+0.25).toFixed(2)} 0`);top.setAttribute('material','color:#6b4010');g.appendChild(top);}
+  cont.appendChild(g);
+  const t={id:G.nT++,type,x,z,def,lastFired:0,el:g};
+  G.towers.push(t);
+  return t;
+}
+
 function placeTowerAt(x,z){
-  if(!G.running)return;
+  if(!G.running||G.paused)return;
   const def=TD[G.selType];
   if(G.gold<def.cost){beep(80,0.1);return;}
   if(Math.abs(x)<8&&Math.abs(z)<8){beep(80,0.1);return;}
   for(const t of G.towers){if(Math.sqrt((t.x-x)**2+(t.z-z)**2)<1.5){beep(80,0.1);return;}}
   G.gold-=def.cost;hud();beep(440,0.08);
-  const cont=document.getElementById('towers');
-  const g=document.createElement('a-entity');g.setAttribute('position',`${x.toFixed(2)} 0 ${z.toFixed(2)}`);
-  const base=document.createElement('a-cylinder');base.setAttribute('radius',(def.r+0.15).toFixed(2));base.setAttribute('height','0.15');base.setAttribute('position','0 0.07 0');base.setAttribute('material',`color:#2d1505`);g.appendChild(base);
-  const body=document.createElement('a-cylinder');body.setAttribute('radius',def.r.toFixed(2));body.setAttribute('height',def.h.toFixed(2));body.setAttribute('position',`0 ${(def.h/2).toFixed(2)} 0`);body.setAttribute('material',`color:${def.col}`);g.appendChild(body);
-  if(G.selType==='bonfire'){const fl=document.createElement('a-cone');fl.setAttribute('radius-bottom',(def.r*0.8).toFixed(2));fl.setAttribute('radius-top','0.02');fl.setAttribute('height','0.7');fl.setAttribute('position',`0 ${(def.h+0.35).toFixed(2)} 0`);fl.setAttribute('material','color:#ff6600;emissive:#cc2200;emissiveIntensity:0.9');fl.setAttribute('animation','property:scale;from:1 1 1;to:0.85 1.15 0.85;dur:220;dir:alternate;loop:true');g.appendChild(fl);}
-  if(G.selType==='tesla'){const ring=document.createElement('a-torus');ring.setAttribute('radius','0.4');ring.setAttribute('radius-tubular','0.06');ring.setAttribute('position',`0 ${(def.h+0.1).toFixed(2)} 0`);ring.setAttribute('material','color:#44aaff;emissive:#2266ff;emissiveIntensity:0.8');ring.setAttribute('animation','property:rotation;from:0 0 0;to:0 360 0;dur:2000;loop:true;easing:linear');g.appendChild(ring);}
-  if(G.selType==='cannon'){const bar=document.createElement('a-cylinder');bar.setAttribute('radius','0.1');bar.setAttribute('height','0.9');bar.setAttribute('rotation','90 0 0');bar.setAttribute('position',`0 ${(def.h-0.2).toFixed(2)} -0.5`);bar.setAttribute('material','color:#333333');g.appendChild(bar);}
-  if(G.selType==='watchtower'){const top=document.createElement('a-box');top.setAttribute('width','0.8');top.setAttribute('height','0.5');top.setAttribute('depth','0.8');top.setAttribute('position',`0 ${(def.h+0.25).toFixed(2)} 0`);top.setAttribute('material','color:#6b4010');g.appendChild(top);}
-  cont.appendChild(g);G.towers.push({id:G.nT++,type:G.selType,x,z,def,lastFired:0,el:g});
+  buildTower(G.selType,x,z);
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -186,9 +291,32 @@ document.addEventListener('DOMContentLoaded',()=>{
       const inter=rc.getIntersection(els[0]);
       if(inter)placeTowerAt(inter.point.x,inter.point.z);
     });
-    startGame();setInterval(tick,50);
+    // Single persistent tick dispatcher, created once and never re-created —
+    // startGame()/restartGame() only reset state, so Menu -> Start cycling
+    // can never stack duplicate tick intervals.
+    if(G.mainIv)clearInterval(G.mainIv);
+    G.mainIv=setInterval(tick,50);
   });
+
+  try{
+    const save=loadSave();
+    G.muted=!!save.muted;
+    updateSoundDisplay();
+    const bw=document.getElementById('bestWaveDisp');if(bw)bw.textContent=save.bestWave;
+    const hs=document.getElementById('highScoreDisp');if(hs)hs.textContent=save.highScore;
+    const cb=document.getElementById('continueBtn');if(cb)cb.style.display=save.checkpoint?'block':'none';
+  }catch(e){console.warn('Iron Frontier VR: menu init failed',e);}
+  document.getElementById('startscreen').style.display='block';
 });
+
+document.addEventListener('keydown',(e)=>{
+  if(e.key!=='Escape'||!G.running)return;
+  if(G.paused)resumeGame();else pauseGame();
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&G.mode==='playing')saveCheckpoint();
+});
+window.addEventListener('pagehide',()=>{if(G.mode==='playing')saveCheckpoint();});
 
 function spawnEnemy(type,x,z){
   const def={...ED[type]},sc=def.sc;
@@ -196,36 +324,126 @@ function spawnEnemy(type,x,z){
   const body=document.createElement('a-box');body.setAttribute('width',(0.5*sc).toFixed(2));body.setAttribute('height',(1.0*sc).toFixed(2));body.setAttribute('depth',(0.4*sc).toFixed(2));body.setAttribute('position',`0 ${(0.5*sc).toFixed(2)} 0`);body.setAttribute('material',`color:${def.col}`);g.appendChild(body);
   const head=document.createElement('a-sphere');head.setAttribute('radius',(0.2*sc).toFixed(2));head.setAttribute('position',`0 ${(1.15*sc).toFixed(2)} 0`);head.setAttribute('material',`color:${def.col}`);g.appendChild(head);
   if(type!=='boss'){const hat=document.createElement('a-cylinder');hat.setAttribute('radius',(0.22*sc).toFixed(2));hat.setAttribute('height',(0.25*sc).toFixed(2));hat.setAttribute('position',`0 ${(1.38*sc).toFixed(2)} 0`);hat.setAttribute('material','color:#1a0f00');g.appendChild(hat);}
-  const hpbg=document.createElement('a-plane');hpbg.setAttribute('width','0.6');hpbg.setAttribute('height','0.07');hpbg.setAttribute('position',`0 ${(sc*1.9).toFixed(2)} 0`);hpbg.setAttribute('material','color:#330000;shader:flat;side:double');hpbg.setAttribute('look-at','#head');g.appendChild(hpbg);
-  const hpf=document.createElement('a-plane');hpf.setAttribute('width','0.6');hpf.setAttribute('height','0.065');hpf.setAttribute('position',`0 ${(sc*1.9+0.003).toFixed(2)} 0`);hpf.setAttribute('material','color:#cc2200;shader:flat;side:double');hpf.setAttribute('look-at','#head');g.appendChild(hpf);
+  const hpbg=document.createElement('a-plane');hpbg.setAttribute('width','0.6');hpbg.setAttribute('height','0.07');hpbg.setAttribute('position',`0 ${(sc*1.9).toFixed(2)} 0`);hpbg.setAttribute('material','color:#330000;shader:flat;side:double');hpbg.setAttribute('look-at','[camera]');g.appendChild(hpbg);
+  const hpf=document.createElement('a-plane');hpf.setAttribute('width','0.6');hpf.setAttribute('height','0.065');hpf.setAttribute('position',`0 ${(sc*1.9+0.003).toFixed(2)} 0`);hpf.setAttribute('material','color:#cc2200;shader:flat;side:double');hpf.setAttribute('look-at','[camera]');g.appendChild(hpf);
   document.getElementById('enemies').appendChild(g);
   G.enemies.push({id:G.nE++,type,x,z,hp:def.hp,mhp:def.hp,spd:def.spd,rew:def.rew,slow:0,sc,el:g,hpf});
 }
 
-function startGame(){G.gold=150;G.lives=5;G.wave=0;G.score=0;G.running=true;G.waveActive=false;['towers','enemies','fx'].forEach(id=>{const c=document.getElementById(id);while(c.firstChild)c.removeChild(c.firstChild);});G.towers=[];G.enemies=[];G.projs=[];G.nE=0;G.nT=0;G.nP=0;document.getElementById('gameover').style.display='none';hud();initAudio();setTimeout(nextWave,3000);}
-function nextWave(){if(!G.running)return;G.wave++;document.getElementById('wv').textContent=G.wave;const dir=Math.floor(Math.random()*4);document.getElementById('btitle').textContent='WAVE '+G.wave;document.getElementById('bsub').textContent='RAIDERS FROM THE '+DIRS[dir];const bn=document.getElementById('banner');bn.style.opacity='1';wbeep();setTimeout(()=>{bn.style.opacity='0';spawnWave(G.wave,dir);},2500);}
+function startGame(continueRun){
+  document.getElementById('startscreen').style.display='none';
+  document.getElementById('gameover').style.display='none';
+  document.getElementById('pausescreen').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('tmenu').style.display='flex';
+  document.getElementById('info').style.display='block';
+  ['towers','enemies','fx'].forEach(id=>{const c=document.getElementById(id);while(c.firstChild)c.removeChild(c.firstChild);});
+  G.gold=150;G.lives=5;G.wave=0;G.score=0;G.towers=[];G.enemies=[];G.projs=[];G.nE=0;G.nT=0;G.nP=0;G.waveActive=false;G.paused=false;
+
+  let resumeWave=0;
+  if(continueRun){
+    try{
+      const save=loadSave();
+      if(save.checkpoint){
+        const cp=save.checkpoint;
+        if(typeof cp.gold==='number')G.gold=cp.gold;
+        if(typeof cp.lives==='number')G.lives=Math.max(1,cp.lives);
+        if(typeof cp.score==='number')G.score=cp.score;
+        resumeWave=Math.max(0,(cp.wave||1)-1);
+        if(Array.isArray(cp.towers)){
+          cp.towers.forEach(ct=>{if(TD[ct.type]&&typeof ct.x==='number'&&typeof ct.z==='number')buildTower(ct.type,ct.x,ct.z);});
+        }
+      }
+    }catch(e){console.warn('Iron Frontier VR: continue load failed, starting fresh',e);}
+  }
+  G.wave=resumeWave;
+  G.running=true;G.mode='playing';
+  document.getElementById('pausebtn').style.display='block';
+  hud();initAudio();
+  if(G.autosaveIv)clearInterval(G.autosaveIv);
+  G.autosaveIv=setInterval(saveCheckpoint,30000);
+  setTimeout(nextWave,3000);
+}
+// Waits until the game is unpaused before invoking fn, so wave-transition
+// timers (banner display, inter-wave gap) don't silently keep advancing
+// while the player is looking at the pause overlay.
+function whenResumed(fn){
+  if(!G.running)return;
+  if(G.paused){setTimeout(()=>whenResumed(fn),250);return;}
+  fn();
+}
+function nextWave(){
+  if(!G.running)return;
+  if(G.paused){setTimeout(nextWave,250);return;}
+  G.wave++;document.getElementById('wv').textContent=G.wave;const dir=Math.floor(Math.random()*4);document.getElementById('btitle').textContent='WAVE '+G.wave;document.getElementById('bsub').textContent='RAIDERS FROM THE '+DIRS[dir];const bn=document.getElementById('banner');bn.style.opacity='1';wbeep();
+  setTimeout(()=>{bn.style.opacity='0';whenResumed(()=>spawnWave(G.wave,dir));},2500);
+}
 function getComp(w){if(w<=2)return['raider'];if(w<=4)return['raider','raider','horseman'];if(w<=6)return['raider','horseman','dynamiter'];if(w<=9)return['horseman','dynamiter','armored'];return['dynamiter','armored','boss'];}
-function spawnWave(w,dir){G.waveActive=true;const cnt=5+w*2,types=getComp(w),sp=SPAWNS[dir];let i=0;const iv=setInterval(()=>{if(!G.running){clearInterval(iv);return;}if(i>=cnt){clearInterval(iv);return;}const t=types[Math.floor(Math.random()*types.length)];const j=()=>(Math.random()-0.5)*10;spawnEnemy(t,sp.x+j(),sp.z+j());i++;},Math.max(400,800-w*30));}
+function spawnWave(w,dir){
+  G.waveActive=true;const cnt=5+w*2,types=getComp(w),sp=SPAWNS[dir];let i=0;
+  const iv=setInterval(()=>{
+    if(!G.running){clearInterval(iv);return;}
+    if(G.paused)return;
+    if(i>=cnt){clearInterval(iv);return;}
+    const t=types[Math.floor(Math.random()*types.length)];const j=()=>(Math.random()-0.5)*10;spawnEnemy(t,sp.x+j(),sp.z+j());i++;
+  },Math.max(400,800-w*30));
+}
 
 function tick(){
-  if(!G.running)return;const now=Date.now(),dt=0.05;const dead=[];
-  for(const e of G.enemies){if(e.hp<=0){dead.push(e);continue;}const spd=e.slow>0?e.spd*0.5:e.spd;if(e.slow>0)e.slow-=dt;const dx=-e.x,dz=-e.z,dist=Math.sqrt(dx*dx+dz*dz);if(dist<3){e.hp=0;G.lives--;hud();beep(60,0.2);if(G.lives<=0){gameOver();return;}dead.push(e);continue;}const nx=dx/dist,nz=dz/dist;e.x+=nx*spd*dt;e.z+=nz*spd*dt;if(e.el){e.el.setAttribute('position',`${e.x.toFixed(3)} 0 ${e.z.toFixed(3)}`);e.el.setAttribute('rotation',`0 ${(Math.atan2(nx,nz)*180/Math.PI).toFixed(1)} 0`);}}
+  if(!G.running||G.paused)return;
+  const now=Date.now(),dt=0.05;const dead=[];let livesLost=false;
+  for(const e of G.enemies){if(e.hp<=0){dead.push(e);continue;}const spd=e.slow>0?e.spd*0.5:e.spd;if(e.slow>0)e.slow-=dt;const dx=-e.x,dz=-e.z,dist=Math.sqrt(dx*dx+dz*dz);if(dist<3){e.hp=0;G.lives--;hud();beep(60,0.2);dead.push(e);if(G.lives<=0)livesLost=true;continue;}const nx=dx/dist,nz=dz/dist;e.x+=nx*spd*dt;e.z+=nz*spd*dt;if(e.el){e.el.setAttribute('position',`${e.x.toFixed(3)} 0 ${e.z.toFixed(3)}`);e.el.setAttribute('rotation',`0 ${(Math.atan2(nx,nz)*180/Math.PI).toFixed(1)} 0`);}}
   dead.forEach(e=>{G.enemies=G.enemies.filter(x=>x!==e);if(e.el&&e.el.parentNode)e.el.parentNode.removeChild(e.el);});
+  if(livesLost){gameOver();return;}
   for(const t of G.towers){if(now-t.lastFired<t.def.rate)continue;let cl=null,cd=Infinity;for(const e of G.enemies){if(e.hp<=0)continue;const d=Math.sqrt((e.x-t.x)**2+(e.z-t.z)**2);if(d<t.def.range&&d<cd){cd=d;cl=e;}}if(cl){t.lastFired=now;fireProj(t,cl);}}
   const pd=[];for(const p of G.projs){p.x+=p.vx*dt;p.z+=p.vz*dt;p.life-=dt;if(p.el)p.el.setAttribute('position',`${p.x.toFixed(3)} ${p.y} ${p.z.toFixed(3)}`);let hit=false;for(const e of G.enemies){if(e.hp<=0)continue;if(Math.sqrt((e.x-p.x)**2+(e.z-p.z)**2)<0.8){if(p.aoe){for(const e2 of G.enemies){if(Math.sqrt((e2.x-p.x)**2+(e2.z-p.z)**2)<p.aoe)dmg(e2,p.d);}boom(p.x,p.z);}else if(p.ch){let tg=[e];for(const e2 of G.enemies){if(tg.length>=p.ch||e2===e||e2.hp<=0)continue;if(Math.sqrt((e2.x-e.x)**2+(e2.z-e.z)**2)<4)tg.push(e2);}tg.forEach(x=>dmg(x,p.d));}else{dmg(e,p.d);if(p.sl)e.slow=2.0;}hit=true;pd.push(p);break;}}if(!hit&&p.life<=0)pd.push(p);}
   pd.forEach(p=>{G.projs=G.projs.filter(x=>x!==p);if(p.el&&p.el.parentNode)p.el.parentNode.removeChild(p.el);});
-  if(G.waveActive&&G.enemies.length===0){G.waveActive=false;G.gold+=20+G.wave*5;hud();beep(660,0.08);setTimeout(()=>beep(880,0.08),150);setTimeout(nextWave,4000);}
+  if(G.waveActive&&G.enemies.length===0){G.waveActive=false;G.gold+=20+G.wave*5;hud();beep(660,0.08);setTimeout(()=>beep(880,0.08),150);saveCheckpoint();setTimeout(()=>whenResumed(nextWave),4000);}
 }
 function dmg(e,d){e.hp-=d;if(e.hp<=0){G.gold+=e.rew;G.score++;hud();beep(220,0.06);puff(e.x,e.z);return;}const pct=Math.max(0,e.hp/e.mhp);if(e.hpf){e.hpf.setAttribute('width',(0.6*pct).toFixed(3));e.hpf.setAttribute('material',`color:${pct>0.5?'#22cc00':pct>0.25?'#ffaa00':'#cc2200'};shader:flat;side:double`);}}
 function fireProj(t,tgt){const dx=tgt.x-t.x,dz=tgt.z-t.z,dist=Math.sqrt(dx*dx+dz*dz),nx=dx/dist,nz=dz/dist,sy=t.def.h-0.3;const el=document.createElement('a-sphere');el.setAttribute('radius',t.type==='cannon'?'0.18':'0.1');el.setAttribute('material',`color:${t.def.pc};emissive:${t.def.pc};emissiveIntensity:0.8;shader:flat`);el.setAttribute('position',`${t.x.toFixed(2)} ${sy} ${t.z.toFixed(2)}`);el.setAttribute('segments-width','5');el.setAttribute('segments-height','4');document.getElementById('fx').appendChild(el);G.projs.push({id:G.nP++,x:t.x,z:t.z,y:sy,vx:nx*t.def.ps,vz:nz*t.def.ps,d:t.def.dmg,life:3,el,aoe:t.def.aoe||null,ch:t.def.chain||null,sl:t.def.slow||null});beep(t.type==='cannon'?80:600,0.05);}
 function boom(x,z){const el=document.createElement('a-sphere');el.setAttribute('radius','0.2');el.setAttribute('position',`${x.toFixed(2)} 0.5 ${z.toFixed(2)}`);el.setAttribute('material','color:#ff6600;emissive:#ff3300;emissiveIntensity:1;shader:flat');el.setAttribute('animation','property:scale;from:1 1 1;to:10 10 10;dur:400;easing:easeOutQuad');el.setAttribute('animation__o','property:material.opacity;from:1;to:0;dur:400');document.getElementById('fx').appendChild(el);setTimeout(()=>{if(el.parentNode)el.parentNode.removeChild(el);},450);}
 function puff(x,z){for(let i=0;i<3;i++){const el=document.createElement('a-sphere');const vx=(Math.random()-0.5)*3,vz=(Math.random()-0.5)*3;el.setAttribute('radius','0.1');el.setAttribute('position',`${x.toFixed(2)} 0.8 ${z.toFixed(2)}`);el.setAttribute('material','color:#cc4400;shader:flat;transparent:true');el.setAttribute('animation',`property:position;from:${x.toFixed(2)} 0.8 ${z.toFixed(2)};to:${(x+vx).toFixed(2)} 0.1 ${(z+vz).toFixed(2)};dur:350`);el.setAttribute('animation__o','property:material.opacity;from:1;to:0;dur:350');document.getElementById('fx').appendChild(el);setTimeout(()=>{if(el.parentNode)el.parentNode.removeChild(el);},400);}}
 function hud(){document.getElementById('gv').textContent=G.gold;document.getElementById('wv').textContent=G.wave;document.getElementById('lv').textContent='&#9829;'.repeat(Math.max(0,G.lives))+'&#9825;'.repeat(Math.max(0,5-G.lives));}
-function gameOver(){G.running=false;document.getElementById('fs').textContent=`SURVIVED ${G.wave} WAVES`;document.getElementById('gameover').style.display='flex';}
-function restartGame(){startGame();}
-function initAudio(){if(G.ac)return;G.ac=new(window.AudioContext||window.webkitAudioContext)();}
-function beep(freq,vol=0.1){if(!G.ac)return;const o=G.ac.createOscillator(),g=G.ac.createGain();o.connect(g);g.connect(G.ac.destination);o.frequency.value=freq;g.gain.setValueAtTime(vol,G.ac.currentTime);g.gain.linearRampToValueAtTime(0,G.ac.currentTime+0.12);o.start();o.stop(G.ac.currentTime+0.12);}
-function wbeep(){if(!G.ac)return;[0,0.1,0.2].forEach((t,i)=>{const o=G.ac.createOscillator(),g=G.ac.createGain();o.connect(g);g.connect(G.ac.destination);o.frequency.value=220+i*110;g.gain.setValueAtTime(0.15,G.ac.currentTime+t);g.gain.linearRampToValueAtTime(0,G.ac.currentTime+t+0.2);o.start(G.ac.currentTime+t);o.stop(G.ac.currentTime+t+0.2);});}
+function gameOver(){
+  G.running=false;G.mode='menu';G.paused=false;
+  document.getElementById('pausescreen').style.display='none';
+  document.getElementById('pausebtn').style.display='none';
+  if(G.autosaveIv){clearInterval(G.autosaveIv);G.autosaveIv=null;}
+  const {bestWave,highScore}=recordRunEnd();
+  document.getElementById('fs').textContent=`SURVIVED ${G.wave} WAVES · SCORE ${G.score}`;
+  const gb=document.getElementById('gobest');if(gb)gb.textContent=`BEST WAVE ${bestWave} · HIGH SCORE ${highScore}`;
+  document.getElementById('gameover').style.display='flex';
+}
+function restartGame(){startGame(false);}
+function returnToMenu(){location.reload();}
+
+// ---------------- Pause ----------------
+function pauseGame(){
+  if(!G.running||G.paused)return;
+  G.paused=true;
+  document.getElementById('pausescreen').style.display='block';
+}
+function resumeGame(){
+  if(!G.paused)return;
+  G.paused=false;
+  document.getElementById('pausescreen').style.display='none';
+}
+function manualSave(){
+  saveCheckpoint();
+  const btn=document.getElementById('saveBtn');
+  if(btn){const orig=btn.textContent;btn.textContent='SAVED';setTimeout(()=>{btn.textContent=orig;},900);}
+}
+
+// ---------------- Audio ----------------
+function updateSoundDisplay(){const el=document.getElementById('soundStateDisp');if(el)el.textContent=G.muted?'OFF':'ON';}
+function toggleMute(){G.muted=!G.muted;updateSoundDisplay();writeSave({muted:G.muted});if(!G.muted){initAudio();beep(440,0.06);}}
+function initAudio(){
+  if(!G.ac)G.ac=new(window.AudioContext||window.webkitAudioContext)();
+  if(G.ac.state==='suspended')G.ac.resume().catch(()=>{});
+}
+function beep(freq,vol=0.1){if(!G.ac||G.muted)return;const o=G.ac.createOscillator(),g=G.ac.createGain();o.connect(g);g.connect(G.ac.destination);o.frequency.value=freq;g.gain.setValueAtTime(vol,G.ac.currentTime);g.gain.linearRampToValueAtTime(0,G.ac.currentTime+0.12);o.start();o.stop(G.ac.currentTime+0.12);}
+function wbeep(){if(!G.ac||G.muted)return;[0,0.1,0.2].forEach((t,i)=>{const o=G.ac.createOscillator(),g=G.ac.createGain();o.connect(g);g.connect(G.ac.destination);o.frequency.value=220+i*110;g.gain.setValueAtTime(0.15,G.ac.currentTime+t);g.gain.linearRampToValueAtTime(0,G.ac.currentTime+t+0.2);o.start(G.ac.currentTime+t);o.stop(G.ac.currentTime+t+0.2);});}
 </script>
 </body>
 </html>
