@@ -93,7 +93,7 @@ body::after{content:'';position:fixed;inset:0;background:
   <div class="sp-city">🏙️</div>
   <div class="sp-title">NEON DOMINION</div>
   <div class="sp-sub">Corporate Tycoon</div>
-  <div class="sp-desc">Build a megacorp in a neon-soaked cyberpunk city. Hack systems, acquire divisions, consult the AI Oracle for strategic advice.</div>
+  <div class="sp-desc">Build a megacorp in a neon-soaked cyberpunk city. Hack systems, acquire divisions, run blacksite ops, consult the Oracle — then rebirth your corp for permanent Legacy power and climb again.</div>
   <button class="sp-btn" onclick="startGame()">INITIALIZE CORP</button>
 </div>
 <div id="victory">
@@ -108,8 +108,11 @@ body::after{content:'';position:fixed;inset:0;background:
     <div class="vic-stat-row"><span class="vic-stat-lbl">CORP DOMINANCE</span><span class="vic-stat-val" id="vic-dom">100%</span></div>
     <div class="vic-stat-row"><span class="vic-stat-lbl">DIVISIONS OWNED</span><span class="vic-stat-val" id="vic-divs">—</span></div>
     <div class="vic-stat-row"><span class="vic-stat-lbl">OPS ACTIVE</span><span class="vic-stat-val" id="vic-ops">—</span></div>
+    <div class="vic-stat-row"><span class="vic-stat-lbl">LEGACY POINTS</span><span class="vic-stat-val" id="vic-legacy">—</span></div>
   </div>
   <button class="vic-btn" onclick="document.getElementById('victory').classList.remove('show')">◀ CONTINUE RULING</button>
+  <button class="vic-btn" style="border-color:var(--purple);color:var(--purple);background:linear-gradient(135deg,#8000ff22,#00d4ff22);" onclick="rebirth()">🔁 REBIRTH FOR LEGACY</button>
+  <div style="font-size:9px;color:var(--muted);max-width:260px;line-height:1.6;">Rebirth resets your corp to zero in exchange for permanent Legacy Points — each point adds +5% to all hack power and passive rates, forever.</div>
 </div>
 <div id="app">
   <div id="topbar">
@@ -125,6 +128,7 @@ body::after{content:'';position:fixed;inset:0;background:
   <div class="corp-bar">
     <div class="corp-label"><span>CORP DOMINANCE</span><span><span id="dominance-pct">0</span>%</span></div>
     <div class="corp-track"><div class="corp-fill" id="dom-fill" style="width:0%"></div></div>
+    <div style="font-size:8px;color:var(--purple);text-align:right;margin-top:2px;" id="legacy-indicator"></div>
   </div>
   <div class="main-area">
     <div class="earn-section">
@@ -161,8 +165,12 @@ body::after{content:'';position:fixed;inset:0;background:
 <script>
 const G={credits:0,data:0,rep:0,totalCredits:0,
   hackPower:1,dataRate:0,repRate:0,creditRate:0,
-  dominance:0,divisionsOwned:{},opsOwned:{},blackOwned:{},
+  dominance:0,divisionsOwned:{},opsOwned:{},blackOwned:{},blackCooldowns:{},
+  legacyPoints:0,totalRebirths:0,lastSaveTime:0,
   corpName:'AXIOM CORP'};
+let gameStarted=false;
+const G_TIMERS={tick:null,render:null,autosave:null};
+function effRateMult(){return 1+G.legacyPoints*0.05;}
 
 const DIVISIONS=[
   {id:'media',name:'Media Division',icon:'📺',desc:'+5 data/s, shapes public opinion',cost:{credits:500},gives:{dataRate:5}},
@@ -185,17 +193,17 @@ const OPS=[
 ];
 
 const BLACKSITE=[
-  {id:'wetwork',name:'Wetwork Ops',icon:'💀',desc:'+100 rep, eliminates competitor',cost:{credits:5000,rep:100},gives:{rep:100}},
-  {id:'sabotage',name:'Corp Sabotage',icon:'💣',desc:'+5% dominance',cost:{credits:10000,data:500},gives:{dominance:5}},
-  {id:'exodus',name:'Data Exodus',icon:'🔓',desc:'+1000 data dump',cost:{rep:200},gives:{data:1000}},
-  {id:'override',name:'AI Override',icon:'🤖',desc:'×2 all rates, unstable',cost:{credits:50000,data:5000},gives:{allRate:2}},
+  {id:'wetwork',name:'Wetwork Ops',icon:'💀',desc:'One-time hit on a rival exec. +100 rep, permanent.',cost:{credits:5000,rep:100},gives:{rep:100},type:'owned'},
+  {id:'sabotage',name:'Corp Sabotage',icon:'💣',desc:'One-time strike on a rival\'s revenue stream. +25 credits/s, permanent.',cost:{credits:10000,data:500},gives:{creditRate:25},type:'owned'},
+  {id:'exodus',name:'Data Exodus',icon:'🔓',desc:'Drain a rival\'s servers for +1000 data. Servers need time to refill.',cost:{rep:200},gives:{data:1000},type:'cooldown',cooldownMs:45000},
+  {id:'override',name:'AI Override',icon:'🤖',desc:'One-time unstable override. ×2 all passive rates, permanent.',cost:{credits:50000,data:5000},gives:{allRate:2},type:'owned'},
 ];
 
 function fmt(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return Math.floor(n);}
 
 function hackEarn(e){
-  const gain=Math.floor(G.hackPower);
-  G.credits+=gain;G.totalCredits+=gain;G.dominance=Math.min(100,G.dominance+0.01);
+  const gain=Math.floor(G.hackPower*effRateMult());
+  G.credits+=gain;G.totalCredits+=gain;
   const el=document.createElement('div');el.className='float-txt';
   el.style.left=e.clientX+'px';el.style.top=e.clientY+'px';
   el.style.color='#00d4ff';el.textContent='¥+'+fmt(gain);
@@ -239,15 +247,28 @@ function renderLists(){
   }).join('');
   const bl=document.getElementById('black-list');
   if(bl)bl.innerHTML=BLACKSITE.map(b=>{
-    const can=canAfford(b.cost);
     const costStr=Object.entries(b.cost).map(([r,v])=>`${fmt(v)} ${r}`).join(' + ');
+    if(b.type==='owned'){
+      const owned=!!G.blackOwned[b.id];
+      const can=!owned&&canAfford(b.cost);
+      return `<div class="item-card ${owned?'owned':can?'can':''}" onclick="${owned?'':` blackOp('${b.id}')`}">
+        <div class="item-ico">${b.icon}</div>
+        <div class="item-info"><div class="item-name">${b.name}</div><div class="item-desc">${b.desc}</div></div>
+        <div class="item-cost ${can?'':'cant'}">${owned?'EXECUTED':costStr}</div>
+      </div>`;
+    }
+    const cdLeft=cooldownRemaining(b.id);
+    const can=cdLeft<=0&&canAfford(b.cost);
     return `<div class="item-card ${can?'can':''}" onclick="${can?` blackOp('${b.id}')`:''}" style="cursor:${can?'pointer':'default'}">
       <div class="item-ico">${b.icon}</div>
       <div class="item-info"><div class="item-name">${b.name}</div><div class="item-desc">${b.desc}</div></div>
-      <div class="item-cost ${can?'':'cant'}">${costStr}</div>
+      <div class="item-cost ${can?'':'cant'}">${cdLeft>0?'⏱ '+fmtCooldown(cdLeft):costStr}</div>
     </div>`;
   }).join('');
 }
+
+function cooldownRemaining(id){return Math.max(0,(G.blackCooldowns[id]||0)-Date.now());}
+function fmtCooldown(ms){const s=Math.ceil(ms/1000);return s<60?s+'s':Math.floor(s/60)+'m '+(s%60)+'s';}
 
 function applyGives(gives){
   if(gives.hackPower)G.hackPower+=gives.hackPower;
@@ -258,7 +279,6 @@ function applyGives(gives){
   if(gives.allRate){G.dataRate*=gives.allRate;G.repRate*=gives.allRate;G.creditRate*=gives.allRate;}
   if(gives.data)G.data+=gives.data;
   if(gives.rep)G.rep+=gives.rep;
-  if(gives.dominance)G.dominance=Math.min(100,G.dominance+gives.dominance);
   if(gives.mega){G.dominance=100;updateUI();showVictory();}
 }
 
@@ -276,44 +296,103 @@ function buyOp(id){
 }
 function blackOp(id){
   const b=BLACKSITE.find(x=>x.id===id);if(!b)return;
+  if(b.type==='owned'&&G.blackOwned[id])return;
+  if(b.type==='cooldown'&&cooldownRemaining(id)>0){showToast('Operation on cooldown');return;}
   if(!canAfford(b.cost)){showToast('Insufficient resources');return;}
   deduct(b.cost);applyGives(b.gives);
+  if(b.type==='owned')G.blackOwned[id]=true;
+  else G.blackCooldowns[id]=Date.now()+b.cooldownMs;
   showToast('☠️ '+b.name+' executed!');renderLists();updateUI();
 }
 
-// AI Oracle
-async function consultOracle(){
+// AI Oracle — fully local, no network calls. Keyword-matches the player's question
+// against live corp stats and answers from a curated response bank. There is no
+// backend for this static site to safely call a hosted model from, so this is the
+// permanent design, not a fallback for a broken API.
+function nextSuggestion(){
+  const options=[...DIVISIONS.filter(d=>!G.divisionsOwned[d.id]&&d.id!=='megacorp'),...OPS.filter(o=>!G.opsOwned[o.id])];
+  if(!options.length)return null;
+  const affordable=options.filter(o=>canAfford(o.cost));
+  const pool=affordable.length?affordable:options;
+  pool.sort((a,b)=>(a.cost.credits||0)-(b.cost.credits||0));
+  return pool[0];
+}
+
+function oracleKeywordResponse(ql){
+  const next=nextSuggestion();
+  const nextLine=next?`The ${next.name} is your next move — ${Object.entries(next.cost).map(([r,v])=>fmt(v)+' '+r).join(' + ')} secures it.`:'You already hold every division and op on the board short of MEGACORP STATUS itself.';
+  const rules=[
+    {keys:['buy','next','should i','purchase','acquire','invest'],
+     resp:()=>`Every credit sitting idle is a credit wasted, ${G.corpName}. ${nextLine}`},
+    {keys:['grow','faster','speed','scale','expand'],
+     resp:()=>`Passive income compounds while you sleep, active income doesn't. You're pulling ◈${fmt(G.dataRate)}/s data and ¥${fmt(G.creditRate)}/s credits — stack rate multipliers like NeoTek R&D and the AI Research Lab before you chase one-off boosts.`},
+    {keys:['black','blacksite','kill','wetwork','sabotage','exodus','illegal','crime'],
+     resp:()=>`Blacksite ops are how real power moves in this city — off the books, no board approval needed. They hit harder than legitimate acquisitions, but most only fire once. Spend wisely; there's no undo on a wetwork contract.`},
+    {keys:['dominance','win','megacorp','finish','end','victory','complete'],
+     resp:()=>`Dominance isn't a number that climbs on its own — it's your divisions, your ops, your blacksite footprint, and your lifetime credits, all weighed together. You're at ${Math.floor(G.dominance)}%. Acquire what's still unowned and MEGACORP STATUS follows.`},
+    {keys:['credit','money','cash','rich','¥'],
+     resp:()=>`¥${fmt(G.credits)} banked, ¥${fmt(G.totalCredits)} earned lifetime. Credits fund everything else — Security Forces and Financial Systems both compound your credit rate if you haven't claimed them yet.`},
+    {keys:['data','hack','information','intel','◈'],
+     resp:()=>`Data is leverage, ${G.corpName}. At ◈${fmt(G.data)} banked and ◈${fmt(G.dataRate)}/s flowing, the Media Division and Botnet Farm both deepen that stream if unclaimed.`},
+    {keys:['rep','reputation','★','respect'],
+     resp:()=>`Reputation opens doors credits can't buy — Government Contracts and Financial Systems both gate on it. You're sitting at ★${fmt(G.rep)}. PharmaCorp and Corporate Moles both build rep passively.`},
+    {keys:['rebirth','legacy','prestige','reset'],
+     resp:()=>`Rebirth wipes the board but banks Legacy Points — permanent, compounding, immune to a bad run. You're holding ${G.legacyPoints} already, worth a ×${effRateMult().toFixed(2)} multiplier on everything. Only worth it once your lifetime credits are deep.`},
+    {keys:['who are you','what are you','oracle'],
+     resp:()=>`I'm a fragment of pre-Collapse predictive code, running on scavenged silicon under this tower. I don't guess — I model. Ask me something useful.`},
+    {keys:['hi','hello','hey','sup'],
+     resp:()=>`Static clears. I'm listening, ${G.corpName}. Ask about growth, credits, data, reputation, or the blacksite — I'll give you a real answer.`},
+  ];
+  for(const r of rules){if(r.keys.some(k=>ql.includes(k)))return r.resp();}
+  return null;
+}
+
+const ORACLE_FALLBACKS=[
+  ()=>{const n=nextSuggestion();return `Your hack power of ${fmt(G.hackPower)} is your foundation. ${n?`The ${n.name} would push it further.`:'You have outgrown the starter tier — look to the blacksite.'}`;},
+  ()=>`With ¥${fmt(G.credits)} in the vault, don't let it sit idle. A corp without reinvestment is just a target in the neon jungle.`,
+  ()=>`Dominance at ${Math.floor(G.dominance)}% means the city still has room to resist you. Every division, every op, every blacksite contract closes that gap.`,
+  ()=>`The Oracle sees opportunity. Stack passive rates before spending on one-time boosts — compound growth is how megacorps are born.`,
+  ()=>`◈${fmt(G.dataRate)}/s data, ¥${fmt(G.creditRate)}/s credits, ★${fmt(G.repRate)}/s rep. Whichever of those three lags, that's where your next credit belongs.`,
+  ()=>`I model ten thousand futures a second, ${G.corpName}. In most of them, you win by acquiring everything on the board — not by hoping.`,
+  ()=>`The street doesn't respect potential. It respects ${Object.keys(G.divisionsOwned).length} divisions and ${Object.keys(G.opsOwned).length} ops under your banner — and you can add more.`,
+  ()=>`Blacksite intel: an unowned high-value contract still on the table is worth more than another round on EXECUTE HACK.`,
+];
+
+function consultOracle(){
   const q=document.getElementById('oracle-input').value.trim();
   if(!q){showToast('Enter a question for the Oracle');return;}
   const resp=document.getElementById('oracle-response');
   resp.innerHTML='<span class="oracle-typing">◈ PROCESSING...</span>';
-  const ctx=`You are the AI Oracle for NEON DOMINION, a cyberpunk corporate tycoon game. Player stats: Credits=¥${fmt(G.credits)}, Data=◈${fmt(G.data)}, Rep=★${fmt(G.rep)}, Hack Power=${G.hackPower}, Dominance=${Math.floor(G.dominance)}%, Divisions=${Object.keys(G.divisionsOwned).length}. Give strategic advice in 2-3 sentences in a noir cyberpunk tone. Be specific and useful.`;
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,system:ctx,messages:[{role:'user',content:q}]})
-    });
-    const d=await r.json();
-    resp.textContent=d.content?.[0]?.text||'The Oracle is silent.';
-  }catch(e){
-    // Fallback responses if API not available
-    const fallbacks=[
-      `Your hack power of ${G.hackPower} is your foundation. Acquire the Media Division to generate passive data streams — data is the currency of information warfare.`,
-      `With ¥${fmt(G.credits)} in the vault, consider investing in Security Forces. A corp without muscle is just a target in the neon jungle.`,
-      `Dominance at ${Math.floor(G.dominance)}% means the city still has room to resist you. Blacksite operations accelerate control faster than conventional expansion.`,
-      `The Oracle sees opportunity. Stack passive rates before spending on one-time boosts. Compound growth is how megacorps are born.`,
-    ];
-    resp.textContent=fallbacks[Math.floor(Math.random()*fallbacks.length)];
-  }
+  const ql=q.toLowerCase();
+  setTimeout(()=>{
+    const matched=oracleKeywordResponse(ql);
+    resp.textContent=matched||ORACLE_FALLBACKS[Math.floor(Math.random()*ORACLE_FALLBACKS.length)]();
+  },450+Math.random()*350);
+}
+
+function recomputeDominance(){
+  const mega=DIVISIONS.find(d=>d.id==='megacorp');
+  const nonMegaDivs=DIVISIONS.filter(d=>d.id!=='megacorp');
+  const divOwned=nonMegaDivs.filter(d=>G.divisionsOwned[d.id]).length;
+  const opsOwnedCount=OPS.filter(o=>G.opsOwned[o.id]).length;
+  const ownedBlackItems=BLACKSITE.filter(b=>b.type==='owned');
+  const blackOwnedCount=ownedBlackItems.filter(b=>G.blackOwned[b.id]).length;
+  const creditProgress=Math.min(1,G.totalCredits/mega.cost.credits);
+  const divProgress=nonMegaDivs.length?divOwned/nonMegaDivs.length:0;
+  const opsProgress=OPS.length?opsOwnedCount/OPS.length:0;
+  const blackProgress=ownedBlackItems.length?blackOwnedCount/ownedBlackItems.length:0;
+  let pct=(divProgress*0.35+opsProgress*0.25+blackProgress*0.15+creditProgress*0.25)*100;
+  G.dominance=G.divisionsOwned.megacorp?100:Math.min(99,pct);
 }
 
 function updateUI(){
+  recomputeDominance();
   document.getElementById('res-credits').textContent=fmt(G.credits);
   document.getElementById('res-data').textContent=fmt(G.data);
   document.getElementById('res-rep').textContent=fmt(G.rep);
-  document.getElementById('hack-rate').textContent=fmt(G.hackPower);
-  document.getElementById('data-rate').textContent=fmt(G.dataRate);
-  document.getElementById('rep-rate').textContent=fmt(G.repRate);
+  document.getElementById('hack-rate').textContent=fmt(G.hackPower*effRateMult());
+  document.getElementById('data-rate').textContent=fmt(G.dataRate*effRateMult());
+  document.getElementById('rep-rate').textContent=fmt(G.repRate*effRateMult());
   document.getElementById('dominance-pct').textContent=Math.floor(G.dominance);
   document.getElementById('dom-fill').style.width=G.dominance+'%';
   document.getElementById('oc-cr').textContent=fmt(G.credits);
@@ -321,14 +400,16 @@ function updateUI(){
   document.getElementById('oc-rp').textContent=fmt(G.rep);
   document.getElementById('oc-dom').textContent=Math.floor(G.dominance);
   document.getElementById('oc-divs').textContent=Object.keys(G.divisionsOwned).length;
+  const li=document.getElementById('legacy-indicator');
+  if(li)li.textContent=G.legacyPoints>0?`⬡ LEGACY ${G.legacyPoints} (×${effRateMult().toFixed(2)} rates)`:'';
   save();
 }
 
 function gameTick(){
-  if(G.creditRate>0)G.credits+=G.creditRate/10;
-  if(G.dataRate>0)G.data+=G.dataRate/10;
-  if(G.repRate>0)G.rep+=G.repRate/10;
-  G.dominance=Math.min(100,G.dominance+0.001);
+  const mult=effRateMult();
+  if(G.creditRate>0){const g=G.creditRate*mult/10;G.credits+=g;G.totalCredits+=g;}
+  if(G.dataRate>0)G.data+=G.dataRate*mult/10;
+  if(G.repRate>0)G.rep+=G.repRate*mult/10;
   updateUI();
 }
 
@@ -339,7 +420,24 @@ function showVictory(){
   document.getElementById('vic-dom').textContent='100%';
   document.getElementById('vic-divs').textContent=Object.keys(G.divisionsOwned).length+' / '+DIVISIONS.length;
   document.getElementById('vic-ops').textContent=Object.keys(G.opsOwned).length+' / '+OPS.length;
+  document.getElementById('vic-legacy').textContent=G.legacyPoints+' (rebirths: '+G.totalRebirths+')';
   document.getElementById('victory').classList.add('show');
+}
+
+function rebirth(){
+  const legacyGain=Math.max(1,Math.floor(G.totalCredits/1000000));
+  const keepCorpName=G.corpName;
+  const legacyPoints=G.legacyPoints+legacyGain;
+  const totalRebirths=G.totalRebirths+1;
+  Object.assign(G,{
+    credits:0,data:0,rep:0,totalCredits:0,
+    hackPower:1,dataRate:0,repRate:0,creditRate:0,
+    dominance:0,divisionsOwned:{},opsOwned:{},blackOwned:{},blackCooldowns:{},
+    corpName:keepCorpName,legacyPoints,totalRebirths
+  });
+  document.getElementById('victory').classList.remove('show');
+  renderLists();updateUI();
+  showToast(`🔁 Corp reborn. +${legacyGain} Legacy Points (×${effRateMult().toFixed(2)} permanent boost)`);
 }
 
 function showToast(msg){
@@ -347,11 +445,74 @@ function showToast(msg){
   const t=document.createElement('div');t.className='toast';t.textContent=msg;
   document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
-function save(){try{const s=Object.assign({},G,{saveVersion:1});localStorage.setItem('neondynasty_v1',JSON.stringify(s));}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem('neondynasty_v1'));if(d)Object.assign(G,d);}catch(e){}}
+const SAVE_KEY_V2='neondynasty_v2';
+const SAVE_KEY_V1='neondynasty_v1';
+
+function save(){
+  try{
+    G.lastSaveTime=Date.now();
+    const s=Object.assign({},G,{saveVersion:2});
+    localStorage.setItem(SAVE_KEY_V2,JSON.stringify(s));
+  }catch(e){}
+}
+
+function migrateV1(od){
+  return Object.assign({},od,{saveVersion:2,blackOwned:{},blackCooldowns:{},legacyPoints:0,totalRebirths:0,lastSaveTime:od.lastSaveTime||Date.now()});
+}
+
+function load(){
+  let prevSaveTime=null;
+  try{
+    let raw=localStorage.getItem(SAVE_KEY_V2);
+    let d=raw?JSON.parse(raw):null;
+    if(!d){
+      const old=localStorage.getItem(SAVE_KEY_V1);
+      if(old){
+        try{d=migrateV1(JSON.parse(old));}catch(e){d=null;}
+      }
+    }
+    if(d){
+      Object.assign(G,d);
+      if(!G.blackOwned)G.blackOwned={};
+      if(!G.blackCooldowns)G.blackCooldowns={};
+      if(!G.divisionsOwned)G.divisionsOwned={};
+      if(!G.opsOwned)G.opsOwned={};
+      if(typeof G.legacyPoints!=='number')G.legacyPoints=0;
+      if(typeof G.totalRebirths!=='number')G.totalRebirths=0;
+      if(typeof G.totalCredits!=='number')G.totalCredits=G.credits||0;
+      prevSaveTime=typeof d.lastSaveTime==='number'?d.lastSaveTime:null;
+    }
+  }catch(e){}
+  if(prevSaveTime)applyIdleCatchup(prevSaveTime);
+}
+
+function applyIdleCatchup(prevTime){
+  const elapsedMs=Date.now()-prevTime;
+  if(elapsedMs<15000)return;
+  const cappedMs=Math.min(elapsedMs,4*60*60*1000); // cap catch-up at 4 hours
+  const secs=cappedMs/1000;
+  const mult=effRateMult();
+  const credGain=G.creditRate*mult*secs;
+  const dataGain=G.dataRate*mult*secs;
+  const repGain=G.repRate*mult*secs;
+  if(credGain>0||dataGain>0||repGain>0){
+    G.credits+=credGain;G.totalCredits+=credGain;
+    G.data+=dataGain;
+    G.rep+=repGain;
+    const mins=Math.max(1,Math.round(secs/60));
+    showToast(`⏱ Idle ${mins}m: +¥${fmt(credGain)} +◈${fmt(dataGain)} +★${fmt(repGain)}`);
+  }
+}
+
+function clearGameIntervals(){
+  if(G_TIMERS.tick){clearInterval(G_TIMERS.tick);G_TIMERS.tick=null;}
+  if(G_TIMERS.render){clearInterval(G_TIMERS.render);G_TIMERS.render=null;}
+  if(G_TIMERS.autosave){clearInterval(G_TIMERS.autosave);G_TIMERS.autosave=null;}
+}
 
 function backToMenu(){
   save();
+  clearGameIntervals();
   document.getElementById('app').classList.remove('show');
   document.getElementById('splash').style.display='';
 }
@@ -359,12 +520,17 @@ function backToMenu(){
 function startGame(){
   document.getElementById('splash').style.display='none';
   document.getElementById('app').classList.add('show');
+  gameStarted=true;
   load();renderLists();updateUI();
-  setInterval(gameTick,100);
-  setInterval(renderLists,3000);
-  setInterval(()=>{save();showToast('💾 Autosaved');},30000);
+  clearGameIntervals();
+  G_TIMERS.tick=setInterval(gameTick,100);
+  G_TIMERS.render=setInterval(renderLists,3000);
+  G_TIMERS.autosave=setInterval(()=>{save();showToast('💾 Autosaved');},30000);
   showToast('⚡ Welcome to NEON DOMINION');
 }
+
+document.addEventListener('visibilitychange',()=>{if(gameStarted&&document.visibilityState==='hidden')save();});
+window.addEventListener('pagehide',()=>{if(gameStarted)save();});
 </script>
 </body>
 </html>
