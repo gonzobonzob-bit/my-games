@@ -2,6 +2,17 @@
    CASCADE FOUNDLING — a first-person farm defense
    Babylon.js + Havok physics · WASD/mouse + Xbox gamepad
    Mason County, Washington. The visitors just want their baby.
+
+   DESKTOP-ONLY BY DESIGN. Movement, aiming, and truck driving all
+   depend on pointer-lock mouselook plus simultaneous WASD/Shift/
+   Space chording (and an Xbox pad as an alternate). There is no
+   touch/mobile input path — unlike Veil Legends' on-screen virtual
+   joystick, a touch equivalent here would need dual virtual sticks,
+   a look surface, and separate fire/reload/enter-truck buttons, and
+   still couldn't match mouse-precision shotgun aiming or truck
+   steering. index.html shows a "desktop only" notice on coarse-
+   pointer (touch) devices via a `(pointer: coarse)` media query
+   instead of shipping a degraded on-screen control scheme.
    ============================================================ */
 'use strict';
 
@@ -977,7 +988,9 @@ function tryFire() {
     const ry = (Math.random() - 0.5) * spread * 2;
     const dir = camera.getDirection(new BABYLON.Vector3(Math.sin(ry), Math.sin(rx), 1)).normalize();
     const ray = new BABYLON.Ray(origin, dir, CFG.shotRange);
-    const pick = scene.pickWithRay(ray, m => !!(m.metadata && m.metadata.alien) || m === world.ground || m.name.startsWith('house') || m.name.startsWith('barn'));
+    const pick = scene.pickWithRay(ray, m => !!(m.metadata && m.metadata.alien) || m === world.ground
+      || m.name.startsWith('house') || m.name.startsWith('barn') || m.name.startsWith('silo')
+      || m.name === 'truckCol' || m.name.startsWith('fence') || m.name === 'post' || m.name.startsWith('hay'));
     const end = pick && pick.hit ? pick.pickedPoint : origin.add(dir.scale(CFG.shotRange));
     spawnTracer(mPos.add(dir.scale(0.3)), end);
     if (pick && pick.hit && pick.pickedMesh.metadata && pick.pickedMesh.metadata.alien) {
