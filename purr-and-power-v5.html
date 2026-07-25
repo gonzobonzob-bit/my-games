@@ -14,7 +14,7 @@
   --bg:#0F172A;--bg2:#1E293B;--panel:#1A2744;--panel2:#243158;
   --border:#334155;--text:#F1F5F9;--muted:#94A3B8;--card:#162035;
   --ep-sand:#C4A882;--ep-sky1:#2563EB;--ep-sky2:#60A5FA;
-  --silfab:#0A0A0A;--smr:#1a1a1a;--se-white:#F8FAFC;
+  --solcrest:#0A0A0A;--ironrail:#1a1a1a;--gridwave-white:#F8FAFC;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
@@ -204,7 +204,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .gc-label{font-size:6px;color:white;background:rgba(0,0,0,0.65);padding:1px 3px;border-radius:3px;white-space:nowrap;}
 .company-van{position:absolute;z-index:10;font-size:24px;filter:drop-shadow(1px 2px 4px rgba(0,0,0,0.3));}
 .se-inverter{position:absolute;z-index:15;}
-.se-inv-box{background:var(--se-white);border:1px solid #94A3B8;border-radius:4px;padding:4px;box-shadow:2px 2px 6px rgba(0,0,0,0.2);}
+.se-inv-box{background:var(--gridwave-white);border:1px solid #94A3B8;border-radius:4px;padding:4px;box-shadow:2px 2px 6px rgba(0,0,0,0.2);}
 .se-inv-logo{font-size:5px;font-weight:900;color:#1E40AF;text-align:center;font-family:'Fredoka One',cursive;}
 .se-inv-model{font-size:4px;color:#64748B;text-align:center;margin-bottom:2px;}
 .se-inv-display{width:100%;height:12px;background:#0F172A;border-radius:2px;margin:2px 0;display:flex;align-items:center;justify-content:center;gap:2px;}
@@ -398,7 +398,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .notif-pill.bad{border-color:rgba(239,68,68,0.5);color:#FCA5A5;}
 @keyframes nIn{0%{opacity:0;transform:translateY(6px)}12%{opacity:1;transform:translateY(0)}75%{opacity:1}100%{opacity:0;transform:translateY(-4px)}}
 /* Payroll summary — now goes through notif bar, popup removed */
-.toast{display:none;}/* legacy — redirected to notif-bar */
 
 /* PRESTIGE */
 .prestige-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:200;background:linear-gradient(135deg,#1E3A8A,#7C3AED);border:2px solid var(--sun);border-radius:14px;padding:14px 20px;text-align:center;animation:pIn 0.4s ease;display:none;}
@@ -415,9 +414,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <div class="sp-title">Purr & Power Co.</div>
   <div class="sp-sub">Solar · Cats · El Paso, TX</div>
   <div class="sp-eq">
-    <div class="sp-eq-item"><strong>Silfab Prime</strong>All-Black Panels</div>
-    <div class="sp-eq-item"><strong>Sunmodo SMR</strong>Black Rails</div>
-    <div class="sp-eq-item"><strong>SolarEdge</strong>HD-Wave + P400</div>
+    <div class="sp-eq-item"><strong>Solcrest Prime</strong>All-Black Panels</div>
+    <div class="sp-eq-item"><strong>IronRail FlexRail</strong>Black Rails</div>
+    <div class="sp-eq-item"><strong>GridWave</strong>FluxWave + Q400</div>
   </div>
   <div class="sp-cats">🐱 🐱 🐱</div>
   <div class="sp-desc">Run El Paso's most cat-friendly solar company. Build your sales pipeline, dispatch crews, close contracts — keep the cats purring.</div>
@@ -450,6 +449,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
           <div class="morale-val" id="morale-val">40%</div>
         </div>
         <div class="income-badge" id="income-display">+$0/s</div>
+        <div class="income-badge" id="lc-income-display" style="display:none;background:rgba(56,189,248,0.15);border-color:rgba(56,189,248,0.3);color:var(--sky)">📍 +$0/s</div>
         <div class="net-badge" id="net-display">-$0/wk</div>
       </div>
       <div class="office-main" id="office-main">
@@ -802,7 +802,10 @@ const G={
   brUpgrades:{}, // break room upgrade IDs owned
   weeklyPayroll:0,weekTimer:0,monthTimer:0,
   topEarner:null,prestige:0,prestigeMultiplier:1,
-  secondLocation:false,weeklyRevenue:0,
+  // Las Cruces satellite branch (bought via EXPANSION_DATA 'lv4') — real, functional
+  // second-location feature: auto-earning remote crew + exclusive contract pool.
+  lasCrucesUnlocked:false,lasCrucesStaff:0,lasCrucesIncome:0,
+  weeklyRevenue:0,
   timestamp:Date.now(),
 };
 
@@ -818,7 +821,7 @@ const HIRE_SEQUENCE=[
   // Office Lv2
   {role:'Appt Setter',    icon:'📅', col:'#93C5FD', dept:'sales',   payroll:800,  desc:'Books site surveys & demos',                  maxLevel:2},
   {role:'System Designer',icon:'📐', col:'#F9A8D4', dept:'tech',    payroll:1200, desc:'Designs array layout & proposals',             maxLevel:2},
-  {role:'Monitoring Tech',icon:'📡', col:'#A7F3D0', dept:'tech',    payroll:1050, desc:'Watches SolarEdge portal 24/7',                maxLevel:2},
+  {role:'Monitoring Tech',icon:'📡', col:'#A7F3D0', dept:'tech',    payroll:1050, desc:'Watches GridWave portal 24/7',                 maxLevel:2},
   {role:'Service Tech',   icon:'🔧', col:'#FDBA74', dept:'tech',    payroll:950,  desc:'Handles post-install service calls',           maxLevel:2},
   // Office Lv3
   {role:'2nd Solar Rep',  icon:'☀️', col:'#FCA5A5', dept:'sales',   payroll:900,  desc:'Double lead generation',                      maxLevel:3},
@@ -848,7 +851,7 @@ let DESK_POS=[];
 
 const DESK_LIMIT={1:6,2:10,3:16};
 
-const INSTALL_STAGES=['Roof Inspection','Permits Pulled','L-Feet Install','SMR Rails','SE Optimizers','Silfab Panels','MC4 Wiring','Conduit Run','HD-Wave Inverter','AC Panel Hook-up','SetApp Commission','Grid Connected ✓'];
+const INSTALL_STAGES=['Roof Inspection','Permits Pulled','L-Feet Install','FlexRail Rails','Q400 Optimizers','Solcrest Panels','MC4 Wiring','Conduit Run','FluxWave Inverter','AC Panel Hook-up','LinkApp Commission','Grid Connected ✓'];
 
 // Equipment costs per install
 const EQUIP_COSTS={
@@ -864,32 +867,42 @@ const MONTHLY_OVERHEAD={
 };
 
 const CONTRACTS=[
-  {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Silfab Prime panels, Sunmodo SMR rails, SolarEdge P400 optimizers.',reward:6800,panels:12,quality:'hot',jobIcon:'🏠'},
-  {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system. SMR Tilt at 10° fixed angle.',reward:22000,panels:50,quality:'warm',jobIcon:'🏢'},
-  {title:'School District',type:'🏫 School',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Silfab Commercial NTC + SolarEdge three-phase.',reward:74000,panels:120,quality:'warm',jobIcon:'🏫'},
+  {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Solcrest Prime panels, IronRail FlexRail rails, GridWave Q400 optimizers.',reward:6800,panels:12,quality:'hot',jobIcon:'🏠'},
+  {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system. IronRail FlexRail Tilt at 10° fixed angle.',reward:22000,panels:50,quality:'warm',jobIcon:'🏢'},
+  {title:'School District',type:'🏫 School',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Solcrest Commercial NTC + GridWave three-phase.',reward:74000,panels:120,quality:'warm',jobIcon:'🏫'},
   {title:'Hotel Solar Array',type:'🏨 Hotel',client:'Sunland Park Hotel',desc:'30 panels for pool heating and common areas.',reward:17000,panels:30,quality:'hot',jobIcon:'🏨'},
-  {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'200 panels, three-phase SolarEdge. Win this and you\'re on the news.',reward:135000,panels:200,quality:'warm',jobIcon:'🏛️'},
-  {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens',desc:'Off-grid. Sunmodo SunTurf ground mount. 80 Silfab panels + SolarEdge battery.',reward:58000,panels:80,quality:'cold',jobIcon:'🌵'},
-  {title:'Car Dealership Canopy',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'60 bifacial panels on Sunmodo canopy racking over the lot.',reward:28000,panels:60,quality:'warm',jobIcon:'🚗'},
-  {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units, individual SolarEdge inverters per unit.',reward:85000,panels:180,quality:'cold',jobIcon:'🏢'},
-  {title:'Warehouse District',type:'🏭 Industrial',client:'EP Logistics Hub',desc:'5 warehouse rooftops, 500 Silfab panels. Sunmodo SMR commercial rails.',reward:210000,panels:500,quality:'cold',jobIcon:'🏭'},
-  {title:'Fort Bliss Housing',type:'🪖 Government',client:'Fort Bliss — El Paso',desc:'Military housing complex, 40 Silfab Prime arrays.',reward:40000,panels:160,quality:'warm',jobIcon:'🪖'},
+  {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'200 panels, three-phase GridWave. Win this and you\'re on the news.',reward:135000,panels:200,quality:'warm',jobIcon:'🏛️'},
+  {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens',desc:'Off-grid. IronRail GroundTurf ground mount. 80 Solcrest panels + GridWave battery.',reward:58000,panels:80,quality:'cold',jobIcon:'🌵'},
+  {title:'Car Dealership Canopy',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'60 bifacial panels on IronRail canopy racking over the lot.',reward:28000,panels:60,quality:'warm',jobIcon:'🚗'},
+  {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units, individual GridWave inverters per unit.',reward:85000,panels:180,quality:'cold',jobIcon:'🏢'},
+  {title:'Warehouse District',type:'🏭 Industrial',client:'EP Logistics Hub',desc:'5 warehouse rooftops, 500 Solcrest panels. IronRail FlexRail commercial rails.',reward:210000,panels:500,quality:'cold',jobIcon:'🏭'},
+  {title:'Fort Bliss Housing',type:'🪖 Government',client:'Fort Bliss — El Paso',desc:'Military housing complex, 40 Solcrest Prime arrays.',reward:40000,panels:160,quality:'warm',jobIcon:'🪖'},
+];
+
+// Las Cruces satellite-branch contracts — only enter the pipeline once the
+// 'lv4' expansion (Open Second Location — Las Cruces) has been purchased.
+// Higher reward tier reflects the larger commercial/institutional base in
+// Las Cruces (NMSU, ag co-ops, distribution hubs) vs. the El Paso residential mix.
+const LAS_CRUCES_CONTRACTS=[
+  {title:'NMSU Campus Array',type:'🎓 University',client:'New Mexico State University — Las Cruces',desc:'Rooftop arrays across 4 academic buildings. Solcrest Commercial NTC panels, GridWave three-phase.',reward:98000,panels:260,quality:'warm',jobIcon:'🎓'},
+  {title:'Mesilla Valley Ag Co-op',type:'🌱 Agricultural',client:'Mesilla Valley Farmers Co-op — Las Cruces',desc:'Ground-mount array powering irrigation pumps. IronRail GroundTurf racking, battery backup.',reward:63000,panels:110,quality:'hot',jobIcon:'🌱'},
+  {title:'White Sands Distribution Center',type:'🏭 Industrial',client:'White Sands Logistics — Las Cruces',desc:'Regional warehouse rooftop. 400 Solcrest panels, IronRail FlexRail commercial rails.',reward:175000,panels:400,quality:'cold',jobIcon:'🏭'},
 ];
 
 const ANGRY=[
-  {title:'WHERE ARE MY PANELS?!',msg:'Mr. Herrera called 3 times. Silfab panels were due last Tuesday.'},
-  {title:'REFUND! NOW!',msg:'Mrs. Kim\'s SolarEdge inverter shows no output. She\'s calling her lawyer.'},
+  {title:'WHERE ARE MY PANELS?!',msg:'Mr. Herrera called 3 times. Solcrest panels were due last Tuesday.'},
+  {title:'REFUND! NOW!',msg:'Mrs. Kim\'s GridWave inverter shows no output. She\'s calling her lawyer.'},
   {title:'I\'M CALLING THE BBB!',msg:'4th reschedule. This customer is about to post on Google Reviews.'},
-  {title:'YOUR CAT BROKE MY ROOF!',msg:'A stray followed your crew and knocked off a shingle near the SMR L-foot.'},
-  {title:'OPTIMIZER OFFLINE!',msg:'Customer SolarEdge app shows 3 P400 panels offline. Need a service call.'},
+  {title:'YOUR CAT BROKE MY ROOF!',msg:'A stray followed your crew and knocked off a shingle near the FlexRail L-foot.'},
+  {title:'OPTIMIZER OFFLINE!',msg:'Customer GridWave app shows 3 Q400 panels offline. Need a service call.'},
 ];
 
 const OBJECTIONS=[
   {title:'Cost Objection',msg:'"$28,000 is too much. My neighbor said he paid less." — Garcia Family',save:'Offer financing — show 25yr ROI'},
-  {title:'Roof Concern',msg:'"My roof is 8 years old. Will the SMR L-feet void my roof warranty?" — Kim Residence',save:'Reassure — Sunmodo installs with proper flashing'},
+  {title:'Roof Concern',msg:'"My roof is 8 years old. Will the FlexRail L-feet void my roof warranty?" — Kim Residence',save:'Reassure — IronRail installs with proper flashing'},
   {title:'HOA Pushback',msg:'"Our HOA says we need approval first. This could take months." — Sunrise Villas',save:'Offer to handle HOA paperwork for them'},
   {title:'Utility Company Doubt',msg:'"El Paso Electric told me solar isn\'t worth it here." — Montoya Family',save:'Show EP sun hours data — 300+ sunny days/year'},
-  {title:'Competitor Quote',msg:'"SunRun quoted us $2,000 less. Why should we pick you?" — UTEP Faculty',save:'Highlight Silfab quality + SolarEdge monitoring'},
+  {title:'Competitor Quote',msg:'"DayStar Solar quoted us $2,000 less. Why should we pick you?" — UTEP Faculty',save:'Highlight Solcrest quality + GridWave monitoring'},
 ];
 
 const LEAD_NAMES=['Garcia Family','Kim Residence','Montoya Prop.','UTEP Faculty','Torres LLC','Barela Ranch','Sunset Apt.','Fort Bliss Hsg','EP High','Costco EP','Valley View','Sun City Mall','Mesa Hills Dr.','Kern Place Res.','Del Norte Prop.','Ysleta ISD'];
@@ -910,8 +923,9 @@ const UPGRADES_DATA=[
   {id:'crm',name:'Solar CRM System',desc:'Contract values +30%',icon:'📊',cost:1200,maxLv:3},
   {id:'fleet',name:'Upgraded Fleet',desc:'Map jobs pay 50% more',icon:'🚚',cost:1500,maxLv:2},
   {id:'cert',name:'NABCEP Certification',desc:'All income +40%',icon:'🎓',cost:2000,maxLv:3},
-  {id:'nanoRack',name:'Sunmodo NanoRack',desc:'Site completes 30% faster',icon:'🔩',cost:2500,maxLv:1},
-  {id:'seapp',name:'SolarEdge SetApp Pro',desc:'Commission time halved',icon:'📱',cost:1800,maxLv:1},
+  {id:'toys',name:'Premium Cat Toys',desc:'Cat morale boost — amplifies morale\'s income effect, +30% at max level',icon:'🎾',cost:300,maxLv:5},
+  {id:'nanoRack',name:'IronRail QuickRack',desc:'Site completes 30% faster',icon:'🔩',cost:2500,maxLv:1},
+  {id:'seapp',name:'GridWave LinkApp Pro',desc:'Commission time halved',icon:'📱',cost:1800,maxLv:1},
   {id:'truck2',name:'Second Truck',desc:'Map dispatch speed 2×',icon:'🚛',cost:3000,maxLv:1},
 ];
 
@@ -932,10 +946,24 @@ const BREAK_UPGRADES=[
   {id:'br_taco',name:'Taco Tuesday Cart',icon:'🌮',bonus:'Weekly morale event +20',cost:2500,items:['🛋️','☕','🧊','🍺','🏓','🛏️','🌮']},
 ];
 
+// Each entry is self-describing: check() gates visibility/afford-ability, already()
+// reports whether it's been bought, apply() performs the (real, functional) effect.
 const EXPANSION_DATA=[
-  {id:'lv2',name:'Upgrade to Office Lv2',icon:'🏗️',cost:100000,desc:'10 desks, real break room, solar panels on roof.',check:()=>G.totalMoney>=100000,newLevel:2},
-  {id:'lv3',name:'Upgrade to Office Lv3',icon:'🏢',cost:500000,desc:'Full HQ, 16 desks, conference room, company logo exterior.',check:()=>G.totalMoney>=500000,newLevel:3},
-  {id:'lv4',name:'Open Second Location — Las Cruces',icon:'🗺️',cost:1000000,desc:'Expand to Las Cruces, NM! New map, new neighborhood.',check:()=>G.totalMoney>=1000000,newLevel:4},
+  {id:'lv2',name:'Upgrade to Office Lv2',icon:'🏗️',cost:100000,
+    desc:'10 desks, real break room, solar panels on roof.',
+    check:()=>G.totalMoney>=100000,
+    already:()=>G.officeLevel>=2,
+    apply:()=>{G.officeLevel=2;}},
+  {id:'lv3',name:'Upgrade to Office Lv3',icon:'🏢',cost:500000,
+    desc:'Full HQ, 16 desks, conference room, company logo exterior.',
+    check:()=>G.totalMoney>=500000,
+    already:()=>G.officeLevel>=3,
+    apply:()=>{G.officeLevel=3;}},
+  {id:'lv4',name:'Open Second Location — Las Cruces',icon:'📍',cost:1000000,
+    desc:'Launch a Las Cruces satellite branch: 3 remote reps start earning passive revenue immediately (see the 📍 badge in the office), and 3 exclusive high-value Las Cruces contracts (NMSU, Mesilla Valley Ag Co-op, White Sands Distribution) join your contract pipeline.',
+    check:()=>G.totalMoney>=1000000,
+    already:()=>G.lasCrucesUnlocked,
+    apply:()=>{unlockLasCruces();}},
 ];
 
 const MILESTONES=[
@@ -1514,7 +1542,10 @@ function calcEquipCost(panels){
 function triggerContract(){
   if(G.pendingContract)return;
   if(!document.getElementById('contract-ov').classList.contains('gone'))return;
-  const c=CONTRACTS[Math.floor(Math.random()*CONTRACTS.length)];
+  // Once the Las Cruces branch is open, a slice of new contracts are drawn from
+  // its exclusive higher-value pool instead of the standard El Paso pool.
+  const pool=(G.lasCrucesUnlocked&&Math.random()<0.35)?LAS_CRUCES_CONTRACTS:CONTRACTS;
+  const c=pool[Math.floor(Math.random()*pool.length)];
   const crmBonus=G.upgrades.crm?Math.pow(1.3,G.upgrades.crm):1;
   const catBonus=G.catBreeds.includes('Black Cat')?1.25:1;
   const reward=Math.floor(c.reward*crmBonus*catBonus*G.prestigeMultiplier);
@@ -1527,7 +1558,7 @@ function triggerContract(){
   document.getElementById('cp-desc').textContent=c.desc;
   document.getElementById('cp-quality').textContent=c.quality==='hot'?'🔥 HOT LEAD':c.quality==='warm'?'🌤️ WARM LEAD':'❄️ COLD LEAD';
   document.getElementById('cp-quality').className='cp-quality '+c.quality;
-  document.getElementById('cp-costs').innerHTML=`<strong>Equipment costs:</strong> ${c.panels} panels @ $280 | ${Math.ceil(c.panels/12)} SMR sets @ $180 | ${c.panels} optimizers @ $60 | 1 HD-Wave inverter @ $1,800<br>Total materials: <strong style="color:var(--red)">-${fmt(equipCost)}</strong>`;
+  document.getElementById('cp-costs').innerHTML=`<strong>Equipment costs:</strong> ${c.panels} panels @ $280 | ${Math.ceil(c.panels/12)} FlexRail sets @ $180 | ${c.panels} Q400 optimizers @ $60 | 1 FluxWave inverter @ $1,800<br>Total materials: <strong style="color:var(--red)">-${fmt(equipCost)}</strong>`;
   document.getElementById('cp-reward').textContent=fmt(reward);
   document.getElementById('cp-panels').textContent=c.panels;
   document.getElementById('cp-days').textContent=fmt(netProfit);
@@ -2038,7 +2069,7 @@ function buildSiteScene(){
   // Chimney
   mkEl('rect',{x:houseX+houseW*0.72,y:houseTop+10,width:18,height:roofH*0.5,rx:1,fill:'#B45309',stroke:'#92400E','stroke-width':1});
 
-  // ── SUNMODO SMR RAILS on roof ──
+  // ── IRONRAIL FLEXRAIL RAILS on roof ──
   const roofSlope=(roofH)/(houseW/2);
   const railOffsets=[roofH*0.38,roofH*0.60];
   railOffsets.forEach(ro=>{
@@ -2052,10 +2083,10 @@ function buildSiteScene(){
     mkEl('line',{x1:railXstart,y1:yBase+1,x2:railXstart+railW,y2:yBase+1,stroke:'#333','stroke-width':1,opacity:0.5});
   });
 
-  // SMR label
-  mkEl('text',{x:houseX-8,y:houseTop+roofH*0.38-4,'font-size':7,fill:'#666','font-family':'sans-serif'},'SMR Rail');
+  // FlexRail label
+  mkEl('text',{x:houseX-8,y:houseTop+roofH*0.38-4,'font-size':7,fill:'#666','font-family':'sans-serif'},'FlexRail');
 
-  // ── SILFAB PANELS (appear as progress fills) ──
+  // ── SOLCREST PANELS (appear as progress fills) ──
   const panelG=document.createElementNS('http://www.w3.org/2000/svg','g');
   panelG.setAttribute('id','site-panel-group');
   svg.appendChild(panelG);
@@ -2063,18 +2094,18 @@ function buildSiteScene(){
   // ── CONDUIT down wall ──
   mkEl('rect',{x:houseX+houseW-14,y:houseTop+roofH,width:5,height:houseH-8,rx:1,fill:'#475569'});
 
-  // ── SOLAREDGE HD-WAVE INVERTER ──
+  // ── GRIDWAVE FLUXWAVE INVERTER ──
   const invX=houseX+houseW+8;
   const invY=houseTop+roofH+20;
   mkEl('rect',{x:invX,y:invY,width:50,height:62,rx:3,fill:'#F8FAFC',stroke:'#94A3B8','stroke-width':1.5});
-  mkEl('text',{x:invX+25,y:invY+10,'text-anchor':'middle','font-size':6,fill:'#1E40AF','font-family':'sans-serif','font-weight':'bold'},'SolarEdge');
-  mkEl('text',{x:invX+25,y:invY+18,'text-anchor':'middle','font-size':4.5,fill:'#64748B','font-family':'sans-serif'},'HD-Wave Inverter');
+  mkEl('text',{x:invX+25,y:invY+10,'text-anchor':'middle','font-size':6,fill:'#1E40AF','font-family':'sans-serif','font-weight':'bold'},'GridWave');
+  mkEl('text',{x:invX+25,y:invY+18,'text-anchor':'middle','font-size':4.5,fill:'#64748B','font-family':'sans-serif'},'FluxWave Inverter');
   mkEl('rect',{x:invX+4,y:invY+21,width:42,height:14,rx:2,fill:'#0F172A'});
   // LED
   const led=mkEl('circle',{cx:invX+12,cy:invY+28,r:4,fill:'#22C55E'});
   led.style.animation='ledBlink 2s ease-in-out infinite';
   mkEl('text',{x:invX+32,y:invY+31,'text-anchor':'middle','font-size':5,fill:'#22C55E','font-family':'monospace'},'99%EFF');
-  mkEl('text',{x:invX+25,y:invY+42,'text-anchor':'middle','font-size':4,fill:'#64748B','font-family':'sans-serif'},'P400 Optimizers');
+  mkEl('text',{x:invX+25,y:invY+42,'text-anchor':'middle','font-size':4,fill:'#64748B','font-family':'sans-serif'},'Q400 Optimizers');
   mkEl('rect',{x:invX+4,y:invY+46,width:42,height:8,rx:1,fill:'#334155'});
   mkEl('text',{x:invX+25,y:invY+52,'text-anchor':'middle','font-size':4,fill:'#64748B','font-family':'sans-serif'},'SAFETY SW ▮');
 
@@ -2174,20 +2205,20 @@ function buildSiteScene(){
 
   // ── ENHANCED INVERTER DISPLAY ──
   // Replace static inverter with live-updating version
-  const oldInv=svg.querySelector('.se-inverter-g');
+  const oldInv=svg.querySelector('.gw-inverter-g');
   if(oldInv)oldInv.remove();
   const invGrp=document.createElementNS('http://www.w3.org/2000/svg','g');
-  invGrp.setAttribute('class','se-inverter-g');
+  invGrp.setAttribute('class','gw-inverter-g');
   const invX2=houseX+houseW+8;
   const invY2=houseTop+roofH+20;
   invGrp.innerHTML=`
     <rect x="${invX2}" y="${invY2}" width="52" height="70" rx="3" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
-    <text x="${invX2+26}" y="${invY2+10}" text-anchor="middle" font-size="6" fill="#1E40AF" font-family="sans-serif" font-weight="bold">SolarEdge</text>
-    <text x="${invX2+26}" y="${invY2+18}" text-anchor="middle" font-size="4.5" fill="#64748B" font-family="sans-serif">HD-Wave Inverter</text>
+    <text x="${invX2+26}" y="${invY2+10}" text-anchor="middle" font-size="6" fill="#1E40AF" font-family="sans-serif" font-weight="bold">GridWave</text>
+    <text x="${invX2+26}" y="${invY2+18}" text-anchor="middle" font-size="4.5" fill="#64748B" font-family="sans-serif">FluxWave Inverter</text>
     <rect x="${invX2+4}" y="${invY2+21}" width="44" height="18" rx="2" fill="#0F172A"/>
     <circle cx="${invX2+12}" cy="${invY2+30}" r="4" fill="#22C55E" id="site-led-dot" style="animation:ledBlink 2s ease-in-out infinite"/>
     <text id="site-inv-reading" x="${invX2+36}" y="${invY2+33}" text-anchor="middle" font-size="6" fill="#22C55E" font-family="monospace">--W</text>
-    <text x="${invX2+26}" y="${invY2+46}" text-anchor="middle" font-size="4" fill="#64748B" font-family="sans-serif">P400 Optimizers</text>
+    <text x="${invX2+26}" y="${invY2+46}" text-anchor="middle" font-size="4" fill="#64748B" font-family="sans-serif">Q400 Optimizers</text>
     <rect x="${invX2+4}" y="${invY2+50}" width="44" height="9" rx="1" fill="#334155"/>
     <text id="site-inv-eff" x="${invX2+26}" y="${invY2+57}" text-anchor="middle" font-size="5" fill="#94A3B8" font-family="monospace">COMM OK</text>
     <rect x="${invX2+4}" y="${invY2+61}" width="44" height="7" rx="1" fill="#1E293B"/>
@@ -2286,14 +2317,14 @@ function animateWorkersForStage(stageIdx){
     ['Inspecting roof','Checking pitch','Measuring'],   // 0 Inspection
     ['Filing permits','On the phone','Waiting on city'],// 1 Permits
     ['Drilling L-feet','Sealing flashing','Torquing'],  // 2 L-Feet
-    ['Running rails','Aligning SMR','Cutting rail'],    // 3 Rails
-    ['Wiring optimizers','Clipping P400','Testing'],    // 4 Optimizers
+    ['Running rails','Aligning FlexRail','Cutting rail'],// 3 Rails
+    ['Wiring optimizers','Clipping Q400','Testing'],    // 4 Optimizers
     ['Placing panel','Securing clips','Lifting panel'], // 5 Panels
     ['Running MC4','Crimping wires','Pulling wire'],    // 6 Wiring
     ['Running conduit','Drilling wall','Bending EMT'],  // 7 Conduit
-    ['Mounting inverter','Wiring HD-Wave','Labeling'],  // 8 Inverter
+    ['Mounting inverter','Wiring FluxWave','Labeling'], // 8 Inverter
     ['Breaker hookup','AC wiring','Testing breaker'],   // 9 AC Panel
-    ['SetApp scan','Commissioning','Activating'],       // 10 SetApp
+    ['LinkApp scan','Commissioning','Activating'],      // 10 LinkApp
     ['Grid connected!','Final inspection','Done! 🎉'],  // 11 Done
   ];
   const actions=stageActions[Math.min(stageIdx,stageActions.length-1)];
@@ -2302,23 +2333,6 @@ function animateWorkersForStage(stageIdx){
     w.textContent=actions[i%actions.length];
   });
 }
-
-
-  const stages=INSTALL_STAGES;
-  const stagesEl=document.getElementById('ip-stages');
-  if(stagesEl){
-    stagesEl.innerHTML=stages.map((s,i)=>`<div class="ip-stage-chip ${i<G.siteStageIdx?'done':i===G.siteStageIdx?'active':''}">${s}</div>`).join('');
-  }
-  const pct=Math.min(100,Math.floor(G.siteProgress));
-  const fill=document.getElementById('ip-prog-fill');
-  if(fill)fill.style.width=pct+'%';
-  const pctEl=document.getElementById('ip-pct');
-  if(pctEl)pctEl.textContent=pct+'%';
-  const earnEl=document.getElementById('ip-earn');
-  if(earnEl)earnEl.textContent='+'+fmt(G.siteLevel*1200)+' on complete';
-  const nameEl=document.getElementById('ip-stage-name');
-  if(nameEl)nameEl.textContent=G.currentJob?G.currentJob+' — '+stages[Math.min(G.siteStageIdx,stages.length-1)]:'Awaiting Job';
-  // Update Silfab panels on SVG roof
 
 function tickSite(){
   if(!G.siteUnlocked)return;
@@ -2736,7 +2750,7 @@ function renderUpgrades(){
   // Expansion options
   document.getElementById('upg-expansion').innerHTML=EXPANSION_DATA.map(e=>{
     const unlocked=e.check();
-    const already=G.officeLevel>=e.newLevel;
+    const already=e.already();
     const can=!already&&unlocked&&G.money>=e.cost;
     return `<div class="upg-card ${can?'can':''} ${already?'maxed':''}" onclick="buyExpansion('${e.id}')">
       <div class="upg-ico">${e.icon}</div>
@@ -2785,11 +2799,11 @@ function buyManager(id){
 
 function buyExpansion(id){
   const e=EXPANSION_DATA.find(x=>x.id===id);if(!e)return;
-  if(G.officeLevel>=e.newLevel){showToast('✅ Already done!');return;}
+  if(e.already()){showToast('✅ Already done!');return;}
   if(!e.check()){showToast('🔒 Revenue requirement not met.');return;}
   if(G.money<e.cost){showToast('💸 Need '+fmt(e.cost)+' to expand!');return;}
   G.money-=e.cost;
-  G.officeLevel=e.newLevel;
+  e.apply();
   updateOfficeBadge();
   updateHireButton();
   showToast('🎉 '+e.name+' complete!'
@@ -2803,6 +2817,30 @@ function buyExpansion(id){
 
 function closeExpansion(){
   document.getElementById('expansion-ov').classList.add('gone');
+}
+
+// ════════════════════════════════
+// LAS CRUCES SATELLITE BRANCH (real 2nd-location feature bought via EXPANSION_DATA 'lv4')
+// A remote 3-rep crew starts earning passive revenue automatically (no desk/hire
+// management needed — that's the point, it's a *satellite* office), and 3
+// exclusive higher-value Las Cruces contracts join the contract pipeline via
+// triggerContract(). Both effects are visible/testable immediately on purchase:
+// the 📍 badge starts ticking and Las Cruces contracts can appear in the pipeline.
+// ════════════════════════════════
+function unlockLasCruces(){
+  if(G.lasCrucesUnlocked)return;
+  G.lasCrucesUnlocked=true;
+  G.lasCrucesStaff=3;
+  recalcLasCrucesIncome();
+  const lcEl=document.getElementById('lc-income-display');
+  if(lcEl)lcEl.style.display='';
+}
+
+function recalcLasCrucesIncome(){
+  if(!G.lasCrucesUnlocked){G.lasCrucesIncome=0;return;}
+  const moraleBonus=1+(G.morale/100)*0.4;
+  const catBonus=1+(G.cats*0.03);
+  G.lasCrucesIncome=Math.floor(G.lasCrucesStaff*22*G.incomeMultiplier*moraleBonus*catBonus*G.prestigeMultiplier);
 }
 
 // ════════════════════════════════
@@ -2877,8 +2915,15 @@ function loadGame(){load();showToast('📂 Game loaded!'
 ,'good');closeMenu();}
 function returnToMenu(){
   closeMenu();
-  document.getElementById('app').classList.remove('show');
-  document.getElementById('splash').style.display='flex';
+  // Save, then stop the tick dispatcher and hard-reload back to the splash screen.
+  // A reload (rather than just hiding #app and leaving startGame() to run again
+  // on the next "Open For Business" click) guarantees no duplicate intervals or
+  // duplicate desk/cat DOM nodes ever stack up across repeated Menu -> Start
+  // cycles — see CLAUDE.md's interval-hygiene note, which names this exact file's
+  // old 13-interval sprawl as the anti-pattern to avoid.
+  try{save();}catch(e){}
+  stopIntervals();
+  location.reload();
 }
 function newGame(){
   if(!confirm('Start a new game? All progress will be lost.'))return;
@@ -2888,7 +2933,7 @@ function newGame(){
 }
 function showCredits(){
   closeMenu();
-  showToast('☀️ Purr & Power Co. v5 | Built for Gonzo | Silfab+SolarEdge+Sunmodo');
+  showToast('☀️ Purr & Power Co. v5 | Built for Gonzo | Solcrest+GridWave+IronRail');
 }
 function showPrestige(){
   closeMenu();
@@ -2913,16 +2958,24 @@ function recalcIncome(){
   const moraleBonus=1+(G.morale/100)*0.6;
   const catBonus=1+(G.cats*0.05);
   const softBonus=G.upgrades.soft?Math.pow(2,G.upgrades.soft):1;
+  const toysBonus=1+(G.upgrades.toys||0)*0.06; // Premium Cat Toys: amplifies morale's income effect, +30% at max Lv5
   const offMgr=G.managers.office?1.3:1;
   const vpBonus=G.staff>=16?1.2:1; // VP Operations perk
   const brBonus=G.brUpgrades.br_fridge?1.05:1;
   const brBonus2=G.brUpgrades.br_espresso?1.1:1;
-  G.income=Math.floor(G.staff*10*G.incomeMultiplier*moraleBonus*catBonus*softBonus*offMgr*vpBonus*brBonus*brBonus2*G.prestigeMultiplier);
+  G.income=Math.floor(G.staff*10*G.incomeMultiplier*moraleBonus*catBonus*softBonus*toysBonus*offMgr*vpBonus*brBonus*brBonus2*G.prestigeMultiplier);
 }
 
 function gameTick(){
   recalcIncome();
   G.money+=G.income/10;G.totalMoney+=G.income/10;G.todayRevenue+=G.income/10;G.weeklyRevenue+=G.income/10;
+
+  // Las Cruces satellite branch — earns automatically once unlocked, independent
+  // of the El Paso desk/hire system (that's the point of a satellite office).
+  if(G.lasCrucesUnlocked){
+    recalcLasCrucesIncome();
+    G.money+=G.lasCrucesIncome/10;G.totalMoney+=G.lasCrucesIncome/10;G.todayRevenue+=G.lasCrucesIncome/10;G.weeklyRevenue+=G.lasCrucesIncome/10;
+  }
 
   // Morale drain
   const espresso=(G.brUpgrades.br_espresso)?0.005:0;
@@ -2972,7 +3025,12 @@ function updateUI(){
   document.getElementById('morale-fill').style.width=m+'%';
   document.getElementById('morale-val').textContent=m+'%';
   document.getElementById('income-display').textContent='+'+fmt(G.income)+'/s';
-  const weeklyNet=G.income*604.8-calcWeeklyPayroll(); // 604.8s per week game time
+  const lcEl=document.getElementById('lc-income-display');
+  if(lcEl){
+    if(G.lasCrucesUnlocked){lcEl.style.display='';lcEl.textContent='📍 +'+fmt(G.lasCrucesIncome)+'/s';}
+    else lcEl.style.display='none';
+  }
+  const weeklyNet=(G.income+(G.lasCrucesUnlocked?G.lasCrucesIncome:0))*604.8-calcWeeklyPayroll(); // 604.8s per week game time
   const netEl=document.getElementById('net-display');
   if(netEl){netEl.textContent=(weeklyNet>=0?'+':'')+fmt(weeklyNet)+'/wk';}
 
@@ -3034,11 +3092,11 @@ function spawnFltXY(x,y,txt,col){
 }
 function setBadge(tab){const el=document.getElementById('badge-'+tab);if(el)el.classList.add('on');}
 function clearBadge(tab){const el=document.getElementById('badge-'+tab);if(el)el.classList.remove('on');}
-function showToast(msg){
-  const ex=document.querySelector('.toast');if(ex)ex.remove();
-  const t=document.createElement('div');t.className='toast';t.textContent=msg;
-  document.body.appendChild(t);setTimeout(()=>t.remove(),2400);
-}
+// NOTE: a second, legacy `function showToast(msg)` used to live here and — because
+// function declarations hoist and the last one in a scope wins — it silently
+// shadowed the queued/typed notif-bar implementation above for the entire file,
+// so no toast ever actually rendered (it wrote into a `.toast` element that's
+// `display:none` in CSS). Removed; the notif-bar implementation above is authoritative.
 
 // ════════════════════════════════
 // SAVE / LOAD
@@ -3059,6 +3117,7 @@ function save(){
     officeLevel:G.officeLevel,brUpgrades:G.brUpgrades,weeklyPayroll:G.weeklyPayroll,
     weekTimer:G.weekTimer,monthTimer:G.monthTimer,
     prestige:G.prestige,prestigeMultiplier:G.prestigeMultiplier,
+    lasCrucesUnlocked:G.lasCrucesUnlocked,lasCrucesStaff:G.lasCrucesStaff,lasCrucesIncome:G.lasCrucesIncome,
     timestamp:Date.now()
   }));}catch(e){}
 }
@@ -3069,15 +3128,74 @@ function load(){
     Object.assign(G,d);
     const elapsed=Math.min((Date.now()-(d.timestamp||Date.now()))/1000,28800); // up to 8 hrs
     recalcIncome();
-    const off=G.income*elapsed*0.4;
+    recalcLasCrucesIncome();
+    const lcRate=G.lasCrucesUnlocked?G.lasCrucesIncome:0;
+    const off=(G.income+lcRate)*elapsed*0.4;
     if(off>10){G.money+=off;G.totalMoney+=off;setTimeout(()=>showToast('💤 Offline: +'+fmt(off)+' earned!'),1500);}
+    // lc-income-display badge visibility is set from updateUI(), but flip it
+    // here too so it's correct on the very first paint after a load.
+    const lcEl=document.getElementById('lc-income-display');
+    if(lcEl)lcEl.style.display=G.lasCrucesUnlocked?'':'none';
     return true;
   }catch(e){return false;}
 }
 
+// Save on tab backgrounding / navigation-away / close, in addition to the 30s
+// autosave tick — covers the gap between autosaves so a backgrounded or closed
+// tab doesn't lose progress. save() is already try/catch-wrapped internally.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){try{save();}catch(e){}}
+});
+window.addEventListener('pagehide',()=>{try{save();}catch(e){}});
+
 // ════════════════════════════════
 // INIT
 // ════════════════════════════════
+// ════════════════════════════════
+// CENTRAL TICK DISPATCHER
+// A single setInterval (the finest cadence any system needs, 100ms) drives every
+// timed system via its own accumulator, instead of stacking ~a dozen independent
+// setIntervals (see CLAUDE.md "Interval hygiene" — this file was the anti-pattern
+// example). The handle is stored so returnToMenu()/stopIntervals() can clear it.
+// ════════════════════════════════
+const TICK_MS=100;
+let masterTickHandle=null;
+const TICK_SYSTEMS={
+  game:        {every:100,      acc:0, fn:gameTick},
+  site:        {every:500,      acc:0, fn:tickSite},
+  leads:       {every:2000,     acc:0, fn:tickLeads},
+  autosave:    {every:30000,    acc:0, fn:save},
+  leadGen:     {every:45000,    acc:0, fn:()=>{if(Math.random()<0.5)addLead();}},
+  contractGen: {every:60000,    acc:0, fn:()=>{if(Math.random()<0.5)triggerContract();}},
+  angryGen:    {every:90000,    acc:0, fn:()=>{if(G.staff>=2&&Math.random()<0.25&&!G.angryActive&&!G.objectionActive)triggerAngry();}},
+  objectionGen:{every:120000,   acc:0, fn:()=>{if(G.leads.length>0&&Math.random()<0.3&&!G.angryActive&&!G.objectionActive)triggerObjection();}},
+  dispatchMgr: {every:60000,    acc:0, fn:()=>{if(G.managers.dispatch){jobCardEls.forEach((_,i)=>{if(jobReady[i])collectJob(i);});}}},
+  weatherGen:  {every:180000,   acc:0, fn:()=>{if(Math.random()<0.25)triggerWeather();}},
+  tacoTuesday: {every:604800,   acc:0, fn:()=>{if(G.brUpgrades.br_taco){G.morale=Math.min(100,G.morale+20);showToast('🌮 Taco Tuesday! Morale +20!','good');}}},
+  dailyReset:  {every:86400000, acc:0, fn:()=>{G.todayRevenue=0;}},
+};
+
+function masterTick(){
+  for(const key in TICK_SYSTEMS){
+    const sys=TICK_SYSTEMS[key];
+    sys.acc+=TICK_MS;
+    if(sys.acc>=sys.every){
+      sys.acc-=sys.every;
+      try{sys.fn();}catch(err){console.error('[tick:'+key+']',err);}
+    }
+  }
+}
+
+function startIntervals(){
+  stopIntervals();
+  for(const key in TICK_SYSTEMS)TICK_SYSTEMS[key].acc=0;
+  masterTickHandle=setInterval(masterTick,TICK_MS);
+}
+
+function stopIntervals(){
+  if(masterTickHandle){clearInterval(masterTickHandle);masterTickHandle=null;}
+}
+
 function startGame(){
   document.getElementById('splash').style.display='none';
   document.getElementById('app').classList.add('show');
@@ -3124,34 +3242,9 @@ function startGame(){
     setTimeout(buildSiteScene,200);
   }
 
-  // Auto-save every 30s
-  setInterval(save,30000);
-
-  // Main ticks
-  setInterval(gameTick,100);
-  setInterval(tickSite,500);
-  setInterval(tickLeads,2000);
-
-  // Lead generation (solar cycle is long)
-  setInterval(()=>{if(Math.random()<0.5)addLead();},45000);
-
-  // Contracts from signed leads
-  setInterval(()=>{if(Math.random()<0.5)triggerContract();},60000);
-
-  // Angry customers — less frequent, only fires if not already showing something
-  setInterval(()=>{if(G.staff>=2&&Math.random()<0.25&&!G.angryActive&&!G.objectionActive)triggerAngry();},90000);
-
-  // Objections — less frequent
-  setInterval(()=>{if(G.leads.length>0&&Math.random()<0.3&&!G.angryActive&&!G.objectionActive)triggerObjection();},120000);
-
-  // Auto dispatch manager
-  setInterval(()=>{if(G.managers.dispatch){jobCardEls.forEach((_,i)=>{if(jobReady[i])collectJob(i);});}},60000);
-
-  // Weather events — quiet pill only, infrequent
-  setInterval(()=>{if(Math.random()<0.25)triggerWeather();},180000);
-
-  // Taco Tuesday morale boost — quiet pill
-  setInterval(()=>{if(G.brUpgrades.br_taco){G.morale=Math.min(100,G.morale+20);showToast('🌮 Taco Tuesday! Morale +20!','good');}},604800);
+  // All timed systems (autosave, ticks, lead/contract/event generation, daily
+  // reset) run off one master dispatcher — see TICK_SYSTEMS above.
+  startIntervals();
 
   // Leaderboard: accessible from ☰ menu only, no auto-popup
 
@@ -3159,9 +3252,6 @@ function startGame(){
   setTimeout(triggerContract,12000);
   // First angry much later — let player settle in first
   setTimeout(()=>{if(Math.random()<0.3)triggerAngry();},180000);
-
-  // Reset today revenue daily
-  setInterval(()=>{G.todayRevenue=0;},86400000);
 
   updateUI();updateHireButton();
   if(hasSave)showToast('☀️ Welcome back to Purr & Power Co.!'
