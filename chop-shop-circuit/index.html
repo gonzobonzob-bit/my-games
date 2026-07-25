@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#0b1622">
+<title>Chop Shop Circuit</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+
+<div id="screen-loading" class="screen">
+  <div class="panel loading-panel">
+    <div class="brand">CHOP SHOP CIRCUIT</div>
+    <div class="loading-sub">Warming up the arena lights...</div>
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<div id="screen-menu" class="screen">
+  <div class="panel menu-panel">
+    <div class="brand">CHOP SHOP CIRCUIT</div>
+    <div class="tagline">Build it. Arm it. Watch it win.</div>
+    <button id="btn-new-game" class="btn-large">New Game</button>
+    <button id="btn-continue" class="btn-large">Continue</button>
+    <button id="quality-menu-btn" class="btn-outline">Graphics: HIGH</button>
+  </div>
+</div>
+
+<div id="screen-garage" class="screen">
+  <div class="panel wide-panel">
+    <div class="panel-header">
+      <div class="panel-title">Garage</div>
+      <div id="garage-credits" class="credits-tag">0 cr</div>
+      <button class="btn-outline btn-pause-open">☰</button>
+    </div>
+    <div id="garage-slots" class="garage-slots"></div>
+    <div class="panel-footer">
+      <button id="btn-garage-to-menu" class="btn-outline">Main Menu</button>
+      <button id="btn-garage-to-ladder" class="btn-large">Enter League ▶</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-ladder" class="screen">
+  <div class="panel wide-panel">
+    <div class="panel-header">
+      <div class="panel-title">League Ladder</div>
+      <button class="btn-outline btn-pause-open">☰</button>
+    </div>
+    <div id="ladder-list" class="ladder-list"></div>
+    <div class="panel-footer">
+      <button id="btn-ladder-to-garage" class="btn-outline">◀ Back to Garage</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-battle" class="screen battle-screen">
+  <div class="battle-hud">
+    <div class="fighter-card left">
+      <div id="battle-player-name" class="fighter-name">YOUR BOT</div>
+      <div class="hp-bar"><div id="hp-player-fill" class="hp-fill player"></div></div>
+    </div>
+    <div class="battle-center">
+      <div id="battle-timer" class="battle-timer">55s</div>
+    </div>
+    <div class="fighter-card right">
+      <div id="battle-enemy-name" class="fighter-name">OPPONENT</div>
+      <div class="hp-bar"><div id="hp-enemy-fill" class="hp-fill enemy"></div></div>
+    </div>
+    <button id="quality-battle-btn" class="btn-outline battle-quality-btn">Graphics: HIGH</button>
+    <button class="btn-outline btn-pause-open battle-pause-btn">☰</button>
+  </div>
+</div>
+
+<div id="screen-results" class="screen">
+  <div class="panel menu-panel">
+    <div id="result-title" class="result-title">VICTORY</div>
+    <div id="result-text" class="result-text"></div>
+    <div id="result-scorecard" class="result-scorecard"></div>
+    <div id="result-reward" class="result-reward"></div>
+    <button id="btn-results-continue" class="btn-large">Continue ▶</button>
+  </div>
+</div>
+
+<div id="screen-pause" class="screen">
+  <div class="panel menu-panel">
+    <div class="panel-title">Paused</div>
+    <button id="btn-pause-resume" class="btn-large">Resume</button>
+    <button id="btn-pause-quit" class="btn-outline">Quit to Menu</button>
+  </div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+<script src="parts.js"></script>
+<script src="economy.js"></script>
+<script src="arena.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

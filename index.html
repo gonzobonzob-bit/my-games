@@ -105,6 +105,10 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-cascade{background:linear-gradient(180deg,#020610 0%,#04101f 45%,#071b26 75%,#03110d 100%);}
 .banner-cascade::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 45% 35% at 70% 25%,rgba(80,220,255,0.35) 0%,rgba(40,160,255,0.12) 45%,transparent 70%),radial-gradient(circle 3px at 20% 30%,rgba(255,255,255,0.7),transparent),radial-gradient(circle 2px at 35% 18%,rgba(255,255,255,0.5),transparent),radial-gradient(circle 2px at 55% 12%,rgba(255,255,255,0.6),transparent),radial-gradient(circle 2px at 85% 40%,rgba(255,255,255,0.4),transparent);}
 .banner-cascade::after{content:'';position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(180deg,transparent,rgba(4,20,10,0.9)),radial-gradient(ellipse 30% 70% at 25% 100%,rgba(255,180,80,0.25) 0%,transparent 60%);}
+/* Chop Shop Circuit — Broadcast Arena */
+.banner-chopshop{background:linear-gradient(180deg,#050a12 0%,#0b1622 45%,#0d1f2e 80%,#050a12 100%);}
+.banner-chopshop::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 50% 60% at 25% 40%,rgba(46,139,240,0.28) 0%,transparent 60%),radial-gradient(ellipse 50% 60% at 75% 60%,rgba(224,73,47,0.24) 0%,transparent 60%);}
+.banner-chopshop::after{content:'';position:absolute;inset:0;background:radial-gradient(circle 3px at 30% 20%,rgba(242,183,5,0.5),transparent),radial-gradient(circle 2px at 62% 30%,rgba(242,183,5,0.4),transparent),radial-gradient(circle 3px at 45% 70%,rgba(242,183,5,0.35),transparent),linear-gradient(180deg,transparent 85%,rgba(242,183,5,0.15) 100%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -245,6 +249,16 @@ footer a{color:var(--purple);text-decoration:none;}
       <div class="card-genre">💥 Demolition Derby Tycoon</div>
       <div class="card-title">Scrapyard D-Derby Empire</div>
       <div class="card-desc">Build a demolition derby empire from the junkyard up. Upgrade cars, hire drivers, smash opponents in 3D Havok-physics arenas, then scrap or repair the wreckage. Babylon.js 3D engine.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
+  </a>
+
+  <a class="card status-wip" href="chop-shop-circuit/index.html" data-tags="idle action" data-status="wip" data-hidden="1">
+    <div class="card-banner banner-chopshop"><span class="banner-emoji">🤖⚙️</span><span class="card-badge badge-idle">Tycoon</span></div>
+    <div class="card-body">
+      <div class="card-genre">🤖 Battle-Bot Tycoon · Auto-Battler</div>
+      <div class="card-title">Chop Shop Circuit</div>
+      <div class="card-desc">Build a combat robot from the chassis up — chassis, weapon, armor, drivetrain, special — then send it into physics-driven 3D arena battles you don't control. Climb a 6-bot league ladder, earn credits, upgrade your build. Babylon.js + Havok physics, broadcast-style camera cuts, slow-mo finishes.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 V1</span></div>
   </a>
