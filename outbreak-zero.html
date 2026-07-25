@@ -2,8 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>OUTBREAK ZERO VR</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="outbreak-zero-aframe.min.js"></script>
 <script>
 AFRAME.registerComponent('gonzo-move', {
   schema: { speed: { default: 3.5 }, turnSnap: { default: 30 } },
@@ -50,19 +51,25 @@ body{margin:0;background:#000;}
 .hb .hl{font-size:8px;letter-spacing:3px;color:#00aa44;margin-bottom:1px;}
 .hb .hv{font-size:18px;color:#00ff88;letter-spacing:2px;text-shadow:0 0 8px rgba(0,255,136,0.4);}
 .hb .hv.red{color:#ff3333;text-shadow:0 0 8px rgba(255,51,51,0.4);}
-#panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:520px;max-width:93vw;background:rgba(0,8,2,0.97);
+.crt-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:520px;max-width:93vw;max-height:88vh;overflow-y:auto;background:rgba(0,8,2,0.97);
   border:2px solid #00ff88;padding:24px;display:none;z-index:200;
   font-family:'Courier New',monospace;}
-#panel .ptop{font-size:9px;letter-spacing:4px;color:#00ff88;margin-bottom:8px;}
-#panel h2{color:#fff;font-size:18px;letter-spacing:2px;margin:4px 0 10px;}
-#panel .pdiv{height:1px;background:#003322;margin:10px 0;}
-#panel p{font-size:12px;line-height:1.85;color:#aaffcc;margin-bottom:14px;}
-#panel .pbtns{display:flex;gap:8px;flex-wrap:wrap;}
-#panel .pbtn{flex:1;background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;padding:10px 8px;cursor:pointer;text-align:center;min-width:80px;}
-#panel .pbtn:hover{background:rgba(0,255,136,0.1);}
-#panel .pbtn.red{border-color:#ff3333;color:#ff3333;}
-#panel .pbtn.red:hover{background:rgba(255,51,51,0.1);}
+.crt-panel .ptop{font-size:9px;letter-spacing:4px;color:#00ff88;margin-bottom:8px;}
+.crt-panel h2{color:#fff;font-size:18px;letter-spacing:2px;margin:4px 0 10px;}
+.crt-panel .pdiv{height:1px;background:#003322;margin:10px 0;}
+.crt-panel p{font-size:12px;line-height:1.85;color:#aaffcc;margin-bottom:14px;}
+.crt-panel .pbtns{display:flex;gap:8px;flex-wrap:wrap;}
+#startscreen,#pausescreen,#endscreen{z-index:400;}
+.pbtn{flex:1;background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;padding:10px 8px;cursor:pointer;text-align:center;min-width:80px;}
+.pbtn:hover{background:rgba(0,255,136,0.1);}
+.pbtn.red{border-color:#ff3333;color:#ff3333;}
+.pbtn.red:hover{background:rgba(255,51,51,0.1);}
+.pbtn:disabled{opacity:0.35;cursor:not-allowed;border-color:#225533;color:#336644;}
+.pbtn:disabled:hover{background:transparent;}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:16px;}
+.statgrid .sk{font-size:9px;letter-spacing:2px;color:#00aa44;}
+.statgrid .sv{font-size:15px;color:#00ff88;margin-top:2px;}
 #ticker{position:fixed;top:62px;left:0;right:0;z-index:90;overflow:hidden;height:22px;pointer-events:none;}
 #ticker-inner{display:flex;gap:40px;white-space:nowrap;font-family:'Courier New',monospace;font-size:10px;color:#00aa44;letter-spacing:2px;animation:ticker 18s linear infinite;}
 @keyframes ticker{from{transform:translateX(100vw)}to{transform:translateX(-200%)}}
@@ -86,12 +93,56 @@ body{margin:0;background:#000;}
   </div>
 </div>
 
-<div id="panel">
+<div id="panel" class="crt-panel">
   <div class="ptop">CDC CONTAINMENT FACILITY — CLASSIFIED</div>
   <h2 id="ptitle">STATION NAME</h2>
   <div class="pdiv"></div>
   <p id="pdesc">Description</p>
   <div class="pbtns" id="pbtns"></div>
+</div>
+
+<div id="startscreen" class="crt-panel">
+  <div class="ptop">CDC CONTAINMENT FACILITY — CLASSIFIED</div>
+  <h2>OUTBREAK ZERO VR</h2>
+  <div class="pdiv"></div>
+  <p>An unknown pathogen has breached containment. Work the Quarantine Lab, Research Lab, Deployment Bay and Intel Center to drive infection to 0% AND deploy at least 3 verified vaccine doses before Day 30 — miss either condition by the deadline and the facility is shut down regardless of progress.</p>
+  <div class="statgrid">
+    <div><div class="sk">FASTEST CONTAINMENT</div><div class="sv" id="bestWinDay">—</div></div>
+    <div><div class="sk">LOWEST INFECTION</div><div class="sv" id="bestInfection">—</div></div>
+    <div><div class="sk">FASTEST VACCINE</div><div class="sv" id="bestVaccine">—</div></div>
+    <div><div class="sk">SOUND</div><div class="sv" id="soundState">ON</div></div>
+  </div>
+  <div class="pbtns">
+    <button class="pbtn" id="newGameBtn">NEW GAME</button>
+    <button class="pbtn" id="continueBtn">CONTINUE</button>
+    <button class="pbtn" id="muteBtn">TOGGLE SOUND</button>
+  </div>
+  <div class="pdiv"></div>
+  <p style="margin-bottom:0;font-size:10px;color:#558866;">LEFT STICK=MOVE · RIGHT STICK=TURN · DESKTOP: WASD=MOVE · MOUSE=LOOK · CLICK=INTERACT · ESC=PAUSE</p>
+</div>
+
+<div id="pausescreen" class="crt-panel">
+  <div class="ptop">CONTAINMENT PROTOCOL SUSPENDED</div>
+  <h2>PAUSED</h2>
+  <div class="pdiv"></div>
+  <div class="pbtns">
+    <button class="pbtn" id="resumeBtn">RESUME</button>
+    <button class="pbtn" id="saveBtn">SAVE</button>
+    <button class="pbtn red" id="pauseMenuBtn">MAIN MENU</button>
+  </div>
+</div>
+
+<div id="endscreen" class="crt-panel">
+  <div class="ptop" id="endTop">CDC CONTAINMENT FACILITY — CLASSIFIED</div>
+  <h2 id="endTitle">MISSION COMPLETE</h2>
+  <div class="pdiv"></div>
+  <p id="endReason"></p>
+  <div class="statgrid" id="endStats"></div>
+  <div class="pdiv"></div>
+  <div class="pbtns">
+    <button class="pbtn" id="playAgainBtn">PLAY AGAIN</button>
+    <button class="pbtn red" id="endMenuBtn">MAIN MENU</button>
+  </div>
 </div>
 
 <div id="alert"><div id="alert-txt"></div></div>
@@ -240,24 +291,112 @@ body{margin:0;background:#000;}
 </a-scene>
 
 <script>
+// ── CONSTANTS ─────────────────────────────────────────────────────────────
+const SAVE_KEY = 'outbreak-zero-save-v1';       // versioned — bump on incompatible state shape changes
+const BEST_KEY = 'outbreak-zero-best-v1';
+const SETTINGS_KEY = 'outbreak-zero-settings-v1';
+const MAX_DAY = 30;                             // hard deadline — see Research Lab desc, must stay true
+const WIN_VACCINES_REQUIRED = 3;                // doses that must be deployed to win, ties vaccine mechanic to victory
+const DAY_TICK_MS = 12000;                      // 12 seconds = 1 in-game day
+const AUTOSAVE_MS = 30000;
+
 // ── GAME STATE ──────────────────────────────────────────────────────────────
 const G = {
+  mode: 'menu',       // 'menu' | 'playing' | 'paused' | 'ended'
   funds: 500,
   day: 1,
-  infection: 0,      // 0-100%
-  contained: 0,      // cases contained
-  research: 0,       // 0-100 research progress
-  agents: 1,         // field agents deployed
-  vaccines: 0,
+  infection: 0,       // 0-100%
+  contained: 0,       // cases contained
+  research: 0,        // 0-100 research progress
+  agents: 1,           // field agents deployed
+  vaccines: 0,          // doses in stock, ready to deploy
+  vaccinesDeployed: 0,  // doses actually used — this is what the win condition checks
+  lowestInfectionSeen: null, // tracked from day 2 onward so the trivial day-1 0% doesn't count
+  firstVaccineDay: null,     // day the first vaccine ever completed research, this run
   dayTimer: null,
+  autosaveTimer: null,
   ac: null,
+  gainNode: null,
+  audioMuted: false,
 };
+
+function resetState() {
+  G.mode = 'menu';
+  G.funds = 500;
+  G.day = 1;
+  G.infection = 0;
+  G.contained = 0;
+  G.research = 0;
+  G.agents = 1;
+  G.vaccines = 0;
+  G.vaccinesDeployed = 0;
+  G.lowestInfectionSeen = null;
+  G.firstVaccineDay = null;
+}
+
+// ── PERSISTENCE ───────────────────────────────────────────────────────────
+function saveGame() {
+  try {
+    const data = {
+      v: 1, funds: G.funds, day: G.day, infection: G.infection, contained: G.contained,
+      research: G.research, agents: G.agents, vaccines: G.vaccines,
+      vaccinesDeployed: G.vaccinesDeployed, lowestInfectionSeen: G.lowestInfectionSeen,
+      firstVaccineDay: G.firstVaccineDay, savedAt: Date.now(),
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { console.warn('Outbreak Zero: save failed', e); }
+}
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || data.v !== 1) return null;
+    return data;
+  } catch (e) { console.warn('Outbreak Zero: save load failed', e); return null; }
+}
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+}
+function loadBest() {
+  const fallback = { v: 1, bestWinDay: null, lowestInfection: null, fastestVaccineDay: null };
+  try {
+    const raw = localStorage.getItem(BEST_KEY);
+    if (!raw) return fallback;
+    const data = JSON.parse(raw);
+    if (!data || data.v !== 1) return fallback;
+    return data;
+  } catch (e) { console.warn('Outbreak Zero: best-run load failed', e); return fallback; }
+}
+function saveBestIfBetter(win) {
+  try {
+    const best = loadBest();
+    if (win && (best.bestWinDay === null || G.day < best.bestWinDay)) best.bestWinDay = G.day;
+    const lowest = G.lowestInfectionSeen === null ? G.infection : G.lowestInfectionSeen;
+    if (best.lowestInfection === null || lowest < best.lowestInfection) best.lowestInfection = lowest;
+    if (G.firstVaccineDay !== null && (best.fastestVaccineDay === null || G.firstVaccineDay < best.fastestVaccineDay)) {
+      best.fastestVaccineDay = G.firstVaccineDay;
+    }
+    localStorage.setItem(BEST_KEY, JSON.stringify(best));
+    return best;
+  } catch (e) { console.warn('Outbreak Zero: best-run save failed', e); return loadBest(); }
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { muted: false };
+    const data = JSON.parse(raw);
+    return { muted: !!(data && data.muted) };
+  } catch (e) { return { muted: false }; }
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ muted: G.audioMuted })); } catch (e) { /* ignore */ }
+}
 
 // ── STATION DATA ─────────────────────────────────────────────────────────────
 const STATIONS = {
   quarantine: {
     name: '☣ QUARANTINE LAB',
-    desc: 'Contain infected specimens for analysis. Each containment costs resources but slows the spread. Current infection rate spreading at ' + G.infection.toFixed(1) + '% per cycle.',
     actions: [
       { label: 'CONTAIN SAMPLE\n$80', cost: 80, fn: () => { G.contained += 3; G.infection = Math.max(0, G.infection - 4); showAlert('CONTAINED', '#00ff88'); hud(); }},
       { label: 'UPGRADE LAB\n$200', cost: 200, fn: () => { G.infection = Math.max(0, G.infection - 10); showAlert('LAB UPGRADED', '#00ff88'); hud(); }},
@@ -266,25 +405,22 @@ const STATIONS = {
   },
   research: {
     name: '🔬 RESEARCH LAB',
-    desc: 'Develop countermeasures against the pathogen. Research progress: ' + G.research.toFixed(0) + '%. A vaccine requires 100% completion. Black oil variant requires enhanced protocols.',
     actions: [
-      { label: 'FUND RESEARCH\n$120', cost: 120, fn: () => { G.research = Math.min(100, G.research + 15); showAlert('+15% RESEARCH', '#4488ff'); if(G.research >= 100){ G.vaccines++; G.research = 0; showAlert('VACCINE READY!', '#00ff88'); } hud(); }},
-      { label: 'HIRE SCIENTIST\n$180', cost: 180, fn: () => { G.research = Math.min(100, G.research + 25); showAlert('+25% RESEARCH', '#4488ff'); hud(); }},
+      { label: 'FUND RESEARCH\n$120', cost: 120, fn: () => addResearch(15, '+15% RESEARCH', '#4488ff') },
+      { label: 'HIRE SCIENTIST\n$180', cost: 180, fn: () => addResearch(25, '+25% RESEARCH', '#4488ff') },
       { label: 'ANALYZE PATHOGEN\n$90', cost: 90, fn: () => { G.infection = Math.max(0, G.infection - 3); showAlert('PATHOGEN MAPPED', '#4488ff'); hud(); }},
     ]
   },
   deploy: {
     name: '🚁 DEPLOYMENT BAY',
-    desc: 'Deploy field agents to outbreak zones. More agents = faster containment. Current agents in field: ' + G.agents + '. Vaccines in stock: ' + G.vaccines + '.',
     actions: [
       { label: 'DEPLOY AGENT\n$100', cost: 100, fn: () => { G.agents++; G.contained += 2; showAlert('AGENT DEPLOYED', '#ff8833'); hud(); }},
-      { label: 'USE VACCINE\n$0', cost: 0, fn: () => { if(G.vaccines <= 0){ showAlert('NO VACCINES', '#ff3333'); return; } G.vaccines--; G.infection = Math.max(0, G.infection - 20); G.contained += 8; showAlert('VACCINE DEPLOYED!', '#00ff88'); hud(); }},
+      { label: 'USE VACCINE\n$0', cost: 0, fn: () => { if(G.vaccines <= 0){ showAlert('NO VACCINES', '#ff3333'); return; } G.vaccines--; G.vaccinesDeployed++; G.infection = Math.max(0, G.infection - 20); G.contained += 8; showAlert('VACCINE DEPLOYED!', '#00ff88'); hud(); }},
       { label: 'AIRDROP SUPPLIES\n$160', cost: 160, fn: () => { G.contained += 6; G.infection = Math.max(0, G.infection - 6); showAlert('SUPPLIES DROPPED', '#ff8833'); hud(); }},
     ]
   },
   intel: {
     name: '📡 INTEL CENTER',
-    desc: 'Intercept communications and track outbreak vectors. Syndicate involvement: UNCONFIRMED. Black oil variant DNA match: 94%. Source: unknown. Days elapsed: ' + G.day + '.',
     actions: [
       { label: 'INTERCEPT COMMS\n$60', cost: 60, fn: () => { G.funds += 40; showAlert('INTEL ACQUIRED +$40', '#cc44ff'); hud(); }},
       { label: 'TRACE ORIGIN\n$140', cost: 140, fn: () => { G.infection = Math.max(0, G.infection - 5); showAlert('SOURCE TRACED', '#cc44ff'); hud(); }},
@@ -293,16 +429,43 @@ const STATIONS = {
   }
 };
 
-function openStation(key) {
-  const s = STATIONS[key];
-  // Refresh dynamic desc
-  if(key==='quarantine') s.desc = `Contain infected specimens. Slows spread. Current infection: ${G.infection.toFixed(1)}%. Contained cases: ${G.contained}.`;
-  if(key==='research') s.desc = `Develop countermeasures. Research: ${G.research.toFixed(0)}%. Vaccines ready: ${G.vaccines}. Black oil variant requires enhanced protocols.`;
-  if(key==='deploy') s.desc = `Deploy field agents. Agents in field: ${G.agents}. Vaccines in stock: ${G.vaccines}. Each agent auto-contains 1 case/day.`;
-  if(key==='intel') s.desc = `Track outbreak vectors. Syndicate involvement: UNCONFIRMED. Black oil DNA match: 94%. Days elapsed: ${G.day}.`;
+// Shared by both research actions so the "vaccine completes at 100%" rule lives in one place.
+function addResearch(amount, label, color) {
+  G.research = Math.min(100, G.research + amount);
+  showAlert(label, color);
+  if (G.research >= 100) {
+    G.vaccines++;
+    G.research = 0;
+    if (G.firstVaccineDay === null) G.firstVaccineDay = G.day;
+    showAlert('VACCINE READY!', '#00ff88');
+  }
+  hud();
+}
 
+// Description text is generated fresh every open — this is the only place these
+// numbers are stated, so the Day-30 deadline and vaccine requirement mentioned
+// here are guaranteed to match what checkEndConditions() actually enforces.
+function getStationDesc(key) {
+  const remaining = Math.max(0, MAX_DAY - G.day);
+  switch (key) {
+    case 'quarantine':
+      return `Contain infected specimens. Slows spread. Current infection: ${G.infection.toFixed(1)}%. Contained cases: ${G.contained}.`;
+    case 'research':
+      return `Develop countermeasures. Research: ${G.research.toFixed(0)}%. Vaccines ready: ${G.vaccines}. Doses deployed: ${G.vaccinesDeployed}/${WIN_VACCINES_REQUIRED} required. Command requires infection at 0% AND ${WIN_VACCINES_REQUIRED} vaccine doses deployed, confirmed before Day ${MAX_DAY} (${remaining} day${remaining === 1 ? '' : 's'} remaining) — miss the deadline and containment is deemed a failure regardless of progress.`;
+    case 'deploy':
+      return `Deploy field agents. Agents in field: ${G.agents}. Vaccines in stock: ${G.vaccines}. Doses deployed: ${G.vaccinesDeployed}/${WIN_VACCINES_REQUIRED} needed to win. Each agent auto-contains 1 case/day.`;
+    case 'intel':
+      return `Track outbreak vectors. Syndicate involvement: UNCONFIRMED. Black oil DNA match: 94%. Days elapsed: ${G.day} / ${MAX_DAY}.`;
+    default:
+      return '';
+  }
+}
+
+function openStation(key) {
+  if (G.mode !== 'playing') return;
+  const s = STATIONS[key];
   document.getElementById('ptitle').textContent = s.name;
-  document.getElementById('pdesc').textContent = s.desc;
+  document.getElementById('pdesc').textContent = getStationDesc(key);
   const btns = document.getElementById('pbtns');
   btns.innerHTML = '';
   s.actions.forEach(a => {
@@ -310,10 +473,12 @@ function openStation(key) {
     btn.className = 'pbtn' + (a.cost > G.funds ? ' red' : '');
     btn.textContent = a.label;
     btn.onclick = () => {
-      if(G.funds < a.cost){ showAlert('INSUFFICIENT FUNDS', '#ff3333'); return; }
+      if (G.mode !== 'playing') return;
+      if (G.funds < a.cost) { showAlert('INSUFFICIENT FUNDS', '#ff3333'); return; }
       G.funds -= a.cost;
       a.fn();
       document.getElementById('panel').style.display = 'none';
+      checkEndConditions();
     };
     btns.appendChild(btn);
   });
@@ -342,10 +507,35 @@ function hud() {
   document.getElementById('hday').textContent = G.day;
   document.getElementById('hinf').textContent = G.infection.toFixed(1) + '%';
   document.getElementById('hcont').textContent = G.contained;
+  // Track the lowest infection ever reached, ignoring the trivial day-1 0% start.
+  if (G.day > 1 && (G.lowestInfectionSeen === null || G.infection < G.lowestInfectionSeen)) {
+    G.lowestInfectionSeen = G.infection;
+  }
+}
+
+// ── WIN / LOSE ──────────────────────────────────────────────────────────────
+// Checked after every station action AND every day tick, so the game reacts
+// immediately instead of waiting up to 12s for the next tick.
+function checkEndConditions() {
+  if (G.mode !== 'playing') return true;
+  if (G.infection >= 100) {
+    endGame(false, 'CONTAINMENT FAILED — infection reached 100% before the pathogen could be contained.');
+    return true;
+  }
+  if (G.infection <= 0 && G.vaccinesDeployed >= WIN_VACCINES_REQUIRED) {
+    endGame(true, `Infection driven to 0% with ${G.vaccinesDeployed} verified vaccine doses deployed. Outbreak Zero contained.`);
+    return true;
+  }
+  if (G.day >= MAX_DAY) {
+    endGame(false, `DAY ${MAX_DAY} DEADLINE REACHED — cure unverified. Command has shut down the facility regardless of remaining progress.`);
+    return true;
+  }
+  return false;
 }
 
 // ── DAY CYCLE ───────────────────────────────────────────────────────────────
 function dayTick() {
+  if (G.mode !== 'playing') return;
   G.day++;
   // Infection spreads
   const spread = Math.max(0.5, 3 - G.agents * 0.3);
@@ -355,28 +545,201 @@ function dayTick() {
   // Daily income
   G.funds += 30 + G.agents * 10;
   hud();
+  saveGame(); // save on day-change transition, per house autosave conventions
 
-  if(G.infection >= 100) {
-    showAlert('CONTAINMENT FAILED', '#ff3333');
-    clearInterval(G.dayTimer);
-    setTimeout(() => showAlert('OUTBREAK ZERO — MISSION FAILED', '#ff0000'), 2000);
-    return;
-  }
-  if(G.infection <= 0 && G.day > 5) {
-    showAlert('CONTAINED! MISSION SUCCESS', '#00ff88');
-    clearInterval(G.dayTimer);
-    return;
-  }
+  if (checkEndConditions()) return;
 
-  // Random events
+  // Random events — each one now actually applies the effect it claims to.
   const roll = Math.random();
-  if(roll < 0.15) showAlert('NEW OUTBREAK DETECTED +5%', '#ff3333');
-  else if(roll < 0.25 && G.funds > 50) { G.funds -= 50; showAlert('EMERGENCY RESPONSE -$50', '#ffcc00'); }
-  else if(roll < 0.3) { G.funds += 60; showAlert('WHO FUNDING +$60', '#00ff88'); }
+  if (roll < 0.15) {
+    G.infection = Math.min(100, G.infection + 5);
+    showAlert('NEW OUTBREAK DETECTED +5%', '#ff3333');
+    hud();
+    if (checkEndConditions()) return;
+  } else if (roll < 0.25 && G.funds > 50) {
+    G.funds -= 50;
+    showAlert('EMERGENCY RESPONSE -$50', '#ffcc00');
+    hud();
+  } else if (roll < 0.3) {
+    G.funds += 60;
+    showAlert('WHO FUNDING +$60', '#00ff88');
+    hud();
+  }
 }
 
-// ── TRIGGER INTERACTION ────────────────────────────────────────────────────
+// ── TIMERS (interval hygiene: always store the handle, always clear it) ────
+function startDayTimer() {
+  if (G.dayTimer) clearInterval(G.dayTimer);
+  G.dayTimer = setInterval(dayTick, DAY_TICK_MS);
+}
+function stopDayTimer() {
+  if (G.dayTimer) { clearInterval(G.dayTimer); G.dayTimer = null; }
+}
+function startAutosave() {
+  if (G.autosaveTimer) clearInterval(G.autosaveTimer);
+  G.autosaveTimer = setInterval(() => { if (G.mode === 'playing') saveGame(); }, AUTOSAVE_MS);
+}
+function stopAutosave() {
+  if (G.autosaveTimer) { clearInterval(G.autosaveTimer); G.autosaveTimer = null; }
+}
+
+// ── SCREEN FLOW: menu / playing / paused / ended ────────────────────────────
+function populateStartScreen() {
+  const best = loadBest();
+  const save = loadSave();
+  const continueBtn = document.getElementById('continueBtn');
+  continueBtn.disabled = !save;
+  document.getElementById('bestWinDay').textContent = best.bestWinDay !== null ? ('DAY ' + best.bestWinDay) : '—';
+  document.getElementById('bestInfection').textContent = best.lowestInfection !== null ? (best.lowestInfection.toFixed(1) + '%') : '—';
+  document.getElementById('bestVaccine').textContent = best.fastestVaccineDay !== null ? ('DAY ' + best.fastestVaccineDay) : '—';
+  document.getElementById('soundState').textContent = G.audioMuted ? 'OFF' : 'ON';
+}
+function showStartScreen() {
+  document.getElementById('panel').style.display = 'none';
+  document.getElementById('pausescreen').style.display = 'none';
+  document.getElementById('endscreen').style.display = 'none';
+  populateStartScreen();
+  document.getElementById('startscreen').style.display = 'block';
+  G.mode = 'menu';
+}
+function enterPlaying(startAlertMsg) {
+  document.getElementById('startscreen').style.display = 'none';
+  document.getElementById('endscreen').style.display = 'none';
+  G.mode = 'playing';
+  hud();
+  startDayTimer();
+  startAutosave();
+  showAlert(startAlertMsg, '#ff3333');
+}
+function newGame() {
+  resetState();
+  clearSave();
+  enterPlaying(`DAY ${G.day} — OUTBREAK DETECTED`);
+}
+function continueGame() {
+  const save = loadSave();
+  if (!save) { newGame(); return; }
+  G.funds = save.funds; G.day = save.day; G.infection = save.infection; G.contained = save.contained;
+  G.research = save.research; G.agents = save.agents; G.vaccines = save.vaccines;
+  G.vaccinesDeployed = save.vaccinesDeployed || 0;
+  G.lowestInfectionSeen = typeof save.lowestInfectionSeen === 'number' ? save.lowestInfectionSeen : null;
+  G.firstVaccineDay = typeof save.firstVaccineDay === 'number' ? save.firstVaccineDay : null;
+  enterPlaying(`DAY ${G.day} — CONTAINMENT RESUMED`);
+}
+function pauseGame() {
+  if (G.mode !== 'playing') return;
+  G.mode = 'paused';
+  stopDayTimer();
+  document.getElementById('panel').style.display = 'none';
+  document.getElementById('pausescreen').style.display = 'block';
+}
+function resumeGame() {
+  if (G.mode !== 'paused') return;
+  document.getElementById('pausescreen').style.display = 'none';
+  G.mode = 'playing';
+  startDayTimer();
+}
+function returnToMenu() {
+  saveGame();
+  stopDayTimer();
+  stopAutosave();
+  document.getElementById('pausescreen').style.display = 'none';
+  document.getElementById('panel').style.display = 'none';
+  showStartScreen();
+}
+function endGame(win, reasonText) {
+  if (G.mode === 'ended') return;
+  G.mode = 'ended';
+  stopDayTimer();
+  stopAutosave();
+  document.getElementById('panel').style.display = 'none';
+  const best = saveBestIfBetter(win);
+  clearSave(); // a finished run should never be resumable via CONTINUE
+  renderEndScreen(win, reasonText, best);
+}
+function renderEndScreen(win, reasonText, best) {
+  document.getElementById('endTop').textContent = win ? 'CDC CONTAINMENT FACILITY — MISSION DEBRIEF' : 'CDC CONTAINMENT FACILITY — INCIDENT REPORT';
+  const title = document.getElementById('endTitle');
+  title.textContent = win ? 'OUTBREAK CONTAINED' : 'MISSION FAILED';
+  title.style.color = win ? '#00ff88' : '#ff3333';
+  document.getElementById('endReason').textContent = reasonText;
+  const lowest = G.lowestInfectionSeen === null ? G.infection : G.lowestInfectionSeen;
+  const stats = document.getElementById('endStats');
+  stats.innerHTML = '';
+  const rows = [
+    ['DAYS SURVIVED', G.day + ' / ' + MAX_DAY],
+    ['CASES CONTAINED', String(G.contained)],
+    ['VACCINE DOSES DEPLOYED', G.vaccinesDeployed + ' / ' + WIN_VACCINES_REQUIRED],
+    ['LOWEST INFECTION REACHED', lowest.toFixed(1) + '%'],
+    ['FUNDS REMAINING', '$' + G.funds],
+    ['BEST FASTEST CONTAINMENT', best.bestWinDay !== null ? ('DAY ' + best.bestWinDay) : '—'],
+  ];
+  rows.forEach(([k, v]) => {
+    const wrap = document.createElement('div');
+    const sk = document.createElement('div'); sk.className = 'sk'; sk.textContent = k;
+    const sv = document.createElement('div'); sv.className = 'sv'; sv.textContent = v;
+    wrap.appendChild(sk); wrap.appendChild(sv);
+    stats.appendChild(wrap);
+  });
+  document.getElementById('endscreen').style.display = 'block';
+}
+
+// ── AUDIO ───────────────────────────────────────────────────────────────────
+// Created lazily on a real user gesture (menu button click) so modern autoplay
+// policies don't silently block it. Errors are swallowed — no audio should
+// never crash the game.
+function unlockAudio() {
+  try {
+    if (!G.ac) {
+      G.ac = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = G.ac.createBuffer(1, G.ac.sampleRate * 2, G.ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.2;
+      const src = G.ac.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      const f = G.ac.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = 200;
+      const g = G.ac.createGain();
+      g.gain.value = G.audioMuted ? 0 : 0.03;
+      src.connect(f); f.connect(g); g.connect(G.ac.destination);
+      src.start();
+      G.gainNode = g;
+    }
+    if (G.ac.state === 'suspended') G.ac.resume();
+  } catch (e) { console.warn('Outbreak Zero: audio init failed', e); }
+}
+function toggleMute() {
+  G.audioMuted = !G.audioMuted;
+  try { if (G.gainNode) G.gainNode.gain.value = G.audioMuted ? 0 : 0.03; } catch (e) { /* ignore */ }
+  document.getElementById('soundState').textContent = G.audioMuted ? 'OFF' : 'ON';
+  saveSettings();
+}
+
+// ── UI WIRING ────────────────────────────────────────────────────────────────
+document.getElementById('newGameBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
+document.getElementById('continueBtn').addEventListener('click', () => { unlockAudio(); continueGame(); });
+document.getElementById('muteBtn').addEventListener('click', toggleMute);
+document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+document.getElementById('saveBtn').addEventListener('click', () => { saveGame(); showAlert('GAME SAVED', '#00ff88'); });
+document.getElementById('pauseMenuBtn').addEventListener('click', returnToMenu);
+document.getElementById('playAgainBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
+document.getElementById('endMenuBtn').addEventListener('click', showStartScreen);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const panel = document.getElementById('panel');
+  if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+  if (G.mode === 'playing') pauseGame();
+  else if (G.mode === 'paused') resumeGame();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'playing') saveGame(); });
+window.addEventListener('pagehide', () => { if (G.mode === 'playing') saveGame(); });
+
+// ── SCENE SETUP ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  const settings = loadSettings();
+  G.audioMuted = settings.muted;
+
   document.querySelector('a-scene').addEventListener('loaded', () => {
     // Tile floor
     const tiles = document.getElementById('tiles');
@@ -396,14 +759,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if(els.length > 0) els[0].click();
     });
 
+    resetState();
     hud();
-    initAudio();
-    G.dayTimer = setInterval(dayTick, 12000); // 12 seconds = 1 day
-    showAlert('DAY 1 — OUTBREAK DETECTED', '#ff3333');
+    showStartScreen();
   });
 });
-
-function initAudio(){if(G.ac)return;G.ac=new(window.AudioContext||window.webkitAudioContext)();const buf=G.ac.createBuffer(1,G.ac.sampleRate*2,G.ac.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.2;const src=G.ac.createBufferSource();src.buffer=buf;src.loop=true;const f=G.ac.createBiquadFilter();f.type='bandpass';f.frequency.value=200;const g=G.ac.createGain();g.gain.value=0.03;src.connect(f);f.connect(g);g.connect(G.ac.destination);src.start();}
 </script>
 </body>
 </html>
