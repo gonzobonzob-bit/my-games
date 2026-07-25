@@ -70,6 +70,12 @@ canvas{display:block;touch-action:none;}
 .menu-btn{background:rgba(124,58,237,0.2);border:1px solid rgba(124,58,237,0.4);border-radius:6px;padding:3px 8px;font-family:'Cinzel',serif;font-size:9px;color:#a78bfa;cursor:pointer;letter-spacing:0.5px;}
 .menu-btn:active{background:rgba(124,58,237,0.4);}
 .sp-btn.continue-btn{background:linear-gradient(135deg,#d97706,#f59e0b);margin-top:4px;}
+.hero-abilities{display:flex;flex-direction:column;gap:4px;width:100%;max-width:320px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:8px 10px;}
+.ha-item{display:flex;align-items:flex-start;gap:6px;text-align:left;}
+.ha-icon{font-size:14px;flex-shrink:0;}
+.ha-text{display:flex;flex-direction:column;}
+.ha-name{font-size:9px;font-weight:800;color:#c4b5fd;text-transform:uppercase;letter-spacing:0.4px;}
+.ha-tip{font-size:9px;color:var(--muted);line-height:1.3;}
 </style>
 </head>
 <body>
@@ -78,6 +84,7 @@ canvas{display:block;touch-action:none;}
   <div class="sp-title">VEIL LEGENDS</div>
   <div class="sp-sub">CHOOSE YOUR CHAMPION</div>
   <div class="hero-select" id="hero-select"></div>
+  <div class="hero-abilities" id="hero-abilities"></div>
   <button class="sp-btn" onclick="startBattle()">ENTER THE VEIL</button>
   <button class="sp-btn continue-btn" id="continue-btn" style="display:none;" onclick="continueSave()">CONTINUE</button>
 </div>
@@ -147,27 +154,39 @@ canvas{display:block;touch-action:none;}
 const HEROES=[
   {id:'warrior',name:'Warrior',icon:'⚔️',hp:1200,mp:400,atk:80,spd:2.5,color:'#ef4444',
     abilities:[
-      {name:'Power Strike',icon:'⚔️',damage:120,range:60,cd:0,maxCd:0,mpCost:0,aoe:false},
-      {name:'Whirlwind',icon:'🌀',damage:80,range:80,cd:0,maxCd:3,mpCost:30,aoe:true},
-      {name:'BERSERKER',icon:'💢',damage:300,range:100,cd:0,maxCd:12,mpCost:80,aoe:true},
+      {name:'Power Strike',icon:'⚔️',damage:120,range:60,cd:0,maxCd:0.6,mpCost:15,kind:'melee',lunge:true,
+        tip:'Melee strike that lunges to close small gaps. Cheap, fast cooldown.'},
+      {name:'Whirlwind',icon:'🌀',damage:80,range:80,cd:0,maxCd:3,mpCost:30,kind:'aoe',
+        tip:'Spin, damaging every enemy around you.'},
+      {name:'BERSERKER',icon:'💢',damage:300,range:100,cd:0,maxCd:12,mpCost:80,kind:'aoe',buff:{stat:'atk',amount:50,duration:5},heal:200,
+        tip:'Nova damage plus a 5s attack surge and a heal.'},
     ]},
   {id:'mage',name:'Mage',icon:'🔮',hp:700,mp:1000,atk:40,spd:2.2,color:'#8b5cf6',
     abilities:[
-      {name:'Fireball',icon:'🔥',damage:150,range:180,cd:0,maxCd:1,mpCost:20,aoe:false},
-      {name:'Blizzard',icon:'❄️',damage:100,range:120,cd:0,maxCd:5,mpCost:50,aoe:true},
-      {name:'METEOR',icon:'☄️',damage:500,range:150,cd:0,maxCd:15,mpCost:150,aoe:true},
+      {name:'Fireball',icon:'🔥',damage:150,range:180,cd:0,maxCd:1,mpCost:20,kind:'projectile',homing:true,speed:9,
+        tip:'Homing bolt that leads and curves toward its target.'},
+      {name:'Blizzard',icon:'❄️',damage:100,range:120,cd:0,maxCd:5,mpCost:50,kind:'aoe',slow:{amount:0.5,duration:3},
+        tip:'Damages and slows every enemy in range for 3s.'},
+      {name:'METEOR',icon:'☄️',damage:500,range:150,cd:0,maxCd:15,mpCost:150,kind:'aoe',delay:0.35,
+        tip:'Telegraphed strike — huge delayed damage across a wide area.'},
     ]},
   {id:'assassin',name:'Assassin',icon:'🗡️',hp:850,mp:600,atk:60,spd:3.5,color:'#10b981',
     abilities:[
-      {name:'Quick Strike',icon:'🗡️',damage:200,range:50,cd:0,maxCd:0.5,mpCost:10,aoe:false},
-      {name:'Shadow Dash',icon:'💨',damage:150,range:200,cd:0,maxCd:4,mpCost:30,aoe:false},
-      {name:'DEATH MARK',icon:'💀',damage:800,range:80,cd:0,maxCd:20,mpCost:100,aoe:false},
+      {name:'Quick Strike',icon:'🗡️',damage:200,range:50,cd:0,maxCd:0.5,mpCost:10,kind:'melee',
+        tip:'Fast, cheap melee stab.'},
+      {name:'Shadow Dash',icon:'💨',damage:150,range:200,cd:0,maxCd:4,mpCost:30,kind:'dash',
+        tip:'Teleport toward the nearest foe, damaging enemies you pass through and gaining brief invulnerability.'},
+      {name:'DEATH MARK',icon:'💀',damage:800,range:80,cd:0,maxCd:20,mpCost:100,kind:'execute',
+        tip:'Massive damage — instantly executes targets below 30% HP.'},
     ]},
   {id:'ranger',name:'Ranger',icon:'🏹',hp:900,mp:700,atk:70,spd:2.8,color:'#f59e0b',
     abilities:[
-      {name:'Arrow',icon:'🏹',damage:100,range:250,cd:0,maxCd:0.5,mpCost:5,aoe:false},
-      {name:'Rain of Arrows',icon:'🌧️',damage:60,range:200,cd:0,maxCd:6,mpCost:40,aoe:true},
-      {name:'SNIPER',icon:'🎯',damage:600,range:400,cd:0,maxCd:18,mpCost:120,aoe:false},
+      {name:'Arrow',icon:'🏹',damage:100,range:250,cd:0,maxCd:0.5,mpCost:5,kind:'projectile',homing:true,speed:10,
+        tip:'Homing shot that leads moving targets.'},
+      {name:'Rain of Arrows',icon:'🌧️',damage:60,range:200,cd:0,maxCd:6,mpCost:40,kind:'aoe',ticks:3,
+        tip:'Three waves of arrows hit everyone in range over 0.75s.'},
+      {name:'SNIPER',icon:'🎯',damage:600,range:400,cd:0,maxCd:18,mpCost:120,kind:'projectile',pierce:true,speed:16,
+        tip:'Long-range piercing shot that punches through every enemy in its path.'},
     ]},
 ];
 
@@ -202,6 +221,7 @@ function sfx(name){
 }
 
 let heroData=null,player=null,enemies=[],projectiles=[],particles=[];
+let delayedEffects=[],activeBuffs=[];
 let wave=1,gold=0,kills=0,frame=0;
 let canvas,ctx,W,H;
 let joystickActive=false,joyX=0,joyY=0;
@@ -228,18 +248,33 @@ function goSplash(){
 function initHeroSelect(){
   const el=document.getElementById('hero-select');
   el.innerHTML=HEROES.map((h,i)=>`
-    <div class="hero-card ${i===0?'selected':''}" id="hcard-${h.id}" onclick="selectHero('${h.id}')">
+    <div class="hero-card ${i===0?'selected':''}" id="hcard-${h.id}" onclick="selectHero('${h.id}')" title="${h.name}: ${h.abilities.map(a=>a.name+' — '+a.tip).join(' | ')}">
       <span class="hero-icon">${h.icon}</span>
       <span class="hero-name">${h.name}</span>
       <span class="hero-stat">HP:${h.hp} | ATK:${h.atk}</span>
     </div>`).join('');
   heroData=HEROES[0];
+  renderHeroAbilities(heroData);
 }
 
 function selectHero(id){
   heroData=HEROES.find(h=>h.id===id);
   document.querySelectorAll('.hero-card').forEach(c=>c.classList.remove('selected'));
   document.getElementById('hcard-'+id).classList.add('selected');
+  renderHeroAbilities(heroData);
+}
+
+// Per-hero ability tooltips on the hero-select splash: a native title
+// attribute for hover on desktop, plus an always-visible summary panel
+// (updated on selection) so touch players see it too.
+function renderHeroAbilities(hero){
+  const el=document.getElementById('hero-abilities');
+  if(!el||!hero)return;
+  el.innerHTML=hero.abilities.map(a=>`
+    <div class="ha-item" title="${a.name}: ${a.tip}">
+      <span class="ha-icon">${a.icon}</span>
+      <span class="ha-text"><span class="ha-name">${a.name}</span><span class="ha-tip">${a.tip}</span></span>
+    </div>`).join('');
 }
 
 function startBattle(){
@@ -248,7 +283,7 @@ function startBattle(){
   document.getElementById('game-ui').classList.add('show');
   initCanvas();
   initPlayer();
-  enemies=[];projectiles=[];particles=[];wave=1;gold=0;kills=0;frame=0;
+  enemies=[];projectiles=[];particles=[];delayedEffects=[];activeBuffs=[];wave=1;gold=0;kills=0;frame=0;
   abilities=heroData.abilities.map(a=>({...a,cd:0}));
   spawnWave();
   setupJoystick();
@@ -303,7 +338,8 @@ function spawnWave(){
       atk:t.atk*(1+wave*0.1),spd:t.spd,
       xp:t.xp,gold:t.gold,color:t.color,
       icon:t.icon,size:t.size,
-      cooldown:0,id:Math.random()
+      cooldown:0,id:Math.random(),
+      vx:0,vy:0,slowMult:1,slowTimer:0
     });
   }
   document.getElementById('wave-num').textContent=wave;
@@ -353,30 +389,169 @@ function useAbility(idx){
   player.mp-=a.mpCost;
   a.cd=a.maxCd;
   sfx('ability');
-  if(a.aoe){
-    // Hit all in range
-    enemies.forEach(e=>{
-      const dx=e.x-player.x,dy=e.y-player.y;
-      if(Math.sqrt(dx*dx+dy*dy)<a.range){
-        dealDamage(e,a.damage+player.atk);
-      }
-    });
-    spawnAoeEffect(player.x,player.y,a.range,a.icon==='❄️'?'#bfdbfe':a.icon==='☄️'?'#fca5a5':'#c4b5fd');
-  } else {
-    // Target nearest enemy
-    const near=nearestEnemy();
-    if(near){
-      const dx=near.x-player.x,dy=near.y-player.y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<=a.range+50){dealDamage(near,a.damage+player.atk);}
-      else{
-        // Projectile
-        const spd=8,ang=Math.atan2(dy,dx);
-        projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg:a.damage+player.atk,owner:'player',col:player.color,r:6,target:near.id});
-      }
-    }
+  const totalDmg=a.damage+player.atk;
+  switch(a.kind){
+    case 'melee': castMelee(a,totalDmg); break;
+    case 'projectile': castProjectile(a,totalDmg); break;
+    case 'dash': castDash(a,totalDmg); break;
+    case 'execute': castExecute(a,totalDmg); break;
+    case 'aoe':
+    default: castAoe(a,totalDmg); break;
   }
   updateAbilityUI();
+}
+
+// Predicts an intercept point for a moving target given a projectile speed,
+// so ranged abilities actually lead their target instead of always aiming
+// at its current (soon-to-be-stale) position.
+function leadAim(px,py,target,speed){
+  const tvx=target.vx||0,tvy=target.vy||0;
+  const dx=target.x-px,dy=target.y-py;
+  const a=tvx*tvx+tvy*tvy-speed*speed;
+  const b=2*(dx*tvx+dy*tvy);
+  const c=dx*dx+dy*dy;
+  let t=0;
+  if(Math.abs(a)<0.0001){
+    if(b!==0)t=-c/b;
+  } else {
+    const disc=b*b-4*a*c;
+    if(disc>=0){
+      const sq=Math.sqrt(disc);
+      const t1=(-b+sq)/(2*a),t2=(-b-sq)/(2*a);
+      const candidates=[t1,t2].filter(v=>v>0&&isFinite(v));
+      if(candidates.length)t=Math.min(...candidates);
+    }
+  }
+  if(!isFinite(t)||t<0)t=0;
+  const aimX=target.x+tvx*t,aimY=target.y+tvy*t;
+  const ang=Math.atan2(aimY-py,aimX-px);
+  return {vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed};
+}
+
+function aoeColor(a){
+  if(a.icon==='❄️')return '#bfdbfe';
+  if(a.icon==='☄️')return '#fca5a5';
+  if(a.icon==='🌧️')return '#93c5fd';
+  if(a.icon==='💢')return '#fca5a5';
+  return '#c4b5fd';
+}
+
+function applyBuff(stat,amount,duration){
+  player[stat]+=amount;
+  activeBuffs.push({stat,amount,timer:duration});
+}
+
+// Melee: only lands if the target is actually in range. Warrior's Power
+// Strike gets a short lunge to close small gaps; other melee abilities
+// simply whiff (with feedback) rather than silently turning into a ranged
+// attack, so melee heroes genuinely play differently from ranged ones.
+function castMelee(a,dmg){
+  const near=nearestEnemy();
+  if(!near)return;
+  const dx=near.x-player.x,dy=near.y-player.y;
+  const dist=Math.hypot(dx,dy)||0.0001;
+  const ang=Math.atan2(dy,dx);
+  if(dist<=a.range){
+    dealDamage(near,dmg);
+  } else if(a.lunge&&dist<=a.range+80){
+    player.x=Math.max(20,Math.min(W-20,near.x-Math.cos(ang)*(a.range*0.6)));
+    player.y=Math.max(20,Math.min(H-20,near.y-Math.sin(ang)*(a.range*0.6)));
+    dealDamage(near,dmg);
+  } else {
+    spawnDmgFloat(player.x,player.y,'Out of range','#94a3b8');
+  }
+}
+
+// AoE: hits everyone in radius around the cast point. Optional modifiers
+// differentiate the AoE abilities from each other: slow fields, delayed
+// telegraphed blasts, multi-tick "rain" damage, and self-buffs/heals.
+function castAoe(a,dmg){
+  const cx=player.x,cy=player.y;
+  const perHit=a.ticks?dmg/a.ticks:dmg;
+  const applyDamage=()=>{
+    enemies.forEach(e=>{
+      const ddx=e.x-cx,ddy=e.y-cy;
+      if(Math.hypot(ddx,ddy)<a.range){
+        dealDamage(e,perHit);
+        if(a.slow){e.slowMult=1-a.slow.amount;e.slowTimer=a.slow.duration;}
+      }
+    });
+  };
+  spawnAoeEffect(cx,cy,a.range,aoeColor(a));
+  if(a.delay){
+    delayedEffects.push({timer:a.delay,fn:applyDamage});
+  } else if(a.ticks){
+    for(let i=0;i<a.ticks;i++){
+      delayedEffects.push({timer:(i+1)*0.25,fn:()=>{spawnAoeEffect(cx,cy,a.range*0.6,aoeColor(a));applyDamage();}});
+    }
+  } else {
+    applyDamage();
+  }
+  if(a.buff){
+    applyBuff(a.buff.stat,a.buff.amount,a.buff.duration);
+    spawnDmgFloat(player.x,player.y-30,'RAGE!','#ef4444');
+  }
+  if(a.heal){
+    player.hp=Math.min(player.maxHp,player.hp+a.heal);
+  }
+}
+
+// Projectile: fires a homing, lead-aimed shot at the nearest enemy. Point
+// blank range resolves as an instant hit; SNIPER pierces multiple enemies.
+function castProjectile(a,dmg){
+  const near=nearestEnemy();
+  if(!near)return;
+  const dist=Math.hypot(near.x-player.x,near.y-player.y);
+  if(dist<=a.range*0.35){
+    dealDamage(near,dmg);
+    return;
+  }
+  const speed=a.speed||8;
+  const aim=leadAim(player.x,player.y,near,speed);
+  projectiles.push({x:player.x,y:player.y,vx:aim.vx,vy:aim.vy,dmg,owner:'player',col:player.color,r:a.pierce?8:6,target:near.id,homing:!!a.homing,pierce:!!a.pierce,speed});
+}
+
+// Dash: Assassin's Shadow Dash actually teleports the player toward the
+// nearest enemy (or current facing if none), damaging anything it passes
+// through and granting a brief window of invulnerability on landing.
+function castDash(a,dmg){
+  const near=nearestEnemy();
+  const ang=near?Math.atan2(near.y-player.y,near.x-player.x):Math.atan2(player.vy||0,player.vx||1);
+  const dashDist=Math.min(a.range,220);
+  const steps=10;
+  const hitIds=new Set();
+  for(let i=1;i<=steps;i++){
+    const nx=player.x+Math.cos(ang)*(dashDist/steps);
+    const ny=player.y+Math.sin(ang)*(dashDist/steps);
+    player.x=Math.max(20,Math.min(W-20,nx));
+    player.y=Math.max(20,Math.min(H-20,ny));
+    enemies.forEach(e=>{
+      if(!hitIds.has(e.id)&&Math.hypot(e.x-player.x,e.y-player.y)<e.size+24){
+        dealDamage(e,dmg);
+        hitIds.add(e.id);
+      }
+    });
+  }
+  player.invulnerable=Math.max(player.invulnerable,0.4);
+  spawnAoeEffect(player.x,player.y,30,'#34d399');
+}
+
+// Execute: DEATH MARK deals heavy damage, and outright executes targets
+// already below 30% HP instead of just dealing another damage number.
+function castExecute(a,dmg){
+  const near=nearestEnemy();
+  if(!near)return;
+  const dist=Math.hypot(near.x-player.x,near.y-player.y);
+  if(dist>a.range+60){
+    spawnDmgFloat(player.x,player.y,'Out of range','#94a3b8');
+    return;
+  }
+  if(near.hp/near.maxHp<=0.3){
+    dealDamage(near,near.hp+9999);
+    spawnDmgFloat(near.x,near.y-40,'EXECUTED!','#7c3aed');
+  } else {
+    dealDamage(near,dmg);
+  }
 }
 
 function openShop(){
@@ -466,6 +641,7 @@ function updateAbilityUI(){
     const btn=document.getElementById('ab-'+i);
     const cd=document.getElementById('ab-cd-'+i);
     if(!btn||!cd)return;
+    if(a.tip)btn.title=a.name+': '+a.tip;
     if(a.cd>0){btn.classList.add('cooldown');cd.textContent=a.cd.toFixed(1)+'s';}
     else{btn.classList.remove('cooldown');cd.textContent=a.mpCost?a.mpCost+'mp':'Ready';}
   });
@@ -493,13 +669,17 @@ function update(dt){
     if(len>1){mx/=len;my/=len;}
     player.x=Math.max(20,Math.min(W-20,player.x+mx*player.spd*2.5));
     player.y=Math.max(20,Math.min(H-20,player.y+my*player.spd*2.5));
+    player.vx=mx;player.vy=my;
+  } else {
+    player.vx=0;player.vy=0;
   }
-  // Auto-attack
+  // Auto-attack (homing, lead-aimed at the nearest enemy)
   if(frame%20===0){
     const near=nearestEnemy();
     if(near&&Math.hypot(near.x-player.x,near.y-player.y)<200){
-      const ang=Math.atan2(near.y-player.y,near.x-player.x);
-      projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*7,vy:Math.sin(ang)*7,dmg:player.atk,owner:'player',col:player.color,r:5,target:near.id});
+      const speed=7;
+      const aim=leadAim(player.x,player.y,near,speed);
+      projectiles.push({x:player.x,y:player.y,vx:aim.vx,vy:aim.vy,dmg:player.atk,owner:'player',col:player.color,r:5,target:near.id,homing:true,speed});
       sfx('attack');
     }
   }
@@ -509,33 +689,70 @@ function update(dt){
   abilities.forEach(a=>{if(a.cd>0)a.cd=Math.max(0,a.cd-dt);});
   // Invulnerability
   if(player.invulnerable>0)player.invulnerable-=dt;
+  // Timed buffs (e.g. Warrior BERSERKER's attack surge)
+  activeBuffs=activeBuffs.filter(b=>{
+    b.timer-=dt;
+    if(b.timer<=0){player[b.stat]-=b.amount;return false;}
+    return true;
+  });
+  // Delayed effects (telegraphed/multi-tick abilities like METEOR and Rain of Arrows)
+  delayedEffects=delayedEffects.filter(ef=>{
+    ef.timer-=dt;
+    if(ef.timer<=0){ef.fn();return false;}
+    return true;
+  });
   // Enemy move & attack
   enemies.forEach(e=>{
+    if(e.slowTimer>0){
+      e.slowTimer-=dt;
+      if(e.slowTimer<=0){e.slowTimer=0;e.slowMult=1;}
+    }
     const dx=player.x-e.x,dy=player.y-e.y;
     const dist=Math.sqrt(dx*dx+dy*dy);
-    if(dist>e.size+20){
-      e.x+=dx/dist*e.spd*2;
-      e.y+=dy/dist*e.spd*2;
-    } else if(player.invulnerable<=0){
-      // Attack
-      e.cooldown=(e.cooldown||0)+dt;
-      if(e.cooldown>1){
-        e.cooldown=0;
-        player.hp-=e.atk;
-        player.invulnerable=0.3;
-        sfx('hit');
-        if(player.hp<=0)gameOver();
+    if(dist>e.size+20&&dist>0){
+      const vx=dx/dist*e.spd*(e.slowMult||1)*2,vy=dy/dist*e.spd*(e.slowMult||1)*2;
+      e.x+=vx;e.y+=vy;
+      e.vx=vx;e.vy=vy;
+    } else {
+      e.vx=0;e.vy=0;
+      if(player.invulnerable<=0){
+        // Attack
+        e.cooldown=(e.cooldown||0)+dt;
+        if(e.cooldown>1){
+          e.cooldown=0;
+          player.hp-=e.atk;
+          player.invulnerable=0.3;
+          sfx('hit');
+          if(player.hp<=0)gameOver();
+        }
       }
     }
   });
   // Projectiles
   projectiles=projectiles.filter(p=>{
+    if(p.homing&&p.target!=null){
+      const tgt=enemies.find(e=>e.id===p.target);
+      if(tgt){
+        const desiredAng=Math.atan2(tgt.y-p.y,tgt.x-p.x);
+        const curAng=Math.atan2(p.vy,p.vx);
+        let diff=desiredAng-curAng;
+        while(diff>Math.PI)diff-=Math.PI*2;
+        while(diff<-Math.PI)diff+=Math.PI*2;
+        const turn=Math.max(-0.15,Math.min(0.15,diff));
+        const newAng=curAng+turn;
+        const spd=p.speed||Math.hypot(p.vx,p.vy);
+        p.vx=Math.cos(newAng)*spd;p.vy=Math.sin(newAng)*spd;
+      }
+    }
     p.x+=p.vx;p.y+=p.vy;
     if(p.x<-50||p.x>W+50||p.y<-50||p.y>H+50)return false;
     if(p.owner==='player'){
       for(let e of enemies){
+        if(p.hitIds&&p.hitIds.has(e.id))continue;
         if(Math.hypot(e.x-p.x,e.y-p.y)<e.size){
-          dealDamage(e,p.dmg);return false;
+          dealDamage(e,p.dmg);
+          if(p.pierce){(p.hitIds=p.hitIds||new Set()).add(e.id);}
+          else return false;
         }
       }
     }
@@ -811,7 +1028,7 @@ function showVictory(){
 
 function restartGame(){
   document.getElementById('gameover').classList.remove('show');
-  enemies=[];projectiles=[];particles=[];wave=1;gold=0;kills=0;frame=0;
+  enemies=[];projectiles=[];particles=[];delayedEffects=[];activeBuffs=[];wave=1;gold=0;kills=0;frame=0;
   abilities=heroData.abilities.map(a=>({...a,cd:0}));
   initPlayer();spawnWave();
   startAutosave();
@@ -861,6 +1078,18 @@ function stopAutosave(){
   if(autosaveInterval){clearInterval(autosaveInterval);autosaveInterval=null;}
 }
 
+// Save on backgrounding/closing the tab, not just the 30s autosave tick,
+// so a player who switches apps or closes the browser doesn't lose progress.
+function safeAutosave(){
+  try{
+    if(player&&document.getElementById('game-ui').classList.contains('show')){
+      saveGame();
+    }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) safeAutosave(); });
+window.addEventListener('pagehide',safeAutosave);
+
 function continueSave(){
   const data=loadGame();
   if(!data)return;
@@ -875,6 +1104,7 @@ function continueSave(){
   player.atk=data.player.atk;player.spd=data.player.spd;
   player.lv=data.player.lv;player.xp=data.player.xp;player.xpMax=data.player.xpMax;
   wave=data.wave;gold=data.gold;kills=data.kills;
+  delayedEffects=[];activeBuffs=[];
   abilities=heroData.abilities.map(a=>({...a,cd:0}));
   spawnWave();
   setupJoystick();
