@@ -336,7 +336,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 <div id="menu" class="screen">
   <div class="menu-inner">
     <div class="truck-anim">🚚</div>
-    <div class="logo">Transport<br>Empire<small>MOVERS OF THE COMMUNITY</small></div>
+    <div class="logo">Freight<br>Dominion<small>MOVERS OF THE COMMUNITY</small></div>
     <div class="menu-sub">From one truck and a handshake, build a logistics empire across road, rail, sea, and sky — without forgetting the people who got you there.</div>
     <div class="menu-btns">
       <button class="btn primary" onclick="UI.goModes()">▶ Play</button>
@@ -1048,9 +1048,15 @@ const MapGL = {
   updateVehicles(){ const live={};
     G.vehicles.forEach(v=>{ if(!v.job) return; const a=this.gpt(v.job.from),b=this.gpt(v.job.to); if(!a||!b) return;
       live[v.id]=1; const m=this.vehMesh(v);
-      const gx=U.lerp(a.gx,b.gx,v.progress),gy=U.lerp(a.gy,b.gy,v.progress);
-      const y=Math.max(this.hAt(gx,gy),v.tier==='sea'?this.HT.river:0);
-      m.position.set(this.wx(gx),y+(v.tier==='air'?6:0.1),this.wz(gy));
+      const t=v.progress, gx=U.lerp(a.gx,b.gx,t),gy=U.lerp(a.gy,b.gy,t);
+      let y;
+      if(v.tier==='air'){
+        // steampunk flight-path flourish: quadratic-bezier climb/cruise/descend arc instead of a flat sky-plane
+        const d=Math.hypot(b.gx-a.gx,b.gy-a.gy), peak=Math.min(16,6+d*1.6);
+        const base=Math.max(this.hAt(a.gx,a.gy),this.hAt(b.gx,b.gy),this.hAt(gx,gy));
+        y=base+6+4*t*(1-t)*peak;
+      } else { y=Math.max(this.hAt(gx,gy),v.tier==='sea'?this.HT.river:0)+0.1; }
+      m.position.set(this.wx(gx),y,this.wz(gy));
       m.rotation.y=Math.atan2(-(this.wz(b.gy)-this.wz(a.gy)),(this.wx(b.gx)-this.wx(a.gx)));
       m.visible=true; });
     Object.keys(this.vehMeshes).forEach(id=>{ if(!live[id]){ const m=this.vehMeshes[id];
@@ -1230,7 +1236,11 @@ const MapCanvas = {
       if(d<42&&d<bd){ bd=d; best={kind:c.isHQ?'hq':'city',id:c.id,ref:c}; } });
     return best; },
   vehPos(v){ const a=this.gpt(v.job.from),b=this.gpt(v.job.to); if(!a||!b)return null;
-    return {gx:U.lerp(a.gx,b.gx,v.progress),gy:U.lerp(a.gy,b.gy,v.progress),a,b}; },
+    const t=v.progress, gx=U.lerp(a.gx,b.gx,t), gy=U.lerp(a.gy,b.gy,t);
+    const elev=v.tier==='air'?8+this.flightArc(a,b,t):8;
+    return {gx,gy,a,b,elev}; },
+  // steampunk flight-path flourish: quadratic-bezier climb/cruise/descend arc for air routes
+  flightArc(a,b,t){ const d=Math.hypot(b.gx-a.gx,b.gy-a.gy); const peak=Math.min(10,2.4+d*1.1); return 4*t*(1-t)*peak; },
   gpt(loc){ if(loc==='HQ'||loc.hq)return {gx:G.hq.cx,gy:G.hq.cy};
     if(loc.indId){ const i=G.industries.find(x=>x.id===loc.indId); return i?{gx:i.gx,gy:i.gy}:null; }
     if(loc.cityId){ const c=World.cityById(loc.cityId); return c?{gx:c.gx,gy:c.gy}:null; }
@@ -1330,7 +1340,7 @@ const MapCanvas = {
     ctx.fillStyle='#1a1f28'; ctx.fillRect(p.x-17*z,p.y-34*z,34*z,18*z); ctx.fillStyle=grd; ctx.fillRect(p.x-16*z,p.y-33*z,32*z,16*z);
     if(z>0.55){ ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`bold ${Math.round(5*z)}px sans-serif`;
       ctx.fillText(b.cm?'COMMUNITY':G.company.slice(0,11).toUpperCase(),p.x,p.y-28*z); ctx.fillText(b.cm?'MOVEMENT':'TRANSPORT',p.x,p.y-22*z); } },
-  drawVehicles(ctx){ G.vehicles.forEach(v=>{ if(!v.job)return; const pt=this.vehPos(v); if(!pt)return; const p=this.iso(pt.gx,pt.gy,8),z=this.cam.zoom,cm=v.division==='cm';
+  drawVehicles(ctx){ G.vehicles.forEach(v=>{ if(!v.job)return; const pt=this.vehPos(v); if(!pt)return; const p=this.iso(pt.gx,pt.gy,pt.elev!=null?pt.elev:8),z=this.cam.zoom,cm=v.division==='cm';
     ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(p.x,p.y+2*z,7*z,3*z,0,0,6.28); ctx.fill();
     const dir=(pt.b.gx-pt.a.gx)-(pt.b.gy-pt.a.gy)>=0?1:-1;
     if(v.tier==='road')this.sTruck(ctx,p.x,p.y,z,cm,dir); else if(v.tier==='rail')this.sTrain(ctx,p.x,p.y,z,cm,dir); else if(v.tier==='sea')this.sShip(ctx,p.x,p.y,z,cm,dir); else this.sPlane(ctx,p.x,p.y,z,cm,dir);
@@ -1384,7 +1394,7 @@ const MapCanvas = {
 };
 
 /* ---------------- Renderer facade: WebGL with Canvas-2D fallback ---------------- */
-const Map = {
+const MapView = {
   _mode:null,
   webglSupported(){ try{ if(!window.WebGLRenderingContext) return false;
     const c=document.createElement('canvas'); const gl=c.getContext('webgl')||c.getContext('experimental-webgl');
@@ -1593,7 +1603,7 @@ const Sim = {
         this.animateCompetitors(step);
         while(this.acc>=this.DAY_MS){ this.acc-=this.DAY_MS; this.advanceDay(); }
       }
-      Map.draw();
+      MapView.draw();
       // realtime autosave every 60s
       if(Date.now()-this.lastSave>60000){ this.lastSave=Date.now();
         if(Save.write('auto')) Toast.show('Autosaved.','info',1200); }
@@ -1603,7 +1613,7 @@ const Sim = {
     const f=step/this.DAY_MS;
     G.vehicles.forEach(v=>{
       if(!v.job||v.broken) return;
-      const a=Map.gpt(v.job.from), b=Map.gpt(v.job.to); if(!a||!b){ v.job=null; return; }
+      const a=MapView.gpt(v.job.from), b=MapView.gpt(v.job.to); if(!a||!b){ v.job=null; return; }
       const dist=Math.max(1,World.distance(a.gx,a.gy,b.gx,b.gy));
       const spd=v.baseSpeed*Fleet.perfMult()*(0.6+0.4*v.condition/100);
       v.progress += f*spd*2.2/dist;
@@ -2049,14 +2059,14 @@ const UI = {
     ['box','semi'].forEach(k=>Fleet.buy('road',k,'main')); CM.found(); },
   firstFreeSlot(){ for(let i=1;i<=3;i++) if(!Save.read(i)) return i; return 1; },
 
-  enterGame(){ this.show('game'); if(!Map.canvas) Map.init(); else { Map.resize(); Map.rebuild(); Map.centerOnHQ(); }
+  enterGame(){ this.show('game'); if(!MapView.canvas) MapView.init(); else { MapView.resize(); MapView.rebuild(); MapView.centerOnHQ(); }
     Menu.build(); Toolbar.build(); this.setTool('inspect'); WindowMgr.closeAll(); this.selection=null;
     Sidebar.show(null); this.refresh(); if(window.NewsTicker) NewsTicker.refresh(); Sim.start(); this.bindShell(); },
 
   quickContinue(){ for(let i=1;i<=3;i++){ if(Save.read(i)){ this.load(i); return; } } },
   load(slot){ const s=Save.read(slot); if(!s){ Toast.show('Empty slot.','bad'); return; }
     if(!s.world){ Toast.show('Corrupt save.','bad'); return; } G=s; SLOT=slot; G.paused=false;
-    this.show('game'); if(!Map.canvas) Map.init(); else { Map.resize(); Map.rebuild(); Map.centerOnHQ(); }
+    this.show('game'); if(!MapView.canvas) MapView.init(); else { MapView.resize(); MapView.rebuild(); MapView.centerOnHQ(); }
     Menu.build(); Toolbar.build(); this.setTool('inspect'); WindowMgr.closeAll(); this.selection=null; Sidebar.show(null);
     this.refresh(); Sim.start(); this.bindShell(); this.closeModal(); Toast.show('Loaded — Day '+G.day+'.','good'); },
 
@@ -2065,7 +2075,7 @@ const UI = {
     let drag=null;
     rz.addEventListener('mousedown',e=>{ drag={x:e.clientX,w:sb.offsetWidth}; e.preventDefault(); });
     window.addEventListener('mousemove',e=>{ if(!drag) return;
-      sb.style.width=U.clamp(drag.w+(drag.x-e.clientX),240,560)+'px'; Map.resize(); });
+      sb.style.width=U.clamp(drag.w+(drag.x-e.clientX),240,560)+'px'; MapView.resize(); });
     window.addEventListener('mouseup',()=>drag=null);
     document.addEventListener('mousedown',e=>{ if(!e.target.closest('.mi')) Menu.closeAll();
       if(!e.target.closest('.ctxmenu')) ContextMenu.close(); }); },
@@ -2076,22 +2086,22 @@ const UI = {
     this.tool=k; this.routeStart=null;
     stage.className='stage tool-'+k; Toolbar.sync(); },
 
-  centerHQ(){ Map.centerOnHQ(); },
-  zoomIn(){ const c=Map.canvas; Map.zoomAt(c.width/Map.DPR/2,c.height/Map.DPR/2,1.2); },
-  zoomOut(){ const c=Map.canvas; Map.zoomAt(c.width/Map.DPR/2,c.height/Map.DPR/2,0.83); },
+  centerHQ(){ MapView.centerOnHQ(); },
+  zoomIn(){ const c=MapView.canvas; MapView.zoomAt(c.width/MapView.DPR/2,c.height/MapView.DPR/2,1.2); },
+  zoomOut(){ const c=MapView.canvas; MapView.zoomAt(c.width/MapView.DPR/2,c.height/MapView.DPR/2,0.83); },
 
   /* ---- map interaction ---- */
-  onMapClick(sx,sy){ const hit=Map.hitTest(sx,sy);
+  onMapClick(sx,sy){ const hit=MapView.hitTest(sx,sy);
     if(this.tool==='planRoad'||this.tool==='planRail') return this.routePlan(hit);
     if(this.tool==='bulldoze') return this.bulldoze(hit);
     if(this.tool==='vehicle'){ this.openPanel('fleet'); this.select(hit); return; }
     this.select(hit); },
-  onMapHover(sx,sy){ const hit=Map.hitTest(sx,sy); Map.hover=hit;
+  onMapHover(sx,sy){ const hit=MapView.hitTest(sx,sy); MapView.hover=hit;
     if(hit) Tooltip.show(this.tipFor(hit),sx,sy); else Tooltip.hide(); },
-  onMapContext(sx,sy){ const hit=Map.hitTest(sx,sy); ContextMenu.open(sx,sy,hit); },
+  onMapContext(sx,sy){ const hit=MapView.hitTest(sx,sy); ContextMenu.open(sx,sy,hit); },
   hideMenus(){ Menu.closeAll(); ContextMenu.close(); },
 
-  select(sel){ this.selection=sel; Map.selected=sel; Sidebar.show(sel);
+  select(sel){ this.selection=sel; MapView.selected=sel; Sidebar.show(sel);
     if(window.innerWidth<=820 && sel) document.getElementById('sidebar').classList.add('show'); },
 
   routePlan(hit){ const tier=this.tool==='planRail'?'rail':'road';
@@ -2343,7 +2353,7 @@ const ContextMenu = {
         {ic:'🏭',l:'View Industries',fn:()=>UI.openPanel('industry')},
         {ic:'📱',l:'Find Jobs Here',fn:()=>UI.openPanel('logistics')},
         {ic:'🛣️',l:'Plan Road from Here',fn:()=>{ UI.setTool('planRoad'); UI.routePlan(hit); }},
-        {ic:'🎯',l:'Center View',fn:()=>{ Map.centerOn(c.gx,c.gy); }}]; }
+        {ic:'🎯',l:'Center View',fn:()=>{ MapView.centerOn(c.gx,c.gy); }}]; }
     else if(hit.kind==='hq'){ title='★ Headquarters';
       items=[{ic:'🏢',l:'Open HQ Compound',fn:()=>UI.openPanel('hq')},
         {ic:'🚚',l:'Fleet Manager',fn:()=>UI.openPanel('fleet')},
@@ -2964,10 +2974,10 @@ const Cinematic = {
 
 /* ---------------- Ground View (Task 3) ---------------- */
 const GroundView = {
-  enter(){ if(!Map.ready) return; Map.enterGround();
+  enter(){ if(!MapView.ready) return; MapView.enterGround();
     const b=document.getElementById('returnMapBtn'); if(b) b.classList.remove('hidden');
     Toast.show('Standing on your land. Drag to look around.','info'); },
-  exit(){ Map.exitGround(); const b=document.getElementById('returnMapBtn'); if(b) b.classList.add('hidden'); },
+  exit(){ MapView.exitGround(); const b=document.getElementById('returnMapBtn'); if(b) b.classList.add('hidden'); },
 };
 
 /* ---------------- Save slots (manual 1-3 + dedicated autosave) ---------------- */
@@ -3044,7 +3054,7 @@ UI.routePlan=function(hit){ const rail=this.tool==='planRail';
   if(!Money.can(total)){ Toast.show('Need '+U.money(total)+' to build that '+(rail?'rail line':'road')+'.','bad'); this.routeStart=null; return; }
   Money.spend(total,'infra'); if(cid) G.permitsOwned[cid]=true;
   G.playerRoads.push({ax:a.gx,ay:a.gy,bx:b.gx,by:b.gy,rail});
-  Map._auto=null; if(Map.ready) Map.rebuild();
+  MapView._auto=null; if(MapView.ready) MapView.rebuild();
   Toast.show((rail?'Rail line':'Road')+' built'+(permit?' (incl. '+U.money(permit)+' permit)':'')+' for '+U.money(total)+'.','good');
   News.push((rail?'🛤️ New rail line':'🛣️ New road')+' laid toward '+Sidebar.name(hit)+'.');
   this.routeStart=null; this.select(hit); UI.refresh(); };
@@ -3054,7 +3064,7 @@ UI.bulldoze=function(hit){ const node=hit?Sidebar.node(hit):null;
   if(node && G.playerRoads.length){ const before=G.playerRoads.length;
     G.playerRoads=G.playerRoads.filter(r=>!((Math.round(r.ax)===Math.round(node.gx)&&Math.round(r.ay)===Math.round(node.gy))||
       (Math.round(r.bx)===Math.round(node.gx)&&Math.round(r.by)===Math.round(node.gy))));
-    if(G.playerRoads.length<before){ if(Map.ready) Map.rebuild();
+    if(G.playerRoads.length<before){ if(MapView.ready) MapView.rebuild();
       Money.earn(2000*(before-G.playerRoads.length),'salvage');
       Toast.show('Removed '+(before-G.playerRoads.length)+' built segment(s).','info'); UI.refresh(); return; } }
   if(hit&&hit.kind==='industry'&&hit.ref.stake>0){ const ind=hit.ref;
@@ -3205,8 +3215,13 @@ MapCanvas.drawRoads = function(ctx){ const z=this.cam.zoom;
 };
 /* job lines: subtle, so roads dominate */
 MapCanvas.drawJobLines = function(ctx){ const z=this.cam.zoom; G.vehicles.forEach(v=>{ if(!v.job)return; const a=this.gpt(v.job.from),b=this.gpt(v.job.to); if(!a||!b)return;
-  const pa=this.iso(a.gx,a.gy,9),pb=this.iso(b.gx,b.gy,9); ctx.strokeStyle=v.division==='cm'?'rgba(111,211,199,0.30)':'rgba(242,193,78,0.26)'; ctx.lineWidth=1.2*z;
-  ctx.setLineDash([4*z,7*z]); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke(); ctx.setLineDash([]); }); };
+  ctx.strokeStyle=v.division==='cm'?'rgba(111,211,199,0.30)':'rgba(242,193,78,0.26)'; ctx.lineWidth=1.2*z;
+  ctx.setLineDash([4*z,7*z]); ctx.beginPath();
+  if(v.tier==='air'){ // steampunk flight-path flourish: sampled quadratic-bezier arc instead of a flat dashed line
+    const steps=16; for(let i=0;i<=steps;i++){ const t=i/steps, gx=U.lerp(a.gx,b.gx,t), gy=U.lerp(a.gy,b.gy,t), elev=9+this.flightArc(a,b,t);
+      const p=this.iso(gx,gy,elev); if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }
+  } else { const pa=this.iso(a.gx,a.gy,9),pb=this.iso(b.gx,b.gy,9); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); }
+  ctx.stroke(); ctx.setLineDash([]); }); };
 
 /* ---- WebGL renderer: screen<->grid for build tools ---- */
 MapGL.iso = function(gx,gy,elev){ const v=new THREE.Vector3(this.wx(gx),(elev||0),this.wz(gy)); v.project(this.camera);
@@ -3221,8 +3236,8 @@ MapGL.unproject = function(sx,sy){ const r=this.canvas.getBoundingClientRect(); 
    =================================================================== */
 UI.distToSeg = function(px,py,x1,y1,x2,y2){ const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy; if(l2===0)return Math.hypot(px-x1,py-y1);
   let t=((px-x1)*dx+(py-y1)*dy)/l2; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(x1+t*dx),py-(y1+t*dy)); };
-UI.onMapClick = function(sx,sy){ const hit=Map.hitTest(sx,sy);
-  if(this.tool==='planRoad'||this.tool==='planRail'){ return this.buildPoint(Map.unproject(sx,sy), this.tool==='planRail'); }
+UI.onMapClick = function(sx,sy){ const hit=MapView.hitTest(sx,sy);
+  if(this.tool==='planRoad'||this.tool==='planRail'){ return this.buildPoint(MapView.unproject(sx,sy), this.tool==='planRail'); }
   if(this.tool==='bulldoze'){ return this.bulldozeClick(sx,sy,hit); }
   if(this.tool==='vehicle'){ this.openPanel('fleet'); this.select(hit); return; }
   this.select(hit); // inspect / default -> right sidebar
@@ -3237,7 +3252,7 @@ UI.buildPoint = function(g,rail){
   const cost=Math.round(dist*(rail?2200:900)*(CM.permitMult?CM.permitMult():1)*(window.Econ&&Econ.active()?(G.economy.inflation||1):1));
   if(!Money.can(cost)){ Toast.show('Need '+U.money(cost)+' to build that '+(rail?'rail line':'road')+'.','bad'); this._roadStart=null; return; }
   Money.spend(cost,'infra'); G.playerRoads.push({ax:a.gx,ay:a.gy,bx:gx,by:gy,rail});
-  Map._auto=null; if(Map.ready&&Map.rebuild) Map.rebuild();
+  MapView._auto=null; if(MapView.ready&&MapView.rebuild) MapView.rebuild();
   if(window.News) News.push(rail?'🛤️ New rail line laid.':'🛣️ New road laid.');
   Toast.show((rail?'Rail line':'Road')+' built for '+U.money(cost)+'.','good');
   this._roadStart=null; if(window.StatusBar) StatusBar.render(); this.refresh();
@@ -3245,8 +3260,8 @@ UI.buildPoint = function(g,rail){
 UI.bulldozeClick = function(sx,sy,hit){
   // remove nearest player-built segment under the cursor
   let bi=-1,bd=20;
-  (G.playerRoads||[]).forEach((r,i)=>{ const pa=Map.iso(r.ax,r.ay,0),pb=Map.iso(r.bx,r.by,0); const d=this.distToSeg(sx,sy,pa.x,pa.y,pb.x,pb.y); if(d<bd){bd=d;bi=i;} });
-  if(bi>=0){ const seg=G.playerRoads.splice(bi,1)[0]; Map._auto=null; if(Map.ready&&Map.rebuild) Map.rebuild();
+  (G.playerRoads||[]).forEach((r,i)=>{ const pa=MapView.iso(r.ax,r.ay,0),pb=MapView.iso(r.bx,r.by,0); const d=this.distToSeg(sx,sy,pa.x,pa.y,pb.x,pb.y); if(d<bd){bd=d;bi=i;} });
+  if(bi>=0){ const seg=G.playerRoads.splice(bi,1)[0]; MapView._auto=null; if(MapView.ready&&MapView.rebuild) MapView.rebuild();
     Money.earn(2000,'salvage'); Toast.show('Removed a built '+(seg.rail?'rail line':'road')+'.','info'); this.refresh(); return; }
   if(hit&&hit.kind==='industry'&&hit.ref.stake>0){ const ind=hit.ref;
     Modal.open({ic:'⛔',title:'Divest stake?',body:`Sell your ${ind.stake}% of <b>${ind.name}</b>?`,
@@ -3372,7 +3387,7 @@ const Facilities = {
     if(!G.unlocked[tier]){ Toast.show('Not available yet — grow earnings to unlock '+TIER_INFO[tier].name+'.','bad'); return; }
     if(!Money.can(d.cost)){ Toast.show('Need '+U.money(d.cost)+' to build a '+d.name+'.','bad'); return; }
     Money.spend(d.cost,'facility'); G.facilities[tier]=true; G.facilities[tier+'Pos']=this.pos(tier);
-    if(Map.ready&&Map.rebuild) Map.rebuild();
+    if(MapView.ready&&MapView.rebuild) MapView.rebuild();
     Toast.show(d.name+' built — '+TIER_INFO[tier].name+' transport is online!','gold');
     News.push('🏗️ '+d.name+' opened. '+TIER_INFO[tier].name+' fleet & contracts now available.');
     Dispatch.say('"'+d.name+' is operational, over."'); Newspaper.maybeTier(); UI.refresh(); },
@@ -3453,7 +3468,7 @@ const Minimap = { canvas:null, ctx:null, _wired:false,
     if(this.canvas && !this.ctx){ try{ this.ctx=this.canvas.getContext('2d'); }catch(e){} }
     if(this.canvas && !this._wired){ this._wired=true;
       this.canvas.addEventListener('click',e=>{ const r=this.canvas.getBoundingClientRect();
-        Map.centerOn((e.clientX-r.left)/r.width*G.world.W,(e.clientY-r.top)/r.height*G.world.H); }); }
+        MapView.centerOn((e.clientX-r.left)/r.width*G.world.W,(e.clientY-r.top)/r.height*G.world.H); }); }
     return !!this.ctx; },
   init(){ this.ensure(); },
   draw(){ if(!this.ensure()||!G.world) return; const c=this.canvas,ctx=this.ctx,W=G.world.W,H=G.world.H,sw=c.width/W,sh=c.height/H;
@@ -3462,8 +3477,8 @@ const Minimap = { canvas:null, ctx:null, _wired:false,
     for(let y=0;y<H;y++)for(let x=0;x<W;x++){ ctx.fillStyle=COL[G.world.tiles[y][x]]||'#3a4a3a'; ctx.fillRect(x*sw,y*sh,sw+1,sh+1); }
     (G.playerRoads||[]).forEach(r=>{ ctx.strokeStyle=r.rail?'#9b8cf0':'#d8d2c0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(r.ax*sw,r.ay*sh); ctx.lineTo(r.bx*sw,r.by*sh); ctx.stroke(); });
     G.cities.forEach(ct=>{ ctx.fillStyle=ct.isHQ?'#f2c14e':'#dfeaf5'; const s=ct.isHQ?4:Math.max(2,Math.round((ct.pop||9000)/12000)); ctx.fillRect(ct.gx*sw-s/2,ct.gy*sh-s/2,s,s); });
-    G.vehicles.forEach(v=>{ if(!v.job||!Map.vehPos)return; const p=Map.vehPos(v); if(p){ ctx.fillStyle=v.division==='cm'?'#6fd3c7':'#f2c14e'; ctx.fillRect(p.gx*sw-1,p.gy*sh-1,2,2);} });
-    try{ const cv=Map.unproject(Map.canvas.clientWidth/2,Map.canvas.clientHeight/2);
+    G.vehicles.forEach(v=>{ if(!v.job||!MapView.vehPos)return; const p=MapView.vehPos(v); if(p){ ctx.fillStyle=v.division==='cm'?'#6fd3c7':'#f2c14e'; ctx.fillRect(p.gx*sw-1,p.gy*sh-1,2,2);} });
+    try{ const cv=MapView.unproject(MapView.canvas.clientWidth/2,MapView.canvas.clientHeight/2);
       ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.2; ctx.strokeRect(cv.gx*sw-12,cv.gy*sh-9,24,18); }catch(e){} },
 };
 
@@ -3680,7 +3695,7 @@ window.addEventListener('load',()=>{
     else if(e.key==='3') UI.setSpeed(3);
     else if(e.key==='Escape'){ if(ContextMenu.el) ContextMenu.close(); else Menu.closeAll(); UI.closePanel(); }
   });
-  window.addEventListener('resize',()=>{ if(Map.canvas) Map.resize(); });
+  window.addEventListener('resize',()=>{ if(MapView.canvas) MapView.resize(); });
   window.addEventListener('beforeunload',()=>{ if(G&&UI.current==='game') Save.write(SLOT); });
 });
 </script>
