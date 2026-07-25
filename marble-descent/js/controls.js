@@ -9,7 +9,14 @@ const Controls = {
     joystickStartY: 0,
 
     init() {
-        this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        // Touch capability alone is a false positive on touch-enabled laptops (which also
+        // have a mouse/trackpad and a fine pointer). Only treat the device as "mobile" when
+        // it actually has touch AND its primary pointer is coarse / there's no hover input -
+        // i.e. a phone or tablet, not a touchscreen laptop.
+        const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        const noHover = window.matchMedia && window.matchMedia('(hover: none)').matches;
+        this.isMobile = hasTouch && (coarsePointer || noHover);
 
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;

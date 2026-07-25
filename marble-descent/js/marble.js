@@ -58,8 +58,8 @@ const Marble = {
     },
 
     tryJump(scene) {
-        if (!this.impostor || !this.mesh) return;
-        if (this.jumpCooldown > 0) return;
+        if (!this.impostor || !this.mesh) return false;
+        if (this.jumpCooldown > 0) return false;
 
         var vel = this.impostor.getLinearVelocity();
         var isGrounded = Math.abs(vel.y) < 1.2;
@@ -81,7 +81,9 @@ const Marble = {
                 this.mesh.getAbsolutePosition()
             );
             this.jumpCooldown = 0.35;
+            return true;
         }
+        return false;
     },
 
     updateCooldowns(dt) {
@@ -90,6 +92,12 @@ const Marble = {
 
     getPosition() {
         return this.mesh ? this.mesh.position : BABYLON.Vector3.Zero();
+    },
+
+    getSpeed() {
+        if (!this.impostor) return 0;
+        const vel = this.impostor.getLinearVelocity();
+        return Math.sqrt(vel.x * vel.x + vel.z * vel.z);
     },
 
     reset(position) {

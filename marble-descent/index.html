@@ -53,6 +53,17 @@
         }
         #pauseBtn.active { display: block; }
 
+        #muteBtn {
+            position: absolute; top: 15px; left: 20px; z-index: 15;
+            background: rgba(0,0,0,0.5); border: 1px solid #888; color: #fff;
+            padding: 8px 12px; border-radius: 6px; cursor: pointer;
+            pointer-events: all; font-size: 1em; line-height: 1;
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, #1f3a5f, #142238); border-color: #38f;
+        }
+
         #joystick {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             width: 150px; height: 150px; border-radius: 50%;
@@ -85,12 +96,14 @@
     </div>
 
     <button id="pauseBtn" onclick="TILT.togglePause()">| |</button>
+    <button id="muteBtn" onclick="TILT.toggleMute()" aria-label="Toggle sound">🔊</button>
 
     <!-- Main Menu -->
     <div id="mainMenu" class="ui-overlay active">
         <div class="menu-panel">
             <h1>Marble Descent</h1>
             <p class="best-time" id="bestTimeDisplay">Best Time: --</p>
+            <button class="btn secondary" id="continueBtn" style="display:none;" onclick="TILT.continueGame()">Continue</button>
             <button class="btn" onclick="TILT.startGame()">Start</button>
             <button class="btn" onclick="TILT.showInstructions()">How to Play</button>
         </div>
@@ -105,7 +118,7 @@
                 <strong>Desktop:</strong> Arrow keys or WASD to tilt. Spacebar to jump.<br>
                 <strong>Mobile:</strong> Joystick to tilt. Tap jump button to jump.<br><br>
                 Avoid falling off edges and dodge obstacles.<br>
-                3 lives per run. Checkpoints save your progress.<br>
+                3 lives per run. Checkpoints save your progress and let you Continue later.<br>
                 Fastest time wins!
             </p>
             <button class="btn" onclick="TILT.showMainMenu()">Back</button>
@@ -140,6 +153,7 @@
     <script src="js/lib/babylon.js"></script>
     <script src="js/lib/cannon.js"></script>
     <script src="js/storage.js"></script>
+    <script src="js/audio.js"></script>
     <script src="js/controls.js"></script>
     <script src="js/course.js"></script>
     <script src="js/marble.js"></script>
