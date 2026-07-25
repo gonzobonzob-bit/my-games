@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>OUTBREAK ZERO VR</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script>
+AFRAME.registerComponent('gonzo-move', {
+  schema: { speed: { default: 3.5 }, turnSnap: { default: 30 } },
+  init() {
+    this.vel = { x: 0, z: 0 };
+    this.rightX = 0;
+    this.canSnap = true;
+    this.yaw = 0;
+    this.el.sceneEl.addEventListener('loaded', () => {
+      const lc = document.getElementById('lhand');
+      const rc = document.getElementById('rhand');
+      if (lc) lc.addEventListener('axismove', (e) => {
+        const ax = e.detail.axis;
+        this.vel.x = Math.abs(ax[0]) > 0.12 ? ax[0] : 0;
+        this.vel.z = Math.abs(ax[1]) > 0.12 ? ax[1] : 0;
+      });
+      if (rc) rc.addEventListener('axismove', (e) => {
+        const ax = e.detail.axis;
+        this.rightX = Math.abs(ax[0]) > 0.3 ? ax[0] : 0;
+      });
+    });
+  },
+  tick(t, dt) {
+    if (this.rightX !== 0 && this.canSnap) {
+      this.yaw -= Math.sign(this.rightX) * this.data.turnSnap * (Math.PI / 180);
+      this.canSnap = false;
+    }
+    if (this.rightX === 0) this.canSnap = true;
+    if (this.vel.x !== 0 || this.vel.z !== 0) {
+      const speed = this.data.speed * (dt / 1000);
+      const p = this.el.object3D.position;
+      p.x += (Math.sin(this.yaw) * -this.vel.z + Math.cos(this.yaw) * this.vel.x) * speed;
+      p.z += (Math.cos(this.yaw) * this.vel.z  + Math.sin(this.yaw) * this.vel.x) * speed;
+      p.x = Math.max(-9, Math.min(9, p.x));
+      p.z = Math.max(-9, Math.min(9, p.z));
+    }
+    this.el.object3D.rotation.y = this.yaw;
+  }
+});
+</script>
+<style>
+body{margin:0;background:#000;}
+#hud{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;align-items:flex-start;padding:12px 18px;background:linear-gradient(to bottom,rgba(0,0,0,0.85),transparent);pointer-events:none;font-family:'Courier New',monospace;}
+.hb .hl{font-size:8px;letter-spacing:3px;color:#00aa44;margin-bottom:1px;}
+.hb .hv{font-size:18px;color:#00ff88;letter-spacing:2px;text-shadow:0 0 8px rgba(0,255,136,0.4);}
+.hb .hv.red{color:#ff3333;text-shadow:0 0 8px rgba(255,51,51,0.4);}
+#panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:520px;max-width:93vw;background:rgba(0,8,2,0.97);
+  border:2px solid #00ff88;padding:24px;display:none;z-index:200;
+  font-family:'Courier New',monospace;}
+#panel .ptop{font-size:9px;letter-spacing:4px;color:#00ff88;margin-bottom:8px;}
+#panel h2{color:#fff;font-size:18px;letter-spacing:2px;margin:4px 0 10px;}
+#panel .pdiv{height:1px;background:#003322;margin:10px 0;}
+#panel p{font-size:12px;line-height:1.85;color:#aaffcc;margin-bottom:14px;}
+#panel .pbtns{display:flex;gap:8px;flex-wrap:wrap;}
+#panel .pbtn{flex:1;background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;padding:10px 8px;cursor:pointer;text-align:center;min-width:80px;}
+#panel .pbtn:hover{background:rgba(0,255,136,0.1);}
+#panel .pbtn.red{border-color:#ff3333;color:#ff3333;}
+#panel .pbtn.red:hover{background:rgba(255,51,51,0.1);}
+#ticker{position:fixed;top:62px;left:0;right:0;z-index:90;overflow:hidden;height:22px;pointer-events:none;}
+#ticker-inner{display:flex;gap:40px;white-space:nowrap;font-family:'Courier New',monospace;font-size:10px;color:#00aa44;letter-spacing:2px;animation:ticker 18s linear infinite;}
+@keyframes ticker{from{transform:translateX(100vw)}to{transform:translateX(-200%)}}
+#info{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:#005522;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;pointer-events:none;z-index:50;text-align:center;white-space:nowrap;}
+#alert{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:300;text-align:center;pointer-events:none;opacity:0;transition:opacity 0.3s;}
+#alert-txt{font-size:36px;letter-spacing:6px;text-shadow:0 0 20px currentColor;font-family:'Courier New',monospace;}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="hb"><div class="hl">FUNDS</div><div class="hv" id="hfunds">$500</div></div>
+  <div class="hb" style="text-align:center"><div class="hl">DAY</div><div class="hv" id="hday">1</div></div>
+  <div class="hb" style="text-align:center"><div class="hl">INFECTION</div><div class="hv red" id="hinf">0%</div></div>
+  <div class="hb" style="text-align:right"><div class="hl">CONTAINED</div><div class="hv" id="hcont">0</div></div>
+</div>
+
+<div id="ticker">
+  <div id="ticker-inner">
+    CDC ALERT: UNKNOWN PATHOGEN DETECTED &nbsp;·&nbsp; QUARANTINE PROTOCOLS ACTIVE &nbsp;·&nbsp; ALL PERSONNEL REPORT TO STATIONS &nbsp;·&nbsp; BLACK OIL VARIANT SUSPECTED &nbsp;·&nbsp; SYNDICATE INVOLVEMENT UNCONFIRMED
+  </div>
+</div>
+
+<div id="panel">
+  <div class="ptop">CDC CONTAINMENT FACILITY — CLASSIFIED</div>
+  <h2 id="ptitle">STATION NAME</h2>
+  <div class="pdiv"></div>
+  <p id="pdesc">Description</p>
+  <div class="pbtns" id="pbtns"></div>
+</div>
+
+<div id="alert"><div id="alert-txt"></div></div>
+<div id="info">QUEST: LEFT STICK=MOVE · RIGHT STICK=TURN · DESKTOP: WASD=MOVE · MOUSE=LOOK · CLICK=INTERACT</div>
+
+<a-scene background="color:#000a02" renderer="antialias:true;colorManagement:false" vr-mode-ui="enabled:true" loading-screen="backgroundColor:#000;dotsColor:#00ff88">
+
+  <a-light type="ambient" color="#003311" intensity="2.0"></a-light>
+  <a-light type="point" color="#00ff88" intensity="1.5" distance="12" position="0 3.5 0"
+    animation="property:intensity;from:1.5;to:1.1;dur:1200;dir:alternate;loop:true"></a-light>
+  <a-light type="point" color="#00ff44" intensity="1.0" distance="8" position="-5 3 -5"></a-light>
+  <a-light type="point" color="#00ff44" intensity="1.0" distance="8" position="5 3 -5"></a-light>
+  <a-light type="point" color="#ff3333" intensity="0.6" distance="6" position="0 2.5 6"
+    animation="property:intensity;from:0.6;to:0.2;dur:800;dir:alternate;loop:true"></a-light>
+  <a-light type="directional" color="#00ff66" intensity="0.5" position="0 5 0"></a-light>
+
+  <!-- RIG -->
+  <a-entity id="rig" position="0 0 4" gonzo-move="speed:3.5">
+    <a-camera look-controls="pointerLockEnabled:true" wasd-controls="acceleration:15" position="0 1.6 0">
+      <a-entity cursor="fuse:false" raycaster="objects:.station;far:6"
+        geometry="primitive:ring;radiusInner:0.01;radiusOuter:0.016"
+        material="color:#00ff88;shader:flat" position="0 0 -1">
+      </a-entity>
+    </a-camera>
+    <a-entity id="lhand" oculus-touch-controls="hand:left"></a-entity>
+    <a-entity id="rhand" oculus-touch-controls="hand:right"
+      laser-controls="hand:right"
+      raycaster="objects:.station;far:6;showLine:true;lineColor:#00ff88;lineOpacity:0.5">
+    </a-entity>
+  </a-entity>
+
+  <!-- FLOOR — lab tiles -->
+  <a-plane rotation="-90 0 0" width="20" height="20" material="color:#020f04;roughness:0.8" position="0 0 0"></a-plane>
+  <!-- Tile grid lines -->
+  <a-entity id="tiles"></a-entity>
+
+  <!-- CEILING -->
+  <a-plane rotation="90 0 0" width="20" height="20" material="color:#010a02" position="0 4 0"></a-plane>
+
+  <!-- WALLS -->
+  <a-plane width="20" height="4" material="color:#010f04" position="0 2 -10"></a-plane>
+  <a-plane width="20" height="4" material="color:#010f04" rotation="0 180 0" position="0 2 10"></a-plane>
+  <a-plane width="20" height="4" material="color:#010f04" rotation="0 90 0" position="-10 2 0"></a-plane>
+  <a-plane width="20" height="4" material="color:#010f04" rotation="0 -90 0" position="10 2 0"></a-plane>
+
+  <!-- HAZMAT STRIPES on walls -->
+  <a-box width="20" height="0.3" depth="0.05" material="color:#ffcc00;emissive:#cc9900;emissiveIntensity:0.4" position="0 0.5 -9.97"></a-box>
+  <a-box width="20" height="0.3" depth="0.05" material="color:#ffcc00;emissive:#cc9900;emissiveIntensity:0.4" position="0 0.5 9.97"></a-box>
+  <a-box width="0.05" height="4" depth="20" material="color:#ffcc00;emissive:#cc9900;emissiveIntensity:0.4" position="-9.97 2 0"></a-box>
+  <a-box width="0.05" height="4" depth="20" material="color:#ffcc00;emissive:#cc9900;emissiveIntensity:0.4" position="9.97 2 0"></a-box>
+
+  <!-- OVERHEAD FLUORESCENT LIGHTS -->
+  <a-box width="2" height="0.06" depth="0.3" position="-4 3.95 -4" material="color:#ccffdd;emissive:#88ffaa;emissiveIntensity:0.7"></a-box>
+  <a-box width="2" height="0.06" depth="0.3" position="4 3.95 -4" material="color:#ccffdd;emissive:#88ffaa;emissiveIntensity:0.7"></a-box>
+  <a-box width="2" height="0.06" depth="0.3" position="-4 3.95 4" material="color:#ccffdd;emissive:#88ffaa;emissiveIntensity:0.7"></a-box>
+  <a-box width="2" height="0.06" depth="0.3" position="4 3.95 4" material="color:#ccffdd;emissive:#88ffaa;emissiveIntensity:0.7"></a-box>
+  <!-- Red emergency light center -->
+  <a-sphere radius="0.15" position="0 3.8 0" material="color:#ff2200;emissive:#ff1100;emissiveIntensity:1;shader:flat"
+    animation="property:material.opacity;from:1;to:0.2;dur:600;dir:alternate;loop:true"></a-sphere>
+
+  <!-- STATIONS — interactive consoles -->
+
+  <!-- QUARANTINE LAB (north) -->
+  <a-entity class="station" position="0 0 -7" onclick="openStation('quarantine')">
+    <a-box width="2.4" height="1.1" depth="0.8" material="color:#0a1f0a;roughness:0.6" position="0 0.55 0"></a-box>
+    <a-box width="2.2" height="0.8" depth="0.05" material="color:#001a00;emissive:#003300;emissiveIntensity:0.5" position="0 0.8 -0.43"></a-box>
+    <a-box width="2.4" height="0.08" depth="0.85" material="color:#1a3a1a" position="0 1.12 0"></a-box>
+    <!-- Monitor glow -->
+    <a-plane width="1.8" height="0.6" position="0 0.82 -0.41" material="color:#00ff44;emissive:#00cc33;emissiveIntensity:0.4;shader:flat;opacity:0.15;transparent:true"></a-plane>
+    <!-- Biohazard symbol -->
+    <a-text value="☣" color="#00ff44" width="2" position="0 1.5 -0.38" align="center"></a-text>
+    <a-text value="QUARANTINE LAB" color="#00cc44" width="2.2" position="0 1.28 -0.38" align="center"></a-text>
+    <a-text value="INTERACT" color="#005522" width="1.2" position="0 1.12 -0.38" align="center"></a-text>
+    <!-- Lab equipment -->
+    <a-cylinder radius="0.08" height="0.4" material="color:#003311;emissive:#00ff44;emissiveIntensity:0.3" position="-0.8 1.32 0" segments-radial="8"></a-cylinder>
+    <a-cylinder radius="0.08" height="0.3" material="color:#003311;emissive:#00ff44;emissiveIntensity:0.3" position="-0.5 1.27 0" segments-radial="8"></a-cylinder>
+    <a-cylinder radius="0.08" height="0.5" material="color:#003311;emissive:#ff4400;emissiveIntensity:0.4" position="-0.65 1.37 0" segments-radial="8"></a-cylinder>
+    <a-box width="0.4" height="0.25" depth="0.3" material="color:#002200;emissive:#00ff44;emissiveIntensity:0.2" position="0.7 1.27 0"></a-box>
+  </a-entity>
+
+  <!-- RESEARCH STATION (west) -->
+  <a-entity class="station" position="-7 0 0" rotation="0 90 0" onclick="openStation('research')">
+    <a-box width="2.4" height="1.1" depth="0.8" material="color:#0a1a1f;roughness:0.6" position="0 0.55 0"></a-box>
+    <a-box width="2.2" height="0.8" depth="0.05" material="color:#001020;emissive:#002244;emissiveIntensity:0.5" position="0 0.8 -0.43"></a-box>
+    <a-box width="2.4" height="0.08" depth="0.85" material="color:#1a2a3a" position="0 1.12 0"></a-box>
+    <a-plane width="1.8" height="0.6" position="0 0.82 -0.41" material="color:#4488ff;emissive:#2266cc;emissiveIntensity:0.3;shader:flat;opacity:0.15;transparent:true"></a-plane>
+    <a-text value="🔬" color="#4488ff" width="1.5" position="0 1.5 -0.38" align="center"></a-text>
+    <a-text value="RESEARCH LAB" color="#4488ff" width="2.2" position="0 1.28 -0.38" align="center"></a-text>
+    <a-text value="INTERACT" color="#223344" width="1.2" position="0 1.12 -0.38" align="center"></a-text>
+  </a-entity>
+
+  <!-- DEPLOYMENT BAY (east) -->
+  <a-entity class="station" position="7 0 0" rotation="0 -90 0" onclick="openStation('deploy')">
+    <a-box width="2.4" height="1.1" depth="0.8" material="color:#1f0f0a;roughness:0.6" position="0 0.55 0"></a-box>
+    <a-box width="2.2" height="0.8" depth="0.05" material="color:#200800;emissive:#441100;emissiveIntensity:0.5" position="0 0.8 -0.43"></a-box>
+    <a-box width="2.4" height="0.08" depth="0.85" material="color:#3a2010" position="0 1.12 0"></a-box>
+    <a-plane width="1.8" height="0.6" position="0 0.82 -0.41" material="color:#ff8833;emissive:#cc5500;emissiveIntensity:0.3;shader:flat;opacity:0.15;transparent:true"></a-plane>
+    <a-text value="🚁" color="#ff8833" width="1.5" position="0 1.5 -0.38" align="center"></a-text>
+    <a-text value="DEPLOYMENT BAY" color="#ff8833" width="2.2" position="0 1.28 -0.38" align="center"></a-text>
+    <a-text value="INTERACT" color="#443322" width="1.2" position="0 1.12 -0.38" align="center"></a-text>
+  </a-entity>
+
+  <!-- INTEL CENTER (south) -->
+  <a-entity class="station" position="0 0 7" rotation="0 180 0" onclick="openStation('intel')">
+    <a-box width="2.4" height="1.1" depth="0.8" material="color:#1a0a1f;roughness:0.6" position="0 0.55 0"></a-box>
+    <a-box width="2.2" height="0.8" depth="0.05" material="color:#100020;emissive:#220044;emissiveIntensity:0.5" position="0 0.8 -0.43"></a-box>
+    <a-box width="2.4" height="0.08" depth="0.85" material="color:#2a1a3a" position="0 1.12 0"></a-box>
+    <a-plane width="1.8" height="0.6" position="0 0.82 -0.41" material="color:#cc44ff;emissive:#8822cc;emissiveIntensity:0.3;shader:flat;opacity:0.15;transparent:true"></a-plane>
+    <a-text value="📡" color="#cc44ff" width="1.5" position="0 1.5 -0.38" align="center"></a-text>
+    <a-text value="INTEL CENTER" color="#cc44ff" width="2.2" position="0 1.28 -0.38" align="center"></a-text>
+    <a-text value="INTERACT" color="#331144" width="1.2" position="0 1.12 -0.38" align="center"></a-text>
+  </a-entity>
+
+  <!-- CENTER HOLOGRAM TABLE -->
+  <a-cylinder radius="1.2" height="0.06" material="color:#061a08;roughness:0.5;metalness:0.5" position="0 0.85 0" segments-radial="20"></a-cylinder>
+  <a-cylinder radius="0.04" height="0.85" material="color:#0a2a0a;metalness:0.8" position="0 0.42 0" segments-radial="8"></a-cylinder>
+  <!-- Hologram globe -->
+  <a-sphere radius="0.5" position="0 1.8 0"
+    material="color:#00ff44;emissive:#00cc33;emissiveIntensity:0.3;opacity:0.15;transparent:true;wireframe:true"
+    animation="property:rotation;from:0 0 0;to:0 360 0;dur:8000;loop:true;easing:linear">
+  </a-sphere>
+  <a-sphere radius="0.52" position="0 1.8 0"
+    material="color:#00ff44;emissive:#00aa22;emissiveIntensity:0.2;opacity:0.08;transparent:true">
+  </a-sphere>
+  <!-- Infection hotspots on globe -->
+  <a-sphere radius="0.06" position="0.3 1.95 0.35" material="color:#ff2200;emissive:#ff0000;emissiveIntensity:1;shader:flat"
+    animation="property:scale;from:1 1 1;to:1.5 1.5 1.5;dur:600;dir:alternate;loop:true"></a-sphere>
+  <a-sphere radius="0.04" position="-0.2 1.7 0.45" material="color:#ff6600;emissive:#ff3300;emissiveIntensity:1;shader:flat"
+    animation="property:scale;from:1 1 1;to:1.4 1.4 1.4;dur:800;dir:alternate;loop:true"></a-sphere>
+  <a-sphere radius="0.05" position="0.4 1.65 -0.3" material="color:#ffcc00;emissive:#cc9900;emissiveIntensity:1;shader:flat"
+    animation="property:scale;from:1 1 1;to:1.3 1.3 1.3;dur:700;dir:alternate;loop:true"></a-sphere>
+  <a-light type="point" color="#00ff44" intensity="1.2" distance="4" position="0 1.8 0"
+    animation="property:intensity;from:1.2;to:0.6;dur:2000;dir:alternate;loop:true"></a-light>
+
+  <!-- SPECIMEN TANKS (corners) -->
+  <a-box width="0.6" height="1.4" depth="0.6" material="color:#003311;opacity:0.4;transparent:true" position="-4 0.7 -4"></a-box>
+  <a-box width="0.58" height="1.36" depth="0.58" material="color:#00ff44;emissive:#00cc33;emissiveIntensity:0.3;opacity:0.08;transparent:true" position="-4 0.7 -4"></a-box>
+  <a-sphere radius="0.15" position="-4 0.9 -4" material="color:#33ff88;emissive:#00cc44;emissiveIntensity:0.6;opacity:0.7;transparent:true"
+    animation="property:position;from:-4 0.9 -4;to:-4 1.2 -4;dur:2000;dir:alternate;loop:true;easing:easeInOutSine"></a-sphere>
+
+  <a-box width="0.6" height="1.4" depth="0.6" material="color:#003311;opacity:0.4;transparent:true" position="4 0.7 -4"></a-box>
+  <a-box width="0.58" height="1.36" depth="0.58" material="color:#00ff44;emissive:#00cc33;emissiveIntensity:0.3;opacity:0.08;transparent:true" position="4 0.7 -4"></a-box>
+  <a-sphere radius="0.12" position="4 1.0 -4" material="color:#ff3300;emissive:#cc1100;emissiveIntensity:0.8;opacity:0.7;transparent:true"
+    animation="property:position;from:4 0.8 -4;to:4 1.3 -4;dur:2400;dir:alternate;loop:true;easing:easeInOutSine"></a-sphere>
+
+</a-scene>
+
+<script>
+// ── GAME STATE ──────────────────────────────────────────────────────────────
+const G = {
+  funds: 500,
+  day: 1,
+  infection: 0,      // 0-100%
+  contained: 0,      // cases contained
+  research: 0,       // 0-100 research progress
+  agents: 1,         // field agents deployed
+  vaccines: 0,
+  dayTimer: null,
+  ac: null,
+};
+
+// ── STATION DATA ─────────────────────────────────────────────────────────────
+const STATIONS = {
+  quarantine: {
+    name: '☣ QUARANTINE LAB',
+    desc: 'Contain infected specimens for analysis. Each containment costs resources but slows the spread. Current infection rate spreading at ' + G.infection.toFixed(1) + '% per cycle.',
+    actions: [
+      { label: 'CONTAIN SAMPLE\n$80', cost: 80, fn: () => { G.contained += 3; G.infection = Math.max(0, G.infection - 4); showAlert('CONTAINED', '#00ff88'); hud(); }},
+      { label: 'UPGRADE LAB\n$200', cost: 200, fn: () => { G.infection = Math.max(0, G.infection - 10); showAlert('LAB UPGRADED', '#00ff88'); hud(); }},
+      { label: 'EMERGENCY SEAL\n$150', cost: 150, fn: () => { G.infection = Math.max(0, G.infection - 8); G.contained += 5; showAlert('SEALED', '#ffcc00'); hud(); }},
+    ]
+  },
+  research: {
+    name: '🔬 RESEARCH LAB',
+    desc: 'Develop countermeasures against the pathogen. Research progress: ' + G.research.toFixed(0) + '%. A vaccine requires 100% completion. Black oil variant requires enhanced protocols.',
+    actions: [
+      { label: 'FUND RESEARCH\n$120', cost: 120, fn: () => { G.research = Math.min(100, G.research + 15); showAlert('+15% RESEARCH', '#4488ff'); if(G.research >= 100){ G.vaccines++; G.research = 0; showAlert('VACCINE READY!', '#00ff88'); } hud(); }},
+      { label: 'HIRE SCIENTIST\n$180', cost: 180, fn: () => { G.research = Math.min(100, G.research + 25); showAlert('+25% RESEARCH', '#4488ff'); hud(); }},
+      { label: 'ANALYZE PATHOGEN\n$90', cost: 90, fn: () => { G.infection = Math.max(0, G.infection - 3); showAlert('PATHOGEN MAPPED', '#4488ff'); hud(); }},
+    ]
+  },
+  deploy: {
+    name: '🚁 DEPLOYMENT BAY',
+    desc: 'Deploy field agents to outbreak zones. More agents = faster containment. Current agents in field: ' + G.agents + '. Vaccines in stock: ' + G.vaccines + '.',
+    actions: [
+      { label: 'DEPLOY AGENT\n$100', cost: 100, fn: () => { G.agents++; G.contained += 2; showAlert('AGENT DEPLOYED', '#ff8833'); hud(); }},
+      { label: 'USE VACCINE\n$0', cost: 0, fn: () => { if(G.vaccines <= 0){ showAlert('NO VACCINES', '#ff3333'); return; } G.vaccines--; G.infection = Math.max(0, G.infection - 20); G.contained += 8; showAlert('VACCINE DEPLOYED!', '#00ff88'); hud(); }},
+      { label: 'AIRDROP SUPPLIES\n$160', cost: 160, fn: () => { G.contained += 6; G.infection = Math.max(0, G.infection - 6); showAlert('SUPPLIES DROPPED', '#ff8833'); hud(); }},
+    ]
+  },
+  intel: {
+    name: '📡 INTEL CENTER',
+    desc: 'Intercept communications and track outbreak vectors. Syndicate involvement: UNCONFIRMED. Black oil variant DNA match: 94%. Source: unknown. Days elapsed: ' + G.day + '.',
+    actions: [
+      { label: 'INTERCEPT COMMS\n$60', cost: 60, fn: () => { G.funds += 40; showAlert('INTEL ACQUIRED +$40', '#cc44ff'); hud(); }},
+      { label: 'TRACE ORIGIN\n$140', cost: 140, fn: () => { G.infection = Math.max(0, G.infection - 5); showAlert('SOURCE TRACED', '#cc44ff'); hud(); }},
+      { label: 'REQUEST FUNDING\n$0', cost: 0, fn: () => { const amt = 80 + Math.floor(Math.random()*120); G.funds += amt; showAlert(`+$${amt} FUNDING`, '#cc44ff'); hud(); }},
+    ]
+  }
+};
+
+function openStation(key) {
+  const s = STATIONS[key];
+  // Refresh dynamic desc
+  if(key==='quarantine') s.desc = `Contain infected specimens. Slows spread. Current infection: ${G.infection.toFixed(1)}%. Contained cases: ${G.contained}.`;
+  if(key==='research') s.desc = `Develop countermeasures. Research: ${G.research.toFixed(0)}%. Vaccines ready: ${G.vaccines}. Black oil variant requires enhanced protocols.`;
+  if(key==='deploy') s.desc = `Deploy field agents. Agents in field: ${G.agents}. Vaccines in stock: ${G.vaccines}. Each agent auto-contains 1 case/day.`;
+  if(key==='intel') s.desc = `Track outbreak vectors. Syndicate involvement: UNCONFIRMED. Black oil DNA match: 94%. Days elapsed: ${G.day}.`;
+
+  document.getElementById('ptitle').textContent = s.name;
+  document.getElementById('pdesc').textContent = s.desc;
+  const btns = document.getElementById('pbtns');
+  btns.innerHTML = '';
+  s.actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'pbtn' + (a.cost > G.funds ? ' red' : '');
+    btn.textContent = a.label;
+    btn.onclick = () => {
+      if(G.funds < a.cost){ showAlert('INSUFFICIENT FUNDS', '#ff3333'); return; }
+      G.funds -= a.cost;
+      a.fn();
+      document.getElementById('panel').style.display = 'none';
+    };
+    btns.appendChild(btn);
+  });
+  // Close button
+  const close = document.createElement('button');
+  close.className = 'pbtn red';
+  close.textContent = 'CLOSE';
+  close.onclick = () => document.getElementById('panel').style.display = 'none';
+  btns.appendChild(close);
+
+  document.getElementById('panel').style.display = 'block';
+}
+window.openStation = openStation;
+
+function showAlert(msg, color) {
+  const el = document.getElementById('alert');
+  const txt = document.getElementById('alert-txt');
+  txt.textContent = msg;
+  txt.style.color = color;
+  el.style.opacity = '1';
+  setTimeout(() => el.style.opacity = '0', 1800);
+}
+
+function hud() {
+  document.getElementById('hfunds').textContent = '$' + G.funds;
+  document.getElementById('hday').textContent = G.day;
+  document.getElementById('hinf').textContent = G.infection.toFixed(1) + '%';
+  document.getElementById('hcont').textContent = G.contained;
+}
+
+// ── DAY CYCLE ───────────────────────────────────────────────────────────────
+function dayTick() {
+  G.day++;
+  // Infection spreads
+  const spread = Math.max(0.5, 3 - G.agents * 0.3);
+  G.infection = Math.min(100, G.infection + spread);
+  // Agents auto-contain
+  G.contained += G.agents;
+  // Daily income
+  G.funds += 30 + G.agents * 10;
+  hud();
+
+  if(G.infection >= 100) {
+    showAlert('CONTAINMENT FAILED', '#ff3333');
+    clearInterval(G.dayTimer);
+    setTimeout(() => showAlert('OUTBREAK ZERO — MISSION FAILED', '#ff0000'), 2000);
+    return;
+  }
+  if(G.infection <= 0 && G.day > 5) {
+    showAlert('CONTAINED! MISSION SUCCESS', '#00ff88');
+    clearInterval(G.dayTimer);
+    return;
+  }
+
+  // Random events
+  const roll = Math.random();
+  if(roll < 0.15) showAlert('NEW OUTBREAK DETECTED +5%', '#ff3333');
+  else if(roll < 0.25 && G.funds > 50) { G.funds -= 50; showAlert('EMERGENCY RESPONSE -$50', '#ffcc00'); }
+  else if(roll < 0.3) { G.funds += 60; showAlert('WHO FUNDING +$60', '#00ff88'); }
+}
+
+// ── TRIGGER INTERACTION ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('a-scene').addEventListener('loaded', () => {
+    // Tile floor
+    const tiles = document.getElementById('tiles');
+    for(let x=-4;x<=4;x+=2){for(let z=-4;z<=4;z+=2){
+      const t=document.createElement('a-plane');
+      t.setAttribute('rotation','-90 0 0');t.setAttribute('width','1.95');t.setAttribute('height','1.95');
+      t.setAttribute('position',`${x} 0.005 ${z}`);
+      t.setAttribute('material',`color:${(x+z)%4===0?'#030f05':'#020b03'};roughness:1`);
+      tiles.appendChild(t);
+    }}
+
+    const rhand = document.getElementById('rhand');
+    rhand.addEventListener('triggerdown', () => {
+      const rc = rhand.components['raycaster'];
+      if(!rc)return;
+      const els = rc.intersectedEls;
+      if(els.length > 0) els[0].click();
+    });
+
+    hud();
+    initAudio();
+    G.dayTimer = setInterval(dayTick, 12000); // 12 seconds = 1 day
+    showAlert('DAY 1 — OUTBREAK DETECTED', '#ff3333');
+  });
+});
+
+function initAudio(){if(G.ac)return;G.ac=new(window.AudioContext||window.webkitAudioContext)();const buf=G.ac.createBuffer(1,G.ac.sampleRate*2,G.ac.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.2;const src=G.ac.createBufferSource();src.buffer=buf;src.loop=true;const f=G.ac.createBiquadFilter();f.type='bandpass';f.frequency.value=200;const g=G.ac.createGain();g.gain.value=0.03;src.connect(f);f.connect(g);g.connect(G.ac.destination);src.start();}
+</script>
+</body>
+</html>

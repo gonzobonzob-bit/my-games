@@ -1,0 +1,36 @@
+# my-games/CLAUDE.md — Gonzo's Game Vault Standards
+
+This file governs every game added to or modified in this repository (GitHub Pages site "Gonzo's Game Vault"). It exists because the 2026-07 portfolio review found the same handful of mistakes repeated across a dozen independently-built games. Read this before adding a new game or doing a polish pass on an existing one.
+
+## The quality bar
+Every game kept in this vault must **exceed** the best existing games here, not just match them. Before calling any game "done," compare it against the current flagship tier (Purr & Power Co., Freight Dominion) on: economic/mechanical depth, save/load robustness, visual polish, and absence of dead/vaporware features. If a new or revised game doesn't clear that bar, it stays `status-wip` and `data-hidden="1"` — it does not get promoted just because it runs without crashing.
+
+## Required structure for every game
+- **Self-contained.** One `index.html` (or a single top-level HTML file for simple games) per game, in its own subdirectory if it has more than a couple of supporting files (JS modules, CSS, assets). No external CDN script/style dependencies at runtime — vendor any needed library (Babylon.js, Cannon.js, Havok, etc.) locally under the game's own directory. GitHub Pages should serve the whole vault with zero live network dependencies besides the page itself.
+- **No live third-party API calls from client code.** Never call `api.anthropic.com` or any other paid/authenticated API directly from browser JS shipped to players — there is no way to embed a secret safely in a static site, and the call will simply fail (or worse, expose a key) in production. If a game's design wants "AI" behavior, build it as a local system (curated response banks, keyword matching, procedural text) unless and until a real backend proxy exists for this vault. Two games (Neon Dominion's Oracle, Tangled Frequencies' AI inner voice) shipped with this exact broken pattern — don't repeat it.
+- **No real-world commercial brand names.** Use invented, non-competing brand names for any in-game equipment, products, or companies, even where the real-world flavor was the point (Purr & Power Co. originally used real solar-industry brands — see naming migration note below). Real place names (cities, streets) are fine as setting color; real company/product names are not.
+- **Main menu with New / Continue / Settings**, matching the pattern already established across the vault's stronger games.
+- **Pause overlay** reachable via Esc (or equivalent), offering at minimum Resume / Save / Main Menu.
+- **Autosave every 30 seconds**, plus save-on-important-transitions (level/tier/day change) and ideally save-on-`visibilitychange`/`pagehide` so backgrounding or closing the tab doesn't lose progress. Every save/load call must be wrapped in try/catch — corrupt or missing localStorage should degrade gracefully (start fresh), never crash the game.
+- **Versioned save keys.** Bump the save key (or embed a schema version field) whenever the state shape changes incompatibly, and write a migration path for old saves where reasonable rather than silently discarding them.
+- **Offline/idle catch-up for any idle/tycoon game.** If the game has passive per-second/per-tick resource accrual, store a last-tick timestamp and grant a capped catch-up bonus on load. Several games in this vault (Phantom Dossier, Anvil Epoch, Neon Dominion) shipped without this, which defeats the point of the genre.
+
+## Interval hygiene (this bit the vault three separate times)
+Never create a `setInterval` in a "start game" function without storing its handle and clearing it in the corresponding "return to menu" function. At least three games (Neon Dominion, Anvil Epoch, and near-misses elsewhere) had a bug where cycling Menu -> Start Game repeatedly stacked duplicate tick/render/autosave intervals, multiplying passive income and degrading performance. Prefer a single top-level tick dispatcher over many independent `setInterval` calls where practical (see Purr & Power Co.'s original 13-interval sprawl as the anti-pattern to avoid going forward).
+
+## Naming and portfolio hygiene
+- **Filenames are kebab-case** and should match the game's actual in-game/title-bar name, not an old working title (e.g. `veil-legends.html`, not `rift-legends.html` for a game whose title screen says "Veil Legends"). Rename when they drift.
+- **Every shipped game must have a portfolio card in `my-games/index.html`.** A finished, playable game sitting in the repo with no card (as Callsigns did) provides zero value to players.
+- **Card copy must match the actual code, checked at the same time as the code change.** This vault has repeatedly shipped stale card descriptions (claimed features that were removed, claimed bugs that were fixed, claimed content gaps that didn't exist, wrong genre labels). When you fix a bug or finish a feature, update the card in the same commit — don't leave it for "later."
+- **Title collision check.** Before finalizing any new game's title or filename, search both this repo and any sibling repos being folded in for name/filename collisions (this is how the GonzoVR fold-in caught two unrelated `iron-frontier.html` files and two X-Files-themed games).
+- **Don't assume surface similarity means duplication.** Chop Shop Circuit and Scrapyard D-Derby Empire both looked like the same "junkyard vehicle combat economy" concept at a glance, and were nearly merged/deleted on that assumption — a closer read showed one is a 1v1 ladder combat-sport builder and the other is a multi-car fleet-management tycoon, genuinely different genres wearing the same reskin. Always read the actual code before deciding two games are redundant.
+
+## Playtesting requirement
+Static code review is not sufficient to call a game "Complete." Before flipping a card's status from `wip` to `complete`, actually play the game in a browser through its full arc at least once — start to end-state (win, loss, or the practical end of content) — not just skim the source. Several games in this vault (Shadow Ledger, Tangled Frequencies episodes 7-12, Plate Empire's later tiers) had never actually been exercised through the live UI despite looking complete on paper, and had real crash-class bugs that only a live playthrough surfaces.
+
+## Genre uniqueness
+Before adding a new game, check whether its core mechanic is already well-covered by an existing vault entry (e.g. Steel Vanguard vs. Freight Dominion — a case where a shallower game duplicated a deeper sibling's genre and was retired). If it overlaps significantly with an existing game and doesn't clearly exceed it, either differentiate it meaningfully or fold its best ideas into the existing game instead of shipping a second, weaker version of the same concept. But verify the overlap is real first — see the Chop Shop Circuit note above.
+
+## Git conventions (already established for this repo, listed for completeness)
+- git `user.name`/`user.email` are set locally in this repo only — no global git config changes.
+- Work that touches the live portfolio happens on a feature branch; the repo owner reviews and merges to `main` themselves. Nothing in this repo should be auto-pushed to `main` by an agent.
