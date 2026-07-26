@@ -31,8 +31,6 @@ const QUESTION_MS = 20_000;
 const BASE_POINTS = 500; // flat award for a correct answer
 const SPEED_POINTS = 500; // additional, scaled linearly on time remaining
 
-const OPENTDB_URL =
-  'https://opentdb.com/api.php?amount=10&type=multiple&encode=url3986';
 const OPENTDB_TIMEOUT_MS = 6000;
 // If a 'start' somehow strands the loading flag (isolate evicted mid-fetch),
 // don't wedge the room forever.
@@ -102,13 +100,13 @@ export class Room {
     // Runs before any handler, including after a hibernation wake. The whole
     // game is one storage value, so this is one read.
     ctx.blockConcurrencyWhile(async () => {
-      this.game = (await ctx.storage.get('game')) || freshGame();
+      this.game = normalizeGame((await ctx.storage.get('game')) || freshGame());
     });
   }
 
   async ensure() {
     if (!this.game) {
-      this.game = (await this.ctx.storage.get('game')) || freshGame();
+      this.game = normalizeGame((await this.ctx.storage.get('game')) || freshGame());
     }
     return this.game;
   }
@@ -190,6 +188,9 @@ export class Room {
       you: { id: player.id, name: player.name },
       isHost: g.hostId === player.id,
       phase: g.phase,
+      settings: g.settings,
+      catalog: catalog(),
+      difficulties: DIFFICULTIES.slice(),
     });
     this.broadcastRoster();
     this.catchUp(server);
@@ -314,6 +315,8 @@ export class Room {
       if (!data || typeof data !== 'object') return;
 
       switch (data.type) {
+        case 'settings':
+          return await this.onSettings(ws, me, data);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -328,6 +331,26 @@ export class Room {
     } catch (err) {
       this.send(ws, { type: 'error', message: 'server error' });
     }
+  }
+
+  async onSettings(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can change the game' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'the game has already started' });
+    }
+    // Changing the genre while loadQuestions() is already in flight would have
+    // no effect on the questions being fetched but would tell everyone it did.
+    if (g.loadingAt && Date.now() - g.loadingAt < LOADING_STALE_MS) {
+      return this.send(ws, { type: 'error', message: 'the game is already starting' });
+    }
+    g.settings = sanitizeSettings(data.settings);
+    await this.save();
+    // Everyone sees the choice, not just the host — a lobby where only one
+    // person can see what is about to be played is a dead screen for the rest.
+    this.broadcast({ type: 'settings', settings: g.settings });
   }
 
   async onStart(ws, me) {
@@ -349,24 +372,55 @@ export class Room {
       });
     }
 
+    // Frozen BEFORE the await. The host could otherwise change the genre
+    // mid-fetch and the questions would not match what the lobby last showed.
+    const snap = sanitizeSettings(g.settings);
+
     g.loadingAt = Date.now();
     await this.save();
 
-    let questions;
+    let loaded;
     try {
-      questions = await this.loadQuestions();
+      loaded = await this.loadQuestions(snap, new Set(g.recentTexts || []));
+    } catch (err) {
+      // Refusing is the correct outcome, not an error to paper over: the one
+      // thing worse than not starting is starting with the wrong genre. The
+      // client's existing error handler re-enables the Start button, so the
+      // host can just pick something else.
+      g.loadingAt = 0;
+      await this.save();
+      return this.send(ws, {
+        type: 'error',
+        message: 'Could not find ' + QUESTION_COUNT + ' ' + GENRES[snap.genre].label +
+                 ' questions right now. Try another genre, or Mixed.',
+      });
     } finally {
       g.loadingAt = 0;
     }
+    const questions = loaded.questions;
 
     // A start is also a reset: nobody carries a score in from a previous round.
     for (const p of Object.values(g.players)) p.score = 0;
     g.questions = questions;
     g.answers = {};
     g.lastReveal = null;
+    // Remember what was just used so the next game in this room differs.
+    g.recentTexts = [...questions.map((q) => q.text), ...(g.recentTexts || [])]
+      .slice(0, RECENT_CAP);
     await this.save();
 
     await this.beginQuestion(0);
+
+    // Said plainly, once, and only when the whole set came from the bundled
+    // pack. A partly-topped-up game is still entirely the right genre, so it
+    // says nothing — the promise was genre, and the promise held.
+    if (loaded.offline) {
+      this.broadcast({
+        type: 'notice',
+        message: 'Offline pack — ' + GENRES[snap.genre].label +
+                 '. Open Trivia DB did not answer, so these are from the built-in set.',
+      });
+    }
   }
 
   async onAnswer(ws, me, data) {
@@ -567,14 +621,28 @@ export class Room {
    * Live batch from Open Trivia DB, topped up or wholly replaced by the
    * bundled pack. The game never hard-fails because a third party is down.
    */
-  async loadQuestions() {
+  /* Three tiers, and the order is the whole design:
+   *   1. live OpenTDB for the chosen genre
+   *   2. the bundled offline pack for THAT SAME genre
+   *   3. refuse, and say so
+   *
+   * What is deliberately absent is a fourth tier that tops up from some other
+   * genre. That used to be the only behaviour, and it fired far more often
+   * than "OpenTDB is down" — fromOpenTdb() returns null for any question whose
+   * distractors collide with its answer, so a perfectly successful Music fetch
+   * returning seven usable questions used to be topped up with three generic
+   * ones. Nobody was ever told.
+   */
+  async loadQuestions(settings, recent) {
+    const pack = settings.genre === 'mixed' ? FALLBACK_PACK : (PACKS[settings.genre] || []);
     let questions = [];
+
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), OPENTDB_TIMEOUT_MS);
       let res;
       try {
-        res = await fetch(OPENTDB_URL, {
+        res = await fetch(openTdbUrl(settings, QUESTION_COUNT), {
           signal: ctrl.signal,
           headers: { accept: 'application/json' },
         });
@@ -593,17 +661,41 @@ export class Room {
       questions = [];
     }
 
-    if (questions.length < QUESTION_COUNT) {
-      const seen = new Set(questions.map((q) => q.text));
-      for (const src of shuffle(FALLBACK_PACK)) {
+    const live = questions.length;
+    const seen = new Set(questions.map((q) => q.text));
+
+    // Two passes over the same-genre pack. The first honours the requested
+    // difficulty; the second relaxes it. Genre is a promise and difficulty is
+    // a preference — a player who asked for Music/Hard and gets Music/Medium
+    // got a slightly easier game, but one who gets History got a different
+    // game entirely. Only one of those is a broken promise.
+    const wanted = settings.difficulty && settings.difficulty !== 'any'
+      ? settings.difficulty : null;
+    const passes = wanted ? [wanted, null] : [null];
+
+    for (const want of passes) {
+      // Prefer questions this room has not seen recently, but never let the
+      // recency filter be the reason a game cannot start.
+      for (const avoidRecent of [true, false]) {
+        for (const src of shuffle(pack)) {
+          if (questions.length >= QUESTION_COUNT) break;
+          if (seen.has(src.text)) continue;
+          if (want && src.difficulty !== want) continue;
+          if (avoidRecent && recent && recent.has(src.text)) continue;
+          seen.add(src.text);
+          questions.push(buildQuestion(src));
+        }
         if (questions.length >= QUESTION_COUNT) break;
-        if (seen.has(src.text)) continue;
-        seen.add(src.text);
-        questions.push(buildQuestion(src));
       }
+      if (questions.length >= QUESTION_COUNT) break;
     }
 
-    return questions.slice(0, QUESTION_COUNT);
+    if (questions.length < QUESTION_COUNT) {
+      // Thrown BEFORE any game state is mutated, so the room stays in lobby.
+      throw new Error('short pack for genre ' + settings.genre);
+    }
+
+    return { questions: questions.slice(0, QUESTION_COUNT), offline: live === 0 };
   }
 }
 
@@ -622,6 +714,9 @@ function freshGame() {
     answers: {}, // playerId -> {choice, at}
     lastReveal: null,
     loadingAt: 0,
+    settings: sanitizeSettings(null),
+    // Texts used recently, so a second game in the same room is not a rerun.
+    recentTexts: [],
   };
 }
 
@@ -699,6 +794,260 @@ function shuffle(input) {
  * and to top up a short batch. Deliberately evergreen — no question whose
  * answer changes with time.
  */
+
+/* ------------------------------------------------------------------ *
+ * Genres
+ *
+ * Only genres with a real bundled offline pack are offered. That is a
+ * deliberate limit rather than a lack of ambition: OpenTDB rate-limits
+ * hard (a second request ~0.5s after the first comes back 429, and
+ * Workers egress from shared IPs, so 429 is the LIKELY failure and not
+ * the rare one). A genre with no offline pack would have to refuse to
+ * start every time that happened, which is worse than not offering it.
+ *
+ * The rule that matters: a genre is a PROMISE. If you asked for Music you
+ * get Music or you get told why not — you never quietly get History. The
+ * top-up path below can only draw from the same genre's pack.
+ * ------------------------------------------------------------------ */
+
+const GENRES = {
+  mixed:     { label: 'Mixed',            catId: null },
+  film:      { label: 'Film',             catId: 11 },
+  music:     { label: 'Music',            catId: 12 },
+  games:     { label: 'Video Games',      catId: 15 },
+  science:   { label: 'Science & Nature', catId: 17 },
+  history:   { label: 'History',          catId: 23 },
+  geography: { label: 'Geography',        catId: 22 },
+};
+
+const DIFFICULTIES = ['any', 'easy', 'medium', 'hard'];
+const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any' };
+
+/* How many recently-used question texts to remember so a second game in the
+ * same room is not the same ten questions. Deliberately small: save() runs on
+ * every answer and re-serialises the whole game object, so this array is
+ * written up to 80 times a game. */
+const RECENT_CAP = 40;
+
+/* Settings arrive from a client and are persisted forever, so they are
+ * validated field by field against known-good enums. Never Object.assign or
+ * spread the raw value — a JSON-parsed own `__proto__` property poisons the
+ * persisted shape, and hasOwnProperty (rather than `in`) keeps inherited
+ * names like `constructor` from validating as a genre. */
+function sanitizeSettings(raw) {
+  const out = { genre: DEFAULT_SETTINGS.genre, difficulty: DEFAULT_SETTINGS.difficulty };
+  if (!raw || typeof raw !== 'object') return out;
+  if (typeof raw.genre === 'string' &&
+      Object.prototype.hasOwnProperty.call(GENRES, raw.genre)) {
+    out.genre = raw.genre;
+  }
+  if (typeof raw.difficulty === 'string' && DIFFICULTIES.includes(raw.difficulty)) {
+    out.difficulty = raw.difficulty;
+  }
+  return out;
+}
+
+/* Rooms persisted before settings existed come back without them; a bare read
+ * would be undefined. This runs on every load, not just once. */
+function normalizeGame(g) {
+  if (!g || typeof g !== 'object') return freshGame();
+  g.settings = sanitizeSettings(g.settings);
+  if (!Array.isArray(g.recentTexts)) g.recentTexts = [];
+  return g;
+}
+
+/* What the lobby is allowed to offer. Sent on welcome so the client can never
+ * present a combination the server cannot serve. */
+function catalog() {
+  return Object.keys(GENRES).map((slug) => ({ slug, label: GENRES[slug].label }));
+}
+
+function openTdbUrl(settings, amount) {
+  const p = new URLSearchParams({
+    amount: String(amount),
+    type: 'multiple',
+    encode: 'url3986',
+  });
+  const g = GENRES[settings.genre];
+  // Omitting category entirely is what keeps 'mixed' byte-identical to the
+  // behaviour every existing room already had.
+  if (g && g.catId) p.set('category', String(g.catId));
+  if (settings.difficulty && settings.difficulty !== 'any') {
+    p.set('difficulty', settings.difficulty);
+  }
+  return 'https://opentdb.com/api.php?' + p.toString();
+}
+
+/* ------------------------------------------------------------------ *
+ * Offline packs — 144 questions, one set per genre.
+ *
+ * These are the answer to "OpenTDB is down and you picked Music". They are
+ * NOT a generic backstop: each pack only ever fills a game of its own genre.
+ * Authored and then adversarially fact-checked, specifically for distractors
+ * that a knowledgeable player could argue for — the failure mode where the
+ * person who knows more is the one who gets it wrong.
+ * ------------------------------------------------------------------ */
+
+const PACKS = {
+  // 'mixed' is served by the original generic pack, defined below.
+  music: [
+    { text: "Who was the lead singer of the band Queen throughout the 1970s and 1980s?", correct: "Freddie Mercury", wrong: ["Robert Plant", "Roger Daltrey", "David Bowie"], category: "Music: Rock", difficulty: "easy" },
+    { text: "Which country did the pop group ABBA form in?", correct: "Sweden", wrong: ["Norway", "Denmark", "Finland"], category: "Music: Pop", difficulty: "easy" },
+    { text: "How many strings does a standard violin have?", correct: "Four", wrong: ["Three", "Five", "Six"], category: "Music: Instruments", difficulty: "easy" },
+    { text: "In which country did reggae music originate?", correct: "Jamaica", wrong: ["Cuba", "Barbados", "Trinidad and Tobago"], category: "Music: Reggae", difficulty: "easy" },
+    { text: "Which Beatles album cover shows the band walking across a zebra crossing?", correct: "Abbey Road", wrong: ["Revolver", "Help!", "Let It Be"], category: "Music: Classics", difficulty: "easy" },
+    { text: "Which band recorded the 1991 single \"Smells Like Teen Spirit\"?", correct: "Nirvana", wrong: ["Pearl Jam", "Soundgarden", "Green Day"], category: "Music: Rock", difficulty: "easy" },
+    { text: "Which American singer is nicknamed the King of Pop?", correct: "Michael Jackson", wrong: ["Prince", "James Brown", "Elvis Presley"], category: "Music: Pop", difficulty: "easy" },
+    { text: "Whose 2011 album was titled \"21\"?", correct: "Adele", wrong: ["Amy Winehouse", "Rihanna", "Katy Perry"], category: "Music: Pop", difficulty: "easy" },
+    { text: "Which composer wrote the opera \"Carmen\"?", correct: "Georges Bizet", wrong: ["Giuseppe Verdi", "Giacomo Puccini", "Richard Wagner"], category: "Music: Classical", difficulty: "medium" },
+    { text: "How many keys does a standard full-size piano have?", correct: "88", wrong: ["61", "76", "96"], category: "Music: Instruments", difficulty: "medium" },
+    { text: "What is the musical term for a passage that gradually gets louder?", correct: "Crescendo", wrong: ["Diminuendo", "Staccato", "Legato"], category: "Music: Theory", difficulty: "medium" },
+    { text: "In which year was the Live Aid benefit concert held?", correct: "1985", wrong: ["1979", "1982", "1990"], category: "Music: History", difficulty: "medium" },
+    { text: "Which Detroit record label was founded by Berry Gordy?", correct: "Motown", wrong: ["Stax", "Chess Records", "Sun Records"], category: "Music: Soul", difficulty: "medium" },
+    { text: "Which American singer-songwriter was born Robert Allen Zimmerman?", correct: "Bob Dylan", wrong: ["Tom Waits", "Neil Young", "Lou Reed"], category: "Music: Folk", difficulty: "medium" },
+    { text: "Which instrument did jazz musician John Coltrane play?", correct: "Saxophone", wrong: ["Trumpet", "Piano", "Double bass"], category: "Music: Jazz", difficulty: "medium" },
+    { text: "Which band recorded the 1973 album \"The Dark Side of the Moon\"?", correct: "Pink Floyd", wrong: ["Led Zeppelin", "Genesis", "The Doors"], category: "Music: Rock", difficulty: "medium" },
+    { text: "In which American city is the Grand Ole Opry located?", correct: "Nashville", wrong: ["Memphis", "Austin", "New Orleans"], category: "Music: Country", difficulty: "medium" },
+    { text: "Which hip-hop group released the 1988 album \"Straight Outta Compton\"?", correct: "N.W.A", wrong: ["Public Enemy", "Run-DMC", "Beastie Boys"], category: "Music: Hip-Hop", difficulty: "medium" },
+    { text: "Which composer wrote the ballet \"The Rite of Spring\", whose 1913 Paris premiere caused an uproar?", correct: "Igor Stravinsky", wrong: ["Claude Debussy", "Maurice Ravel", "Sergei Prokofiev"], category: "Music: Classical", difficulty: "hard" },
+    { text: "Which Nigerian musician pioneered the Afrobeat style in the 1970s?", correct: "Fela Kuti", wrong: ["King Sunny Adé", "Youssou N'Dour", "Salif Keita"], category: "Music: World", difficulty: "hard" },
+    { text: "How many semitones make up a perfect fifth?", correct: "Seven", wrong: ["Five", "Six", "Eight"], category: "Music: Theory", difficulty: "hard" },
+    { text: "Which German band released the 1974 album \"Autobahn\"?", correct: "Kraftwerk", wrong: ["Can", "Neu!", "Tangerine Dream"], category: "Music: Electronic", difficulty: "hard" },
+    { text: "Which Brazilian musical style did Antonio Carlos Jobim help create in the late 1950s?", correct: "Bossa nova", wrong: ["Samba", "Forro", "Choro"], category: "Music: World", difficulty: "hard" },
+    { text: "Which record producer developed the recording technique known as the Wall of Sound?", correct: "Phil Spector", wrong: ["George Martin", "Quincy Jones", "Brian Eno"], category: "Music: Production", difficulty: "hard" },
+  ],
+  film: [
+    { text: "Who directed the 1975 shark thriller \"Jaws\"?", correct: "Steven Spielberg", wrong: ["George Lucas", "Ridley Scott", "Robert Zemeckis"], category: "Film: Directors", difficulty: "easy" },
+    { text: "What is the name of Han Solo's ship in the original \"Star Wars\" trilogy?", correct: "Millennium Falcon", wrong: ["Tantive IV", "Slave I", "Nostromo"], category: "Film: Sci-Fi", difficulty: "easy" },
+    { text: "What kind of creature is the title character of the DreamWorks film \"Shrek\"?", correct: "Ogre", wrong: ["Troll", "Goblin", "Giant"], category: "Film: Animation", difficulty: "easy" },
+    { text: "Which animation studio produced the 1995 film \"Toy Story\"?", correct: "Pixar", wrong: ["DreamWorks Animation", "Studio Ghibli", "Blue Sky Studios"], category: "Film: Animation", difficulty: "easy" },
+    { text: "In which Alfred Hitchcock film is a woman murdered in the shower of the Bates Motel?", correct: "Psycho", wrong: ["Vertigo", "The Birds", "Frenzy"], category: "Film: Classics", difficulty: "easy" },
+    { text: "Which actor played Frodo Baggins in Peter Jackson's \"The Lord of the Rings\" films?", correct: "Elijah Wood", wrong: ["Sean Astin", "Orlando Bloom", "Dominic Monaghan"], category: "Film: Fantasy", difficulty: "easy" },
+    { text: "In which country is the Hindi-language film industry known as Bollywood based?", correct: "India", wrong: ["Pakistan", "Bangladesh", "Indonesia"], category: "Film: World Cinema", difficulty: "easy" },
+    { text: "Who composed the music for \"Star Wars\", \"Jurassic Park\" and \"Schindler's List\"?", correct: "John Williams", wrong: ["Hans Zimmer", "Ennio Morricone", "Danny Elfman"], category: "Film: Music", difficulty: "easy" },
+    { text: "Which Japanese director made the 1954 film \"Seven Samurai\"?", correct: "Akira Kurosawa", wrong: ["Yasujiro Ozu", "Kenji Mizoguchi", "Hayao Miyazaki"], category: "Film: World Cinema", difficulty: "medium" },
+    { text: "What is the name of Rick Blaine's nightclub in \"Casablanca\"?", correct: "Rick's Cafe Americain", wrong: ["The Blue Parrot", "The Kit Kat Club", "El Flamingo"], category: "Film: Classics", difficulty: "medium" },
+    { text: "Which South Korean film became the first non-English-language winner of the Academy Award for Best Picture?", correct: "Parasite", wrong: ["Oldboy", "Burning", "The Handmaiden"], category: "Film: Awards", difficulty: "medium" },
+    { text: "In which Martin Scorsese film does Robert De Niro play the taxi driver Travis Bickle?", correct: "Taxi Driver", wrong: ["Raging Bull", "Goodfellas", "Cape Fear"], category: "Film: Characters", difficulty: "medium" },
+    { text: "The Golden Bear is the top prize of the film festival held in which city?", correct: "Berlin", wrong: ["Venice", "Cannes", "Locarno"], category: "Film: Awards", difficulty: "medium" },
+    { text: "What is Hannibal Lecter's profession in \"The Silence of the Lambs\"?", correct: "Psychiatrist", wrong: ["Chemistry professor", "Pathologist", "Criminal profiler"], category: "Film: Characters", difficulty: "medium" },
+    { text: "Walt Disney's \"Snow White and the Seven Dwarfs\" premiered in which year?", correct: "1937", wrong: ["1928", "1932", "1945"], category: "Film: Animation", difficulty: "medium" },
+    { text: "Which actor plays Vincent Vega in \"Pulp Fiction\"?", correct: "John Travolta", wrong: ["Samuel L. Jackson", "Bruce Willis", "Harvey Keitel"], category: "Film", difficulty: "medium" },
+    { text: "Which animated film follows a girl named Chihiro who works in a bathhouse for spirits?", correct: "Spirited Away", wrong: ["My Neighbor Totoro", "Princess Mononoke", "Kiki's Delivery Service"], category: "Film: Animation", difficulty: "medium" },
+    { text: "What is the name of the sled in \"Citizen Kane\"?", correct: "Rosebud", wrong: ["Bluebird", "Snowdrop", "Firefly"], category: "Film: Classics", difficulty: "medium" },
+    { text: "Which animated feature was the first ever nominated for the Academy Award for Best Picture?", correct: "Beauty and the Beast", wrong: ["Snow White and the Seven Dwarfs", "The Lion King", "Up"], category: "Film: Awards", difficulty: "hard" },
+    { text: "Who directed the 1925 Soviet film \"Battleship Potemkin\"?", correct: "Sergei Eisenstein", wrong: ["Dziga Vertov", "Vsevolod Pudovkin", "Andrei Tarkovsky"], category: "Film: Classics", difficulty: "hard" },
+    { text: "Filmmakers from which country launched the Dogme 95 manifesto?", correct: "Denmark", wrong: ["Sweden", "Norway", "Netherlands"], category: "Film: World Cinema", difficulty: "hard" },
+    { text: "Which Italian director made the 1963 film \"8 1/2\"?", correct: "Federico Fellini", wrong: ["Michelangelo Antonioni", "Vittorio De Sica", "Sergio Leone"], category: "Film: World Cinema", difficulty: "hard" },
+    { text: "The historic Cinecitta film studios are located in which city?", correct: "Rome", wrong: ["Milan", "Madrid", "Vienna"], category: "Film: World Cinema", difficulty: "hard" },
+    { text: "Which 1927 film is credited as the first feature to include synchronized spoken dialogue?", correct: "The Jazz Singer", wrong: ["Don Juan", "The Broadway Melody", "Sunrise"], category: "Film: Classics", difficulty: "hard" },
+  ],
+  science: [
+    { text: "Which gas do plants absorb from the air during photosynthesis?", correct: "Carbon dioxide", wrong: ["Oxygen", "Nitrogen", "Methane"], category: "Science & Nature: Biology", difficulty: "easy" },
+    { text: "What is the chemical symbol for gold?", correct: "Au", wrong: ["Ag", "Gd", "Ge"], category: "Science & Nature: Chemistry", difficulty: "easy" },
+    { text: "Which planet orbits closest to the Sun?", correct: "Mercury", wrong: ["Venus", "Earth", "Mars"], category: "Science & Nature: Astronomy", difficulty: "easy" },
+    { text: "What is the largest organ of the human body?", correct: "Skin", wrong: ["Liver", "Brain", "Lungs"], category: "Science & Nature: Biology", difficulty: "easy" },
+    { text: "How many legs does an adult insect have?", correct: "Six", wrong: ["Four", "Eight", "Ten"], category: "Science & Nature: Biology", difficulty: "easy" },
+    { text: "Which living animal is the largest on Earth?", correct: "Blue whale", wrong: ["African elephant", "Sperm whale", "Whale shark"], category: "Science & Nature: Biology", difficulty: "easy" },
+    { text: "What is the dense central part of an atom called?", correct: "Nucleus", wrong: ["Electron shell", "Electron cloud", "Orbital"], category: "Science & Nature: Physics", difficulty: "easy" },
+    { text: "At standard sea-level pressure, water boils at what temperature in degrees Celsius?", correct: "100", wrong: ["80", "90", "120"], category: "Science & Nature: Chemistry", difficulty: "easy" },
+    { text: "What is the most abundant gas in Earth's atmosphere?", correct: "Nitrogen", wrong: ["Oxygen", "Carbon dioxide", "Argon"], category: "Science & Nature: Earth Science", difficulty: "medium" },
+    { text: "Who published the three laws of motion in the Principia in 1687?", correct: "Isaac Newton", wrong: ["Galileo Galilei", "Johannes Kepler", "Robert Hooke"], category: "Science & Nature: Physics", difficulty: "medium" },
+    { text: "What is the scientific study of fungi called?", correct: "Mycology", wrong: ["Botany", "Entomology", "Herpetology"], category: "Science & Nature: Biology", difficulty: "medium" },
+    { text: "Which organelle carries out photosynthesis in plant cells?", correct: "Chloroplast", wrong: ["Mitochondrion", "Ribosome", "Vacuole"], category: "Science & Nature: Biology", difficulty: "medium" },
+    { text: "What is the SI unit of electrical resistance?", correct: "Ohm", wrong: ["Volt", "Ampere", "Watt"], category: "Science & Nature: Physics", difficulty: "medium" },
+    { text: "Which planet hosts the storm known as the Great Red Spot?", correct: "Jupiter", wrong: ["Saturn", "Neptune", "Mars"], category: "Science & Nature: Astronomy", difficulty: "medium" },
+    { text: "What is the term for a solid changing directly into a gas?", correct: "Sublimation", wrong: ["Deposition", "Condensation", "Evaporation"], category: "Science & Nature: Chemistry", difficulty: "medium" },
+    { text: "Which vitamin does human skin produce when exposed to sunlight?", correct: "Vitamin D", wrong: ["Vitamin A", "Vitamin C", "Vitamin K"], category: "Science & Nature: Biology", difficulty: "medium" },
+    { text: "In which year did humans first walk on the Moon?", correct: "1969", wrong: ["1961", "1965", "1972"], category: "Science & Nature: Astronomy", difficulty: "medium" },
+    { text: "Where in the human body is the cochlea located?", correct: "The inner ear", wrong: ["The middle ear", "The outer ear", "The nasal cavity"], category: "Science & Nature: Biology", difficulty: "medium" },
+    { text: "Which blood vessel carries oxygen-rich blood from the lungs back to the heart?", correct: "Pulmonary vein", wrong: ["Pulmonary artery", "Aorta", "Vena cava"], category: "Science & Nature: Biology", difficulty: "hard" },
+    { text: "Which metal is the most abundant in Earth's crust?", correct: "Aluminium", wrong: ["Iron", "Magnesium", "Calcium"], category: "Science & Nature: Earth Science", difficulty: "hard" },
+    { text: "What is the SI unit of magnetic flux density?", correct: "Tesla", wrong: ["Weber", "Gauss", "Henry"], category: "Science & Nature: Physics", difficulty: "hard" },
+    { text: "Which naturalist independently proposed natural selection, prompting Darwin to publish?", correct: "Alfred Russel Wallace", wrong: ["Gregor Mendel", "Thomas Malthus", "Charles Lyell"], category: "Science & Nature: Biology", difficulty: "hard" },
+    { text: "What name is given to the boundary between Earth's crust and mantle?", correct: "Mohorovicic discontinuity", wrong: ["Gutenberg discontinuity", "Lehmann discontinuity", "Conrad discontinuity"], category: "Science & Nature: Earth Science", difficulty: "hard" },
+    { text: "What is the name for the point in a planet's orbit nearest the Sun?", correct: "Perihelion", wrong: ["Aphelion", "Perigee", "Apogee"], category: "Science & Nature: Astronomy", difficulty: "hard" },
+  ],
+  games: [
+    { text: "What is the name of the green dinosaur Mario first rode in Super Mario World?", correct: "Yoshi", wrong: ["Birdo", "Toad", "Bowser Jr."], category: "Video Games: Nintendo", difficulty: "easy" },
+    { text: "Which company created the Sonic the Hedgehog series?", correct: "Sega", wrong: ["Nintendo", "Capcom", "Namco"], category: "Video Games", difficulty: "easy" },
+    { text: "In Minecraft, which green creature hisses and then explodes next to the player?", correct: "Creeper", wrong: ["Enderman", "Zombie", "Skeleton"], category: "Video Games: Modern", difficulty: "easy" },
+    { text: "What type is Pikachu in the Pokemon games?", correct: "Electric", wrong: ["Fire", "Water", "Psychic"], category: "Video Games: Pokemon", difficulty: "easy" },
+    { text: "Which 1972 Atari arcade game simulated table tennis with two paddles and a bouncing ball?", correct: "Pong", wrong: ["Breakout", "Space Invaders", "Asteroids"], category: "Video Games: Arcade", difficulty: "easy" },
+    { text: "Which puzzle game did Soviet engineer Alexey Pajitnov create in 1984?", correct: "Tetris", wrong: ["Columns", "Puyo Puyo", "Dr. Mario"], category: "Video Games: Classics", difficulty: "easy" },
+    { text: "Which handheld console did Nintendo launch in 1989 with a monochrome screen?", correct: "Game Boy", wrong: ["Game Gear", "Atari Lynx", "Neo Geo Pocket"], category: "Video Games: Hardware", difficulty: "easy" },
+    { text: "Which green-tunicked swordsman is the hero of The Legend of Zelda series?", correct: "Link", wrong: ["Zelda", "Ganondorf", "Navi"], category: "Video Games: Nintendo", difficulty: "easy" },
+    { text: "Who is the armoured bounty hunter at the centre of the Metroid series?", correct: "Samus Aran", wrong: ["Ridley", "Mother Brain", "Adam Malkovich"], category: "Video Games: Characters", difficulty: "medium" },
+    { text: "Which 1993 id Software shooter cast the player as a space marine fighting demons on Mars?", correct: "Doom", wrong: ["Quake", "Wolfenstein 3D", "Duke Nukem 3D"], category: "Video Games: PC", difficulty: "medium" },
+    { text: "What is the name of the red ghost in Pac-Man?", correct: "Blinky", wrong: ["Inky", "Pinky", "Clyde"], category: "Video Games: Arcade", difficulty: "medium" },
+    { text: "Which artificial intelligence oversees the test chambers in the game Portal?", correct: "GLaDOS", wrong: ["SHODAN", "Cortana", "EDI"], category: "Video Games: Modern", difficulty: "medium" },
+    { text: "The Grand Theft Auto city of Los Santos is modelled on which real American city?", correct: "Los Angeles", wrong: ["Miami", "Las Vegas", "Chicago"], category: "Video Games: Modern", difficulty: "medium" },
+    { text: "Which Street Fighter II fighter attacks with the Sonic Boom?", correct: "Guile", wrong: ["Ryu", "Blanka", "Zangief"], category: "Video Games: Fighting", difficulty: "medium" },
+    { text: "The Witcher 3: Wild Hunt was developed by a studio based in which country?", correct: "Poland", wrong: ["Czech Republic", "Germany", "Sweden"], category: "Video Games: Modern", difficulty: "medium" },
+    { text: "Who composed the music for the 1985 game Super Mario Bros.?", correct: "Koji Kondo", wrong: ["Nobuo Uematsu", "Yuzo Koshiro", "Yasunori Mitsuda"], category: "Video Games: Music", difficulty: "medium" },
+    { text: "In which year did Sony first release the original PlayStation in Japan?", correct: "1994", wrong: ["1992", "1996", "1998"], category: "Video Games: Hardware", difficulty: "medium" },
+    { text: "Who created the Metal Gear series?", correct: "Hideo Kojima", wrong: ["Shigeru Miyamoto", "Yu Suzuki", "Keiji Inafune"], category: "Video Games: Creators", difficulty: "medium" },
+    { text: "Which Japanese company developed the 1978 arcade game Space Invaders?", correct: "Taito", wrong: ["Namco", "Konami", "Sega"], category: "Video Games: Arcade", difficulty: "hard" },
+    { text: "Which 1972 machine was the first home video game console sold to consumers?", correct: "Magnavox Odyssey", wrong: ["Atari 2600", "Fairchild Channel F", "Coleco Telstar"], category: "Video Games: History", difficulty: "hard" },
+    { text: "Nintendo was founded in 1889 to manufacture what product?", correct: "Playing cards", wrong: ["Bicycles", "Vacuum cleaners", "Toy trains"], category: "Video Games: History", difficulty: "hard" },
+    { text: "Who founded the underwater city of Rapture in BioShock?", correct: "Andrew Ryan", wrong: ["Frank Fontaine", "Sander Cohen", "Booker DeWitt"], category: "Video Games: Modern", difficulty: "hard" },
+    { text: "What name was Mario given in the original 1981 Donkey Kong arcade game?", correct: "Jumpman", wrong: ["Stanley", "Foreman Spike", "Wario"], category: "Video Games: Classics", difficulty: "hard" },
+    { text: "The North American video game crash that wiped out most console makers began in which year?", correct: "1983", wrong: ["1977", "1980", "1986"], category: "Video Games: History", difficulty: "hard" },
+  ],
+  history: [
+    { text: "In what year did the Berlin Wall fall?", correct: "1989", wrong: ["1979", "1985", "1991"], category: "History: Modern", difficulty: "easy" },
+    { text: "Which river's annual flooding sustained the farmland of ancient Egypt?", correct: "Nile", wrong: ["Tigris", "Indus", "Yangtze"], category: "History: Ancient", difficulty: "easy" },
+    { text: "Which empire did Genghis Khan found in 1206?", correct: "Mongol Empire", wrong: ["Ottoman Empire", "Safavid Empire", "Khmer Empire"], category: "History: Asia", difficulty: "easy" },
+    { text: "In which country did the Meiji Restoration of 1868 take place?", correct: "Japan", wrong: ["China", "Korea", "Thailand"], category: "History: Asia", difficulty: "easy" },
+    { text: "In what year did World War II end in Europe?", correct: "1945", wrong: ["1943", "1944", "1946"], category: "History: Modern", difficulty: "easy" },
+    { text: "Who became the first human to travel into space, in April 1961?", correct: "Yuri Gagarin", wrong: ["Alan Shepard", "John Glenn", "Neil Armstrong"], category: "History: Modern", difficulty: "easy" },
+    { text: "Which volcano's eruption in AD 79 buried the Roman town of Pompeii?", correct: "Mount Vesuvius", wrong: ["Mount Etna", "Krakatoa", "Mount Fuji"], category: "History: Classics", difficulty: "easy" },
+    { text: "Who became South Africa's president in 1994 after 27 years in prison?", correct: "Nelson Mandela", wrong: ["Desmond Tutu", "Steve Biko", "Thabo Mbeki"], category: "History: Africa", difficulty: "easy" },
+    { text: "Who led the 1930 Salt March in British India?", correct: "Mohandas Gandhi", wrong: ["Jawaharlal Nehru", "Muhammad Ali Jinnah", "Subhas Chandra Bose"], category: "History: Asia", difficulty: "medium" },
+    { text: "Which ruler of Mali made a famously lavish pilgrimage to Mecca in 1324?", correct: "Mansa Musa", wrong: ["Sundiata Keita", "Askia Muhammad", "Sunni Ali"], category: "History: Africa", difficulty: "medium" },
+    { text: "Which 1919 treaty set the peace terms between Germany and the Allied powers after World War I?", correct: "Treaty of Versailles", wrong: ["Treaty of Trianon", "Treaty of Sevres", "Treaty of Utrecht"], category: "History: Europe", difficulty: "medium" },
+    { text: "In what year did China's last emperor abdicate, ending the Qing dynasty?", correct: "1912", wrong: ["1900", "1905", "1927"], category: "History: Asia", difficulty: "medium" },
+    { text: "What was the capital city of the Aztec Empire?", correct: "Tenochtitlan", wrong: ["Cusco", "Tikal", "Chichen Itza"], category: "History: Americas", difficulty: "medium" },
+    { text: "Which Indian empire did the emperor Ashoka rule in the third century BC?", correct: "Maurya Empire", wrong: ["Gupta Empire", "Mughal Empire", "Chola Empire"], category: "History: Asia", difficulty: "medium" },
+    { text: "What charter did English barons force King John to accept in 1215?", correct: "Magna Carta", wrong: ["Provisions of Oxford", "Petition of Right", "English Bill of Rights"], category: "History: Europe", difficulty: "medium" },
+    { text: "Who was the first woman awarded a Nobel Prize?", correct: "Marie Curie", wrong: ["Bertha von Suttner", "Irene Joliot-Curie", "Selma Lagerlof"], category: "History: Science", difficulty: "medium" },
+    { text: "In what year was the Soviet Union formally dissolved?", correct: "1991", wrong: ["1989", "1990", "1993"], category: "History: Modern", difficulty: "medium" },
+    { text: "What was the name of the shogunate that ruled Japan from 1603 to 1868?", correct: "Tokugawa shogunate", wrong: ["Kamakura shogunate", "Ashikaga shogunate", "Hojo shogunate"], category: "History: Asia", difficulty: "medium" },
+    { text: "Who captained the ship that completed the first circumnavigation of the globe in 1522?", correct: "Juan Sebastian Elcano", wrong: ["Ferdinand Magellan", "Francis Drake", "Vasco da Gama"], category: "History: Exploration", difficulty: "hard" },
+    { text: "Which Chinese dynasty completed the Grand Canal linking the Yellow and Yangtze rivers around 609?", correct: "Sui dynasty", wrong: ["Tang dynasty", "Han dynasty", "Ming dynasty"], category: "History: Asia", difficulty: "hard" },
+    { text: "Which caliphate defeated Tang Chinese forces at the Battle of Talas in 751?", correct: "Abbasid Caliphate", wrong: ["Umayyad Caliphate", "Fatimid Caliphate", "Rashidun Caliphate"], category: "History: Medieval", difficulty: "hard" },
+    { text: "At which battle in 1896 did Ethiopian forces defeat an invading Italian army?", correct: "Battle of Adwa", wrong: ["Battle of Omdurman", "Battle of Isandlwana", "Battle of Blood River"], category: "History: Africa", difficulty: "hard" },
+    { text: "In what year did Haiti declare its independence from France?", correct: "1804", wrong: ["1791", "1799", "1812"], category: "History: Americas", difficulty: "hard" },
+    { text: "Which admiral used armored turtle ships to defeat Japanese fleets in the 1590s?", correct: "Yi Sun-sin", wrong: ["Zheng He", "Koxinga", "Gwon Yul"], category: "History: Asia", difficulty: "hard" },
+  ],
+  geography: [
+    { text: "What is the capital city of Australia?", correct: "Canberra", wrong: ["Sydney", "Melbourne", "Perth"], category: "Geography: Capitals", difficulty: "easy" },
+    { text: "Which country shares the southern land border of the United States?", correct: "Mexico", wrong: ["Guatemala", "Belize", "Honduras"], category: "Geography: Borders", difficulty: "easy" },
+    { text: "Which mountain range runs down the western side of South America?", correct: "Andes", wrong: ["Rocky Mountains", "Atlas Mountains", "Ural Mountains"], category: "Geography: Physical", difficulty: "easy" },
+    { text: "Which country has the greatest total area on Earth?", correct: "Russia", wrong: ["Canada", "China", "United States"], category: "Geography: Classics", difficulty: "easy" },
+    { text: "Which state of the United States covers the biggest area?", correct: "Alaska", wrong: ["Texas", "California", "Montana"], category: "Geography: Physical", difficulty: "easy" },
+    { text: "Which continent contains the South Pole?", correct: "Antarctica", wrong: ["South America", "Australia", "Africa"], category: "Geography: Classics", difficulty: "easy" },
+    { text: "Which ocean lies between Europe and North America?", correct: "Atlantic Ocean", wrong: ["Pacific Ocean", "Indian Ocean", "Southern Ocean"], category: "Geography: Oceans and Seas", difficulty: "easy" },
+    { text: "Which mountain reaches the highest elevation above sea level?", correct: "Mount Everest", wrong: ["K2", "Kangchenjunga", "Denali"], category: "Geography: Physical", difficulty: "easy" },
+    { text: "Which country completely surrounds Lesotho?", correct: "South Africa", wrong: ["Namibia", "Botswana", "Zimbabwe"], category: "Geography: Borders", difficulty: "medium" },
+    { text: "Which strait separates Spain from Morocco?", correct: "Strait of Gibraltar", wrong: ["Strait of Hormuz", "Strait of Malacca", "Bering Strait"], category: "Geography: Oceans and Seas", difficulty: "medium" },
+    { text: "In which country does Mount Kilimanjaro stand?", correct: "Tanzania", wrong: ["Kenya", "Uganda", "Ethiopia"], category: "Geography: Physical", difficulty: "medium" },
+    { text: "Which river flows through the city of Baghdad?", correct: "Tigris", wrong: ["Euphrates", "Jordan", "Indus"], category: "Geography: Rivers", difficulty: "medium" },
+    { text: "Which desert stretches across southern Mongolia and northern China?", correct: "Gobi Desert", wrong: ["Taklamakan Desert", "Kalahari Desert", "Atacama Desert"], category: "Geography: Deserts", difficulty: "medium" },
+    { text: "Which country covers the largest area in Africa?", correct: "Algeria", wrong: ["Sudan", "Libya", "Chad"], category: "Geography: Classics", difficulty: "medium" },
+    { text: "Which island has the largest area of any island on Earth?", correct: "Greenland", wrong: ["New Guinea", "Borneo", "Madagascar"], category: "Geography: Islands", difficulty: "medium" },
+    { text: "Into which body of water does the Volga River empty?", correct: "Caspian Sea", wrong: ["Black Sea", "Baltic Sea", "Aral Sea"], category: "Geography: Rivers", difficulty: "medium" },
+    { text: "In which year did the Suez Canal open to shipping?", correct: "1869", wrong: ["1832", "1889", "1914"], category: "Geography: Waterways", difficulty: "medium" },
+    { text: "Who led the first expedition to reach the South Pole?", correct: "Roald Amundsen", wrong: ["Robert Falcon Scott", "Ernest Shackleton", "Richard Byrd"], category: "Geography: Exploration", difficulty: "medium" },
+    { text: "Senegal wraps around the land borders of which country?", correct: "The Gambia", wrong: ["Guinea-Bissau", "Mauritania", "Sierra Leone"], category: "Geography: Borders", difficulty: "hard" },
+    { text: "Which strait connects the Black Sea to the Sea of Marmara?", correct: "Bosporus", wrong: ["Dardanelles", "Kerch Strait", "Strait of Otranto"], category: "Geography: Oceans and Seas", difficulty: "hard" },
+    { text: "Which lake is the deepest in the world?", correct: "Lake Baikal", wrong: ["Lake Tanganyika", "Lake Superior", "Great Slave Lake"], category: "Geography: Physical", difficulty: "hard" },
+    { text: "In which country do the Blue Nile and the White Nile join?", correct: "Sudan", wrong: ["Egypt", "Ethiopia", "South Sudan"], category: "Geography: Rivers", difficulty: "hard" },
+    { text: "Which sea is bounded entirely by ocean currents rather than by land?", correct: "Sargasso Sea", wrong: ["Coral Sea", "Tasman Sea", "Andaman Sea"], category: "Geography: Oceans and Seas", difficulty: "hard" },
+    { text: "On which river does the city of Prague stand?", correct: "Vltava", wrong: ["Danube", "Elbe", "Oder"], category: "Geography: Rivers", difficulty: "hard" },
+  ],
+};
+
 const FALLBACK_PACK = [
   {
     text: 'What is the capital city of Australia?',
