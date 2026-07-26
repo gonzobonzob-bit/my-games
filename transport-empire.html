@@ -142,6 +142,9 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 
 /* --- stage / canvas --- */
 .stage{flex:1;position:relative;overflow:hidden;min-width:0}
+/* transparent HUD layer over the WebGL canvas — the Profit/Rivals overlays are
+   2D drawings and had no surface to render onto on the WebGL path. */
+#mapHud{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:40}
 #map{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;
   background:linear-gradient(180deg,#0c1622,#070b11)}
 .stage.tool-inspect #map{cursor:default}
@@ -390,6 +393,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit}
     <div class="toolbar" id="toolbar"></div>
     <div class="stage tool-inspect" id="stage">
       <canvas id="map"></canvas>
+      <canvas id="mapHud"></canvas>
       <div class="toasts" id="toasts"></div>
       <div class="maptip" id="maptip" style="opacity:0"></div>
       <div class="toolhint" id="toolhint"></div>
@@ -538,6 +542,47 @@ const VEHICLES = {
     {key:"charter",name:"Charter Liner",ic:"🛫",cap:120,speed:3.6,price:2400000,maint:5000,life:3600,pax:true},
   ],
 };
+/* ===================================================================
+   CARGO FLOW — the supply chain.
+   Every industry now holds real stock, consumes real inputs, and cities
+   really eat finished goods. RECIPES is a strict DAG over the cargo
+   names already declared in INDUSTRY_TYPES (no cycles — verified by
+   CargoFlow.tiers() at boot).
+   =================================================================== */
+const RECIPES = {
+  // tier 0 — extractive, no inputs
+  Grain:[], Dairy:[], Produce:[], Seafood:[], Timber:[], Coal:[], Ore:[],
+  Aggregate:[], Crude:[], Scrap:[],
+  // tier 1
+  Steel:      [{c:'Ore',n:2},{c:'Coal',n:1}],
+  Chemicals:  [{c:'Crude',n:2}],
+  Fuel:       [{c:'Crude',n:2}],
+  Paper:      [{c:'Timber',n:2}],
+  Materials:  [{c:'Aggregate',n:2},{c:'Timber',n:1}],
+  Wine:       [{c:'Produce',n:2}],
+  Food:       [{c:'Grain',n:1},{c:'Produce',n:1}],
+  Beverages:  [{c:'Grain',n:2}],
+  Fabric:     [{c:'Produce',n:2}],
+  // tier 2
+  Plastics:   [{c:'Chemicals',n:2}],
+  Medicine:   [{c:'Chemicals',n:1}],
+  Frozen:     [{c:'Food',n:1},{c:'Seafood',n:1}],
+  'Power Cells':[{c:'Chemicals',n:1},{c:'Aggregate',n:1}],
+  // tier 3
+  Electronics:[{c:'Plastics',n:1},{c:'Power Cells',n:1}],
+  Goods:      [{c:'Steel',n:1},{c:'Plastics',n:1}],
+  // tier 4
+  Vehicles:   [{c:'Steel',n:2},{c:'Electronics',n:1}],
+  Containers: [{c:'Steel',n:1},{c:'Goods',n:1}],
+  Parcels:    [{c:'Goods',n:2}],
+};
+/* What cities actually buy. Weight = share of a city's daily consumption. */
+const CITY_DEMAND = {
+  Food:3.0, Goods:2.6, Beverages:1.8, Parcels:1.8, Fuel:1.6, Medicine:1.2,
+  Paper:1.1, Materials:1.1, Electronics:0.9, Frozen:0.9, Dairy:0.9,
+  Produce:0.8, Fabric:0.7, Vehicles:0.5, Wine:0.4, Containers:0.4,
+};
+const CARGO_TIER = {}; // cargo -> depth in the recipe DAG, filled at boot
 const TIER_ORDER=["road","rail","sea","air"];
 const TIER_INFO={
   road:{name:"Road",ic:"🚚",col:"var(--road)",unlock:0,blurb:"Where every empire begins."},
@@ -581,7 +626,7 @@ const SAVE_PREFIX = "transportEmpire.slot.";
 
 function freshState(mode){
   return {
-    v:1, mode, day:1, dayFrac:0.45, started:Date.now(), lastReal:Date.now(),
+    v:2, mode, day:1, dayFrac:0.45, started:Date.now(), lastReal:Date.now(),
     cash: mode==='sandboxFree'? 50_000_000 : 250000,
     reputation: 50, goodwill: 0,
     loan:0, loanRate:0.00018, // per day
@@ -624,6 +669,45 @@ const Save = {
   },
   delete(slot){ localStorage.removeItem(SAVE_PREFIX+slot); },
   hasAny(){ for(let i=1;i<=3;i++) if(this.read(i)) return true; return false; },
+
+  /* ---- migration ----
+     UI.load used to do a bare `G=s`, so every field added after a save was
+     written came back undefined. Backfill any missing top-level key from a
+     fresh state of the same mode, then run targeted per-version fixes. Any
+     future field addition is automatically save-safe because of this. */
+  SAVE_V: 2,
+  migrate(s){
+    const base=freshState(s.mode||'campaign');
+    for(const k in base) if(s[k]===undefined) s[k]=base[k];
+    // nested objects that gained keys after v1
+    ['market','economy','weather','cm','hq','stats','donationStore','assistant','drivers'].forEach(k=>{
+      if(base[k] && typeof base[k]==='object' && !Array.isArray(base[k])){
+        s[k]=s[k]||{}; for(const kk in base[k]) if(s[k][kk]===undefined) s[k][kk]=base[k][kk]; }
+    });
+    if(!Array.isArray(s.cities)) s.cities=[];
+    if(!Array.isArray(s.industries)) s.industries=[];
+    if(!Array.isArray(s.vehicles)) s.vehicles=[];
+    if(!Array.isArray(s.jobs)) s.jobs=[];
+    s.v=this.SAVE_V;
+    return s;
+  },
+
+  /* ---- capped offline catch-up (CLAUDE.md: required for passive accrual) ----
+     Deliberately credits PASSIVE income only and does NOT advance G.day.
+     Advancing days offline would silently fire breakdowns, events and
+     contract expiries the player never saw. Capped, and halved, so idling
+     is never better than playing. */
+  catchUp(){
+    if(G.mode==='sandboxFree') return null;
+    const away=Date.now()-(G.lastReal||Date.now());
+    if(away<60000) return null;                       // under a minute: ignore
+    const gameDays=Math.min(14, away/Sim.DAY_MS);     // hard cap: 14 days of drift
+    const perDay=Econ.passivePerDay();
+    const gain=Math.round(perDay*gameDays*0.4);       // 40% offline efficiency
+    if(gain<=0) return null;
+    Money.earn(gain,'offline');
+    return {gain, gameDays:Math.round(gameDays), hours:away/3600000};
+  },
 };
 
 /* ---------------- World Generation ---------------- */
@@ -1069,7 +1153,64 @@ const MapGL = {
     this.updateVehicles(); this.updateSunDayNight(); this.updateWaterWeather(); this.updateStaff();
     if(this._windU) this._windU.forEach(u=>u.value=this.t);
     this.updateCamera(); this.updateMarker();
-    this.renderer.render(this.scene,this.camera); },
+    this.renderer.render(this.scene,this.camera);
+    // The minimap lives on its own 2D canvas and was only ever driven from
+    // MapCanvas.draw — so on the WebGL path (the default) it stayed a black
+    // rectangle forever. Drive it from here too.
+    this.drawHud();
+    if(window.Minimap) Minimap.draw(); },
+
+  /* ---------- HUD overlay (WebGL path) ----------
+     Overlay.profit / Overlay.competitor draw 2D route lines. Those were only
+     ever rendered inside MapCanvas.draw, so on WebGL both toggles lit their
+     button and did nothing else. Project world points to screen and draw them
+     on the transparent #mapHud layer. */
+  hudCtx(){
+    if(this._hud===undefined){ const c=document.getElementById('mapHud');
+      this._hud=c?{c,x:c.getContext('2d')}:null; }
+    return this._hud;
+  },
+  toScreen(v3,w,h){ const p=v3.clone().project(this.camera);
+    if(p.z>1) return null;                       // behind the camera
+    return {x:(p.x*0.5+0.5)*w, y:(-p.y*0.5+0.5)*h}; },
+  drawHud(){
+    const H=this.hudCtx(); if(!H) return;
+    const r=this.canvas.getBoundingClientRect(), w=Math.max(1,r.width), h=Math.max(1,r.height);
+    const dpr=this.DPR||1;
+    if(H.c.width!==Math.round(w*dpr)||H.c.height!==Math.round(h*dpr)){
+      H.c.width=Math.round(w*dpr); H.c.height=Math.round(h*dpr); }
+    const x=H.x; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h);
+    const on=window.Overlay&&(Overlay.profit||Overlay.competitor);
+    if(!on||this.view.mode==='ground') return;
+    const pt=(gx,gy,lift)=>this.toScreen(this.worldOf(gx,gy,this.hAt(gx,gy)+(lift||2)),w,h);
+
+    if(Overlay.competitor){
+      x.lineWidth=2; x.setLineDash([7,6]);
+      G.competitors.forEach((cp,i)=>{
+        x.strokeStyle=['rgba(224,98,94,0.75)','rgba(224,160,94,0.75)','rgba(180,120,220,0.75)'][i%3];
+        cp.trucks.forEach(tk=>{ const a=pt(tk.ax,tk.ay), b=pt(tk.bx,tk.by); if(!a||!b) return;
+          x.beginPath(); x.moveTo(a.x,a.y); x.lineTo(b.x,b.y); x.stroke(); });
+      });
+      x.setLineDash([]);
+    }
+    if(Overlay.profit){
+      x.lineWidth=3;
+      G.vehicles.forEach(v=>{ if(!v.job) return;
+        const A=this.gpt(v.job.from), B=this.gpt(v.job.to); if(!A||!B) return;
+        const a=pt(A.gx,A.gy), b=pt(B.gx,B.gy); if(!a||!b) return;
+        const dist=Math.max(1,World.distance(A.gx,A.gy,B.gx,B.gy));
+        const perDay=v.job.pay/dist;                       // pay density = how good this run is
+        const good=U.clamp(perDay/900,0,1);
+        x.strokeStyle=`rgba(${Math.round(226-146*good)},${Math.round(96+114*good)},${Math.round(88+50*good)},0.85)`;
+        x.beginPath(); x.moveTo(a.x,a.y); x.lineTo(b.x,b.y); x.stroke();
+        const mx=(a.x+b.x)/2, my=(a.y+b.y)/2, lbl=U.money(Math.round(v.job.pay));
+        x.font='600 11px -apple-system,system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+        const tw=x.measureText(lbl).width+10;
+        x.fillStyle='rgba(12,16,22,0.82)'; x.fillRect(mx-tw/2,my-9,tw,17);
+        x.fillStyle='#eaf0f6'; x.fillText(lbl,mx,my);
+      });
+    }
+  },
 
   updateSunDayNight(){ const f=(G.dayFrac!=null?G.dayFrac:0.45),ang=f*6.28;
     const h=Math.sin(ang-Math.PI/2); // -1 midnight .. 1 noon
@@ -1585,6 +1726,32 @@ const Jobs = {
   },
 };
 
+/* ===================================================================
+   Tick — the single ordered daily phase dispatcher.
+   Replaces the old chain of Sim.advanceDay monkeypatches. Lower order
+   runs earlier. One try/catch per phase so a thrown system can never
+   halt the rest of the day. Registration is idempotent by name, so
+   re-entering the game never double-registers a phase.
+   =================================================================== */
+const Tick = {
+  phases:[], _sorted:false,
+  add(name,order,fn){
+    const i=this.phases.findIndex(p=>p.name===name);
+    const p={name,order,fn};
+    if(i>=0) this.phases[i]=p; else this.phases.push(p);
+    this._sorted=false; return this;
+  },
+  remove(name){ this.phases=this.phases.filter(p=>p.name!==name); return this; },
+  has(name){ return this.phases.some(p=>p.name===name); },
+  run(){
+    if(!this._sorted){ this.phases.sort((a,b)=>a.order-b.order||(a.name<b.name?-1:1)); this._sorted=true; }
+    for(let i=0;i<this.phases.length;i++){ const p=this.phases[i];
+      try{ p.fn(); }catch(e){ console.warn('tick phase "'+p.name+'" failed',e); } }
+  },
+  order(){ if(!this._sorted){ this.phases.sort((a,b)=>a.order-b.order||(a.name<b.name?-1:1)); this._sorted=true; }
+    return this.phases.map(p=>p.order+' '+p.name); },
+};
+
 /* ---------------- The Simulation Loop ---------------- */
 const Sim = {
   DAY_MS: 9000, acc:0, last:performance.now(), raf:null, lastSave:Date.now(),
@@ -1629,58 +1796,74 @@ const Sim = {
     }));
   },
 
-  advanceDay(){
-    G.day++;
-    // industry production & seasonal drift
-    G.industries.forEach(ind=>{ ind.season+=0.08; ind.pulse=Math.max(0,ind.pulse-0.1); });
-    // dividends from owned/invested industries
-    let div=0;
-    G.industries.forEach(ind=>{ if(ind.stake>0){
-      const seasonal=1+0.25*Math.sin(ind.season);
-      div+=ind.output*ind.value*0.0000085*ind.stake*seasonal*ind.level; }});
-    if(div>0) Money.earn(Math.round(div),'dividend');
-    // expenses: maintenance + staff + fuel + interest (skipped entirely in Free Sandbox)
-    if(G.mode!=='sandboxFree'){
-      let maint=0; G.vehicles.forEach(v=>{ maint+=v.maint*Fleet.wearMult()*(v.job?1.3:1); });
-      let staff=G.vehicles.length*40 + (G.cm.dept?G.cm.budget:0);
-      let fuel=0;
-      if(G.mode==='sandboxCampaign'){ G.vehicles.forEach(v=>{ if(v.job) fuel+=v.cap*0.6*Market.fuel(); }); maint*=Market.fuel(); }
-      Money.spend(Math.round(maint+staff+fuel),'upkeep',true);
-      if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate*(window.StaffOps?StaffOps.interestMult():1)); G.loan+=interest; }
-      if(G.mode==='sandboxCampaign'){ Market.tick(); Consequences.check(); }
-    }
-    // vehicle aging
-    G.vehicles.forEach(v=>{
-      v.age++; const wear=(100/v.life)*Fleet.wearMult()*(v.job?1.6:0.5);
-      v.condition=U.clamp(v.condition-wear,0,100);
-      if(v.condition<25 && !v.broken && U.chance(0.04+(25-v.condition)*0.004)){
-        v.broken=true; G.stats.breakdowns++;
-        Toast.show(`${v.name} broke down! Service it in Mechanics.`,'bad');
-        if(v.job){ G.jobs=G.jobs.filter(x=>x.id!==v.job.id); v.job=null; }
-      }
-    });
-    // jobs lifecycle
-    Jobs.expireOld(); Jobs.refill();
-    if(G.cm.dept && G.cm.auto) CM.autoDispatch();
-    // city life: population growth in served/trusted cities
-    G.cities.forEach(c=>{ if(c.isHQ) return;
-      const growth=1+ (c.trust>50?0.0016:0.0004)*(c.trust/60);
-      if(c.boomDays){ const s=Math.sign(c.boomDays); c.pop=Math.round(c.pop*(1+s*0.004)); c.boomDays-=s; }
-      c.pop=Math.round(c.pop*growth);
-      c.trust=U.clamp(c.trust-0.05,0,100); // slow natural decay
-      Trust.checkBillboard(c);
-      if(c.trust>65 && !c.contractsUnlocked){ c.contractsUnlocked=true;
-        Toast.show(`${c.name} now offers exclusive contracts!`,'cm'); }
-    });
-    // competitors
-    Competitors.tick();
-    // tier unlocks (campaign)
-    Modes.checkUnlocks();
-    // random events
-    if(G.day>=G.nextEventDay){ G.nextEventDay=G.day+U.randi(6,12); Events.roll(); }
-    UI.refreshLight();
-  },
+  // The day is now assembled from ordered Tick phases (registered below).
+  advanceDay(){ Tick.run(); },
 };
+
+/* ---------------- core daily phases ----------------
+   Ordering is causal: the calendar turns, goods are produced, then
+   consumed, then money moves, then the fleet wears, then contracts
+   refresh, then dispatch acts on those fresh contracts (order 68 —
+   the old monkeypatch chain accidentally ran this LAST), then the
+   world reacts, then presentation. Cargo-flow phases occupy 20-29.
+   ---------------------------------------------------------------- */
+Tick.add('calendar',10,()=>{
+  G.day++;
+  G.industries.forEach(ind=>{ ind.season+=0.08; ind.pulse=Math.max(0,ind.pulse-0.1); });
+});
+
+Tick.add('dividends',30,()=>{
+  let div=0;
+  G.industries.forEach(ind=>{ if(ind.stake>0){
+    const seasonal=1+0.25*Math.sin(ind.season);
+    div+=ind.output*ind.value*0.0000085*ind.stake*seasonal*ind.level; }});
+  if(div>0) Money.earn(Math.round(div),'dividend');
+});
+
+Tick.add('upkeep',40,()=>{
+  if(G.mode==='sandboxFree') return;
+  let maint=0; G.vehicles.forEach(v=>{ maint+=v.maint*Fleet.wearMult()*(v.job?1.3:1); });
+  let staff=G.vehicles.length*40 + (G.cm.dept?G.cm.budget:0);
+  let fuel=0;
+  if(G.mode==='sandboxCampaign'){ G.vehicles.forEach(v=>{ if(v.job) fuel+=v.cap*0.6*Market.fuel(); }); maint*=Market.fuel(); }
+  Money.spend(Math.round(maint+staff+fuel),'upkeep',true);
+  if(G.loan>0){ const interest=Math.round(G.loan*G.loanRate*(window.StaffOps?StaffOps.interestMult():1)); G.loan+=interest; }
+  if(G.mode==='sandboxCampaign'){ Market.tick(); Consequences.check(); }
+});
+
+Tick.add('fleetWear',50,()=>{
+  G.vehicles.forEach(v=>{
+    v.age++; const wear=(100/v.life)*Fleet.wearMult()*(v.job?1.6:0.5);
+    v.condition=U.clamp(v.condition-wear,0,100);
+    if(v.condition<25 && !v.broken && U.chance(0.04+(25-v.condition)*0.004)){
+      v.broken=true; G.stats.breakdowns++;
+      Toast.show(`${v.name} broke down! Service it in Mechanics.`,'bad');
+      if(v.job){ G.jobs=G.jobs.filter(x=>x.id!==v.job.id); v.job=null; }
+    }
+  });
+});
+
+Tick.add('contracts',60,()=>{ Jobs.expireOld(); Jobs.refill(); });
+Tick.add('cmDispatch',70,()=>{ if(G.cm.dept && G.cm.auto) CM.autoDispatch(); });
+
+Tick.add('cityLife',80,()=>{
+  G.cities.forEach(c=>{ if(c.isHQ) return;
+    const growth=1+ (c.trust>50?0.0016:0.0004)*(c.trust/60);
+    if(c.boomDays){ const s=Math.sign(c.boomDays); c.pop=Math.round(c.pop*(1+s*0.004)); c.boomDays-=s; }
+    c.pop=Math.round(c.pop*growth);
+    c.trust=U.clamp(c.trust-0.05,0,100); // slow natural decay
+    Trust.checkBillboard(c);
+    if(c.trust>65 && !c.contractsUnlocked){ c.contractsUnlocked=true;
+      Toast.show(`${c.name} now offers exclusive contracts!`,'cm'); }
+  });
+});
+
+Tick.add('competitors',90,()=>{ Competitors.tick(); });
+Tick.add('unlocks',100,()=>{ Modes.checkUnlocks(); });
+Tick.add('events',110,()=>{
+  if(G.day>=G.nextEventDay){ G.nextEventDay=G.day+U.randi(6,12); Events.roll(); }
+});
+Tick.add('refresh',200,()=>{ UI.refreshLight(); });
 
 /* ---------------- Money / Finance ---------------- */
 const Money = {
@@ -2065,10 +2248,17 @@ const UI = {
 
   quickContinue(){ for(let i=1;i<=3;i++){ if(Save.read(i)){ this.load(i); return; } } },
   load(slot){ const s=Save.read(slot); if(!s){ Toast.show('Empty slot.','bad'); return; }
-    if(!s.world){ Toast.show('Corrupt save.','bad'); return; } G=s; SLOT=slot; G.paused=false;
+    if(!s.world){ Toast.show('Corrupt save.','bad'); return; } G=Save.migrate(s); SLOT=slot; G.paused=false;
+    const back=Save.catchUp(); G.lastReal=Date.now();
     this.show('game'); if(!MapView.canvas) MapView.init(); else { MapView.resize(); MapView.rebuild(); MapView.centerOnHQ(); }
     Menu.build(); Toolbar.build(); this.setTool('inspect'); WindowMgr.closeAll(); this.selection=null; Sidebar.show(null);
-    this.refresh(); Sim.start(); this.bindShell(); this.closeModal(); Toast.show('Loaded — Day '+G.day+'.','good'); },
+    this.refresh(); Sim.start(); this.bindShell(); this.closeModal(); Toast.show('Loaded — Day '+G.day+'.','good');
+    if(back) Modal.open({ic:'📻',title:'While you were away',
+      body:`The yard kept running without you. Dividends and the donation store brought in `+
+        `<b>${U.money(back.gain)}</b> over roughly ${back.gameDays} day${back.gameDays===1?'':'s'} of drift.`+
+        `<br><br><span class="muted">Passive income only — no runs were dispatched, nothing broke down, and no contracts expired. `+
+        `Idling is deliberately worth less than driving.</span>`,
+      choices:[{label:'Back to work',cls:'primary',fn:()=>{}}]}); },
 
   bindShell(){ if(this._shellBound) return; this._shellBound=true;
     const rz=document.getElementById('sideResizer'); const sb=document.getElementById('sidebar');
@@ -2882,6 +3072,20 @@ const Econ = {
   demandMult(){ if(!this.active()) return 1; return Market.demand()*this.season(); },
   costMult(){ return this.active()? (G.economy.inflation||1) : 1; },
   perishable(c){ return ['Frozen','Dairy','Produce','Seafood','Food','Medicine','Beverages'].includes(c); },
+  /* Passive (no-player-input) income per day — dividends + donation store.
+     Used by Save.catchUp so offline credit tracks the real economy rather
+     than a made-up number. Mirrors the 'dividends' and DonationStore.daily
+     formulas; keep in sync if either changes. */
+  passivePerDay(){
+    let div=0;
+    G.industries.forEach(ind=>{ if(ind.stake>0){
+      const seasonal=1+0.25*Math.sin(ind.season||0);
+      div+=ind.output*ind.value*0.0000085*ind.stake*seasonal*(ind.level||1); }});
+    let store=0; const ds=G.donationStore;
+    if(ds&&ds.owned){ const st=DonationStore.STAGES[ds.stage]||DonationStore.STAGES[1];
+      store=(st.rev+(ds.volume||0)*0.35)*this.demandMult(); }
+    return Math.max(0,div+store);
+  },
   daily(){ if(!this.active()) return; const e=G.economy;
     e.inflation=(e.inflation||1)+0.00010;
     const ins=Math.round(G.vehicles.length*6*this.costMult()); if(ins>0) Money.spend(ins,'insurance',false);
@@ -3015,12 +3219,14 @@ const SaveSlots = {
   doLoad(slot){ UI.closeModal(); UI.load(slot); },
 };
 
-/* ---------------- wire economy/systems into the daily tick ---------------- */
-(function(){ const origDay=Sim.advanceDay.bind(Sim);
-  Sim.advanceDay=function(){ origDay();
-    try{ WeatherSys.daily(); Econ.daily(); Assistant.daily(); DonationStore.daily();
-      if(G.day%4===0) News.maybeFlavor(); }catch(e){ console.warn('systems daily',e); } };
-})();
+/* ---------------- wire economy/systems into the daily tick ----------------
+   Registered as ordered Tick phases (was: a monkeypatch chain on
+   Sim.advanceDay). Each phase is independently try/caught by Tick.run. */
+Tick.add('weather',120,()=>{ WeatherSys.daily(); });
+Tick.add('economy',121,()=>{ Econ.daily(); });
+Tick.add('assistant',122,()=>{ Assistant.daily(); });
+Tick.add('donationStore',123,()=>{ DonationStore.daily(); });
+Tick.add('newsFlavor',124,()=>{ if(G.day%4===0) News.maybeFlavor(); });
 News.maybeFlavor=function(){ if(U.chance(0.4)) return;
   const f=['Markets steady across the corridor.','Drivers report clear lanes on the interstate.',
     'Local press notes your growing footprint.','Fuel co-op announces new pricing next week.'];
@@ -3556,8 +3762,9 @@ MapCanvas.draw=function(){ const ctx=this.ctx,c=this.canvas; if(!ctx) return; ct
 /* ===================================================================
    Wiring — daily tick, gates, perf, Dave log, keyboard, tooltips
    =================================================================== */
-(function(){ const oDay=Sim.advanceDay.bind(Sim); Sim.advanceDay=function(){ oDay();
-  try{ Staff.daily(); DonationDrive.daily(); Newspaper.maybeTier(); }catch(e){ console.warn('phase2 daily',e); } }; })();
+Tick.add('staff',125,()=>{ Staff.daily(); });
+Tick.add('donationDrive',126,()=>{ DonationDrive.daily(); });
+Tick.add('newspaper',127,()=>{ Newspaper.maybeTier(); });
 
 /* ===================================================================
    StaffOps — hired staff actually perform their roles each day.
@@ -3610,9 +3817,10 @@ const StaffOps = {
   interestMult(){ return U.clamp(1 - Staff.count('finance','main')*0.06, 0.6, 1); }, // …and loan interest
   storeMult(){ return 1 + Staff.count('store','cm')*0.18; },                        // Store Manager grows store revenue
 };
-/* run StaffOps before the rest of the daily systems so dispatched jobs count this day */
-(function(){ const oDay=Sim.advanceDay.bind(Sim); Sim.advanceDay=function(){ oDay();
-  try{ StaffOps.daily(); }catch(e){ console.warn('staffops day',e); } }; })();
+/* Order 68: after contracts refresh (60) so there are fresh offers to take, but
+   BEFORE cmDispatch/cityLife/events — so dispatched loads genuinely count this
+   day. The old monkeypatch chain claimed to do this but ran StaffOps dead last. */
+Tick.add('staffOps',68,()=>{ StaffOps.daily(); });
 /* Operations Managers let you run more concurrent jobs ("oversees all routes") */
 (function(){ const oMax=Jobs.maxActive.bind(Jobs); Jobs.maxActive=function(){ return oMax()+Staff.count('ops','main'); }; })();
 (function(){ const oP=Fleet.perfMult.bind(Fleet); Fleet.perfMult=function(){ return oP()*Staff.mainEfficiency(); };
