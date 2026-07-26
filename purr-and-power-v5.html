@@ -113,6 +113,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* CATS */
 .cat-spr{position:absolute;z-index:20;width:28px;height:24px;cursor:pointer;transition:left 4s ease-in-out,top 4s ease-in-out;}
 .cat-spr:active{transform:scale(1.2);}
+/* Director Whiskers reads as the senior cat: bigger, lit, and above the others. */
+.boss-cat{z-index:24;width:35px;height:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.45));}
+.boss-cat::after{content:'DIRECTOR';position:absolute;left:50%;transform:translateX(-50%);bottom:-11px;
+  font-size:6px;font-weight:800;letter-spacing:0.6px;color:var(--sun);white-space:nowrap;opacity:0.85;text-shadow:0 1px 2px rgba(0,0,0,0.6);}
+/* Plays on a cat the moment the boss finishes checking in on them. */
+.cat-perked{animation:catPerk 1.4s ease-out;}
+@keyframes catPerk{
+  0%{transform:translateY(0) scale(1);}
+  25%{transform:translateY(-7px) scale(1.16);}
+  45%{transform:translateY(0) scale(1);}
+  65%{transform:translateY(-4px) scale(1.08);}
+  100%{transform:translateY(0) scale(1);}
+}
 
 /* OFFICE BOTTOM */
 .off-bottom{flex-shrink:0;background:var(--panel);border-top:2px solid var(--border);padding:6px 8px;display:flex;gap:6px;}
@@ -930,7 +943,7 @@ const UPGRADES_DATA=[
 ];
 
 const MANAGERS_DATA=[
-  {id:'office',name:'Director Whiskers',desc:'Office fully automated — morale auto-maintained',icon:'👔🐱',cost:2000},
+  {id:'office',name:'Director Whiskers',desc:'Boss cat joins the floor — walks his rounds, checks in on every cat, holds morale at a floor. Income +30%, overhead -20%',icon:'👔🐱',cost:2000},
   {id:'dispatch',name:'Dispatch Manager Dave',desc:'Map jobs auto-collect every 60s',icon:'🗺️👨',cost:3500},
   {id:'foreman',name:'Site Foreman Rosa',desc:'Job site completes 2× faster',icon:'🏗️👩',cost:5000},
 ];
@@ -1267,6 +1280,13 @@ function tickPayroll(){
     showToast('📅 New week! Check leaderboard in ☰ menu','good');
     G.weeklyRevenue=0;
 
+    // Taco Tuesday: the break room's weekly morale event, fired off the same week
+    // the payroll uses rather than its own (previously miscalculated) timer.
+    if(G.brUpgrades.br_taco){
+      G.morale=Math.min(moraleCap(),G.morale+20);
+      showToast('🌮 Taco Tuesday! The whole office eats. Morale +20!','good');
+    }
+
     // Monthly bonus check
     G.monthTimer++;
     if(G.monthTimer>=4){
@@ -1433,7 +1453,68 @@ const CAT_PAL=[
   {b:'#2D2D2D',e:'#111'},{b:'#F5DEB3',e:'#E8C878'},
   {b:'#92400E',e:'#78350F'},{b:'#D8B4FE',e:'#A855F7'},
 ];
-const CAT_SAY=['purr~','😸','zzz~','meow!','*knocks pen off desk*','*sits on keyboard*','mrrrow','🐾 purr...','Meow!'];
+// What the cats say, split by how the office is actually doing. Previously every
+// cat drew from one bank regardless of morale, so a miserable office still read
+// "purr~" — the cats were the one part of the game that never reacted to it.
+const CAT_SAY={
+  happy:  ['purr~','😸','meow!','🐾 purr...','*flops over, delighted*','*headbutts your hand*','mrrrp!','*makes biscuits*'],
+  content:['meow.','zzz~','mrrrow','*sits on keyboard*','*knocks pen off desk*','*slow blink*','prrt?'],
+  sad:    ['mrrrow...','*hides under desk*','😾','*ignores you*','hsss','*stares at empty bowl*','...'],
+};
+// Morale thresholds the whole cat presentation keys off.
+function catMood(){ return G.morale>=70?'happy':G.morale>=40?'content':'sad'; }
+
+// One SVG builder for every cat so mood (and the boss's tie) can be re-rendered in
+// place instead of being frozen at spawn time.
+function catSvg(pal,mood,boss){
+  const s=boss?1.25:1;
+  const w=Math.round(28*s),h=Math.round(24*s);
+  // Ears prick up when happy and droop when the office is miserable.
+  const earL=mood==='sad'?'8,5 4,3 10,4':'8,4 5,0 11,3';
+  const earR=mood==='sad'?'20,5 24,3 18,4':'20,4 23,0 17,3';
+  // Eyes: wide and bright when happy, narrowed and cross when sad.
+  const eye=mood==='happy'
+    ? `<ellipse cx="10" cy="9" rx="2.1" ry="2.4" fill="#1F2937"/><ellipse cx="18" cy="9" rx="2.1" ry="2.4" fill="#1F2937"/>
+       <circle cx="10.6" cy="8.3" r="0.8" fill="white"/><circle cx="18.6" cy="8.3" r="0.8" fill="white"/>`
+    : mood==='sad'
+    ? `<path d="M 8.2 8 L 11.8 10" stroke="#1F2937" stroke-width="1.6" stroke-linecap="round"/>
+       <path d="M 19.8 8 L 16.2 10" stroke="#1F2937" stroke-width="1.6" stroke-linecap="round"/>`
+    : `<ellipse cx="10" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/><ellipse cx="18" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
+       <circle cx="10.5" cy="8.5" r="0.6" fill="white"/><circle cx="18.5" cy="8.5" r="0.6" fill="white"/>`;
+  // Mouth: smile / neutral / frown.
+  const mouth=mood==='happy'
+    ? `<path d="M 11.5 13 Q 14 15.4 16.5 13" stroke="#F472B6" stroke-width="1.1" fill="none" stroke-linecap="round"/>`
+    : mood==='sad'
+    ? `<path d="M 11.5 14.4 Q 14 12.4 16.5 14.4" stroke="#9CA3AF" stroke-width="1.1" fill="none" stroke-linecap="round"/>`
+    : `<polygon points="14,12 12.5,13.5 15.5,13.5" fill="#F472B6"/>`;
+  // Tail: up and curled when happy, tucked flat when sad.
+  const tail=mood==='happy'
+    ? `<path d="M 23 18 Q 29 12 25 7" stroke="${pal.e}" stroke-width="2" fill="none" stroke-linecap="round"/>`
+    : mood==='sad'
+    ? `<path d="M 23 19 Q 28 21 27 18" stroke="${pal.e}" stroke-width="2" fill="none" stroke-linecap="round"/>`
+    : `<path d="M 23 18 Q 28 14 26 10" stroke="${pal.e}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  // Director Whiskers gets the tie and glasses that make him read as the boss.
+  const bossKit=boss?`
+    <path d="M 14 13.6 L 12.4 15.4 L 14 20 L 15.6 15.4 Z" fill="#DC2626"/>
+    <path d="M 12.9 13.2 L 14 14.4 L 15.1 13.2" stroke="#991B1B" stroke-width="0.9" fill="none"/>
+    <circle cx="10" cy="9" r="3.1" fill="none" stroke="#FDE68A" stroke-width="0.7" opacity="0.9"/>
+    <circle cx="18" cy="9" r="3.1" fill="none" stroke="#FDE68A" stroke-width="0.7" opacity="0.9"/>
+    <line x1="13.1" y1="9" x2="14.9" y2="9" stroke="#FDE68A" stroke-width="0.7" opacity="0.9"/>`:'';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 28 24">
+    <ellipse cx="14" cy="17" rx="9" ry="6" fill="${pal.b}"/>
+    <ellipse cx="14" cy="9" rx="7" ry="6" fill="${pal.b}"/>
+    <polygon points="${earL}" fill="${pal.b}"/>
+    <polygon points="${earR}" fill="${pal.b}"/>
+    ${eye}
+    ${mouth}
+    <line x1="6" y1="11" x2="12" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="6" y1="13" x2="12" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="22" y1="11" x2="16" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    <line x1="22" y1="13" x2="16" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
+    ${tail}
+    ${bossKit}
+  </svg>`;
+}
 
 function spawnCat(){
   const floor=document.getElementById('office-main');
@@ -1442,58 +1523,155 @@ function spawnCat(){
   const pal=CAT_PAL[catEls.length%CAT_PAL.length];
   const cat=document.createElement('div');
   cat.className='cat-spr';
+  cat._pal=pal;
+  cat._mood=catMood();
   cat.style.left=(10+Math.random()*(w-50))+'px';
   cat.style.top=(40+Math.random()*(h-80))+'px';
-  cat.innerHTML=`<svg width="28" height="24" viewBox="0 0 28 24">
-    <ellipse cx="14" cy="17" rx="9" ry="6" fill="${pal.b}"/>
-    <ellipse cx="14" cy="9" rx="7" ry="6" fill="${pal.b}"/>
-    <polygon points="8,4 5,0 11,3" fill="${pal.b}"/>
-    <polygon points="20,4 23,0 17,3" fill="${pal.b}"/>
-    <polygon points="8,4 6,1.5 10,3" fill="#FFB6C1" opacity="0.7"/>
-    <polygon points="20,4 22,1.5 18,3" fill="#FFB6C1" opacity="0.7"/>
-    <ellipse cx="10" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
-    <ellipse cx="18" cy="9" rx="1.8" ry="2.2" fill="#1F2937"/>
-    <circle cx="10.5" cy="8.5" r="0.6" fill="white"/>
-    <circle cx="18.5" cy="8.5" r="0.6" fill="white"/>
-    <polygon points="14,12 12.5,13.5 15.5,13.5" fill="#F472B6"/>
-    <line x1="6" y1="11" x2="12" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
-    <line x1="6" y1="13" x2="12" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
-    <line x1="22" y1="11" x2="16" y2="12" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
-    <line x1="22" y1="13" x2="16" y2="13" stroke="${pal.e}" stroke-width="0.7" opacity="0.5"/>
-    <path d="M 23 18 Q 28 14 26 10" stroke="${pal.e}" stroke-width="2" fill="none" stroke-linecap="round"/>
-  </svg>`;
+  cat.innerHTML=catSvg(pal,cat._mood,false);
   cat.onclick=()=>petCat(cat);
   floor.appendChild(cat);
   catEls.push(cat);
   moveCat(cat,floor);
 }
 
+// Wander. The handle is tracked on the element and registered in catTimers so
+// stopIntervals() can clear it — CLAUDE.md's interval-hygiene rule. Happy cats
+// roam more; sad cats mostly stay put.
+let catTimers=[];
 function moveCat(cat,floor){
-  setInterval(()=>{
+  const step=()=>{
     if(!cat.parentNode)return;
+    const mood=cat._mood;
+    if(mood==='sad'&&Math.random()<0.6)return;   // moping, stays under the desk
     const w=floor.offsetWidth||320;
     const h=floor.offsetHeight||300;
     cat.style.left=(10+Math.random()*(w-50))+'px';
     cat.style.top=(40+Math.random()*(h-80))+'px';
-  },3500+Math.random()*3000);
+  };
+  const period=3500+Math.random()*3000;
+  const id=setInterval(step,period);
+  cat._timer=id;
+  catTimers.push(id);
+}
+
+// Repaint every cat when the office mood crosses a threshold. Called from the
+// morale UI update, so the cats visibly respond to the number in the header.
+let lastCatMood=null;
+function refreshCatMoods(){
+  const mood=catMood();
+  if(mood===lastCatMood)return;
+  lastCatMood=mood;
+  catEls.forEach(c=>{
+    if(!c.parentNode)return;
+    c._mood=mood;
+    c.innerHTML=catSvg(c._pal,mood,false);
+  });
+  if(bossCatEl&&bossCatEl.parentNode){
+    bossCatEl._mood=mood;
+    bossCatEl.innerHTML=catSvg(BOSS_PAL,mood,true);
+  }
 }
 
 function petCat(cat){
-  G.morale=Math.min(100,G.morale+8);G.purrPoints+=2;
-  const e=CAT_SAY[Math.floor(Math.random()*CAT_SAY.length)];
+  G.morale=Math.min(moraleCap(),G.morale+8);G.purrPoints+=2;
+  const bank=CAT_SAY[catMood()];
+  const e=bank[Math.floor(Math.random()*bank.length)];
   const r=cat.getBoundingClientRect();
   spawnFltXY(r.left+14,r.top,e,'#F97316');
+  refreshCatMoods();
   checkMilestones();updateUI();
+}
+
+// ════════════════════════════════
+// DIRECTOR WHISKERS — the office boss cat
+// Hiring him used to set `G.managers.office = true` and nothing else: no sprite,
+// no presence, and no connection whatsoever to the cats he was described as
+// managing. He is now an actual cat on the office floor who walks his rounds,
+// checks in on each of the other cats, and visibly picks them up when he does.
+// ════════════════════════════════
+const BOSS_PAL={b:'#3F3F46',e:'#18181B'};
+const BOSS_CHECKIN=['Good work today.','Keep it up.','Nice numbers.','Take a break.','Proud of you.','*approving slow blink*','You\'re doing great.'];
+let bossCatEl=null;
+let bossRoundTimer=null;
+
+function spawnBossCat(){
+  if(bossCatEl&&bossCatEl.parentNode)return;      // already on the floor
+  const floor=document.getElementById('office-main');
+  if(!floor)return;
+  const w=floor.offsetWidth||320;
+  const h=floor.offsetHeight||300;
+  const boss=document.createElement('div');
+  boss.className='cat-spr boss-cat';
+  boss._pal=BOSS_PAL;
+  boss._mood=catMood();
+  boss.title='Director Whiskers';
+  boss.style.left=(w*0.5)+'px';
+  boss.style.top=(h*0.5)+'px';
+  boss.innerHTML=catSvg(BOSS_PAL,boss._mood,true);
+  boss.onclick=()=>petBoss();
+  floor.appendChild(boss);
+  bossCatEl=boss;
+  startBossRounds();
+}
+
+// Walk over to one of the other cats and check in on them. This is the visible
+// half of the morale floor the boss maintains in gameTick.
+function bossRound(){
+  if(!bossCatEl||!bossCatEl.parentNode)return;
+  const floor=document.getElementById('office-main');
+  if(!floor)return;
+  const others=catEls.filter(c=>c.parentNode);
+  if(!others.length)return;
+  const target=others[Math.floor(Math.random()*others.length)];
+  // Stand just beside the cat he's visiting.
+  const side=Math.random()<0.5?-26:26;
+  bossCatEl.style.left=(parseFloat(target.style.left)+side)+'px';
+  bossCatEl.style.top=target.style.top;
+  // The .cat-spr transition is 4s, so land the check-in once he's arrived.
+  setTimeout(()=>{
+    if(!bossCatEl||!bossCatEl.parentNode||!target.parentNode)return;
+    const line=BOSS_CHECKIN[Math.floor(Math.random()*BOSS_CHECKIN.length)];
+    const br=bossCatEl.getBoundingClientRect();
+    spawnFltXY(br.left+14,br.top-4,line,'#FDE68A');
+    // The cat he checked in on perks up.
+    const tr=target.getBoundingClientRect();
+    spawnFltXY(tr.left+14,tr.top,'💛','#F472B6');
+    target.classList.add('cat-perked');
+    setTimeout(()=>target.classList.remove('cat-perked'),1400);
+    G.morale=Math.min(moraleCap(),G.morale+1.5);
+    refreshCatMoods();updateUI();
+  },4100);
+}
+
+function startBossRounds(){
+  stopBossRounds();
+  bossRoundTimer=setInterval(bossRound,9000);
+  setTimeout(bossRound,1500);
+}
+function stopBossRounds(){
+  if(bossRoundTimer){clearInterval(bossRoundTimer);bossRoundTimer=null;}
+}
+
+function petBoss(){
+  G.morale=Math.min(moraleCap(),G.morale+4);G.purrPoints+=3;
+  const r=bossCatEl.getBoundingClientRect();
+  spawnFltXY(r.left+16,r.top,'*straightens tie*','#FDE68A');
+  refreshCatMoods();checkMilestones();updateUI();
 }
 
 function adoptCat(){
   if(G.money<G.catCost){showToast('💸 Need '+fmt(G.catCost));return;}
   G.money-=G.catCost;G.cats++;
   G.catCost=Math.floor(G.catCost*1.4);
-  G.morale=Math.min(100,G.morale+15);
+  // Proper Couch + Coffee Machine: "Morale +5 on adoption" — the new cat has
+  // somewhere decent to settle in. This is the code that card was missing.
+  const couch=G.brUpgrades.br_couch?5:0;
+  G.morale=Math.min(moraleCap(),G.morale+15+couch);
   G.weeklyPayroll+=50; // cat food
   spawnCat();
-  showToast('🐱 Cat adopted! Morale up! +$50/wk cat food'
+  showToast(couch
+    ?'🐱 Cat adopted! Claimed the couch immediately. Morale +20! +$50/wk cat food'
+    :'🐱 Cat adopted! Morale up! +$50/wk cat food'
 ,'good');
   checkMilestones();updateUI();updateHireButton();
 }
@@ -2617,7 +2795,7 @@ function buyBreakUpgrade(id){
   G.brUpgrades[id]=true;
   // Apply effects
   if(id==='br_espresso'){G.incomeMultiplier*=1.1;}
-  if(id==='br_kegerator'){G.morale=Math.min(100,G.morale+20);}
+  if(id==='br_kegerator'){G.morale=Math.min(moraleCap(),G.morale+20);}
   if(id==='br_fridge'){G.incomeMultiplier*=1.05;}
   showToast(u.icon+' '+u.name+' added to Break Room!'
 ,'good');
@@ -2656,7 +2834,7 @@ function resolveAngry(){
   clearInterval(angryInterval);
   document.getElementById('angry-pop').classList.add('gone');
   G.angryActive=false;
-  G.morale=Math.min(100,G.morale+6);
+  G.morale=Math.min(moraleCap(),G.morale+6);
   G.purrPoints+=3;
   addLead(true); // happy customer = referral
   showToast('😊 Customer calmed! Referral lead added! 🌟'
@@ -2695,7 +2873,7 @@ function handleObjection(save){
   document.getElementById('objection-pop').classList.add('gone');
   G.objectionActive=false;
   if(save){
-    G.morale=Math.min(100,G.morale+5);
+    G.morale=Math.min(moraleCap(),G.morale+5);
     if(G.leads.length>0){G.leads[0].stage=Math.min(6,G.leads[0].stage+2);}
     showToast('💪 Objection handled! Lead advanced!'
 ,'good');
@@ -2779,7 +2957,7 @@ function buyCatBreed(name){
   const breed=CAT_BREEDS.find(c=>c.name===name);if(!breed)return;
   if(G.money<breed.cost){showToast('💸 Need '+fmt(breed.cost));return;}
   G.money-=breed.cost;G.catBreeds.push(name);G.cats++;
-  G.morale=Math.min(100,G.morale+breed.mb);
+  G.morale=Math.min(moraleCap(),G.morale+breed.mb);
   G.incomeMultiplier*=breed.mult;
   G.weeklyPayroll+=50;
   spawnCat();showToast(breed.icon+' '+breed.name+' joined the office!'
@@ -2792,8 +2970,14 @@ function buyManager(id){
   if(G.managers[id]){showToast('✅ Already hired!');return;}
   if(G.money<m.cost){showToast('💸 Need '+fmt(m.cost));return;}
   G.money-=m.cost;G.managers[id]=true;
-  showToast(m.icon+' '+m.name+' hired!'
+  // Director Whiskers actually walks onto the office floor when hired.
+  if(id==='office'){
+    spawnBossCat();
+    showToast('👔🐱 Director Whiskers takes the corner office — he\'ll keep the cats happy.','good');
+  } else {
+    showToast(m.icon+' '+m.name+' hired!'
 ,'good');
+  }
   renderUpgrades();updateUI();
 }
 
@@ -2966,6 +3150,46 @@ function recalcIncome(){
   G.income=Math.floor(G.staff*10*G.incomeMultiplier*moraleBonus*catBonus*softBonus*toysBonus*offMgr*vpBonus*brBonus*brBonus2*G.prestigeMultiplier);
 }
 
+// ════════════════════════════════
+// MORALE SYSTEM
+// These three helpers exist because the break room's upgrade cards advertised
+// morale effects that had no code behind them at all — the Folding Table's
+// "Morale drain -10%", the Couch's "+5 on adoption" and the Ping Pong Table's
+// "Morale max +5" only ever drew furniture. Every advertised bonus is now
+// resolved through here, so the cards and the simulation agree.
+// ════════════════════════════════
+
+// Ceiling on morale. Base 100; the Ping Pong Table raises it, which is what makes
+// its card's "Morale max +5" true.
+function moraleCap(){
+  let cap=100;
+  if(G.brUpgrades.br_pingpong)cap+=5;
+  if(G.brUpgrades.br_taco)cap+=5;
+  return cap;
+}
+
+// Per-tick morale bleed when nobody senior is running the office.
+function moraleDrain(){
+  let drain=0.035;
+  if(G.brUpgrades.br_espresso)drain-=0.005;
+  if(G.brUpgrades.br_nappod)drain-=0.004;
+  if(G.brUpgrades.br_kegerator)drain-=0.003;
+  if(G.brUpgrades.br_table)drain*=0.9;   // Folding Table + Vending Machine: -10%
+  return Math.max(0.008,drain);
+}
+
+// The level Director Whiskers will hold the office at on his own. He is a better
+// boss with a better break room to work with, and with more cats to delegate to.
+function bossMoraleFloor(){
+  let floor=60;
+  if(G.brUpgrades.br_couch)floor+=5;
+  if(G.brUpgrades.br_espresso)floor+=5;
+  if(G.brUpgrades.br_kegerator)floor+=5;
+  if(G.brUpgrades.br_nappod)floor+=5;
+  floor+=Math.min(10,G.cats*2);          // a boss with a team to lead
+  return Math.min(moraleCap(),floor);
+}
+
 function gameTick(){
   recalcIncome();
   G.money+=G.income/10;G.totalMoney+=G.income/10;G.todayRevenue+=G.income/10;G.weeklyRevenue+=G.income/10;
@@ -2977,18 +3201,25 @@ function gameTick(){
     G.money+=G.lasCrucesIncome/10;G.totalMoney+=G.lasCrucesIncome/10;G.todayRevenue+=G.lasCrucesIncome/10;G.weeklyRevenue+=G.lasCrucesIncome/10;
   }
 
-  // Morale drain
-  const espresso=(G.brUpgrades.br_espresso)?0.005:0;
-  const napPods=(G.brUpgrades.br_nappod)?0.004:0;
-  const keg=(G.brUpgrades.br_kegerator)?0.003:0;
-  const drain=Math.max(0.008,0.035-espresso-napPods-keg);
-  if(G.managers.office)G.morale=Math.min(100,G.morale+0.05);
-  else G.morale=Math.max(5,G.morale-drain);
+  // Morale drain / recovery
+  const cap=moraleCap();
+  if(G.managers.office){
+    // Director Whiskers holds the office at a floor rather than pinning it to the
+    // cap: he keeps everyone content, but the break room and the cats are still
+    // what take morale the rest of the way up.
+    const floor=bossMoraleFloor();
+    if(G.morale<floor)G.morale=Math.min(floor,G.morale+0.08);
+    else G.morale=Math.min(cap,G.morale+0.01);
+  } else {
+    G.morale=Math.max(5,G.morale-moraleDrain());
+  }
+  if(G.morale>cap)G.morale=Math.max(cap,G.morale-0.05); // ease down after a cap drop
 
   // Payroll tick
   tickPayroll();
 
-  checkMilestones();updateUI();
+  checkMilestones();
+  if(!tickReplaying)updateUI();
 }
 
 // ════════════════════════════════
@@ -3022,8 +3253,17 @@ function updateUI(){
   document.getElementById('cur-credits').textContent=G.credits;
   document.getElementById('cur-purr').textContent=G.purrPoints;
   const m=Math.floor(G.morale);
-  document.getElementById('morale-fill').style.width=m+'%';
-  document.getElementById('morale-val').textContent=m+'%';
+  const cap=moraleCap();
+  // Bar is drawn against the current cap so a raised cap (Ping Pong Table) reads
+  // as headroom rather than silently overflowing past 100%.
+  document.getElementById('morale-fill').style.width=Math.min(100,(m/cap)*100)+'%';
+  document.getElementById('morale-val').textContent=m+(cap>100?'/'+cap:'%');
+  const moraleLbl=document.querySelector('.morale-lbl');
+  if(moraleLbl){
+    const mood=catMood();
+    moraleLbl.textContent=mood==='happy'?'😸 Morale':mood==='content'?'🐱 Morale':'😾 Morale';
+  }
+  refreshCatMoods();
   document.getElementById('income-display').textContent='+'+fmt(G.income)+'/s';
   const lcEl=document.getElementById('lc-income-display');
   if(lcEl){
@@ -3159,10 +3399,27 @@ window.addEventListener('pagehide',()=>{try{save();}catch(e){}});
 // example). The handle is stored so returnToMenu()/stopIntervals() can clear it.
 // ════════════════════════════════
 const TICK_MS=100;
+// Chrome throttles setInterval to ~1Hz in a hidden/backgrounded tab, so a
+// dispatcher that assumed "one call == TICK_MS elapsed" ran the whole game 10x
+// slow whenever the tab wasn't focused — passive income, payroll weeks and
+// morale recovery all crawled, and load()'s offline bonus never covered it
+// because the page never actually unloaded. Every system now accumulates real
+// wall-clock time instead, and accrual-critical systems replay the ticks they
+// missed. MAX_CATCHUP_MS caps one pass so waking a slept laptop can't lock the
+// page trying to replay hours of ticks.
+const MAX_CATCHUP_MS=60000;
 let masterTickHandle=null;
+let lastTickAt=0;
+// Set while the dispatcher is replaying missed ticks, so per-tick systems can
+// skip their DOM writes until the final catch-up step (see gameTick).
+let tickReplaying=false;
 const TICK_SYSTEMS={
-  game:        {every:100,      acc:0, fn:gameTick},
-  site:        {every:500,      acc:0, fn:tickSite},
+  // catchUp: replay every missed step, because these accrue resources/timers and
+  // dropping steps would silently eat the player's progress. Systems without it
+  // are one-shot events (random generators, autosave) that fire once and discard
+  // the backlog — replaying them would dump a burst of popups on tab refocus.
+  game:        {every:100,      acc:0, catchUp:true, fn:gameTick},
+  site:        {every:500,      acc:0, catchUp:true, fn:tickSite},
   leads:       {every:2000,     acc:0, fn:tickLeads},
   autosave:    {every:30000,    acc:0, fn:save},
   leadGen:     {every:45000,    acc:0, fn:()=>{if(Math.random()<0.5)addLead();}},
@@ -3171,16 +3428,35 @@ const TICK_SYSTEMS={
   objectionGen:{every:120000,   acc:0, fn:()=>{if(G.leads.length>0&&Math.random()<0.3&&!G.angryActive&&!G.objectionActive)triggerObjection();}},
   dispatchMgr: {every:60000,    acc:0, fn:()=>{if(G.managers.dispatch){jobCardEls.forEach((_,i)=>{if(jobReady[i])collectJob(i);});}}},
   weatherGen:  {every:180000,   acc:0, fn:()=>{if(Math.random()<0.25)triggerWeather();}},
-  tacoTuesday: {every:604800,   acc:0, fn:()=>{if(G.brUpgrades.br_taco){G.morale=Math.min(100,G.morale+20);showToast('🌮 Taco Tuesday! Morale +20!','good');}}},
+  // Taco Tuesday used to live here on a 604800 timer — that value is the number of
+  // SECONDS in a week, but `every` is milliseconds, so it actually fired every ~10
+  // minutes while the upgrade card promised a weekly event. It now runs off the
+  // payroll week (tickPayroll), the same week the rest of the economy uses.
   dailyReset:  {every:86400000, acc:0, fn:()=>{G.todayRevenue=0;}},
 };
 
 function masterTick(){
+  const now=Date.now();
+  let delta=now-lastTickAt;
+  lastTickAt=now;
+  if(!(delta>0))return;               // clock skew / same-millisecond re-entry
+  if(delta>MAX_CATCHUP_MS)delta=MAX_CATCHUP_MS;
   for(const key in TICK_SYSTEMS){
     const sys=TICK_SYSTEMS[key];
-    sys.acc+=TICK_MS;
-    if(sys.acc>=sys.every){
-      sys.acc-=sys.every;
+    sys.acc+=delta;
+    if(sys.acc<sys.every)continue;
+    if(sys.catchUp){
+      const steps=Math.floor(sys.acc/sys.every);
+      sys.acc-=steps*sys.every;
+      for(let i=0;i<steps;i++){
+        // Only the last replayed step repaints — otherwise refocusing a tab that
+        // was hidden for a minute would run ~600 full updateUI() passes at once.
+        tickReplaying=(i<steps-1);
+        try{sys.fn();}catch(err){console.error('[tick:'+key+']',err);}
+      }
+      tickReplaying=false;
+    }else{
+      sys.acc=sys.acc%sys.every;      // fire once, discard the backlog
       try{sys.fn();}catch(err){console.error('[tick:'+key+']',err);}
     }
   }
@@ -3189,11 +3465,16 @@ function masterTick(){
 function startIntervals(){
   stopIntervals();
   for(const key in TICK_SYSTEMS)TICK_SYSTEMS[key].acc=0;
+  lastTickAt=Date.now();
   masterTickHandle=setInterval(masterTick,TICK_MS);
 }
 
 function stopIntervals(){
   if(masterTickHandle){clearInterval(masterTickHandle);masterTickHandle=null;}
+  // Cat wander timers and the boss's rounds are per-sprite setIntervals, so they
+  // have to be cleared here too rather than relying on the page reload.
+  catTimers.forEach(clearInterval);catTimers=[];
+  stopBossRounds();
 }
 
 function startGame(){
@@ -3218,6 +3499,9 @@ function startGame(){
       for(let i=0;i<staffToSpawn;i++) spawnDesk();
       // Spawn cats
       for(let i=0;i<G.cats;i++) spawnCat();
+      // Restore Director Whiskers from the save — he's a manager flag in
+      // localStorage, but he has to be put back on the floor to exist.
+      if(G.managers.office) spawnBossCat();
       updateHireButton();
       updateOfficeBadge();
     },80);
