@@ -598,6 +598,33 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .row.r1 .row-rank{ color:var(--amber); }
 .row.r2 .row-rank{ color:var(--paper-200); }
 .row.r3 .row-rank{ color:#C2743A; }
+
+/* --- The podium.
+   Tinting the rank numeral alone was too quiet to register: second place
+   looked exactly like eighth with a different number on it. A medal needs
+   to own its whole row. The edge, the wash and the numeral weight do that
+   without a single layout-triggering property — these rows sit under
+   `contain: layout paint`, and it stays that way. --- */
+.podium .row.r2, .podium .row.r3{
+  --medal:var(--paper-200); --medal-rgb:201,206,222;
+  box-shadow:inset 3px 0 0 var(--medal), 0 1px 0 rgba(0,0,0,.35);
+  background-image:linear-gradient(100deg,
+    rgba(var(--medal-rgb),.11) 0%, rgba(var(--medal-rgb),0) 42%);
+}
+.podium .row.r3{ --medal:#C2743A; --medal-rgb:194,116,58; }
+.podium .row.r2{ min-height:76px; }
+.podium .row.r3{ min-height:70px; }
+.podium .row.r2 .row-rank, .podium .row.r3 .row-rank{
+  font-size:26px; font-weight:700;
+  text-shadow:0 0 14px rgba(var(--medal-rgb),.45);
+}
+.podium .row.r2 .row-name, .podium .row.r3 .row-name{ font-weight:650; }
+.podium .row.r2 .row-score, .podium .row.r3 .row-score{ color:var(--medal); }
+/* The avatar carries the medal too, so the row reads as one object rather
+   than a tinted stripe next to an unrelated circle. */
+.podium .row.r2 .avatar, .podium .row.r3 .avatar{
+  box-shadow:0 0 0 2px rgba(var(--medal-rgb),.55);
+}
 .row .avatar{ position:relative; z-index:1; width:40px; height:40px; font-size:16px; }
 .row-name{ position:relative; z-index:1; flex:1 1 auto; min-width:0; font-size:var(--fs-name);
            font-weight:600; color:var(--paper-100); overflow:hidden; text-overflow:ellipsis;
@@ -1200,27 +1227,311 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     audio.on = !audio.on;
     try { localStorage.setItem('ls:sound', audio.on ? '1' : '0'); } catch (e) {}
     paintSound();
-    if (audio.on) blip(660, 60, 0.05);
+    if (audio.on) SFX.join();
   });
-  function blip(freq, ms, vol) {
-    if (!audio.on) return;
-    try {
-      if (!audio.ctx) {
-        var AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        audio.ctx = new AC();
-      }
-      if (audio.ctx.state === 'suspended') audio.ctx.resume();
-      var o = audio.ctx.createOscillator(), g = audio.ctx.createGain();
-      o.type = 'sine'; o.frequency.value = freq;
-      g.gain.value = 0;
-      o.connect(g); g.connect(audio.ctx.destination);
-      var t = audio.ctx.currentTime;
-      g.gain.linearRampToValueAtTime(vol || 0.06, t + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
-      o.start(t); o.stop(t + ms / 1000 + 0.02);
-    } catch (e) {}
+  /* The AudioContext is built on demand — constructing one before a user
+     gesture gets it suspended by autoplay policy, and constructing one at
+     all is wasted work for a player who never turns sound on. */
+  function audioCtx() {
+    if (!audio.ctx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audio.ctx = new AC();
+    }
+    if (audio.ctx.state === 'suspended' && audio.ctx.resume) audio.ctx.resume();
+    return audio.ctx;
   }
+
+  function makeAudio(getCtx, isOn) {
+    var master = null;
+    var mctx = null;
+
+    /* One shared master bus. The compressor matters — the arpeggios and
+       the podium sequence stack several voices inside 300ms and without it
+       the sum clips into a crackle on cheap laptop speakers. */
+    function bus() {
+      var ctx = getCtx();
+      if (!ctx) return null;
+      if (mctx !== ctx) {
+        master = null;
+        mctx = ctx;
+      }
+      if (!master) {
+        var g = ctx.createGain();
+        g.gain.value = 0.85;
+        var comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -18;
+        comp.knee.value = 12;
+        comp.ratio.value = 6;
+        comp.attack.value = 0.003;
+        comp.release.value = 0.18;
+        g.connect(comp);
+        comp.connect(ctx.destination);
+        master = g;
+      }
+      return master;
+    }
+
+    function now() {
+      var ctx = getCtx();
+      return ctx ? ctx.currentTime : 0;
+    }
+
+    /* ---------- voices ---------- */
+
+    /* A single shaped tone. `slide` bends the pitch over the life of the
+       note; `cut` puts a lowpass in front of it so bright waveforms can be
+       used without turning harsh. */
+    function tone(o) {
+      var ctx = getCtx(), out = bus();
+      if (!ctx || !out) return;
+      var t0 = (o.at || 0) + ctx.currentTime;
+      var dur = o.dur || 0.12;
+      var osc = ctx.createOscillator();
+      var g = ctx.createGain();
+      osc.type = o.type || 'sine';
+      osc.frequency.setValueAtTime(o.freq, t0);
+      if (o.slide) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.slide), t0 + dur);
+      }
+      if (o.detune) osc.detune.value = o.detune;
+
+      var node = osc;
+      if (o.cut) {
+        var f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.value = o.cut;
+        f.Q.value = o.q || 0.7;
+        osc.connect(f);
+        node = f;
+      }
+
+      // Attack must never be 0 — an instant jump to full gain is a click.
+      var peak = o.gain == null ? 0.06 : o.gain;
+      var atk = o.atk == null ? 0.006 : o.atk;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + atk);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      node.connect(g);
+      g.connect(out);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.03);
+    }
+
+    /* Filtered noise — the body of anything percussive. A click made only
+       of sine waves sounds like a videogame; a click with a noise
+       transient sounds like an object. */
+    function noise(o) {
+      var ctx = getCtx(), out = bus();
+      if (!ctx || !out) return;
+      var dur = o.dur || 0.08;
+      var t0 = (o.at || 0) + ctx.currentTime;
+      var frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
+      var buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < frames; i++) {
+        // Fade the noise inside the buffer as well as with the gain node;
+        // it decays more naturally than a pure envelope on flat noise.
+        d[i] = (Math.random() * 2 - 1) * (1 - i / frames);
+      }
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      var f = ctx.createBiquadFilter();
+      f.type = o.band ? 'bandpass' : 'lowpass';
+      f.frequency.value = o.freq || 1200;
+      f.Q.value = o.q || 1;
+
+      var g = ctx.createGain();
+      var peak = o.gain == null ? 0.05 : o.gain;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      src.connect(f); f.connect(g); g.connect(out);
+      src.start(t0);
+      src.stop(t0 + dur + 0.02);
+    }
+
+    function chord(freqs, o) {
+      o = o || {};
+      for (var i = 0; i < freqs.length; i++) {
+        tone({
+          freq: freqs[i],
+          type: o.type || 'sine',
+          dur: o.dur || 0.5,
+          gain: (o.gain == null ? 0.05 : o.gain) / Math.sqrt(freqs.length),
+          at: (o.at || 0) + i * (o.spread || 0),
+          cut: o.cut,
+          atk: o.atk,
+        });
+      }
+    }
+
+    /* ---------- the sounds ---------- */
+
+    var S = {};
+
+    /* Someone walks into the lobby. Warm, small, two notes up. Never
+       competes with conversation in the room. */
+    S.join = function () {
+      tone({ freq: 392, dur: 0.10, gain: 0.035, type: 'sine' });
+      tone({ freq: 587, dur: 0.14, gain: 0.030, type: 'sine', at: 0.06 });
+    };
+
+    /* Someone leaves. The same shape inverted, quieter — information, not
+       an event. */
+    S.leave = function () {
+      tone({ freq: 494, dur: 0.10, gain: 0.026, type: 'sine' });
+      tone({ freq: 330, dur: 0.16, gain: 0.024, type: 'sine', at: 0.06 });
+    };
+
+    /* ON AIR. The show starting: a low swell under a bright ping, the way
+       a broadcast desk comes alive. This is the only sound in the game
+       that is allowed to feel ceremonial without being loud. */
+    S.start = function () {
+      tone({ freq: 110, slide: 220, dur: 0.85, gain: 0.055, type: 'triangle', cut: 900, atk: 0.16 });
+      tone({ freq: 1319, dur: 0.30, gain: 0.030, type: 'sine', at: 0.34, atk: 0.01 });
+      noise({ freq: 2600, band: true, q: 1.4, dur: 0.20, gain: 0.022, at: 0.30 });
+    };
+
+    /* A question arrives. A short riser under the tiles coming in. */
+    S.question = function () {
+      tone({ freq: 262, slide: 392, dur: 0.34, gain: 0.032, type: 'triangle', cut: 1400, atk: 0.07 });
+    };
+
+    /* RULE 1 — the clock, and only the clock, is allowed to be sharp.
+       `heat` runs 0..1 across the panic window: the click gets higher,
+       drier and fractionally louder as the deadline closes. */
+    S.tick = function (heat) {
+      var h = Math.max(0, Math.min(1, heat || 0));
+      noise({ freq: 1800 + 1400 * h, band: true, q: 2.2, dur: 0.030, gain: 0.026 + 0.020 * h });
+      tone({ freq: 740 + 300 * h, dur: 0.035, gain: 0.020 + 0.016 * h, type: 'square', cut: 2200 });
+    };
+
+    /* Time ran out with no answer from you. Low, blunt, over quickly. It
+       is a full stop, not a scolding. */
+    S.timeup = function () {
+      tone({ freq: 196, slide: 98, dur: 0.42, gain: 0.055, type: 'triangle', cut: 700, atk: 0.008 });
+      noise({ freq: 380, dur: 0.26, gain: 0.030 });
+    };
+
+    /* RULE 3 — you locked in. Two quick rising notes to confirm the input,
+       then a warm low note underneath: the room going quiet for you while
+       everyone else is still under the clock. */
+    S.lock = function () {
+      tone({ freq: 587, dur: 0.07, gain: 0.045, type: 'sine' });
+      tone({ freq: 784, dur: 0.10, gain: 0.042, type: 'sine', at: 0.055 });
+      tone({ freq: 294, dur: 0.55, gain: 0.028, type: 'sine', at: 0.10, atk: 0.09, cut: 800 });
+    };
+
+    /* Held a beat before the answer floods in. Tension, not threat. */
+    S.reveal = function () {
+      tone({ freq: 330, slide: 262, dur: 0.28, gain: 0.030, type: 'triangle', cut: 1100, atk: 0.05 });
+    };
+
+    /* RULE 2 — celebration is LOUD. A major arpeggio that keeps climbing,
+       with an octave shimmer on top. This is the biggest per-question
+       sound in the game and it should be. */
+    S.correct = function () {
+      chord([523, 659, 784, 1047], { spread: 0.055, dur: 0.55, gain: 0.085, type: 'sine' });
+      tone({ freq: 2093, dur: 0.42, gain: 0.020, type: 'sine', at: 0.20, atk: 0.05 });
+      noise({ freq: 5200, band: true, q: 1.1, dur: 0.30, gain: 0.014, at: 0.18 });
+    };
+
+    /* RULE 2 — correction is QUIET. One soft low note, heavily filtered,
+       gone in under a fifth of a second. No buzzer. No minor-second sting.
+       Everyone in the room already saw what happened. */
+    S.wrong = function () {
+      tone({ freq: 175, dur: 0.30, gain: 0.034, type: 'sine', cut: 420, atk: 0.02 });
+    };
+
+    /* A scoreboard row settling. Pitch rises with rank so a whole board
+       resolving upward sounds like a scale rather than a rattle. */
+    S.rowLand = function (rank, total) {
+      var t = total || 8;
+      var frac = 1 - Math.max(0, Math.min(1, (rank - 1) / Math.max(1, t - 1)));
+      noise({ freq: 900 + 600 * frac, band: true, q: 1.6, dur: 0.045, gain: 0.022 });
+      tone({ freq: 220 + 200 * frac, dur: 0.10, gain: 0.024, type: 'sine' });
+    };
+
+    /* The podium assembling. Bronze is a bare note; silver adds a fifth;
+       gold is a full triad with a noise flourish. The ceremony grows. */
+    S.podium = function (rank) {
+      if (rank === 3) {
+        tone({ freq: 330, dur: 0.34, gain: 0.045, type: 'triangle', cut: 1500, atk: 0.012 });
+        noise({ freq: 1500, band: true, q: 1.6, dur: 0.09, gain: 0.020 });
+      } else if (rank === 2) {
+        chord([392, 587], { dur: 0.42, gain: 0.055, spread: 0.03, type: 'triangle', cut: 1800 });
+        noise({ freq: 2000, band: true, q: 1.6, dur: 0.10, gain: 0.022 });
+      } else {
+        chord([523, 659, 784], { dur: 0.55, gain: 0.070, spread: 0.035, type: 'triangle', cut: 2400 });
+        noise({ freq: 3000, band: true, q: 1.3, dur: 0.14, gain: 0.024, at: 0.02 });
+      }
+    };
+
+    /* The winner. The one real fanfare: a I-V-I lift with an octave over
+       the top. Longer and fuller than anything else in the game, because
+       it only happens once. */
+    S.win = function () {
+      chord([523, 659, 784], { dur: 0.42, gain: 0.075, spread: 0.045, type: 'sine' });
+      chord([587, 740, 880], { dur: 0.42, gain: 0.070, spread: 0.045, type: 'sine', at: 0.20 });
+      chord([659, 784, 1047, 1319], { dur: 1.05, gain: 0.085, spread: 0.05, type: 'sine', at: 0.42, atk: 0.02 });
+      tone({ freq: 131, dur: 1.20, gain: 0.045, type: 'triangle', cut: 700, at: 0.42, atk: 0.10 });
+      noise({ freq: 4200, band: true, q: 1.0, dur: 0.55, gain: 0.016, at: 0.46 });
+    };
+
+    /* Finished, but not first. Not a sad trombone — a soft resolved cadence.
+       Losing should not sound like failure. */
+    S.finish = function () {
+      chord([392, 494, 587], { dur: 0.70, gain: 0.045, spread: 0.05, type: 'sine', atk: 0.03 });
+    };
+
+    /* 3 - 2 - 1 pips before a round. The last one is higher and brighter so
+       the drop into the question lands on a resolution. */
+    S.countdown = function (n) {
+      if (n > 1) {
+        tone({ freq: 523, dur: 0.11, gain: 0.045, type: 'sine' });
+      } else {
+        tone({ freq: 784, dur: 0.28, gain: 0.060, type: 'sine' });
+        noise({ freq: 2400, band: true, q: 1.4, dur: 0.12, gain: 0.018 });
+      }
+    };
+
+    /* Reconnected after dropping. Deliberately reassuring, deliberately
+       small — it fires at a moment the player is already anxious. */
+    S.reconnect = function () {
+      tone({ freq: 440, dur: 0.10, gain: 0.030, type: 'sine' });
+      tone({ freq: 660, dur: 0.18, gain: 0.028, type: 'sine', at: 0.07 });
+    };
+
+    /* ---------- public surface ---------- */
+
+    var api = {};
+    // Every sound goes through one gate and one try/catch. Audio is never
+    // allowed to throw into the render path.
+    Object.keys(S).forEach(function (k) {
+      api[k] = function (a, b) {
+        if (!isOn()) return;
+        try { S[k](a, b); } catch (e) {}
+      };
+    });
+
+    // Kept so existing call sites keep working during the migration.
+    api.blip = function (freq, ms, vol) {
+      if (!isOn()) return;
+      try { tone({ freq: freq, dur: (ms || 120) / 1000, gain: vol || 0.06 }); } catch (e) {}
+    };
+
+    api._internals = { tone: tone, noise: noise, chord: chord, bus: bus, now: now };
+    return api;
+  }
+
+  var SFX = makeAudio(audioCtx, function () { return audio.on; });
+  /* Kept as a name so any call site not yet migrated still makes a noise
+     rather than throwing. */
+  function blip(freq, ms, vol) { SFX.blip(freq, ms, vol); }
 
   /* ==================================================================
      The clock. Driven entirely from the server's endsAt — never from a
@@ -1319,7 +1630,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   /* One shockwave, one full-screen opacity pulse, one blip. The cheapest
      effect in the whole design and by far the most physical. */
   function panicBeat() {
-    if (REDUCED) { blip(880, 40, 0.05); return; }
+    // heat runs 0..1 across the panic window so the click rises in pitch and
+    // bite as the deadline closes. The clock is the only aggressive element.
+    var heat = clock.endsAt
+      ? clamp(1 - (clock.endsAt - Date.now()) / PANIC_MS, 0, 1)
+      : 0;
+    if (REDUCED) { SFX.tick(heat); return; }
     var w = mk('div', 'wave');
     elRing.appendChild(w);
     w.addEventListener('animationend', function () { if (w.parentNode) w.parentNode.removeChild(w); }, { once: true });
@@ -1333,7 +1649,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     void elRing.offsetWidth;
     elRing.style.animation = '';
 
-    blip(880, 40, 0.05);
+    SFX.tick(heat);
   }
 
   /* The rule that matters most: the moment you lock in, the panic
@@ -1351,7 +1667,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elFlash.classList.remove('pop');
       void elFlash.offsetWidth;
       elFlash.classList.add('pop');
-      blip(220, 180, 0.05);
+      SFX.timeup();
     }
     elClock.classList.add('gone');
   }
@@ -1395,15 +1711,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   var seenPlayerIds = Object.create(null);
+  var lobbyPainted = false;
   function renderLobby() {
     var wrap = elLobbyPlayers;
     wrap.textContent = '';
     var players = state.players;
+    var arrivals = 0;
     for (var i = 0; i < players.length; i++) {
       var p = players[i];
       var seat = mk('div', 'seat');
       var isNew = !seenPlayerIds[p.id];
-      if (isNew) { seat.classList.add('filled'); seenPlayerIds[p.id] = true; }
+      if (isNew) { seat.classList.add('filled'); seenPlayerIds[p.id] = true; arrivals++; }
       var av = avatarEl(p, (p.isHost ? 'host ' : '') + (p.connected ? '' : 'off'));
       if (isNew && !REDUCED) {
         var ping = mk('div', 'ping');
@@ -1449,6 +1767,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elWaitLine.hidden = false;
       elWaitText.textContent = connected < MIN_PLAYERS ? 'Waiting for players' : 'Waiting for host';
     }
+
+    if (lobbyPainted && arrivals > 0) SFX.join();
+    lobbyPainted = true;
   }
 
   /* ==================================================================
@@ -1469,6 +1790,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function renderQuestion(q) {
     clearBucket('rev'); clearBucket('seq');
+    // Only for a question that is genuinely starting. A reconnect replays the
+    // current question through here too (catchUp), and a riser for a round
+    // everyone else began fifteen seconds ago just sounds like a bug. The
+    // phase flag cannot distinguish them — it is already 'question' by the
+    // time we get here — but the clock can: a fresh question has essentially
+    // its whole window left.
+    if ((q.endsAt - Date.now()) > QUESTION_MS * 0.85) SFX.question();
 
     // Reset every trace of the last round. correctIndex goes back to null
     // here and stays null until a 'reveal' arrives.
@@ -1602,7 +1930,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           if (this.parentNode) this.parentNode.removeChild(this);
         }, { once: true });
       }
-      if (!silent) blip(520, 70, 0.04);
+      if (!silent) SFX.lock();
     }
     calmClock();
     paintLockLine();
@@ -1704,7 +2032,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       }
       elGridBloom.classList.add('on');
       setStage(iWasRight ? STAGE.right : STAGE.bruise);
-      blip(iWasRight ? 740 : 300, 140, 0.05);
+      if (iWasRight) { SFX.correct(); } else { SFX.wrong(); }
     }, 520);
 
     // 560ms — your verdict, 40ms after the answer so it reads as consequence
@@ -1885,6 +2213,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       bar.style.transform = 'scaleX(' + b0.toFixed(4) + ')';
       boardRowEls[p.id] = row;
       elBoardRows.appendChild(row);
+      (function (rank, n) {
+        later('seq', function () { SFX.rowLand(rank, n); },
+              (REDUCED ? 0 : rank * 70) + (REDUCED ? 60 : 200));
+      })(j + 1, beforeList.length);
       (function (r) {
         r.addEventListener('animationend', function () { r.classList.remove('row-enter'); }, { once: true });
       })(row);
@@ -2063,7 +2395,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // 0ms: the room clears
     later('seq', function () { setStage(STAGE.final); }, 300);
 
-    // 300 / 560: third then second rise
+    // 300 / 560: bronze then silver rise, each with its own weight of
+    // ceremony. They are not "the rest of the list that happens to be near
+    // the top" — a podium is a three-place shape and it has to read as one.
     var pod = [];
     if (st[2]) pod.push({ p: st[2], rank: 3, at: 300 });
     if (st[1]) pod.push({ p: st[1], rank: 2, at: 560 });
@@ -2072,6 +2406,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         var row = smallRow(entry.p, entry.rank, topScore);
         row.classList.add('pod-rise');
         elFinalRest.insertBefore(row, elFinalRest.firstChild);
+        SFX.podium(entry.rank);
+        // The medal rows count up too, just faster and quieter than the
+        // winner's — the ceremony belongs to all three.
+        var sc = row.querySelector('.row-score');
+        if (sc) countUp(sc, 0, entry.p.score || 0, REDUCED ? 200 : 620);
       }, entry.at);
     });
 
@@ -2081,7 +2420,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elWinner.classList.add('play');
       elWinnerBloom.classList.add('on');
       countUp(elWinnerScore, 0, win.score || 0, REDUCED ? 300 : 1200);
-      blip(880, 120, 0.05);
+      SFX.win();
     }, 820);
 
     // 1100ms: confetti
@@ -2090,13 +2429,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // 1600ms: the rest of the field
     later('seq', function () {
       for (var i = 3; i < st.length; i++) {
-        (function (p, rank, k) {
+        (function (p, rank, k, n) {
           later('seq', function () {
             var row = smallRow(p, rank, topScore);
             row.classList.add('rest-rise');
             elFinalRest.appendChild(row);
+            SFX.rowLand(rank, n);
           }, k * 60);
-        })(st[i], i + 1, i - 3);
+        })(st[i], i + 1, i - 3, st.length);
       }
     }, 1600);
 
