@@ -34,3 +34,87 @@ Before adding a new game, check whether its core mechanic is already well-covere
 ## Git conventions (already established for this repo, listed for completeness)
 - git `user.name`/`user.email` are set locally in this repo only — no global git config changes.
 - Work that touches the live portfolio happens on a feature branch; the repo owner reviews and merges to `main` themselves. Nothing in this repo should be auto-pushed to `main` by an agent.
+
+## Late Signal (`trivia/index.html` + `trivia-server/`)
+
+The only game in this vault with a server. Cloudflare Worker, one Durable
+Object per room code, on the `trivia-multiplayer` branch. **Not deployed and not
+live** — `BACKEND` in the client is still `ws://localhost:8787` and the game has
+no portfolio card yet. Deploying means: publish the Worker, change that one
+line, add the card, merge.
+
+### The invariant, which is the reason the project exists
+The client is a renderer and never learns the correct answer. `correctIndex`
+lives only inside the Durable Object and only ever appears in a `reveal`, sent
+once the timer expires or every connected player has locked in.
+`questionMessage()` is built field by field on purpose — no spread, no
+serialising the stored record. The client carries a runtime tripwire that fails
+loudly if a question frame ever arrives carrying anything answer-shaped.
+
+**The subtle version of this, which the tripwire cannot see:** any per-player
+state that reacts to correctness — a streak counter, an elimination flag — is a
+live answer oracle if it is written during the question and broadcast in a
+`roster` frame. A player's streak visibly failing to increment tells everyone
+still deciding that that player's tile was wrong. Two of those identify the
+correct tile outright. So: **write that state only inside `doReveal()`**, never
+in `onAnswer()`, whose broadcast stays playerId-only. Nothing errors if this is
+got wrong, and a human playtest cannot see it — it just looks like the
+scoreboard updating.
+
+### Genre is a promise; difficulty is a preference
+If you ask for Music you get Music or you are told why not. There is no code
+path that mixes genres. Degradation is live OpenTDB → that same genre's bundled
+offline pack → refuse to start (thrown before any state is mutated, so the room
+stays in the lobby and the existing client error handler re-enables Start).
+Difficulty may be relaxed within a genre; genre may never be relaxed.
+
+Only genres with a real offline pack are offered. OpenTDB rate-limits hard and
+Workers egress from shared IPs, so 429 is the likely failure rather than the
+rare one — a genre that had to refuse every time that happened would be worse
+than not offering it. Two measured OpenTDB behaviours worth keeping: the
+`amount` parameter is **all-or-nothing** (asking for one question more than a
+category can serve returns zero, not fewer), and `fromOpenTdb()` returns null
+for any question whose distractors collide with its answer, so a *successful*
+fetch routinely yields fewer than ten usable questions.
+
+### Settings are untrusted, persisted input
+Validated field by field against known-good enums — never spread or
+`Object.assign` (a JSON-parsed own `__proto__` poisons the persisted shape), and
+`hasOwnProperty` rather than `in`, so neither `__proto__` nor `constructor`
+validates as a genre. `normalizeGame()` runs on **every** load, not once: rooms
+saved before a field existed come back without it, and a bare read is undefined.
+
+### Before adding a wager phase or any second timer
+A Durable Object has exactly one alarm slot, so two deadlines cannot both be
+armed — they must be sequenced. And `alarm()` opens with
+`if (g.phase !== 'question') return;`, which will **silently swallow** an alarm
+for any new phase: no error, no log, no toast, and the room wedges forever in a
+phase nobody can leave. Rewrite that guard into a phase dispatch as its own
+commit, preserving the early-fire re-arm verbatim.
+
+### Tests — `trivia-server/test/`
+Run `wrangler dev --port 8787` plus a static server on :8000 from the worktree
+root, and headless Chrome with `--remote-debugging-port=9222` for the
+browser-driven ones. `LS_OUT` sets where screenshots go.
+
+- `e2e.mjs` — the big one, ~275 assertions, two real browsers through a full
+  ten-round game. Assertion count varies slightly between runs because some are
+  conditional on the test player answering wrong, which depends on the random
+  question set. Compare by assertion *class*, not total, before calling a drop a
+  regression.
+- `genre-test.mjs` — protocol, sanitiser, degradation, over raw sockets.
+- `callsheet-test.mjs`, `podium-check.mjs`, `fold-check.mjs` — browser UI.
+- `audio-test.mjs`, `pitch-test.mjs` — render every sound in an
+  `OfflineAudioContext` and measure it. They extract the engine **from
+  `trivia/index.html`** so they test the shipped code rather than a copy.
+- `perf.mjs` — before/after render cost. Ignore the fps number: headless
+  software rasterisation reports a flat 60 regardless. The meaningful figures
+  are `LayoutCount` and the style/script durations. Baseline for a 12s question
+  phase is 13 layouts; the animations are transform/opacity and belong on the
+  compositor, so **a rise in layout count is the regression to watch for.**
+
+Two test-authoring lessons paid for here: give every run **unique room codes**
+(Durable Object storage persists, so a small code pool means each run inherits
+the last one's state), and make sure an assertion can actually fail — "every
+question is History" passed vacuously for a while against an empty list because
+the pack generator had dropped the `category` field.
