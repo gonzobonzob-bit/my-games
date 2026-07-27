@@ -88,15 +88,19 @@ try {
     ok(!!byslug.film, 'catalog present');
     ok(Array.isArray(byslug.film.langs), 'catalog entries advertise languages', byslug.film);
     ok(byslug.film.langs.includes('es'), 'Film advertises Spanish', byslug.film.langs);
-    ok(byslug.history && !byslug.history.langs.includes('es'),
-       'a genre without Spanish questions does NOT advertise Spanish', byslug.history && byslug.history.langs);
+    ok(byslug.history && byslug.history.langs.includes('es'),
+       'History now advertises Spanish too', byslug.history && byslug.history.langs);
+    // Mixed is still the honest no-Spanish case: it is served by the original
+    // generic FALLBACK_PACK, which was never translated.
+    ok(byslug.mixed && !byslug.mixed.langs.includes('es'),
+       'Mixed still reports no Spanish', byslug.mixed && byslug.mixed.langs);
     ok(byslug.mixed && !byslug.mixed.langs.includes('es'),
        'Mixed does not falsely advertise Spanish', byslug.mixed && byslug.mixed.langs);
     A.close();
   }
 
   // --- alignment, the one that matters -------------------------------------
-  for (const genre of ['film', 'music', 'games', 'science']) {
+  for (const genre of ['film', 'music', 'games', 'science', 'history', 'geography']) {
     const room = rid();
     const A = new C('Ana', room, 'es'); await A.connect(); await A.wait('welcome');
     A.send({ type: 'settings', settings: { genre } });
@@ -156,20 +160,20 @@ try {
   {
     const room = rid();
     const A = new C('Ana', room, 'es'); await A.connect(); await A.wait('welcome');
-    A.send({ type: 'settings', settings: { genre: 'history' } });
+    A.send({ type: 'settings', settings: { genre: 'mixed' } });
     await A.wait('settings');
     A.send({ type: 'start' });
     await sleep(2500);
     const err = A.last('error');
     ok(!!err, 'a Spanish player is REFUSED a genre with no Spanish, not quietly given English', err);
-    ok(err && /spanish/i.test(err.message), 'the refusal names the actual problem', err && err.message);
+    ok(err && /spanish|español/i.test(err.message), 'the refusal names the actual problem', err && err.message);
     ok(!A.last('question'), 'no game started');
     A.close();
 
     // The same genre is fine in English.
     const room2 = rid();
     const B = new C('Ben', room2, 'en'); await B.connect(); await B.wait('welcome');
-    B.send({ type: 'settings', settings: { genre: 'history' } });
+    B.send({ type: 'settings', settings: { genre: 'mixed' } });
     await B.wait('settings');
     B.send({ type: 'start' });
     const q2 = await B.wait('question');
