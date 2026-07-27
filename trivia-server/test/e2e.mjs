@@ -3,7 +3,13 @@ import WS from 'ws';
 
 const CDP = 'http://127.0.0.1:9222';
 const PAGE = 'http://localhost:8000/trivia/';
-const ROOM = 'CLI1';
+/* A fresh code every run. Durable Object storage persists between runs, so a
+   fixed room code means each run inherits the previous run's room state —
+   which produced a deterministic failure in the genre harness that looked
+   exactly like flakiness. Override with argv[2] when reproducing one. */
+const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const ROOM = (process.argv[2] || Array.from({ length: 6 },
+  () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('')).toUpperCase();
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const fails = [];
