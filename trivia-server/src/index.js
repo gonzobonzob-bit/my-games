@@ -149,11 +149,13 @@ export class Room {
         score: 0,
         joinedAt: Date.now(),
         connectedAt: Date.now(),
+        lang: sanitizeLang(url.searchParams.get('lang')),
       };
       g.players[player.id] = player;
     } else {
       player.name = name; // keep the latest capitalisation
       player.connectedAt = Date.now();
+      player.lang = sanitizeLang(url.searchParams.get('lang'));
     }
 
     // First player in is host; also covers the case where the stored host is
@@ -290,6 +292,11 @@ export class Room {
       endsAt: g.endsAt,
       category: q.category,
       difficulty: q.difficulty,
+      // Every language of the SAME question, in the same slot order. This
+      // carries no more information than `choices` already does — it is the
+      // same four options written twice — so the invariant is untouched.
+      // Still built field by field, like everything else in here.
+      i18n: q.i18n ? { es: { text: q.i18n.es.text, choices: q.i18n.es.choices.slice() } } : undefined,
     };
   }
 
@@ -319,6 +326,8 @@ export class Room {
       if (!data || typeof data !== 'object') return;
 
       switch (data.type) {
+        case 'lang':
+          return await this.onLang(ws, me, data);
         case 'settings':
           return await this.onSettings(ws, me, data);
         case 'start':
@@ -335,6 +344,34 @@ export class Room {
     } catch (err) {
       this.send(ws, { type: 'error', message: 'server error' });
     }
+  }
+
+  /* Language is per player, not per room — two people at the same table can
+     read different languages. It is only ever a rendering choice, so it may be
+     changed at any time, including mid-question; the questions already on the
+     wire carry every language. */
+  async onLang(ws, me, data) {
+    const g = this.game;
+    const next = sanitizeLang(data.lang);
+    const p = g.players[me.id];
+    if (!p || p.lang === next) return;
+    p.lang = next;
+    await this.save();
+    // The lobby needs to know whether the room now requires Spanish questions.
+    if (g.phase === 'lobby') this.broadcastRoster();
+  }
+
+  /* True when anybody connected is reading something other than English.
+     Deliberately a room-level question: the questions are fetched once for
+     everyone, so one Spanish reader decides the source for the whole table. */
+  needsBilingual() {
+    const g = this.game;
+    const connected = this.connectedPids();
+    for (const pid of connected) {
+      const p = g.players[pid];
+      if (p && p.lang && p.lang !== 'en') return true;
+    }
+    return false;
   }
 
   async onSettings(ws, me, data) {
@@ -379,13 +416,23 @@ export class Room {
     // Frozen BEFORE the await. The host could otherwise change the genre
     // mid-fetch and the questions would not match what the lobby last showed.
     const snap = sanitizeSettings(g.settings);
+    // Checked BEFORE anything is fetched or mutated, so the refusal costs
+    // nothing and the room stays in the lobby.
+    const bilingual = this.needsBilingual();
+    if (bilingual && !langsFor(snap.genre).includes('es')) {
+      return this.send(ws, {
+        type: 'error',
+        message: GENRES[snap.genre].label + ' has no Spanish questions yet. ' +
+                 'Pick another genre, or switch everyone to English.',
+      });
+    }
 
     g.loadingAt = Date.now();
     await this.save();
 
     let loaded;
     try {
-      loaded = await this.loadQuestions(snap, new Set(g.recentTexts || []));
+      loaded = await this.loadQuestions(snap, new Set(g.recentTexts || []), bilingual);
     } catch (err) {
       // Refusing is the correct outcome, not an error to paper over: the one
       // thing worse than not starting is starting with the wrong genre. The
@@ -418,7 +465,16 @@ export class Room {
     // Said plainly, once, and only when the whole set came from the bundled
     // pack. A partly-topped-up game is still entirely the right genre, so it
     // says nothing — the promise was genre, and the promise held.
-    if (loaded.offline) {
+    if (loaded.bilingual) {
+      // Not a failure: this is the only source that HAS Spanish, so it was
+      // never going to come from the live one. Saying "Open Trivia DB did not
+      // answer" here would be a lie.
+      this.broadcast({
+        type: 'notice',
+        message: 'Bilingual set — ' + GENRES[snap.genre].label +
+                 '. Everyone can read these in their own language.',
+      });
+    } else if (loaded.offline) {
       this.broadcast({
         type: 'notice',
         message: 'Offline pack — ' + GENRES[snap.genre].label +
@@ -637,9 +693,32 @@ export class Room {
    * returning seven usable questions used to be topped up with three generic
    * ones. Nobody was ever told.
    */
-  async loadQuestions(settings, recent) {
+  async loadQuestions(settings, recent, bilingual) {
     const pack = settings.genre === 'mixed' ? FALLBACK_PACK : (PACKS[settings.genre] || []);
     let questions = [];
+
+    // OpenTDB is English-only — there is no language parameter and passing one
+    // is silently ignored (checked, not assumed). So when anyone in the room is
+    // reading Spanish there is no point asking: the live source cannot serve
+    // them. Skipping the fetch entirely also saves the 6s timeout.
+    if (bilingual) {
+      const es = pack.filter((s) => s.es);
+      const seen = new Set();
+      for (const avoidRecent of [true, false]) {
+        for (const s of shuffle(es)) {
+          if (questions.length >= QUESTION_COUNT) break;
+          if (seen.has(s.text)) continue;
+          if (avoidRecent && recent && recent.has(s.text)) continue;
+          seen.add(s.text);
+          questions.push(buildQuestion(s));
+        }
+        if (questions.length >= QUESTION_COUNT) break;
+      }
+      if (questions.length < QUESTION_COUNT) {
+        throw new Error('short bilingual pack for ' + settings.genre);
+      }
+      return { questions: questions.slice(0, QUESTION_COUNT), offline: true, bilingual: true };
+    }
 
     try {
       const ctrl = new AbortController();
@@ -699,7 +778,7 @@ export class Room {
       throw new Error('short pack for genre ' + settings.genre);
     }
 
-    return { questions: questions.slice(0, QUESTION_COUNT), offline: live === 0 };
+    return { questions: questions.slice(0, QUESTION_COUNT), offline: live === 0, bilingual: false };
   }
 }
 
@@ -769,14 +848,30 @@ function fromOpenTdb(raw) {
 
 /** correctIndex is decided here and never leaves the server. */
 function buildQuestion(src) {
-  const choices = shuffle([src.correct, ...src.wrong]);
-  return {
+  // Shuffle the POSITIONS, once, and permute every language by that same
+  // order. correctIndex then means "slot 0 of the source ended up here", which
+  // is true in every language at once.
+  //
+  // Shuffling each language independently would look completely fine on any
+  // single screen and score half the room against the wrong tile. There is no
+  // way to notice that by playing in one language, so it is worth being
+  // explicit: there is exactly ONE call to shuffle() in this function and
+  // there must only ever be one.
+  const en = [src.correct, ...src.wrong];
+  const order = shuffle(en.map((_, i) => i));
+  const q = {
     text: src.text,
-    choices,
-    correctIndex: choices.indexOf(src.correct),
+    choices: order.map((i) => en[i]),
+    correctIndex: order.indexOf(0),
     category: src.category,
     difficulty: src.difficulty,
   };
+  if (src.es && src.es.text && src.es.correct && Array.isArray(src.es.wrong) &&
+      src.es.wrong.length === 3) {
+    const es = [src.es.correct, ...src.es.wrong];
+    q.i18n = { es: { text: src.es.text, choices: order.map((i) => es[i]) } };
+  }
+  return q;
 }
 
 function shuffle(input) {
@@ -825,6 +920,11 @@ const GENRES = {
 };
 
 const DIFFICULTIES = ['any', 'easy', 'medium', 'hard'];
+const LANGS = ['en', 'es'];
+
+function sanitizeLang(raw) {
+  return typeof raw === 'string' && LANGS.includes(raw) ? raw : 'en';
+}
 const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any' };
 
 /* How many recently-used question texts to remember so a second game in the
@@ -862,8 +962,23 @@ function normalizeGame(g) {
 
 /* What the lobby is allowed to offer. Sent on welcome so the client can never
  * present a combination the server cannot serve. */
+/* The lobby has to be able to say which genres can actually be played in a
+   given language, rather than letting someone pick Spanish + a genre that has
+   no Spanish questions and only finding out at the reveal. Same principle as
+   the genre promise: say it up front. */
+function langsFor(slug) {
+  const pack = slug === 'mixed' ? FALLBACK_PACK : (PACKS[slug] || []);
+  const out = ['en'];
+  if (pack.length && pack.every((q) => q.es)) out.push('es');
+  return out;
+}
+
 function catalog() {
-  return Object.keys(GENRES).map((slug) => ({ slug, label: GENRES[slug].label }));
+  return Object.keys(GENRES).map((slug) => ({
+    slug,
+    label: GENRES[slug].label,
+    langs: langsFor(slug),
+  }));
 }
 
 function openTdbUrl(settings, amount) {
@@ -895,108 +1010,108 @@ function openTdbUrl(settings, amount) {
 const PACKS = {
   // 'mixed' is served by the original generic pack, defined below.
   music: [
-    { text: "Who was the lead singer of the band Queen throughout the 1970s and 1980s?", correct: "Freddie Mercury", wrong: ["Robert Plant", "Roger Daltrey", "David Bowie"], category: "Music: Rock", difficulty: "easy" },
-    { text: "Which country did the pop group ABBA form in?", correct: "Sweden", wrong: ["Norway", "Denmark", "Finland"], category: "Music: Pop", difficulty: "easy" },
-    { text: "How many strings does a standard violin have?", correct: "Four", wrong: ["Three", "Five", "Six"], category: "Music: Instruments", difficulty: "easy" },
-    { text: "In which country did reggae music originate?", correct: "Jamaica", wrong: ["Cuba", "Barbados", "Trinidad and Tobago"], category: "Music: Reggae", difficulty: "easy" },
-    { text: "Which Beatles album cover shows the band walking across a zebra crossing?", correct: "Abbey Road", wrong: ["Revolver", "Help!", "Let It Be"], category: "Music: Classics", difficulty: "easy" },
-    { text: "Which band recorded the 1991 single \"Smells Like Teen Spirit\"?", correct: "Nirvana", wrong: ["Pearl Jam", "Soundgarden", "Green Day"], category: "Music: Rock", difficulty: "easy" },
-    { text: "Which American singer is nicknamed the King of Pop?", correct: "Michael Jackson", wrong: ["Prince", "James Brown", "Elvis Presley"], category: "Music: Pop", difficulty: "easy" },
-    { text: "Whose 2011 album was titled \"21\"?", correct: "Adele", wrong: ["Amy Winehouse", "Rihanna", "Katy Perry"], category: "Music: Pop", difficulty: "easy" },
-    { text: "Which composer wrote the opera \"Carmen\"?", correct: "Georges Bizet", wrong: ["Giuseppe Verdi", "Giacomo Puccini", "Richard Wagner"], category: "Music: Classical", difficulty: "medium" },
-    { text: "How many keys does a standard full-size piano have?", correct: "88", wrong: ["61", "76", "96"], category: "Music: Instruments", difficulty: "medium" },
-    { text: "What is the musical term for a passage that gradually gets louder?", correct: "Crescendo", wrong: ["Diminuendo", "Staccato", "Legato"], category: "Music: Theory", difficulty: "medium" },
-    { text: "In which year was the Live Aid benefit concert held?", correct: "1985", wrong: ["1979", "1982", "1990"], category: "Music: History", difficulty: "medium" },
-    { text: "Which Detroit record label was founded by Berry Gordy?", correct: "Motown", wrong: ["Stax", "Chess Records", "Sun Records"], category: "Music: Soul", difficulty: "medium" },
-    { text: "Which American singer-songwriter was born Robert Allen Zimmerman?", correct: "Bob Dylan", wrong: ["Tom Waits", "Neil Young", "Lou Reed"], category: "Music: Folk", difficulty: "medium" },
-    { text: "Which instrument did jazz musician John Coltrane play?", correct: "Saxophone", wrong: ["Trumpet", "Piano", "Double bass"], category: "Music: Jazz", difficulty: "medium" },
-    { text: "Which band recorded the 1973 album \"The Dark Side of the Moon\"?", correct: "Pink Floyd", wrong: ["Led Zeppelin", "Genesis", "The Doors"], category: "Music: Rock", difficulty: "medium" },
-    { text: "In which American city is the Grand Ole Opry located?", correct: "Nashville", wrong: ["Memphis", "Austin", "New Orleans"], category: "Music: Country", difficulty: "medium" },
-    { text: "Which hip-hop group released the 1988 album \"Straight Outta Compton\"?", correct: "N.W.A", wrong: ["Public Enemy", "Run-DMC", "Beastie Boys"], category: "Music: Hip-Hop", difficulty: "medium" },
-    { text: "Which composer wrote the ballet \"The Rite of Spring\", whose 1913 Paris premiere caused an uproar?", correct: "Igor Stravinsky", wrong: ["Claude Debussy", "Maurice Ravel", "Sergei Prokofiev"], category: "Music: Classical", difficulty: "hard" },
-    { text: "Which Nigerian musician pioneered the Afrobeat style in the 1970s?", correct: "Fela Kuti", wrong: ["King Sunny Adé", "Youssou N'Dour", "Salif Keita"], category: "Music: World", difficulty: "hard" },
-    { text: "How many semitones make up a perfect fifth?", correct: "Seven", wrong: ["Five", "Six", "Eight"], category: "Music: Theory", difficulty: "hard" },
-    { text: "Which German band released the 1974 album \"Autobahn\"?", correct: "Kraftwerk", wrong: ["Can", "Neu!", "Tangerine Dream"], category: "Music: Electronic", difficulty: "hard" },
-    { text: "Which Brazilian musical style did Antonio Carlos Jobim help create in the late 1950s?", correct: "Bossa nova", wrong: ["Samba", "Forro", "Choro"], category: "Music: World", difficulty: "hard" },
-    { text: "Which record producer developed the recording technique known as the Wall of Sound?", correct: "Phil Spector", wrong: ["George Martin", "Quincy Jones", "Brian Eno"], category: "Music: Production", difficulty: "hard" },
+    { text: "Who was the lead singer of the band Queen throughout the 1970s and 1980s?", correct: "Freddie Mercury", wrong: ["Robert Plant", "Roger Daltrey", "David Bowie"], category: "Music: Rock", difficulty: "easy", es: { text: "¿Quién fue el vocalista principal de la banda Queen durante los años 70 y 80?", correct: "Freddie Mercury", wrong: ["Robert Plant", "Roger Daltrey", "David Bowie"] } },
+    { text: "Which country did the pop group ABBA form in?", correct: "Sweden", wrong: ["Norway", "Denmark", "Finland"], category: "Music: Pop", difficulty: "easy", es: { text: "¿En qué país se formó el grupo pop ABBA?", correct: "Suecia", wrong: ["Noruega", "Dinamarca", "Finlandia"] } },
+    { text: "How many strings does a standard violin have?", correct: "Four", wrong: ["Three", "Five", "Six"], category: "Music: Instruments", difficulty: "easy", es: { text: "¿Cuántas cuerdas tiene un violín estándar?", correct: "Cuatro", wrong: ["Tres", "Cinco", "Seis"] } },
+    { text: "In which country did reggae music originate?", correct: "Jamaica", wrong: ["Cuba", "Barbados", "Trinidad and Tobago"], category: "Music: Reggae", difficulty: "easy", es: { text: "¿En qué país se originó el reggae?", correct: "Jamaica", wrong: ["Cuba", "Barbados", "Trinidad y Tobago"] } },
+    { text: "Which Beatles album cover shows the band walking across a zebra crossing?", correct: "Abbey Road", wrong: ["Revolver", "Help!", "Let It Be"], category: "Music: Classics", difficulty: "easy", es: { text: "¿Qué portada de un álbum de los Beatles muestra a la banda cruzando un paso de peatones?", correct: "Abbey Road", wrong: ["Revolver", "Help!", "Let It Be"] } },
+    { text: "Which band recorded the 1991 single \"Smells Like Teen Spirit\"?", correct: "Nirvana", wrong: ["Pearl Jam", "Soundgarden", "Green Day"], category: "Music: Rock", difficulty: "easy", es: { text: "¿Qué banda grabó el sencillo «Smells Like Teen Spirit» en 1991?", correct: "Nirvana", wrong: ["Pearl Jam", "Soundgarden", "Green Day"] } },
+    { text: "Which American singer is nicknamed the King of Pop?", correct: "Michael Jackson", wrong: ["Prince", "James Brown", "Elvis Presley"], category: "Music: Pop", difficulty: "easy", es: { text: "¿Qué cantante estadounidense es apodado el Rey del Pop?", correct: "Michael Jackson", wrong: ["Prince", "James Brown", "Elvis Presley"] } },
+    { text: "Whose 2011 album was titled \"21\"?", correct: "Adele", wrong: ["Amy Winehouse", "Rihanna", "Katy Perry"], category: "Music: Pop", difficulty: "easy", es: { text: "¿De quién es el álbum de 2011 titulado «21»?", correct: "Adele", wrong: ["Amy Winehouse", "Rihanna", "Katy Perry"] } },
+    { text: "Which composer wrote the opera \"Carmen\"?", correct: "Georges Bizet", wrong: ["Giuseppe Verdi", "Giacomo Puccini", "Richard Wagner"], category: "Music: Classical", difficulty: "medium", es: { text: "¿Qué compositor escribió la ópera «Carmen»?", correct: "Georges Bizet", wrong: ["Giuseppe Verdi", "Giacomo Puccini", "Richard Wagner"] } },
+    { text: "How many keys does a standard full-size piano have?", correct: "88", wrong: ["61", "76", "96"], category: "Music: Instruments", difficulty: "medium", es: { text: "¿Cuántas teclas tiene un piano estándar de tamaño completo?", correct: "88", wrong: ["61", "76", "96"] } },
+    { text: "What is the musical term for a passage that gradually gets louder?", correct: "Crescendo", wrong: ["Diminuendo", "Staccato", "Legato"], category: "Music: Theory", difficulty: "medium", es: { text: "¿Qué término musical designa un pasaje que aumenta de volumen de forma gradual?", correct: "Crescendo", wrong: ["Diminuendo", "Staccato", "Legato"] } },
+    { text: "In which year was the Live Aid benefit concert held?", correct: "1985", wrong: ["1979", "1982", "1990"], category: "Music: History", difficulty: "medium", es: { text: "¿En qué año se celebró el concierto benéfico Live Aid?", correct: "1985", wrong: ["1979", "1982", "1990"] } },
+    { text: "Which Detroit record label was founded by Berry Gordy?", correct: "Motown", wrong: ["Stax", "Chess Records", "Sun Records"], category: "Music: Soul", difficulty: "medium", es: { text: "¿Qué sello discográfico de Detroit fundó Berry Gordy?", correct: "Motown", wrong: ["Stax", "Chess Records", "Sun Records"] } },
+    { text: "Which American singer-songwriter was born Robert Allen Zimmerman?", correct: "Bob Dylan", wrong: ["Tom Waits", "Neil Young", "Lou Reed"], category: "Music: Folk", difficulty: "medium", es: { text: "¿Qué cantautor estadounidense nació con el nombre de Robert Allen Zimmerman?", correct: "Bob Dylan", wrong: ["Tom Waits", "Neil Young", "Lou Reed"] } },
+    { text: "Which instrument did jazz musician John Coltrane play?", correct: "Saxophone", wrong: ["Trumpet", "Piano", "Double bass"], category: "Music: Jazz", difficulty: "medium", es: { text: "¿Qué instrumento tocaba el músico de jazz John Coltrane?", correct: "Saxofón", wrong: ["Trompeta", "Piano", "Contrabajo"] } },
+    { text: "Which band recorded the 1973 album \"The Dark Side of the Moon\"?", correct: "Pink Floyd", wrong: ["Led Zeppelin", "Genesis", "The Doors"], category: "Music: Rock", difficulty: "medium", es: { text: "¿Qué banda grabó el álbum «The Dark Side of the Moon» en 1973?", correct: "Pink Floyd", wrong: ["Led Zeppelin", "Genesis", "The Doors"] } },
+    { text: "In which American city is the Grand Ole Opry located?", correct: "Nashville", wrong: ["Memphis", "Austin", "New Orleans"], category: "Music: Country", difficulty: "medium", es: { text: "¿En qué ciudad estadounidense se encuentra el Grand Ole Opry?", correct: "Nashville", wrong: ["Memphis", "Austin", "Nueva Orleans"] } },
+    { text: "Which hip-hop group released the 1988 album \"Straight Outta Compton\"?", correct: "N.W.A", wrong: ["Public Enemy", "Run-DMC", "Beastie Boys"], category: "Music: Hip-Hop", difficulty: "medium", es: { text: "¿Qué grupo de hip-hop publicó el álbum «Straight Outta Compton» en 1988?", correct: "N.W.A", wrong: ["Public Enemy", "Run-DMC", "Beastie Boys"] } },
+    { text: "Which composer wrote the ballet \"The Rite of Spring\", whose 1913 Paris premiere caused an uproar?", correct: "Igor Stravinsky", wrong: ["Claude Debussy", "Maurice Ravel", "Sergei Prokofiev"], category: "Music: Classical", difficulty: "hard", es: { text: "¿Qué compositor escribió el ballet «La consagración de la primavera», cuyo estreno en París en 1913 provocó un escándalo?", correct: "Igor Stravinsky", wrong: ["Claude Debussy", "Maurice Ravel", "Sergei Prokofiev"] } },
+    { text: "Which Nigerian musician pioneered the Afrobeat style in the 1970s?", correct: "Fela Kuti", wrong: ["King Sunny Adé", "Youssou N'Dour", "Salif Keita"], category: "Music: World", difficulty: "hard", es: { text: "¿Qué músico nigeriano fue pionero del afrobeat en los años 70?", correct: "Fela Kuti", wrong: ["King Sunny Adé", "Youssou N'Dour", "Salif Keita"] } },
+    { text: "How many semitones make up a perfect fifth?", correct: "Seven", wrong: ["Five", "Six", "Eight"], category: "Music: Theory", difficulty: "hard", es: { text: "¿Cuántos semitonos forman una quinta justa?", correct: "Siete", wrong: ["Cinco", "Seis", "Ocho"] } },
+    { text: "Which German band released the 1974 album \"Autobahn\"?", correct: "Kraftwerk", wrong: ["Can", "Neu!", "Tangerine Dream"], category: "Music: Electronic", difficulty: "hard", es: { text: "¿Qué banda alemana publicó el álbum «Autobahn» en 1974?", correct: "Kraftwerk", wrong: ["Can", "Neu!", "Tangerine Dream"] } },
+    { text: "Which Brazilian musical style did Antonio Carlos Jobim help create in the late 1950s?", correct: "Bossa nova", wrong: ["Samba", "Forro", "Choro"], category: "Music: World", difficulty: "hard", es: { text: "¿Qué estilo musical brasileño ayudó a crear Antonio Carlos Jobim a finales de los años 50?", correct: "Bossa nova", wrong: ["Forró", "Samba", "Choro"] } },
+    { text: "Which record producer developed the recording technique known as the Wall of Sound?", correct: "Phil Spector", wrong: ["George Martin", "Quincy Jones", "Brian Eno"], category: "Music: Production", difficulty: "hard", es: { text: "¿Qué productor musical desarrolló la técnica de grabación conocida como «muro de sonido» (Wall of Sound)?", correct: "Phil Spector", wrong: ["George Martin", "Quincy Jones", "Brian Eno"] } },
   ],
   film: [
-    { text: "Who directed the 1975 shark thriller \"Jaws\"?", correct: "Steven Spielberg", wrong: ["George Lucas", "Ridley Scott", "Robert Zemeckis"], category: "Film: Directors", difficulty: "easy" },
-    { text: "What is the name of Han Solo's ship in the original \"Star Wars\" trilogy?", correct: "Millennium Falcon", wrong: ["Tantive IV", "Slave I", "Nostromo"], category: "Film: Sci-Fi", difficulty: "easy" },
-    { text: "What kind of creature is the title character of the DreamWorks film \"Shrek\"?", correct: "Ogre", wrong: ["Troll", "Goblin", "Giant"], category: "Film: Animation", difficulty: "easy" },
-    { text: "Which animation studio produced the 1995 film \"Toy Story\"?", correct: "Pixar", wrong: ["DreamWorks Animation", "Studio Ghibli", "Blue Sky Studios"], category: "Film: Animation", difficulty: "easy" },
-    { text: "In which Alfred Hitchcock film is a woman murdered in the shower of the Bates Motel?", correct: "Psycho", wrong: ["Vertigo", "The Birds", "Frenzy"], category: "Film: Classics", difficulty: "easy" },
-    { text: "Which actor played Frodo Baggins in Peter Jackson's \"The Lord of the Rings\" films?", correct: "Elijah Wood", wrong: ["Sean Astin", "Orlando Bloom", "Dominic Monaghan"], category: "Film: Fantasy", difficulty: "easy" },
-    { text: "In which country is the Hindi-language film industry known as Bollywood based?", correct: "India", wrong: ["Pakistan", "Bangladesh", "Indonesia"], category: "Film: World Cinema", difficulty: "easy" },
-    { text: "Who composed the music for \"Star Wars\", \"Jurassic Park\" and \"Schindler's List\"?", correct: "John Williams", wrong: ["Hans Zimmer", "Ennio Morricone", "Danny Elfman"], category: "Film: Music", difficulty: "easy" },
-    { text: "Which Japanese director made the 1954 film \"Seven Samurai\"?", correct: "Akira Kurosawa", wrong: ["Yasujiro Ozu", "Kenji Mizoguchi", "Hayao Miyazaki"], category: "Film: World Cinema", difficulty: "medium" },
-    { text: "What is the name of Rick Blaine's nightclub in \"Casablanca\"?", correct: "Rick's Cafe Americain", wrong: ["The Blue Parrot", "The Kit Kat Club", "El Flamingo"], category: "Film: Classics", difficulty: "medium" },
-    { text: "Which South Korean film became the first non-English-language winner of the Academy Award for Best Picture?", correct: "Parasite", wrong: ["Oldboy", "Burning", "The Handmaiden"], category: "Film: Awards", difficulty: "medium" },
-    { text: "In which Martin Scorsese film does Robert De Niro play the taxi driver Travis Bickle?", correct: "Taxi Driver", wrong: ["Raging Bull", "Goodfellas", "Cape Fear"], category: "Film: Characters", difficulty: "medium" },
-    { text: "The Golden Bear is the top prize of the film festival held in which city?", correct: "Berlin", wrong: ["Venice", "Cannes", "Locarno"], category: "Film: Awards", difficulty: "medium" },
-    { text: "What is Hannibal Lecter's profession in \"The Silence of the Lambs\"?", correct: "Psychiatrist", wrong: ["Chemistry professor", "Pathologist", "Criminal profiler"], category: "Film: Characters", difficulty: "medium" },
-    { text: "Walt Disney's \"Snow White and the Seven Dwarfs\" premiered in which year?", correct: "1937", wrong: ["1928", "1932", "1945"], category: "Film: Animation", difficulty: "medium" },
-    { text: "Which actor plays Vincent Vega in \"Pulp Fiction\"?", correct: "John Travolta", wrong: ["Samuel L. Jackson", "Bruce Willis", "Harvey Keitel"], category: "Film", difficulty: "medium" },
-    { text: "Which animated film follows a girl named Chihiro who works in a bathhouse for spirits?", correct: "Spirited Away", wrong: ["My Neighbor Totoro", "Princess Mononoke", "Kiki's Delivery Service"], category: "Film: Animation", difficulty: "medium" },
-    { text: "What is the name of the sled in \"Citizen Kane\"?", correct: "Rosebud", wrong: ["Bluebird", "Snowdrop", "Firefly"], category: "Film: Classics", difficulty: "medium" },
-    { text: "Which animated feature was the first ever nominated for the Academy Award for Best Picture?", correct: "Beauty and the Beast", wrong: ["Snow White and the Seven Dwarfs", "The Lion King", "Up"], category: "Film: Awards", difficulty: "hard" },
-    { text: "Who directed the 1925 Soviet film \"Battleship Potemkin\"?", correct: "Sergei Eisenstein", wrong: ["Dziga Vertov", "Vsevolod Pudovkin", "Andrei Tarkovsky"], category: "Film: Classics", difficulty: "hard" },
-    { text: "Filmmakers from which country launched the Dogme 95 manifesto?", correct: "Denmark", wrong: ["Sweden", "Norway", "Netherlands"], category: "Film: World Cinema", difficulty: "hard" },
-    { text: "Which Italian director made the 1963 film \"8 1/2\"?", correct: "Federico Fellini", wrong: ["Michelangelo Antonioni", "Vittorio De Sica", "Sergio Leone"], category: "Film: World Cinema", difficulty: "hard" },
-    { text: "The historic Cinecitta film studios are located in which city?", correct: "Rome", wrong: ["Milan", "Madrid", "Vienna"], category: "Film: World Cinema", difficulty: "hard" },
-    { text: "Which 1927 film is credited as the first feature to include synchronized spoken dialogue?", correct: "The Jazz Singer", wrong: ["Don Juan", "The Broadway Melody", "Sunrise"], category: "Film: Classics", difficulty: "hard" },
+    { text: "Who directed the 1975 shark thriller \"Jaws\"?", correct: "Steven Spielberg", wrong: ["George Lucas", "Ridley Scott", "Robert Zemeckis"], category: "Film: Directors", difficulty: "easy", es: { text: "¿Quién dirigió el thriller de 1975 «Tiburón»?", correct: "Steven Spielberg", wrong: ["George Lucas", "Ridley Scott", "Robert Zemeckis"] } },
+    { text: "What is the name of Han Solo's ship in the original \"Star Wars\" trilogy?", correct: "Millennium Falcon", wrong: ["Tantive IV", "Slave I", "Nostromo"], category: "Film: Sci-Fi", difficulty: "easy", es: { text: "¿Cómo se llama la nave de Han Solo en la trilogía original de «Star Wars»?", correct: "Halcón Milenario", wrong: ["Tantive IV", "Slave I", "Nostromo"] } },
+    { text: "What kind of creature is the title character of the DreamWorks film \"Shrek\"?", correct: "Ogre", wrong: ["Troll", "Goblin", "Giant"], category: "Film: Animation", difficulty: "easy", es: { text: "¿Qué tipo de criatura es el protagonista de la película de DreamWorks «Shrek»?", correct: "Ogro", wrong: ["Trol", "Goblin", "Gigante"] } },
+    { text: "Which animation studio produced the 1995 film \"Toy Story\"?", correct: "Pixar", wrong: ["DreamWorks Animation", "Studio Ghibli", "Blue Sky Studios"], category: "Film: Animation", difficulty: "easy", es: { text: "¿Qué estudio de animación produjo la película de 1995 «Toy Story»?", correct: "Pixar", wrong: ["DreamWorks Animation", "Studio Ghibli", "Blue Sky Studios"] } },
+    { text: "In which Alfred Hitchcock film is a woman murdered in the shower of the Bates Motel?", correct: "Psycho", wrong: ["Vertigo", "The Birds", "Frenzy"], category: "Film: Classics", difficulty: "easy", es: { text: "¿En qué película de Alfred Hitchcock asesinan a una mujer en la ducha del Motel Bates?", correct: "Psicosis", wrong: ["Vértigo", "Los pájaros", "Frenesí"] } },
+    { text: "Which actor played Frodo Baggins in Peter Jackson's \"The Lord of the Rings\" films?", correct: "Elijah Wood", wrong: ["Sean Astin", "Orlando Bloom", "Dominic Monaghan"], category: "Film: Fantasy", difficulty: "easy", es: { text: "¿Qué actor interpretó a Frodo Bolsón en las películas de «El Señor de los Anillos» de Peter Jackson?", correct: "Elijah Wood", wrong: ["Sean Astin", "Orlando Bloom", "Dominic Monaghan"] } },
+    { text: "In which country is the Hindi-language film industry known as Bollywood based?", correct: "India", wrong: ["Pakistan", "Bangladesh", "Indonesia"], category: "Film: World Cinema", difficulty: "easy", es: { text: "¿En qué país tiene su sede la industria del cine en hindi conocida como Bollywood?", correct: "India", wrong: ["Pakistán", "Bangladesh", "Indonesia"] } },
+    { text: "Who composed the music for \"Star Wars\", \"Jurassic Park\" and \"Schindler's List\"?", correct: "John Williams", wrong: ["Hans Zimmer", "Ennio Morricone", "Danny Elfman"], category: "Film: Music", difficulty: "easy", es: { text: "¿Quién compuso la música de «Star Wars», «Parque Jurásico» y «La lista de Schindler»?", correct: "John Williams", wrong: ["Hans Zimmer", "Ennio Morricone", "Danny Elfman"] } },
+    { text: "Which Japanese director made the 1954 film \"Seven Samurai\"?", correct: "Akira Kurosawa", wrong: ["Yasujiro Ozu", "Kenji Mizoguchi", "Hayao Miyazaki"], category: "Film: World Cinema", difficulty: "medium", es: { text: "¿Qué cineasta japonés dirigió la película de 1954 «Los siete samuráis»?", correct: "Akira Kurosawa", wrong: ["Yasujiro Ozu", "Kenji Mizoguchi", "Hayao Miyazaki"] } },
+    { text: "What is the name of Rick Blaine's nightclub in \"Casablanca\"?", correct: "Rick's Cafe Americain", wrong: ["The Blue Parrot", "The Kit Kat Club", "El Flamingo"], category: "Film: Classics", difficulty: "medium", es: { text: "¿Cómo se llama el club nocturno de Rick Blaine en «Casablanca»?", correct: "Rick's Café Américain", wrong: ["The Blue Parrot", "The Kit Kat Club", "El Flamingo"] } },
+    { text: "Which South Korean film became the first non-English-language winner of the Academy Award for Best Picture?", correct: "Parasite", wrong: ["Oldboy", "Burning", "The Handmaiden"], category: "Film: Awards", difficulty: "medium", es: { text: "¿Qué película surcoreana fue la primera de habla no inglesa en ganar el Óscar a mejor película?", correct: "Parásitos", wrong: ["Oldboy", "Burning", "La doncella"] } },
+    { text: "In which Martin Scorsese film does Robert De Niro play the taxi driver Travis Bickle?", correct: "Taxi Driver", wrong: ["Raging Bull", "Goodfellas", "Cape Fear"], category: "Film: Characters", difficulty: "medium", es: { text: "¿En qué película de Martin Scorsese interpreta Robert De Niro al taxista Travis Bickle?", correct: "Taxi Driver", wrong: ["Toro salvaje", "Goodfellas", "Cape Fear"] } },
+    { text: "The Golden Bear is the top prize of the film festival held in which city?", correct: "Berlin", wrong: ["Venice", "Cannes", "Locarno"], category: "Film: Awards", difficulty: "medium", es: { text: "¿En qué ciudad se celebra el festival de cine cuyo máximo premio es el Oso de Oro?", correct: "Berlín", wrong: ["Venecia", "Cannes", "Locarno"] } },
+    { text: "What is Hannibal Lecter's profession in \"The Silence of the Lambs\"?", correct: "Psychiatrist", wrong: ["Chemistry professor", "Pathologist", "Criminal profiler"], category: "Film: Characters", difficulty: "medium", es: { text: "¿Cuál es la profesión de Hannibal Lecter en «El silencio de los corderos»?", correct: "Psiquiatra", wrong: ["Profesor de química", "Patólogo", "Perfilador criminal"] } },
+    { text: "Walt Disney's \"Snow White and the Seven Dwarfs\" premiered in which year?", correct: "1937", wrong: ["1928", "1932", "1945"], category: "Film: Animation", difficulty: "medium", es: { text: "¿En qué año se estrenó «Blancanieves y los siete enanitos», de Walt Disney?", correct: "1937", wrong: ["1928", "1932", "1945"] } },
+    { text: "Which actor plays Vincent Vega in \"Pulp Fiction\"?", correct: "John Travolta", wrong: ["Samuel L. Jackson", "Bruce Willis", "Harvey Keitel"], category: "Film", difficulty: "medium", es: { text: "¿Qué actor interpreta a Vincent Vega en «Pulp Fiction»?", correct: "John Travolta", wrong: ["Samuel L. Jackson", "Bruce Willis", "Harvey Keitel"] } },
+    { text: "Which animated film follows a girl named Chihiro who works in a bathhouse for spirits?", correct: "Spirited Away", wrong: ["My Neighbor Totoro", "Princess Mononoke", "Kiki's Delivery Service"], category: "Film: Animation", difficulty: "medium", es: { text: "¿Qué película de animación sigue a una niña que trabaja en una casa de baños para espíritus?", correct: "El viaje de Chihiro", wrong: ["Mi vecino Totoro", "La princesa Mononoke", "Kiki: entregas a domicilio"] } },
+    { text: "What is the name of the sled in \"Citizen Kane\"?", correct: "Rosebud", wrong: ["Bluebird", "Snowdrop", "Firefly"], category: "Film: Classics", difficulty: "medium", es: { text: "¿Cómo se llama el trineo de «Ciudadano Kane»?", correct: "Rosebud", wrong: ["Bluebird", "Snowdrop", "Firefly"] } },
+    { text: "Which animated feature was the first ever nominated for the Academy Award for Best Picture?", correct: "Beauty and the Beast", wrong: ["Snow White and the Seven Dwarfs", "The Lion King", "Up"], category: "Film: Awards", difficulty: "hard", es: { text: "¿Qué largometraje de animación fue el primero en ser nominado al Óscar a mejor película?", correct: "La bella y la bestia", wrong: ["Blancanieves y los siete enanitos", "El rey león", "Up"] } },
+    { text: "Who directed the 1925 Soviet film \"Battleship Potemkin\"?", correct: "Sergei Eisenstein", wrong: ["Dziga Vertov", "Vsevolod Pudovkin", "Andrei Tarkovsky"], category: "Film: Classics", difficulty: "hard", es: { text: "¿Quién dirigió la película soviética de 1925 «El acorazado Potemkin»?", correct: "Serguéi Eisenstein", wrong: ["Dziga Vertov", "Vsévolod Pudovkin", "Andréi Tarkovski"] } },
+    { text: "Filmmakers from which country launched the Dogme 95 manifesto?", correct: "Denmark", wrong: ["Sweden", "Norway", "Netherlands"], category: "Film: World Cinema", difficulty: "hard", es: { text: "¿Cineastas de qué país lanzaron el manifiesto Dogma 95?", correct: "Dinamarca", wrong: ["Suecia", "Noruega", "Países Bajos"] } },
+    { text: "Which Italian director made the 1963 film \"8 1/2\"?", correct: "Federico Fellini", wrong: ["Michelangelo Antonioni", "Vittorio De Sica", "Sergio Leone"], category: "Film: World Cinema", difficulty: "hard", es: { text: "¿Qué cineasta italiano dirigió la película de 1963 «Ocho y medio» (8½)?", correct: "Federico Fellini", wrong: ["Michelangelo Antonioni", "Vittorio De Sica", "Sergio Leone"] } },
+    { text: "The historic Cinecitta film studios are located in which city?", correct: "Rome", wrong: ["Milan", "Madrid", "Vienna"], category: "Film: World Cinema", difficulty: "hard", es: { text: "¿En qué ciudad se encuentran los históricos estudios de cine Cinecittà?", correct: "Roma", wrong: ["Milán", "Madrid", "Viena"] } },
+    { text: "Which 1927 film is credited as the first feature to include synchronized spoken dialogue?", correct: "The Jazz Singer", wrong: ["Don Juan", "The Broadway Melody", "Sunrise"], category: "Film: Classics", difficulty: "hard", es: { text: "¿Qué película de 1927 está considerada el primer largometraje con diálogos hablados sincronizados?", correct: "El cantor de jazz", wrong: ["Don Juan", "La melodía de Broadway", "Amanecer"] } },
   ],
   science: [
-    { text: "Which gas do plants absorb from the air during photosynthesis?", correct: "Carbon dioxide", wrong: ["Oxygen", "Nitrogen", "Methane"], category: "Science & Nature: Biology", difficulty: "easy" },
-    { text: "What is the chemical symbol for gold?", correct: "Au", wrong: ["Ag", "Gd", "Ge"], category: "Science & Nature: Chemistry", difficulty: "easy" },
-    { text: "Which planet orbits closest to the Sun?", correct: "Mercury", wrong: ["Venus", "Earth", "Mars"], category: "Science & Nature: Astronomy", difficulty: "easy" },
-    { text: "What is the largest organ of the human body?", correct: "Skin", wrong: ["Liver", "Brain", "Lungs"], category: "Science & Nature: Biology", difficulty: "easy" },
-    { text: "How many legs does an adult insect have?", correct: "Six", wrong: ["Four", "Eight", "Ten"], category: "Science & Nature: Biology", difficulty: "easy" },
-    { text: "Which living animal is the largest on Earth?", correct: "Blue whale", wrong: ["African elephant", "Sperm whale", "Whale shark"], category: "Science & Nature: Biology", difficulty: "easy" },
-    { text: "What is the dense central part of an atom called?", correct: "Nucleus", wrong: ["Electron shell", "Electron cloud", "Orbital"], category: "Science & Nature: Physics", difficulty: "easy" },
-    { text: "At standard sea-level pressure, water boils at what temperature in degrees Celsius?", correct: "100", wrong: ["80", "90", "120"], category: "Science & Nature: Chemistry", difficulty: "easy" },
-    { text: "What is the most abundant gas in Earth's atmosphere?", correct: "Nitrogen", wrong: ["Oxygen", "Carbon dioxide", "Argon"], category: "Science & Nature: Earth Science", difficulty: "medium" },
-    { text: "Who published the three laws of motion in the Principia in 1687?", correct: "Isaac Newton", wrong: ["Galileo Galilei", "Johannes Kepler", "Robert Hooke"], category: "Science & Nature: Physics", difficulty: "medium" },
-    { text: "What is the scientific study of fungi called?", correct: "Mycology", wrong: ["Botany", "Entomology", "Herpetology"], category: "Science & Nature: Biology", difficulty: "medium" },
-    { text: "Which organelle carries out photosynthesis in plant cells?", correct: "Chloroplast", wrong: ["Mitochondrion", "Ribosome", "Vacuole"], category: "Science & Nature: Biology", difficulty: "medium" },
-    { text: "What is the SI unit of electrical resistance?", correct: "Ohm", wrong: ["Volt", "Ampere", "Watt"], category: "Science & Nature: Physics", difficulty: "medium" },
-    { text: "Which planet hosts the storm known as the Great Red Spot?", correct: "Jupiter", wrong: ["Saturn", "Neptune", "Mars"], category: "Science & Nature: Astronomy", difficulty: "medium" },
-    { text: "What is the term for a solid changing directly into a gas?", correct: "Sublimation", wrong: ["Deposition", "Condensation", "Evaporation"], category: "Science & Nature: Chemistry", difficulty: "medium" },
-    { text: "Which vitamin does human skin produce when exposed to sunlight?", correct: "Vitamin D", wrong: ["Vitamin A", "Vitamin C", "Vitamin K"], category: "Science & Nature: Biology", difficulty: "medium" },
-    { text: "In which year did humans first walk on the Moon?", correct: "1969", wrong: ["1961", "1965", "1972"], category: "Science & Nature: Astronomy", difficulty: "medium" },
-    { text: "Where in the human body is the cochlea located?", correct: "The inner ear", wrong: ["The middle ear", "The outer ear", "The nasal cavity"], category: "Science & Nature: Biology", difficulty: "medium" },
-    { text: "Which blood vessel carries oxygen-rich blood from the lungs back to the heart?", correct: "Pulmonary vein", wrong: ["Pulmonary artery", "Aorta", "Vena cava"], category: "Science & Nature: Biology", difficulty: "hard" },
-    { text: "Which metal is the most abundant in Earth's crust?", correct: "Aluminium", wrong: ["Iron", "Magnesium", "Calcium"], category: "Science & Nature: Earth Science", difficulty: "hard" },
-    { text: "What is the SI unit of magnetic flux density?", correct: "Tesla", wrong: ["Weber", "Gauss", "Henry"], category: "Science & Nature: Physics", difficulty: "hard" },
-    { text: "Which naturalist independently proposed natural selection, prompting Darwin to publish?", correct: "Alfred Russel Wallace", wrong: ["Gregor Mendel", "Thomas Malthus", "Charles Lyell"], category: "Science & Nature: Biology", difficulty: "hard" },
-    { text: "What name is given to the boundary between Earth's crust and mantle?", correct: "Mohorovicic discontinuity", wrong: ["Gutenberg discontinuity", "Lehmann discontinuity", "Conrad discontinuity"], category: "Science & Nature: Earth Science", difficulty: "hard" },
-    { text: "What is the name for the point in a planet's orbit nearest the Sun?", correct: "Perihelion", wrong: ["Aphelion", "Perigee", "Apogee"], category: "Science & Nature: Astronomy", difficulty: "hard" },
+    { text: "Which gas do plants absorb from the air during photosynthesis?", correct: "Carbon dioxide", wrong: ["Oxygen", "Nitrogen", "Methane"], category: "Science & Nature: Biology", difficulty: "easy", es: { text: "¿Qué gas absorben las plantas del aire durante la fotosíntesis?", correct: "Dióxido de carbono", wrong: ["Oxígeno", "Nitrógeno", "Metano"] } },
+    { text: "What is the chemical symbol for gold?", correct: "Au", wrong: ["Ag", "Gd", "Ge"], category: "Science & Nature: Chemistry", difficulty: "easy", es: { text: "¿Cuál es el símbolo químico del oro?", correct: "Au", wrong: ["Ag", "Gd", "Ge"] } },
+    { text: "Which planet orbits closest to the Sun?", correct: "Mercury", wrong: ["Venus", "Earth", "Mars"], category: "Science & Nature: Astronomy", difficulty: "easy", es: { text: "¿Qué planeta orbita más cerca del Sol?", correct: "Mercurio", wrong: ["Venus", "Tierra", "Marte"] } },
+    { text: "What is the largest organ of the human body?", correct: "Skin", wrong: ["Liver", "Brain", "Lungs"], category: "Science & Nature: Biology", difficulty: "easy", es: { text: "¿Cuál es el órgano más grande del cuerpo humano?", correct: "Piel", wrong: ["Hígado", "Cerebro", "Pulmones"] } },
+    { text: "How many legs does an adult insect have?", correct: "Six", wrong: ["Four", "Eight", "Ten"], category: "Science & Nature: Biology", difficulty: "easy", es: { text: "¿Cuántas patas tiene un insecto adulto?", correct: "Seis", wrong: ["Cuatro", "Ocho", "Diez"] } },
+    { text: "Which living animal is the largest on Earth?", correct: "Blue whale", wrong: ["African elephant", "Sperm whale", "Whale shark"], category: "Science & Nature: Biology", difficulty: "easy", es: { text: "¿Cuál es el animal vivo más grande de la Tierra?", correct: "Ballena azul", wrong: ["Elefante africano", "Cachalote", "Tiburón ballena"] } },
+    { text: "What is the dense central part of an atom called?", correct: "Nucleus", wrong: ["Electron shell", "Electron cloud", "Orbital"], category: "Science & Nature: Physics", difficulty: "easy", es: { text: "¿Cómo se llama la parte central y densa de un átomo?", correct: "Núcleo", wrong: ["Capa electrónica", "Nube de electrones", "Orbital"] } },
+    { text: "At standard sea-level pressure, water boils at what temperature in degrees Celsius?", correct: "100", wrong: ["80", "90", "120"], category: "Science & Nature: Chemistry", difficulty: "easy", es: { text: "A presión normal al nivel del mar, ¿a qué temperatura hierve el agua en grados Celsius?", correct: "100", wrong: ["80", "90", "120"] } },
+    { text: "What is the most abundant gas in Earth's atmosphere?", correct: "Nitrogen", wrong: ["Oxygen", "Carbon dioxide", "Argon"], category: "Science & Nature: Earth Science", difficulty: "medium", es: { text: "¿Cuál es el gas más abundante en la atmósfera terrestre?", correct: "Nitrógeno", wrong: ["Oxígeno", "Dióxido de carbono", "Argón"] } },
+    { text: "Who published the three laws of motion in the Principia in 1687?", correct: "Isaac Newton", wrong: ["Galileo Galilei", "Johannes Kepler", "Robert Hooke"], category: "Science & Nature: Physics", difficulty: "medium", es: { text: "¿Quién publicó las tres leyes del movimiento en los Principia en 1687?", correct: "Isaac Newton", wrong: ["Galileo Galilei", "Johannes Kepler", "Robert Hooke"] } },
+    { text: "What is the scientific study of fungi called?", correct: "Mycology", wrong: ["Botany", "Entomology", "Herpetology"], category: "Science & Nature: Biology", difficulty: "medium", es: { text: "¿Cómo se llama el estudio científico de los hongos?", correct: "Micología", wrong: ["Botánica", "Entomología", "Herpetología"] } },
+    { text: "Which organelle carries out photosynthesis in plant cells?", correct: "Chloroplast", wrong: ["Mitochondrion", "Ribosome", "Vacuole"], category: "Science & Nature: Biology", difficulty: "medium", es: { text: "¿Qué orgánulo realiza la fotosíntesis en las células vegetales?", correct: "Cloroplasto", wrong: ["Mitocondria", "Ribosoma", "Vacuola"] } },
+    { text: "What is the SI unit of electrical resistance?", correct: "Ohm", wrong: ["Volt", "Ampere", "Watt"], category: "Science & Nature: Physics", difficulty: "medium", es: { text: "¿Cuál es la unidad del Sistema Internacional (SI) para la resistencia eléctrica?", correct: "Ohmio", wrong: ["Voltio", "Amperio", "Vatio"] } },
+    { text: "Which planet hosts the storm known as the Great Red Spot?", correct: "Jupiter", wrong: ["Saturn", "Neptune", "Mars"], category: "Science & Nature: Astronomy", difficulty: "medium", es: { text: "¿Qué planeta alberga la tormenta conocida como la Gran Mancha Roja?", correct: "Júpiter", wrong: ["Saturno", "Neptuno", "Marte"] } },
+    { text: "What is the term for a solid changing directly into a gas?", correct: "Sublimation", wrong: ["Deposition", "Condensation", "Evaporation"], category: "Science & Nature: Chemistry", difficulty: "medium", es: { text: "¿Cómo se llama el paso directo de un sólido a gas?", correct: "Sublimación", wrong: ["Deposición", "Condensación", "Evaporación"] } },
+    { text: "Which vitamin does human skin produce when exposed to sunlight?", correct: "Vitamin D", wrong: ["Vitamin A", "Vitamin C", "Vitamin K"], category: "Science & Nature: Biology", difficulty: "medium", es: { text: "¿Qué vitamina produce la piel humana al exponerse a la luz solar?", correct: "Vitamina D", wrong: ["Vitamina A", "Vitamina C", "Vitamina K"] } },
+    { text: "In which year did humans first walk on the Moon?", correct: "1969", wrong: ["1961", "1965", "1972"], category: "Science & Nature: Astronomy", difficulty: "medium", es: { text: "¿En qué año pisó el ser humano la Luna por primera vez?", correct: "1969", wrong: ["1961", "1965", "1972"] } },
+    { text: "Where in the human body is the cochlea located?", correct: "The inner ear", wrong: ["The middle ear", "The outer ear", "The nasal cavity"], category: "Science & Nature: Biology", difficulty: "medium", es: { text: "¿En qué parte del cuerpo humano se encuentra la cóclea?", correct: "El oído interno", wrong: ["El oído medio", "El oído externo", "La cavidad nasal"] } },
+    { text: "Which blood vessel carries oxygen-rich blood from the lungs back to the heart?", correct: "Pulmonary vein", wrong: ["Pulmonary artery", "Aorta", "Vena cava"], category: "Science & Nature: Biology", difficulty: "hard", es: { text: "¿Qué vaso sanguíneo lleva la sangre rica en oxígeno desde los pulmones al corazón?", correct: "Vena pulmonar", wrong: ["Arteria pulmonar", "Aorta", "Vena cava"] } },
+    { text: "Which metal is the most abundant in Earth's crust?", correct: "Aluminium", wrong: ["Iron", "Magnesium", "Calcium"], category: "Science & Nature: Earth Science", difficulty: "hard", es: { text: "¿Qué metal es el más abundante en la corteza terrestre?", correct: "Aluminio", wrong: ["Hierro", "Magnesio", "Calcio"] } },
+    { text: "What is the SI unit of magnetic flux density?", correct: "Tesla", wrong: ["Weber", "Gauss", "Henry"], category: "Science & Nature: Physics", difficulty: "hard", es: { text: "¿Cuál es la unidad del Sistema Internacional (SI) para la densidad de flujo magnético?", correct: "Tesla", wrong: ["Weber", "Gauss", "Henry"] } },
+    { text: "Which naturalist independently proposed natural selection, prompting Darwin to publish?", correct: "Alfred Russel Wallace", wrong: ["Gregor Mendel", "Thomas Malthus", "Charles Lyell"], category: "Science & Nature: Biology", difficulty: "hard", es: { text: "¿Qué naturalista propuso la selección natural de forma independiente e impulsó a Darwin a publicar?", correct: "Alfred Russel Wallace", wrong: ["Gregor Mendel", "Thomas Malthus", "Charles Lyell"] } },
+    { text: "What name is given to the boundary between Earth's crust and mantle?", correct: "Mohorovicic discontinuity", wrong: ["Gutenberg discontinuity", "Lehmann discontinuity", "Conrad discontinuity"], category: "Science & Nature: Earth Science", difficulty: "hard", es: { text: "¿Qué nombre recibe el límite entre la corteza y el manto de la Tierra?", correct: "Discontinuidad de Mohorovicic", wrong: ["Discontinuidad de Gutenberg", "Discontinuidad de Lehmann", "Discontinuidad de Conrad"] } },
+    { text: "What is the name for the point in a planet's orbit nearest the Sun?", correct: "Perihelion", wrong: ["Aphelion", "Perigee", "Apogee"], category: "Science & Nature: Astronomy", difficulty: "hard", es: { text: "¿Cómo se llama el punto de la órbita de un planeta más cercano al Sol?", correct: "Perihelio", wrong: ["Afelio", "Perigeo", "Apogeo"] } },
   ],
   games: [
-    { text: "What is the name of the green dinosaur Mario first rode in Super Mario World?", correct: "Yoshi", wrong: ["Birdo", "Toad", "Bowser Jr."], category: "Video Games: Nintendo", difficulty: "easy" },
-    { text: "Which company created the Sonic the Hedgehog series?", correct: "Sega", wrong: ["Nintendo", "Capcom", "Namco"], category: "Video Games", difficulty: "easy" },
-    { text: "In Minecraft, which green creature hisses and then explodes next to the player?", correct: "Creeper", wrong: ["Enderman", "Zombie", "Skeleton"], category: "Video Games: Modern", difficulty: "easy" },
-    { text: "What type is Pikachu in the Pokemon games?", correct: "Electric", wrong: ["Fire", "Water", "Psychic"], category: "Video Games: Pokemon", difficulty: "easy" },
-    { text: "Which 1972 Atari arcade game simulated table tennis with two paddles and a bouncing ball?", correct: "Pong", wrong: ["Breakout", "Space Invaders", "Asteroids"], category: "Video Games: Arcade", difficulty: "easy" },
-    { text: "Which puzzle game did Soviet engineer Alexey Pajitnov create in 1984?", correct: "Tetris", wrong: ["Columns", "Puyo Puyo", "Dr. Mario"], category: "Video Games: Classics", difficulty: "easy" },
-    { text: "Which handheld console did Nintendo launch in 1989 with a monochrome screen?", correct: "Game Boy", wrong: ["Game Gear", "Atari Lynx", "Neo Geo Pocket"], category: "Video Games: Hardware", difficulty: "easy" },
-    { text: "Which green-tunicked swordsman is the hero of The Legend of Zelda series?", correct: "Link", wrong: ["Zelda", "Ganondorf", "Navi"], category: "Video Games: Nintendo", difficulty: "easy" },
-    { text: "Who is the armoured bounty hunter at the centre of the Metroid series?", correct: "Samus Aran", wrong: ["Ridley", "Mother Brain", "Adam Malkovich"], category: "Video Games: Characters", difficulty: "medium" },
-    { text: "Which 1993 id Software shooter cast the player as a space marine fighting demons on Mars?", correct: "Doom", wrong: ["Quake", "Wolfenstein 3D", "Duke Nukem 3D"], category: "Video Games: PC", difficulty: "medium" },
-    { text: "What is the name of the red ghost in Pac-Man?", correct: "Blinky", wrong: ["Inky", "Pinky", "Clyde"], category: "Video Games: Arcade", difficulty: "medium" },
-    { text: "Which artificial intelligence oversees the test chambers in the game Portal?", correct: "GLaDOS", wrong: ["SHODAN", "Cortana", "EDI"], category: "Video Games: Modern", difficulty: "medium" },
-    { text: "The Grand Theft Auto city of Los Santos is modelled on which real American city?", correct: "Los Angeles", wrong: ["Miami", "Las Vegas", "Chicago"], category: "Video Games: Modern", difficulty: "medium" },
-    { text: "Which Street Fighter II fighter attacks with the Sonic Boom?", correct: "Guile", wrong: ["Ryu", "Blanka", "Zangief"], category: "Video Games: Fighting", difficulty: "medium" },
-    { text: "The Witcher 3: Wild Hunt was developed by a studio based in which country?", correct: "Poland", wrong: ["Czech Republic", "Germany", "Sweden"], category: "Video Games: Modern", difficulty: "medium" },
-    { text: "Who composed the music for the 1985 game Super Mario Bros.?", correct: "Koji Kondo", wrong: ["Nobuo Uematsu", "Yuzo Koshiro", "Yasunori Mitsuda"], category: "Video Games: Music", difficulty: "medium" },
-    { text: "In which year did Sony first release the original PlayStation in Japan?", correct: "1994", wrong: ["1992", "1996", "1998"], category: "Video Games: Hardware", difficulty: "medium" },
-    { text: "Who created the Metal Gear series?", correct: "Hideo Kojima", wrong: ["Shigeru Miyamoto", "Yu Suzuki", "Keiji Inafune"], category: "Video Games: Creators", difficulty: "medium" },
-    { text: "Which Japanese company developed the 1978 arcade game Space Invaders?", correct: "Taito", wrong: ["Namco", "Konami", "Sega"], category: "Video Games: Arcade", difficulty: "hard" },
-    { text: "Which 1972 machine was the first home video game console sold to consumers?", correct: "Magnavox Odyssey", wrong: ["Atari 2600", "Fairchild Channel F", "Coleco Telstar"], category: "Video Games: History", difficulty: "hard" },
-    { text: "Nintendo was founded in 1889 to manufacture what product?", correct: "Playing cards", wrong: ["Bicycles", "Vacuum cleaners", "Toy trains"], category: "Video Games: History", difficulty: "hard" },
-    { text: "Who founded the underwater city of Rapture in BioShock?", correct: "Andrew Ryan", wrong: ["Frank Fontaine", "Sander Cohen", "Booker DeWitt"], category: "Video Games: Modern", difficulty: "hard" },
-    { text: "What name was Mario given in the original 1981 Donkey Kong arcade game?", correct: "Jumpman", wrong: ["Stanley", "Foreman Spike", "Wario"], category: "Video Games: Classics", difficulty: "hard" },
-    { text: "The North American video game crash that wiped out most console makers began in which year?", correct: "1983", wrong: ["1977", "1980", "1986"], category: "Video Games: History", difficulty: "hard" },
+    { text: "What is the name of the green dinosaur Mario first rode in Super Mario World?", correct: "Yoshi", wrong: ["Birdo", "Toad", "Bowser Jr."], category: "Video Games: Nintendo", difficulty: "easy", es: { text: "¿Cómo se llama el dinosaurio verde que Mario montó por primera vez en Super Mario World?", correct: "Yoshi", wrong: ["Birdo", "Toad", "Bowser Jr."] } },
+    { text: "Which company created the Sonic the Hedgehog series?", correct: "Sega", wrong: ["Nintendo", "Capcom", "Namco"], category: "Video Games", difficulty: "easy", es: { text: "¿Qué empresa creó la serie Sonic the Hedgehog?", correct: "Sega", wrong: ["Nintendo", "Capcom", "Namco"] } },
+    { text: "In Minecraft, which green creature hisses and then explodes next to the player?", correct: "Creeper", wrong: ["Enderman", "Zombie", "Skeleton"], category: "Video Games: Modern", difficulty: "easy", es: { text: "En Minecraft, ¿qué criatura verde sisea y luego explota junto al jugador?", correct: "Creeper", wrong: ["Enderman", "Zombi", "Esqueleto"] } },
+    { text: "What type is Pikachu in the Pokemon games?", correct: "Electric", wrong: ["Fire", "Water", "Psychic"], category: "Video Games: Pokemon", difficulty: "easy", es: { text: "¿De qué tipo es Pikachu en los juegos de Pokémon?", correct: "Eléctrico", wrong: ["Fuego", "Agua", "Psíquico"] } },
+    { text: "Which 1972 Atari arcade game simulated table tennis with two paddles and a bouncing ball?", correct: "Pong", wrong: ["Breakout", "Space Invaders", "Asteroids"], category: "Video Games: Arcade", difficulty: "easy", es: { text: "¿Qué juego arcade de Atari de 1972 simulaba el tenis de mesa con dos paletas y una pelota que rebotaba?", correct: "Pong", wrong: ["Breakout", "Space Invaders", "Asteroids"] } },
+    { text: "Which puzzle game did Soviet engineer Alexey Pajitnov create in 1984?", correct: "Tetris", wrong: ["Columns", "Puyo Puyo", "Dr. Mario"], category: "Video Games: Classics", difficulty: "easy", es: { text: "¿Qué juego de rompecabezas creó el ingeniero soviético Alexey Pajitnov en 1984?", correct: "Tetris", wrong: ["Columns", "Puyo Puyo", "Dr. Mario"] } },
+    { text: "Which handheld console did Nintendo launch in 1989 with a monochrome screen?", correct: "Game Boy", wrong: ["Game Gear", "Atari Lynx", "Neo Geo Pocket"], category: "Video Games: Hardware", difficulty: "easy", es: { text: "¿Qué consola portátil lanzó Nintendo en 1989 con una pantalla monocromática?", correct: "Game Boy", wrong: ["Game Gear", "Atari Lynx", "Neo Geo Pocket"] } },
+    { text: "Which green-tunicked swordsman is the hero of The Legend of Zelda series?", correct: "Link", wrong: ["Zelda", "Ganondorf", "Navi"], category: "Video Games: Nintendo", difficulty: "easy", es: { text: "¿Qué espadachín de túnica verde es el héroe de la serie The Legend of Zelda?", correct: "Link", wrong: ["Zelda", "Ganondorf", "Navi"] } },
+    { text: "Who is the armoured bounty hunter at the centre of the Metroid series?", correct: "Samus Aran", wrong: ["Ridley", "Mother Brain", "Adam Malkovich"], category: "Video Games: Characters", difficulty: "medium", es: { text: "¿Qué personaje acorazado, dedicado a cazar recompensas, protagoniza la serie Metroid?", correct: "Samus Aran", wrong: ["Ridley", "Mother Brain", "Adam Malkovich"] } },
+    { text: "Which 1993 id Software shooter cast the player as a space marine fighting demons on Mars?", correct: "Doom", wrong: ["Quake", "Wolfenstein 3D", "Duke Nukem 3D"], category: "Video Games: PC", difficulty: "medium", es: { text: "¿Qué juego de disparos de id Software de 1993 ponía al jugador en la piel de un marine espacial que luchaba contra demonios en Marte?", correct: "Doom", wrong: ["Quake", "Wolfenstein 3D", "Duke Nukem 3D"] } },
+    { text: "What is the name of the red ghost in Pac-Man?", correct: "Blinky", wrong: ["Inky", "Pinky", "Clyde"], category: "Video Games: Arcade", difficulty: "medium", es: { text: "¿Cómo se llama el fantasma rojo de Pac-Man?", correct: "Blinky", wrong: ["Inky", "Pinky", "Clyde"] } },
+    { text: "Which artificial intelligence oversees the test chambers in the game Portal?", correct: "GLaDOS", wrong: ["SHODAN", "Cortana", "EDI"], category: "Video Games: Modern", difficulty: "medium", es: { text: "¿Qué inteligencia artificial supervisa las cámaras de pruebas en el juego Portal?", correct: "GLaDOS", wrong: ["SHODAN", "Cortana", "EDI"] } },
+    { text: "The Grand Theft Auto city of Los Santos is modelled on which real American city?", correct: "Los Angeles", wrong: ["Miami", "Las Vegas", "Chicago"], category: "Video Games: Modern", difficulty: "medium", es: { text: "¿En qué ciudad real de Estados Unidos se basa Los Santos, de Grand Theft Auto?", correct: "Los Ángeles", wrong: ["Miami", "Las Vegas", "Chicago"] } },
+    { text: "Which Street Fighter II fighter attacks with the Sonic Boom?", correct: "Guile", wrong: ["Ryu", "Blanka", "Zangief"], category: "Video Games: Fighting", difficulty: "medium", es: { text: "¿Qué luchador de Street Fighter II ataca con el Sonic Boom?", correct: "Guile", wrong: ["Ryu", "Blanka", "Zangief"] } },
+    { text: "The Witcher 3: Wild Hunt was developed by a studio based in which country?", correct: "Poland", wrong: ["Czech Republic", "Germany", "Sweden"], category: "Video Games: Modern", difficulty: "medium", es: { text: "¿En qué país tiene su sede el estudio que desarrolló The Witcher 3: Wild Hunt?", correct: "Polonia", wrong: ["República Checa", "Alemania", "Suecia"] } },
+    { text: "Who composed the music for the 1985 game Super Mario Bros.?", correct: "Koji Kondo", wrong: ["Nobuo Uematsu", "Yuzo Koshiro", "Yasunori Mitsuda"], category: "Video Games: Music", difficulty: "medium", es: { text: "¿Quién compuso la música del juego Super Mario Bros. de 1985?", correct: "Koji Kondo", wrong: ["Nobuo Uematsu", "Yuzo Koshiro", "Yasunori Mitsuda"] } },
+    { text: "In which year did Sony first release the original PlayStation in Japan?", correct: "1994", wrong: ["1992", "1996", "1998"], category: "Video Games: Hardware", difficulty: "medium", es: { text: "¿En qué año lanzó Sony la PlayStation original en Japón?", correct: "1994", wrong: ["1992", "1996", "1998"] } },
+    { text: "Who created the Metal Gear series?", correct: "Hideo Kojima", wrong: ["Shigeru Miyamoto", "Yu Suzuki", "Keiji Inafune"], category: "Video Games: Creators", difficulty: "medium", es: { text: "¿Quién creó la serie Metal Gear?", correct: "Hideo Kojima", wrong: ["Shigeru Miyamoto", "Yu Suzuki", "Keiji Inafune"] } },
+    { text: "Which Japanese company developed the 1978 arcade game Space Invaders?", correct: "Taito", wrong: ["Namco", "Konami", "Sega"], category: "Video Games: Arcade", difficulty: "hard", es: { text: "¿Qué empresa japonesa desarrolló el juego arcade Space Invaders de 1978?", correct: "Taito", wrong: ["Namco", "Konami", "Sega"] } },
+    { text: "Which 1972 machine was the first home video game console sold to consumers?", correct: "Magnavox Odyssey", wrong: ["Atari 2600", "Fairchild Channel F", "Coleco Telstar"], category: "Video Games: History", difficulty: "hard", es: { text: "¿Qué máquina de 1972 fue la primera consola doméstica de videojuegos que se vendió al público?", correct: "Magnavox Odyssey", wrong: ["Atari 2600", "Fairchild Channel F", "Coleco Telstar"] } },
+    { text: "Nintendo was founded in 1889 to manufacture what product?", correct: "Playing cards", wrong: ["Bicycles", "Vacuum cleaners", "Toy trains"], category: "Video Games: History", difficulty: "hard", es: { text: "¿Qué producto fabricaba Nintendo cuando se fundó en 1889?", correct: "Naipes", wrong: ["Bicicletas", "Aspiradoras", "Trenes de juguete"] } },
+    { text: "Who founded the underwater city of Rapture in BioShock?", correct: "Andrew Ryan", wrong: ["Frank Fontaine", "Sander Cohen", "Booker DeWitt"], category: "Video Games: Modern", difficulty: "hard", es: { text: "¿Quién fundó Rapture, la ciudad submarina de BioShock?", correct: "Andrew Ryan", wrong: ["Frank Fontaine", "Sander Cohen", "Booker DeWitt"] } },
+    { text: "What name was Mario given in the original 1981 Donkey Kong arcade game?", correct: "Jumpman", wrong: ["Stanley", "Foreman Spike", "Wario"], category: "Video Games: Classics", difficulty: "hard", es: { text: "¿Qué nombre recibió Mario en el arcade original de Donkey Kong de 1981?", correct: "Jumpman", wrong: ["Stanley", "Foreman Spike", "Wario"] } },
+    { text: "The North American video game crash that wiped out most console makers began in which year?", correct: "1983", wrong: ["1977", "1980", "1986"], category: "Video Games: History", difficulty: "hard", es: { text: "¿En qué año comenzó la crisis del videojuego en Norteamérica que arruinó a casi todos los fabricantes de consolas?", correct: "1983", wrong: ["1977", "1980", "1986"] } },
   ],
   history: [
     { text: "In what year did the Berlin Wall fall?", correct: "1989", wrong: ["1979", "1985", "1991"], category: "History: Modern", difficulty: "easy" },
