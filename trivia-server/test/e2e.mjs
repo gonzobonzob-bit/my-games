@@ -90,6 +90,14 @@ async function boot(tab, name) {
   await tab.cmd('Page.addScriptToEvaluateOnNewDocument', { source: RECORDER });
   await tab.cmd('Page.navigate', { url: PAGE });
   await sleep(900);
+    // Pin the language. localStorage persists in the shared Chrome profile, so
+    // a previous run that chose Spanish would otherwise silently make this one
+    // a Spanish game — which then gets correctly REFUSED on a genre with no
+    // Spanish, and looks like the game is broken. Same class of bug as reusing
+    // room codes: shared persistent state leaking between runs.
+    await tab.ev("try{localStorage.setItem('ls:lang','en')}catch(e){} return true;");
+    await tab.cmd('Page.reload');
+    await sleep(900);
   await tab.ev(`
     document.getElementById('nameInput').value = ${JSON.stringify(name)};
     document.getElementById('codeInput').value = ${JSON.stringify(ROOM)};

@@ -65,6 +65,13 @@ try {
   await A.cmd('Emulation.setDeviceMetricsOverride', { width: 1366, height: 768, deviceScaleFactor: 1, mobile: false });
   await A.cmd('Page.navigate', { url: PAGE });
   await sleep(1400);
+  // Pin the language. localStorage persists in the shared Chrome profile, so a
+  // previous run that chose Spanish would otherwise make this a Spanish game,
+  // which is then correctly REFUSED on Mixed (no Spanish questions) and looks
+  // like the game is broken. Same class of bug as reusing room codes.
+  await A.ev("try{localStorage.setItem('ls:lang','en')}catch(e){} return true;");
+  await A.cmd('Page.reload');
+  await sleep(1000);
   await A.ev(`
     document.getElementById('nameInput').value = 'Solo';
     document.getElementById('codeInput').value = ${JSON.stringify(ROOM)};

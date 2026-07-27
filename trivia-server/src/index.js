@@ -422,6 +422,7 @@ export class Room {
     if (bilingual && !langsFor(snap.genre).includes('es')) {
       return this.send(ws, {
         type: 'error',
+        code: 'noLang', genre: GENRES[snap.genre].label,
         message: GENRES[snap.genre].label + ' has no Spanish questions yet. ' +
                  'Pick another genre, or switch everyone to English.',
       });
@@ -442,6 +443,7 @@ export class Room {
       await this.save();
       return this.send(ws, {
         type: 'error',
+        code: 'noQuestions', genre: GENRES[snap.genre].label, count: QUESTION_COUNT,
         message: 'Could not find ' + QUESTION_COUNT + ' ' + GENRES[snap.genre].label +
                  ' questions right now. Try another genre, or Mixed.',
       });
@@ -471,12 +473,14 @@ export class Room {
       // answer" here would be a lie.
       this.broadcast({
         type: 'notice',
+        code: 'bilingual', genre: GENRES[snap.genre].label,
         message: 'Bilingual set — ' + GENRES[snap.genre].label +
                  '. Everyone can read these in their own language.',
       });
     } else if (loaded.offline) {
       this.broadcast({
         type: 'notice',
+        code: 'offline', genre: GENRES[snap.genre].label,
         message: 'Offline pack — ' + GENRES[snap.genre].label +
                  '. Open Trivia DB did not answer, so these are from the built-in set.',
       });

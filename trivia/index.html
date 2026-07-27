@@ -199,6 +199,8 @@ body[data-screen="landing"] .hud{ display:none; }
 }
 .chip-btn:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
 .chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
+/* Fixed width so switching EN/ES does not shuffle the header controls. */
+#langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
 .icon{ width:14px; height:14px; display:block; }
 .netdot{ width:8px; height:8px; border-radius:var(--r-pill); background:var(--mint); flex:0 0 auto; }
 .netdot[data-net="down"]{ background:var(--amber); animation:pillPulse 1s ease-in-out infinite; }
@@ -925,6 +927,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="soundOff" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
       <span class="sr" id="soundLabel">Sound off</span>
     </button>
+    <button type="button" class="chip-btn" id="langBtn" title="Language / Idioma">
+      <span id="langLabel">EN</span>
+    </button>
     <span class="netdot" id="netdot" data-net="up" title="Connection"></span>
   </div>
 </header>
@@ -1094,6 +1099,92 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   var ROOM_RE = /^[A-Z0-9]{4,6}$/;
 
+  /* ==================================================================
+     Language.
+
+     Per player, not per room: two people at the same table can read
+     different languages. It is only ever a rendering choice — the server
+     sends every language in the same slot order, so switching mid-question
+     re-renders the board without touching the game.
+
+     Only strings a PLAYER sees live here. Server messages arrive already
+     worded and are shown as sent; translating them on the client would mean
+     keeping two copies of the same sentence in sync across a network
+     boundary, which is how they drift apart.
+     ================================================================== */
+  var STRINGS = {
+    en: {
+      yourName: 'Your name', roomCode: 'Room code', joinRoom: 'Join room',
+      createRoom: 'Create a room', copyInvite: 'Copy the invite link',
+      genre: 'Genre', difficulty: 'Difficulty', any: 'Any',
+      easy: 'Easy', medium: 'Medium', hard: 'Hard',
+      startGame: 'Start game', startSolo: 'Start solo game', starting: 'Starting…',
+      waitingHost: 'Waiting for host', needMore: 'Need # more players',
+      needMore1: 'Need 1 more player',
+      winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
+      nextQuestion: 'Next question', scoreboard: 'Scoreboard',
+      roundOf: 'Round # of #', pickOne: 'Pick one', pickOneKeys: 'Pick one — keys 1-4 work too',
+      answerLocked: 'Answer locked', youGotIt: 'You got it', notThisTime: 'Not this time',
+      noAnswer: 'No answer this round', fastest: 'Fastest', you: 'You',
+      host: 'Host', away: 'Away', sound: 'Sound', general: 'General knowledge',
+      lede: 'Live trivia for one to eight people. Ten questions, twenty seconds each — and a server that flatly refuses to tell your browser the answer until the clock is done.',
+      inviteNote: 'A room is just a link. Share it and people land straight in.',
+      noSpanish: 'No Spanish questions yet',
+      m_bilingual: 'Bilingual set — #. Everyone can read these in their own language.',
+      m_offline: 'Offline pack — #. Open Trivia DB did not answer, so these are from the built-in set.',
+      m_noLang: '# has no Spanish questions yet. Pick another genre, or switch everyone to English.',
+      m_noQuestions: 'Could not find enough # questions right now. Try another genre, or Mixed.'
+    },
+    es: {
+      yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
+      createRoom: 'Crear una sala', copyInvite: 'Copiar el enlace',
+      genre: 'Género', difficulty: 'Dificultad', any: 'Cualquiera',
+      easy: 'Fácil', medium: 'Media', hard: 'Difícil',
+      startGame: 'Empezar', startSolo: 'Jugar en solitario', starting: 'Empezando…',
+      waitingHost: 'Esperando al anfitrión', needMore: 'Faltan # jugadores',
+      needMore1: 'Falta 1 jugador',
+      winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
+      nextQuestion: 'Siguiente pregunta', scoreboard: 'Marcador',
+      roundOf: 'Ronda # de #', pickOne: 'Elige una', pickOneKeys: 'Elige una — las teclas 1-4 también sirven',
+      answerLocked: 'Respuesta enviada', youGotIt: 'Correcto', notThisTime: 'Esta vez no',
+      noAnswer: 'Sin respuesta', fastest: 'La más rápida', you: 'Tú',
+      host: 'Anfitrión', away: 'Ausente', sound: 'Sonido', general: 'Cultura general',
+      lede: 'Trivia en directo para una a ocho personas. Diez preguntas, veinte segundos cada una — y un servidor que se niega en redondo a decirle la respuesta a tu navegador hasta que el reloj termine.',
+      inviteNote: 'Una sala es solo un enlace. Compártelo y entran directamente.',
+      noSpanish: 'Aún sin preguntas en español',
+      m_bilingual: 'Set bilingüe — #. Cada quien puede leerlas en su idioma.',
+      m_offline: 'Set sin conexión — #. Open Trivia DB no respondió, así que estas vienen del set incluido.',
+      m_noLang: '# aún no tiene preguntas en español. Elige otro género, o que todos jueguen en inglés.',
+      m_noQuestions: 'No se encontraron suficientes preguntas de # ahora mismo. Prueba otro género, o Mixto.'
+    }
+  };
+
+  var LANGS = ['en', 'es'];
+  var lang = 'en';
+  try {
+    var savedLang = localStorage.getItem('ls:lang');
+    if (savedLang && LANGS.indexOf(savedLang) >= 0) lang = savedLang;
+    else if ((navigator.language || '').slice(0, 2) === 'es') lang = 'es';
+  } catch (e) {}
+
+  /* The server words its own messages in English and also sends a code. When
+     we recognise the code we say it in the reader's language; otherwise we show
+     what the server sent, which is always something sensible. That way a new
+     server message is never invisible — it is just untranslated until someone
+     adds a wording. */
+  function serverText(msg) {
+    var raw = String(msg.message || '');
+    if (!msg.code) return raw;
+    var pattern = STRINGS[lang] && STRINGS[lang]['m_' + msg.code];
+    if (!pattern) return raw;
+    return pattern.replace('#', msg.genre || msg.count || '');
+  }
+
+  function T(key) {
+    var table = STRINGS[lang] || STRINGS.en;
+    return table[key] != null ? table[key] : (STRINGS.en[key] || key);
+  }
+
   /* ---------- tiny helpers ---------- */
   function $(id) { return document.getElementById(id); }
   function mk(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
@@ -1196,6 +1287,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elToasts = $('toasts'), elDwell = $('dwell'),
       elClock = $('clock'), elRing = $('ring'), elArc = $('arc'), elDigits = $('digits'),
       elCatChip = $('catChip'), elCatCap = $('catCap'), elCatText = $('catText'), elCatDiff = $('catDiff'),
+      elLangBtn = $('langBtn'), elLangLabel = $('langLabel'),
       elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
       elDiffSlot = $('diffSlot'), elDiffVal = $('diffVal'),
       elQuestion = $('questionText'), elQRule = $('qRule'),
@@ -1363,6 +1455,47 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elSoundLabel.textContent = audio.on ? 'Sound on' : 'Sound off';
   }
   paintSound();
+  paintLang();
+  function paintLang() {
+    if (elLangLabel) elLangLabel.textContent = lang.toUpperCase();
+    if (elLangBtn) {
+      elLangBtn.setAttribute('aria-label',
+        lang === 'es' ? 'Idioma: español. Cambiar a inglés.' : 'Language: English. Switch to Spanish.');
+    }
+    document.documentElement.setAttribute('lang', lang);
+    paintStatic();
+  }
+
+  /* Static chrome only — anything driven by game state is repainted by its own
+     renderer on the next tick. */
+  function paintStatic() {
+    var set = function (id, key) { var e = $(id); if (e) e.textContent = T(key); };
+    set('joinBtn', 'joinRoom');
+    set('createBtn', 'createRoom');
+    set('copyBtn', 'copyInvite');
+    var lede = document.querySelector('.lede'); if (lede) lede.textContent = T('lede');
+    var note = $('joinNote'); if (note) note.textContent = T('inviteNote');
+    var labels = document.querySelectorAll('.field-label');
+    if (labels[0]) labels[0].textContent = T('yourName');
+    if (labels[1]) labels[1].textContent = T('roomCode');
+    var slotKs = document.querySelectorAll('.slot-k');
+    if (slotKs[0]) slotKs[0].textContent = T('genre');
+    if (slotKs[1]) slotKs[1].textContent = T('difficulty');
+    if (curScreen === 'lobby') renderLobby();
+  }
+
+  on(elLangBtn, 'click', function () {
+    lang = cycle(LANGS, lang, 1);
+    try { localStorage.setItem('ls:lang', lang); } catch (e) {}
+    paintLang();
+    // Tell the server, so it knows whether this room needs bilingual questions.
+    send({ type: 'lang', lang: lang });
+    // Re-render whatever is on screen right now. Switching language mid-question
+    // is legal precisely because every language is already on the wire.
+    if (state.question && curScreen === 'play') renderQuestion(state.question);
+    if (curScreen === 'lobby') paintCallSheet();
+  });
+
   on(elSoundBtn, 'click', function () {
     audio.on = !audio.on;
     try { localStorage.setItem('ls:sound', audio.on ? '1' : '0'); } catch (e) {}
@@ -1859,7 +1992,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   function paintCallSheet() {
     if (!elCallSheet) return;
     var g = genreOf(state.settings.genre);
-    elGenreVal.textContent = g.label;
+    // Say up front when the current genre cannot be played in this reader's
+    // language, rather than letting them find out when the game refuses to
+    // start. Same principle as the genre promise.
+    var entry = null;
+    for (var ci = 0; ci < state.catalog.length; ci++) {
+      if (state.catalog[ci].slug === state.settings.genre) { entry = state.catalog[ci]; break; }
+    }
+    var missing = !!(entry && entry.langs && entry.langs.indexOf(lang) < 0);
+    elGenreVal.textContent = g.label + (missing ? ' \u00b7 ' + T('noSpanish') : '');
     elGenreSlot.style.setProperty('--accent', g.accent);
     var d = state.settings.difficulty;
     elDiffVal.textContent = d === 'any' ? 'Any' : titleCase(d);
@@ -1973,6 +2114,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function pickKey() { return 'ls:pick:' + state.code + ':' + (state.question ? state.question.index : -1); }
 
+  /* The question as THIS player should read it. The server sends every
+     language in the same slot order, so picking a language is picking a view
+     of the same board — the indices, and therefore the answer, do not move.
+     Falls back to the base text whenever a translation is absent, which is
+     what a live OpenTDB question always is. */
+  function localised(q) {
+    if (!q) return q;
+    var tr = q.i18n && q.i18n[lang];
+    if (!tr || !tr.text || !Array.isArray(tr.choices) || tr.choices.length !== q.choices.length) {
+      return q;
+    }
+    return {
+      index: q.index, total: q.total, text: tr.text, choices: tr.choices,
+      endsAt: q.endsAt, category: q.category, difficulty: q.difficulty, i18n: q.i18n
+    };
+  }
+
   function renderQuestion(q) {
     clearBucket('rev'); clearBucket('seq');
     // Only for a question that is genuinely starting. A reconnect replays the
@@ -1986,6 +2144,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // Reset every trace of the last round. correctIndex goes back to null
     // here and stays null until a 'reveal' arrives.
     state.question = q;
+    q = localised(q);
     state.correctIndex = null;
     state.reveal = null;
     state.myChoice = null;
@@ -2007,7 +2166,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elWhoGot.textContent = '';
     elTiles.classList.remove('locked', 'revealing', 'dip');
 
-    setText(elCatText, q.category || 'General knowledge');
+    setText(elCatText, q.category || T('general'));
     setText(elCatDiff, q.difficulty ? String(q.difficulty).toUpperCase() : '');
     elCatCap.style.background = CHOICES[q.index % 4].c;
 
@@ -2699,7 +2858,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (location.protocol === 'https:' && proto === 'ws' && !isLocal) proto = 'wss';
 
     return proto + '://' + host + path + '/room?code=' + encodeURIComponent(code) +
-           '&name=' + encodeURIComponent(name);
+           '&name=' + encodeURIComponent(name) +
+           // Announced on the handshake so the room knows before anyone hits
+           // Start whether it needs a source that has Spanish.
+           '&lang=' + encodeURIComponent(lang);
   }
 
   function connect() {
@@ -2919,7 +3081,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           choices: msg.choices,
           endsAt: Number(msg.endsAt) || Date.now(),
           category: msg.category,
-          difficulty: msg.difficulty
+          difficulty: msg.difficulty,
+          // Every language of this same question, in the same slot order.
+          // This object is rebuilt field by field on purpose — that is what
+          // keeps a stray server field from reaching the renderer — so a new
+          // field has to be added HERE as well as in questionMessage(), or it
+          // is silently dropped and the feature simply does not appear.
+          i18n: msg.i18n
         });
         break;
       }
@@ -2962,13 +3130,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       /* Not an error — the game is starting normally, it just isn't coming
          from the live source. Said once, in the ordinary voice. */
       case 'notice':
-        toast(String(msg.message || ''));
+        toast(serverText(msg));
         break;
 
       case 'error':
         state.starting = false;
         paintCallSheet();
-        toast(String(msg.message || 'Something went wrong.'), true);
+        toast(msg.code ? serverText(msg) : String(msg.message || 'Something went wrong.'), true);
         if (elStartBtn) elStartBtn.disabled = false;
         if (curScreen === 'board') paintBoardActions();
         break;
