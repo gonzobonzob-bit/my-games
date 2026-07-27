@@ -22,9 +22,13 @@
 const ROOM_CODE = /^[A-Z0-9]{4,6}$/;
 
 const MAX_PLAYERS = 8;
-// The brief says 2-8 players. Set this to 1 if you want to smoke-test a full
-// game from a single browser tab.
-const MIN_PLAYERS = 2;
+// One is a legitimate way to play, not just a way to smoke-test. A solo game
+// runs the identical loop: the reveal fires as soon as every CONNECTED player
+// has answered, and with one player that is immediate — no waiting out the
+// clock, which makes solo the fastest version of the game rather than the
+// most tedious. Others can still join a room that started alone; catchUp()
+// brings them in mid-question.
+const MIN_PLAYERS = 1;
 
 const QUESTION_COUNT = 10;
 const QUESTION_MS = 20_000;

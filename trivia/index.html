@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0A0C14">
-<meta name="description" content="Late Signal — live party trivia for 2 to 8 people. Ten questions, twenty seconds each.">
+<meta name="description" content="Late Signal — live party trivia for 1 to 8 people. Ten questions, twenty seconds each.">
 <title>Late Signal — Trivia</title>
 <style>
 /* ==================================================================
@@ -938,7 +938,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <span class="onair" aria-hidden="true"></span>
         <h1 class="wordmark" id="landingTitle">LATE<span>SIGNAL</span></h1>
       </div>
-      <p class="lede">Live trivia for two to eight people. Ten questions, twenty seconds each &mdash; and a server that flatly refuses to tell your browser the answer until the clock is done.</p>
+      <p class="lede">Live trivia for one to eight people. Ten questions, twenty seconds each &mdash; and a server that flatly refuses to tell your browser the answer until the clock is done.</p>
       <form class="card" id="joinForm" autocomplete="off" novalidate>
         <div class="field">
           <label class="field-label" for="nameInput">Your name</label>
@@ -1088,7 +1088,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   var WARM_MS     = 10000;
   var PANIC_MS    = 5000;
   var MAX_PLAYERS = 8;
-  var MIN_PLAYERS = 2;
+  var MIN_PLAYERS = 1;
   var RING_C      = 351.86; // 2 * PI * 56
   var DWELL_MS    = 4000;
 
@@ -1942,12 +1942,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         elStartBtn.textContent = 'Need ' + need + ' more player' + (need === 1 ? '' : 's');
       } else {
         elStartBtn.disabled = false;
-        elStartBtn.textContent = 'Start game';
+        // Playing alone is a real choice, so name it rather than leaving the
+        // host wondering whether the button is going to refuse them.
+        elStartBtn.textContent = connected < 2 ? 'Start solo game' : 'Start game';
       }
     } else {
       elStartBtn.hidden = true;
       elWaitLine.hidden = false;
-      elWaitText.textContent = connected < MIN_PLAYERS ? 'Waiting for players' : 'Waiting for host';
+      elWaitText.textContent = 'Waiting for host';
     }
 
     if (lobbyPainted && arrivals > 0) SFX.join();
