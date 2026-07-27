@@ -1,0 +1,3385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0A0C14">
+<meta name="description" content="Late Signal — live party trivia for 1 to 8 people. Ten questions, twenty seconds each.">
+<title>Late Signal — Trivia</title>
+<style>
+/* ==================================================================
+   LATE SIGNAL — a late-night broadcast studio.
+   House lights down, one warm lamp on you, and the clock is the
+   loudest thing in the room.
+
+   Three rules govern everything below:
+     1. The clock is the only aggressive element.
+     2. Celebration is loud, correction is quiet.
+     3. Pressure is targeted — it stops for you the moment you lock in.
+
+   Single theme, dark only. That is a commitment, not an omission.
+   ================================================================== */
+
+/* --- registered custom property: the stage light is the only thing
+       that carries mood, and it has to be able to transition. Without
+       @property support the hue snaps instead of fading — the colour
+       still changes, which is the part that matters. --- */
+@property --stage-hue {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #161B2E;
+}
+
+:root{
+  /* ground — indigo-biased neutrals, never pure grey, never pure black */
+  --ink-950:#05060B;
+  --ink-900:#0A0C14;
+  --ink-800:#11141F;
+  --ink-700:#1A1E2D;
+  --ink-600:#262B3E;
+  --slate-400:#6B7490;
+  --slate-300:#9AA3BC;
+  --paper-200:#C9CEDE;
+  --paper-100:#E7EAF2;
+  --paper-000:#FFFFFF;
+
+  /* accent — one, and only one. "on air". */
+  --amber:#FFA92E;      --amber-rgb:255,169,46;
+
+  /* signals — structural, never decorative */
+  --mint:#2BE39A;       --mint-rgb:43,227,154;
+  --mint-hi:#3BF0A8;
+  --mint-lo:#12C982;
+  --crimson:#FF3B5C;    --crimson-rgb:255,59,92;
+
+  /* choice hues — spread wide, kept off the signal hues */
+  --c-cobalt:#3D6BFF;   --c-cobalt-rgb:61,107,255;
+  --c-violet:#9A55FF;   --c-violet-rgb:154,85,255;
+  --c-cyan:#10B8C8;     --c-cyan-rgb:16,184,200;
+  --c-amber:#FFA92E;    --c-amber-rgb:255,169,46;
+
+  --hair:rgba(255,255,255,.10);
+  --hair-strong:rgba(255,255,255,.16);
+
+  --stage-hue:#161B2E;
+
+  --font-ui: system-ui, -apple-system, "Segoe UI Variable Display", "Segoe UI",
+             Ubuntu, Cantarell, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono",
+              "DejaVu Sans Mono", Menlo, Consolas, monospace;
+
+  --fs-display: clamp(44px, 7.2vw, 104px);
+  --fs-timer:   clamp(34px, 5.2vw, 52px);
+  --fs-question:clamp(28px, 3.6vw, 56px);
+  --fs-score:   clamp(24px, 2.6vw, 40px);
+  --fs-answer:  clamp(19px, 1.9vw, 30px);
+  --fs-name:    clamp(17px, 1.4vw, 21px);
+  --fs-body:    clamp(16px, 1.15vw, 18px);
+  --fs-label:   13px;
+  --fs-micro:   11px;
+
+  --sp-1:4px;  --sp-2:8px;  --sp-3:12px; --sp-4:16px; --sp-5:24px;
+  --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:96px; --sp-10:128px;
+
+  --r-sm:8px; --r-md:14px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+
+  --e1: 0 1px 2px rgba(3,5,12,.50);
+  --e2: 0 2px 4px rgba(3,5,12,.45), 0 8px 20px rgba(3,5,12,.40);
+  --e3: 0 4px 8px rgba(3,5,12,.45), 0 18px 44px rgba(3,5,12,.50);
+
+  --ease-out-soft: cubic-bezier(.22,.61,.36,1);
+  --ease-out-expo: cubic-bezier(.16,1,.30,1);
+  --ease-in-fast:  cubic-bezier(.55,0,1,.45);
+  --ease-snap:     cubic-bezier(.34,1.56,.64,1);
+  --ease-elastic:  cubic-bezier(.20,1.40,.35,1);
+
+  --d-micro:120ms; --d-state:180ms; --d-tile:260ms;
+  --d-panel:420ms; --d-hero:700ms;  --d-count:1200ms;
+
+  --pad-stage: clamp(20px, 3vw, 48px);
+
+  transition: --stage-hue 600ms var(--ease-out-soft);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+/* `.btn` and `.waiting` set display, which beats the UA sheet's [hidden]
+   rule at equal specificity — without this, hiding the host-only Start
+   button does nothing at all and every player sees it. */
+[hidden]{ display:none !important; }
+html{ background:var(--ink-950); overflow-x:hidden; }
+
+body{
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  overflow-x:hidden;
+  background:transparent;
+  color:var(--paper-100);
+  font-family:var(--font-ui);
+  font-size:var(--fs-body);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  text-rendering:optimizeLegibility;
+}
+
+/* ---------- the stage ---------- */
+.stage{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(120% 100% at 50% 38%, var(--stage-hue) 0%, #0A0C14 58%, #05060B 100%);
+}
+/* Noise, painted once, never animated. It is what stops the big gradient
+   banding into stripes on integrated graphics. */
+.stage::after{
+  content:''; position:absolute; inset:0; opacity:.035; background-repeat:repeat;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* full-screen effect layers — opacity only, one at a time */
+.fx{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:0; }
+#roomPulse{ background:radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(var(--crimson-rgb),.22) 100%); }
+#flash{ background:#FFFFFF; }
+#roomPulse.beat{ animation:roomPulse 1000ms ease-in-out 1; }
+#flash.pop{ animation:flashPop 220ms ease-out 1; }
+@keyframes roomPulse{ 0%{opacity:0} 42%{opacity:1} 100%{opacity:0} }
+@keyframes flashPop{ 0%{opacity:0} 40%{opacity:.14} 100%{opacity:0} }
+
+#confetti{ position:fixed; inset:0; z-index:70; pointer-events:none; overflow:hidden; }
+
+/* ---------- typography helpers ---------- */
+.micro{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+        line-height:1.2; text-transform:uppercase; color:var(--slate-300); }
+.label{ font-size:var(--fs-label); font-weight:700; letter-spacing:.14em;
+        line-height:1.2; text-transform:uppercase; color:var(--slate-300); }
+.num{ font-family:var(--font-num); font-variant-numeric:tabular-nums lining-nums; }
+.amber{ color:var(--amber); }
+
+/* ---------- focus: amber, always, everywhere ---------- */
+:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; border-radius:inherit; }
+
+/* ---------- HUD ---------- */
+.hud{
+  position:relative; z-index:20;
+  display:flex; align-items:center; gap:var(--sp-4);
+  padding: max(var(--sp-3), env(safe-area-inset-top)) max(var(--sp-4), env(safe-area-inset-right))
+           var(--sp-3) max(var(--sp-4), env(safe-area-inset-left));
+  min-height:56px;
+}
+body[data-screen="landing"] .hud{ display:none; }
+
+.brand{ display:flex; align-items:center; gap:var(--sp-2); flex:0 0 auto; }
+.onair{
+  width:8px; height:8px; border-radius:var(--r-pill); background:var(--amber);
+  box-shadow:0 0 0 3px rgba(var(--amber-rgb),.14);
+  animation:onair 2.6s ease-in-out infinite;
+}
+@keyframes onair{ 0%,100%{opacity:.55} 50%{opacity:1} }
+.brand-text{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.22em;
+             text-transform:uppercase; color:var(--slate-300); white-space:nowrap; }
+.brand-text b{ color:var(--paper-100); font-weight:700; }
+
+.hud-mid{ flex:1 1 auto; display:flex; justify-content:center; min-width:0; }
+.hud-right{ flex:0 0 auto; display:flex; align-items:center; gap:var(--sp-2); }
+
+.pills{ display:flex; gap:5px; align-items:center; }
+.pill{ width:16px; height:4px; border-radius:var(--r-pill); background:rgba(255,255,255,.14); flex:0 0 auto; }
+.pill.done{ background:var(--amber); }
+.pill.now{ background:var(--amber); animation:pillPulse 1.4s ease-in-out infinite; }
+@keyframes pillPulse{ 0%,100%{opacity:.55} 50%{opacity:1} }
+
+.chip-btn{
+  font:inherit; font-size:var(--fs-micro); font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--slate-300);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-pill);
+  padding:7px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  transition:color var(--d-micro) var(--ease-out-soft), border-color var(--d-micro) var(--ease-out-soft);
+}
+.chip-btn:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
+.chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
+/* Fixed width so switching EN/ES does not shuffle the header controls. */
+#langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
+.icon{ width:14px; height:14px; display:block; }
+.netdot{ width:8px; height:8px; border-radius:var(--r-pill); background:var(--mint); flex:0 0 auto; }
+.netdot[data-net="down"]{ background:var(--amber); animation:pillPulse 1s ease-in-out infinite; }
+.netdot[data-net="dead"]{ background:var(--crimson); }
+
+/* --- The studio.
+   The game is called Late Signal and it was rendering like a clean web
+   page. This is the broadcast: fine scanlines, a vignette that closes the
+   corners down so the stage light reads as a light rather than a colour,
+   and a wide floor glow that gives the room somewhere to stand — the
+   composition is top-heavy and the lower third was dead space.
+
+   Static on purpose. It never animates, never transitions and is never
+   promoted, so it costs one composited layer and nothing per frame. No
+   blur and no backdrop-filter anywhere in here: the target machine has
+   Haswell integrated graphics and those are precisely what it cannot pay
+   for. Everything below is a gradient, which it can.
+
+   pointer-events:none is load-bearing — without it this sits on top of
+   every answer tile in the game and swallows the click. --- */
+.studio{
+  position:fixed; inset:0; pointer-events:none; z-index:1;
+  background-image:
+    /* floor glow — the stage hue pooling at the bottom of the room */
+    radial-gradient(150% 44% at 50% 104%,
+      rgba(var(--floor-rgb,120,140,200),.10) 0%, rgba(0,0,0,0) 70%),
+    /* vignette — closes the corners so the light has an edge */
+    radial-gradient(115% 88% at 50% 40%,
+      rgba(0,0,0,0) 42%, rgba(3,5,12,.34) 78%, rgba(3,5,12,.62) 100%),
+    /* scanlines — 1 in 3, low alpha. Any stronger and it stops reading as
+       texture and starts reading as a broken screen. */
+    repeating-linear-gradient(0deg,
+      rgba(0,0,0,.13) 0px, rgba(0,0,0,.13) 1px,
+      rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px);
+}
+/* Two cores or fewer: the scanline layer is the one thing here with a real
+   per-pixel cost, so drop it and keep the light. Mirrors the existing
+   LOW_POWER guard on confetti rather than inventing a second policy. */
+html.low-power .studio{
+  background-image:
+    radial-gradient(115% 88% at 50% 40%,
+      rgba(0,0,0,0) 42%, rgba(3,5,12,.34) 78%, rgba(3,5,12,.62) 100%);
+}
+
+/* ---------- screens ---------- */
+.stagewrap{ position:relative; z-index:10; flex:1 1 auto; display:flex; }
+.screen{
+  display:none; flex:1 1 auto; flex-direction:column; align-items:center;
+  width:100%; position:relative; z-index:2;
+  padding: var(--sp-4) max(var(--pad-stage), env(safe-area-inset-right))
+           max(var(--sp-7), calc(env(safe-area-inset-bottom) + var(--sp-6)))
+           max(var(--pad-stage), env(safe-area-inset-left));
+}
+.screen.active{ display:flex; }
+.screen.leaving{ animation:scrOut 220ms var(--ease-in-fast) forwards; will-change:transform,opacity; }
+.screen.entering{ animation:scrIn 380ms var(--ease-out-expo) both; will-change:transform,opacity; }
+@keyframes scrOut{ from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(.98)} }
+@keyframes scrIn{ from{opacity:0;transform:scale(1.02)} to{opacity:1;transform:scale(1)} }
+
+/* ================================================================
+   5.1 LANDING + LOBBY — house lights up, doors open
+   ================================================================ */
+.landing{ margin:auto; width:100%; max-width:560px; display:flex; flex-direction:column;
+          align-items:center; gap:var(--sp-5); text-align:center; padding:var(--sp-6) 0; }
+.brand-big{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-3); }
+.brand-big .onair{ width:10px; height:10px; }
+.wordmark{
+  margin:0; font-size:clamp(40px,9vw,76px); font-weight:700; letter-spacing:-.03em;
+  line-height:.96; color:var(--paper-100); display:flex; gap:.22em; align-items:baseline;
+}
+.wordmark span{ color:var(--amber); }
+.lede{ margin:0; color:var(--slate-300); max-width:40ch; font-size:var(--fs-body); }
+
+.card{
+  width:100%; background:var(--ink-800); border:1px solid var(--hair);
+  border-radius:var(--r-xl); box-shadow:var(--e2);
+  padding:var(--sp-6); display:flex; flex-direction:column; gap:var(--sp-4);
+}
+.field{ display:flex; flex-direction:column; gap:var(--sp-2); text-align:left; }
+.field-label{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+              text-transform:uppercase; color:var(--slate-300); }
+input[type="text"]{
+  font:inherit; font-size:var(--fs-name); font-weight:600; color:var(--paper-100);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:14px 16px; width:100%; min-height:52px;
+  transition:border-color var(--d-state) var(--ease-out-soft), background var(--d-state) var(--ease-out-soft);
+}
+input[type="text"]::placeholder{ color:var(--slate-400); font-weight:400; }
+input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:var(--ink-600); }
+#codeInput{ font-family:var(--font-num); letter-spacing:.24em; text-transform:uppercase; }
+
+.join-actions{ display:flex; flex-direction:column; gap:var(--sp-3); margin-top:var(--sp-1); }
+.field-note{ margin:0; font-size:14px; color:var(--slate-400); text-align:left; }
+.field-note.err{ color:var(--crimson); }
+
+.btn{
+  font:inherit; font-size:17px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  border-radius:var(--r-pill); padding:16px 32px; min-height:54px; border:1px solid transparent;
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  transition:transform var(--d-micro) var(--ease-out-soft), background var(--d-state) var(--ease-out-soft),
+             color var(--d-state) var(--ease-out-soft), border-color var(--d-state) var(--ease-out-soft);
+  touch-action:manipulation;
+}
+.btn:active{ transform:scale(.985); }
+.btn-primary{ background:var(--amber); color:var(--ink-950);
+              box-shadow:var(--e2), 0 10px 30px rgba(var(--amber-rgb),.26); }
+.btn-primary:hover{ background:#FFB84E; }
+.btn-primary[disabled]{ background:var(--ink-700); color:var(--slate-300); box-shadow:none;
+                        cursor:not-allowed; transform:none; }
+.btn-ghost{ background:transparent; color:var(--slate-300); border-color:var(--hair); }
+.btn-ghost:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
+
+/* --- lobby --- */
+.lobby{ margin:auto; width:100%; max-width:960px; display:flex; flex-direction:column;
+        align-items:center; gap:var(--sp-6); }
+
+/* --- The call sheet.
+   What is on tonight, stated once. The lobby is the calm screen in this
+   game and it stays calm: two flat slots, no dialog, no dropdown, no
+   settings icon. Tap to cycle — a native <select> opens an OS sheet that
+   covers the room code someone is reading out loud, which is the one
+   thing the lobby cannot afford to hide.
+
+   For everyone who is not the host these are not controls at all; they
+   are a readout, and they say so by losing the border and the pointer
+   rather than by greying into unreadability. --- */
+.callsheet{ display:flex; gap:var(--sp-3); flex-wrap:wrap; justify-content:center; }
+.slot{
+  font:inherit; text-align:left; cursor:pointer;
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:10px 16px; min-width:150px; display:flex; flex-direction:column; gap:3px;
+  transition:border-color var(--d-micro) var(--ease-out-soft),
+             background var(--d-micro) var(--ease-out-soft);
+}
+.slot:hover{ border-color:var(--hair-strong); background:var(--ink-700); }
+.slot:focus-visible{ outline:2px solid var(--accent, var(--slate-300)); outline-offset:2px; }
+.slot-k{
+  font-size:var(--fs-micro); font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--slate-400);
+}
+.slot-v{
+  font-size:var(--fs-name); font-weight:650; color:var(--accent, var(--paper-100));
+  transition:color var(--d-micro) var(--ease-out-soft);
+}
+/* A readout, not a disabled control. */
+.callsheet.readonly .slot{
+  cursor:default; background:transparent; border-color:transparent; padding-left:0;
+}
+.callsheet.readonly .slot:hover{ background:transparent; border-color:transparent; }
+/* While the game is being fetched, the choice is already frozen server-side. */
+.callsheet.busy .slot{ opacity:.5; pointer-events:none; }
+@media (max-width:420px){
+  .slot{ min-width:0; flex:1 1 46%; padding:8px 12px; }
+}
+.code-block{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-3); }
+.code-tiles{ display:flex; gap:var(--sp-2); }
+.code-ch{
+  font-family:var(--font-num); font-variant-numeric:tabular-nums lining-nums;
+  font-size:clamp(34px,7vw,72px); font-weight:700; letter-spacing:.08em;
+  color:var(--paper-100); background:var(--ink-800); border:1px solid var(--hair);
+  border-radius:var(--r-md); padding:var(--sp-4); line-height:1;
+  min-width:1.35em; text-align:center;
+  animation:breathe 6s ease-in-out infinite;
+}
+@keyframes breathe{ 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.14)} }
+
+.players{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:var(--sp-4);
+  width:100%; max-width:900px;
+}
+/* Filled seats and empty slots share a height so a wrapped row of slots
+   reads as "three seats still open", not as a broken layout. */
+.seat{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-2);
+       width:96px; min-height:100px; }
+.seat.filled{ animation:seatIn 320ms var(--ease-snap) both; }
+@keyframes seatIn{ from{opacity:0;transform:translateY(10px) scale(.90)} to{opacity:1;transform:none} }
+.avatar{
+  position:relative; width:56px; height:56px; border-radius:var(--r-pill);
+  display:grid; place-items:center; color:var(--ink-950);
+  font-size:var(--fs-name); font-weight:700; line-height:1;
+  background:hsl(var(--ph,220),62%,54%); box-shadow:0 0 0 2px var(--ink-950);
+  flex:0 0 auto;
+}
+.avatar.host::after{
+  content:''; position:absolute; right:-2px; bottom:-2px; width:16px; height:16px;
+  border-radius:var(--r-pill); background:var(--amber); box-shadow:0 0 0 2px var(--ink-950);
+}
+.avatar.off{ filter:grayscale(.8) brightness(.6); }
+.ping{
+  position:absolute; inset:0; border-radius:var(--r-pill);
+  box-shadow:0 0 0 2px hsl(var(--ph,220),62%,54%);
+  animation:ping 520ms var(--ease-out-expo) forwards; pointer-events:none;
+}
+@keyframes ping{ from{opacity:.5;transform:scale(1)} to{opacity:0;transform:scale(1.6)} }
+.seat-name{ font-size:14px; font-weight:600; color:var(--paper-100); max-width:96px;
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+.seat-sub{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+           text-transform:uppercase; color:var(--amber); }
+.slot{
+  width:56px; height:56px; border-radius:var(--r-lg);
+  border:1.5px dashed rgba(255,255,255,.12); opacity:.4;
+  animation:slotPulse 2.4s ease-in-out infinite;
+}
+@keyframes slotPulse{ 0%,100%{opacity:.28} 50%{opacity:.48} }
+
+.waiting{ display:flex; align-items:center; gap:var(--sp-2);
+          font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+          text-transform:uppercase; color:var(--amber); }
+.dots{ display:inline-flex; gap:4px; }
+.dots i{ width:6px; height:6px; border-radius:var(--r-pill); background:currentColor;
+         animation:dotCycle 1.2s ease-in-out infinite; }
+.dots i:nth-child(2){ animation-delay:160ms; }
+.dots i:nth-child(3){ animation-delay:320ms; }
+@keyframes dotCycle{ 0%,100%{opacity:.25} 50%{opacity:1} }
+
+/* ================================================================
+   5.2 QUESTION — on air
+   ================================================================ */
+.play{ margin:0 auto; width:100%; max-width:1120px; display:flex; flex-direction:column;
+       align-items:center; gap:0; }
+
+/* --- the countdown --- */
+.clock{
+  position:relative; width:128px; height:128px; margin-top:var(--sp-2);
+  display:grid; place-items:center; flex:0 0 auto;
+  transition:opacity 260ms var(--ease-out-soft), filter 260ms var(--ease-out-soft);
+}
+.clock-bloom{
+  position:absolute; width:240px; height:240px; border-radius:var(--r-pill); opacity:0;
+  background:radial-gradient(circle, rgba(var(--amber-rgb),.16), transparent 70%);
+  transition:opacity 400ms var(--ease-out-soft), background 280ms var(--ease-out-soft);
+  pointer-events:none;
+}
+.clock.warm .clock-bloom{ opacity:1; }
+.clock.panic .clock-bloom{ opacity:1; background:radial-gradient(circle, rgba(var(--crimson-rgb),.18), transparent 70%); }
+.clock.locked .clock-bloom{ opacity:0; }
+.clock.locked{ opacity:.45; filter:saturate(.35); }
+.clock.gone{ animation:clockGone 180ms var(--ease-in-fast) forwards; }
+@keyframes clockGone{ from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(.86)} }
+
+.ring{ position:relative; width:128px; height:128px; display:grid; place-items:center; }
+.clock.panic:not(.locked) .ring{ animation:heartbeat 1s var(--ease-snap) 1; }
+@keyframes heartbeat{ 0%{transform:scale(1)} 26%{transform:scale(1.045)} 60%{transform:scale(1)} 100%{transform:scale(1)} }
+.ring-svg{ position:absolute; inset:0; width:128px; height:128px; transform:rotate(-90deg); }
+.ring-track{ fill:none; stroke:rgba(255,255,255,.10); stroke-width:8; }
+.ring-arc{
+  fill:none; stroke:var(--paper-100); stroke-width:8; stroke-linecap:round;
+  stroke-dasharray:351.86; stroke-dashoffset:0;
+  transition:stroke 280ms var(--ease-out-soft);
+}
+.clock.warm .ring-arc{ stroke:var(--amber); transition-duration:280ms; }
+.clock.panic .ring-arc{ stroke:var(--crimson); transition-duration:200ms; }
+@keyframes drain{ from{ stroke-dashoffset:var(--from,0); } to{ stroke-dashoffset:var(--to,351.86); } }
+
+.digits{
+  position:relative; display:grid; place-items:center; overflow:hidden;
+  width:96px; height:64px; line-height:1;
+}
+.digit{
+  grid-area:1/1; font-family:var(--font-num); font-variant-numeric:tabular-nums lining-nums;
+  font-size:var(--fs-timer); font-weight:700; letter-spacing:-.02em; color:var(--paper-100);
+  transition:color 280ms var(--ease-out-soft);
+}
+.clock.warm .digit{ color:var(--amber); }
+.clock.panic .digit{ color:var(--crimson); transition-duration:200ms; }
+.digit.in{ animation:digitIn 160ms var(--ease-snap) both; }
+.digit.out{ animation:digitOut 90ms var(--ease-in-fast) forwards; }
+@keyframes digitIn{ from{opacity:0;transform:translateY(18%)} to{opacity:1;transform:none} }
+@keyframes digitOut{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(-14%)} }
+
+.wave{
+  position:absolute; inset:0; border-radius:var(--r-pill);
+  border:2px solid var(--crimson); pointer-events:none;
+  animation:wave 620ms var(--ease-out-expo) forwards;
+}
+@keyframes wave{ from{opacity:.45;transform:scale(1)} to{opacity:0;transform:scale(1.5)} }
+
+/* --- category / question --- */
+.cat{ margin-top:var(--sp-6); display:inline-flex; align-items:center; gap:var(--sp-2);
+      background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-pill);
+      padding:7px 14px 7px 10px; max-width:100%; }
+.cat-cap{ width:3px; height:14px; border-radius:var(--r-pill); background:var(--c-cobalt); flex:0 0 auto; }
+.cat-text{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+           text-transform:uppercase; color:var(--slate-300);
+           overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cat-diff{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+           text-transform:uppercase; color:var(--amber); }
+
+.q-wrap{ margin-top:var(--sp-5); width:100%; display:flex; flex-direction:column;
+         align-items:center; gap:var(--sp-3); }
+.question{
+  margin:0; max-width:24ch; text-align:center;
+  font-size:var(--fs-question); font-weight:700; letter-spacing:-.02em; line-height:1.12;
+  color:var(--paper-100); text-wrap:balance; text-shadow:0 2px 24px rgba(0,0,0,.55);
+  transition:opacity 260ms var(--ease-out-soft), transform 260ms var(--ease-out-soft);
+}
+.q-enter{ animation:qIn 420ms var(--ease-out-expo) both; }
+@keyframes qIn{ from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+.q-rule{ width:min(360px,70%); height:1px; background:var(--amber); opacity:.7;
+         transform-origin:left; transform:scaleX(0); }
+.q-rule.on{ animation:ruleIn 520ms var(--ease-out-expo) forwards; }
+@keyframes ruleIn{ from{transform:scaleX(0)} to{transform:scaleX(1)} }
+
+/* --- tiles --- */
+.tiles{
+  margin-top:var(--sp-7); width:100%;
+  display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4);
+  transition:filter 120ms var(--ease-out-soft);
+}
+.tiles.dip{ filter:saturate(.75); }
+.tile{
+  position:relative; display:flex; align-items:center; gap:var(--sp-4);
+  min-height:96px; padding:20px 24px; text-align:left; cursor:pointer;
+  border-radius:var(--r-lg); border:1px solid var(--hair);
+  background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)), var(--ink-800);
+  box-shadow:var(--e2); color:var(--paper-100); font:inherit;
+  contain:layout style;   /* not `paint` — it would clip the mint glow on reveal */
+  transition:transform 140ms var(--ease-out-soft), opacity 260ms var(--ease-out-soft),
+             filter 260ms var(--ease-out-soft), border-color 140ms var(--ease-out-soft),
+             box-shadow 140ms var(--ease-out-soft), background 220ms var(--ease-out-soft);
+  touch-action:manipulation;
+}
+.tile-enter{ animation:tileIn 260ms var(--ease-out-soft) both; will-change:transform,opacity; }
+@keyframes tileIn{ from{opacity:0;transform:translateY(16px) scale(.985)} to{opacity:1;transform:none} }
+.tiles:not(.locked) .tile:hover{
+  transform:translateY(-2px);
+  border-color:rgba(var(--tcr),.55);
+  box-shadow:var(--e2), 0 0 0 1px rgba(var(--tcr),.45) inset, 0 10px 30px rgba(var(--tcr),.26);
+}
+.tiles:not(.locked) .tile:active{ transform:scale(.985); transition-duration:90ms;
+                                  transition-timing-function:var(--ease-in-fast); }
+.tile:disabled{ cursor:default; }
+
+.badge{
+  position:relative; flex:0 0 auto; width:40px; height:40px; border-radius:var(--r-sm);
+  display:grid; place-items:center; background:rgba(var(--tcr),.18);
+  transition:background 220ms var(--ease-out-soft);
+}
+.badge-letter{ grid-area:1/1; font-family:var(--font-num); font-size:18px; font-weight:700;
+               color:var(--tc); line-height:1;
+               transition:color 220ms var(--ease-out-soft), opacity 110ms var(--ease-in-fast),
+                          transform 110ms var(--ease-in-fast); }
+.badge-check{ grid-area:1/1; width:24px; height:24px; opacity:0; }
+.badge-check path{ fill:none; stroke:var(--ink-950); stroke-width:3; stroke-linecap:round;
+                   stroke-linejoin:round; stroke-dasharray:34; stroke-dashoffset:34; }
+.tile-text{ font-size:var(--fs-answer); font-weight:600; letter-spacing:-.005em; line-height:1.2;
+            max-width:28ch; text-wrap:pretty; hyphens:none; overflow-wrap:anywhere;
+            transition:color 220ms var(--ease-out-soft); }
+
+/* lock-in: the room narrows to your answer */
+.tile.picked{
+  background:var(--tc); border-color:var(--tc); color:var(--tf);
+  transform:scale(1.015); transition-timing-function:var(--ease-snap); transition-duration:220ms;
+  box-shadow:var(--e2), 0 10px 30px rgba(var(--tcr),.30);
+}
+.tile.picked .badge{ background:rgba(0,0,0,.22); }
+.tile.picked .badge-letter{ color:var(--tf); }
+.tile.picked .tile-text{ color:var(--tf); }
+.tiles.locked .tile:not(.picked){ opacity:.55; filter:saturate(.6); transform:scale(.985); }
+
+.shock{
+  position:absolute; inset:-2px; border-radius:var(--r-lg); pointer-events:none;
+  border:2px solid var(--tc); animation:wave 620ms var(--ease-out-expo) forwards;
+}
+.shock.mint{ border-color:var(--mint); animation:waveBig 640ms var(--ease-out-expo) forwards; }
+@keyframes waveBig{ from{opacity:.6;transform:scale(1)} to{opacity:0;transform:scale(1.35)} }
+
+/* reveal states */
+.tiles.revealing .tile{ pointer-events:none; }
+.tile.drained{ opacity:.32; filter:grayscale(.85) brightness(.7); transform:scale(.97);
+               transition-duration:260ms; transition-timing-function:var(--ease-out-soft); }
+.tile.correct{
+  background:linear-gradient(135deg, var(--mint-hi), var(--mint-lo));
+  border-color:transparent; z-index:2;
+  opacity:1; filter:none;
+  transform:scale(1.06) translateY(-4px);
+  transition-duration:560ms; transition-timing-function:var(--ease-elastic);
+  box-shadow:var(--e3), 0 18px 60px rgba(var(--mint-rgb),.35), 0 0 0 1px rgba(var(--mint-rgb),.5) inset;
+}
+.tile.correct .tile-text{ color:var(--ink-950); font-weight:700; }
+.tile.correct .badge{ background:rgba(5,6,11,.16); }
+.tile.correct.checked .badge-letter{ opacity:0; transform:scale(.7); }
+.tile.correct.checked .badge-check{ opacity:1; }
+.tile.correct.checked .badge-check path{ animation:draw 280ms var(--ease-out-soft) forwards; }
+@keyframes draw{ to{ stroke-dashoffset:0; } }
+/* your wrong pick: a thin ring and a shake. never a red flood. */
+.tile.mywrong{
+  opacity:.5; filter:none; transform:none;
+  border-color:var(--crimson); box-shadow:var(--e1), 0 0 0 1px var(--crimson) inset;
+}
+.tile.mywrong.shake{ animation:shake 320ms var(--ease-out-soft) 1; }
+@keyframes shake{ 0%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(5px)}
+                  60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} 100%{transform:translateX(0)} }
+
+.grid-bloom{
+  position:absolute; left:50%; top:50%; width:min(100%,900px); height:60%;
+  transform:translate(-50%,-50%); pointer-events:none; opacity:0; z-index:0;
+  background:radial-gradient(ellipse at center, rgba(var(--mint-rgb),.35), transparent 70%);
+}
+.grid-bloom.on{ animation:bloom 900ms var(--ease-out-soft) forwards; }
+@keyframes bloom{ 0%{opacity:0} 55%{opacity:.5} 100%{opacity:.22} }
+.grid-bloom.settle{ opacity:.18; }
+.tiles-wrap{ position:relative; width:100%; }
+
+/* lock line + who got it */
+.lock-line{ margin-top:var(--sp-5); min-height:22px; display:flex; align-items:center;
+            gap:var(--sp-3); justify-content:center; flex-wrap:wrap; }
+.lock-tag{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+           text-transform:uppercase; color:var(--mint); }
+.lock-tag.muted{ color:var(--slate-300); }
+
+/* Space is reserved whether or not anyone got it, so the arrival of the
+   chips never shoves the tile grid upward mid-reveal. */
+.whogot{ margin-top:var(--sp-4); width:100%; display:flex; flex-direction:column; gap:var(--sp-2);
+         align-items:center; min-height:112px; }
+.whogot-label{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
+               text-transform:uppercase; color:var(--slate-300); }
+.chips{ display:flex; flex-wrap:wrap; gap:var(--sp-3); align-items:flex-start;
+        justify-content:center; padding-top:20px; }
+.gchip{ position:relative; display:flex; flex-direction:column; align-items:center; gap:4px;
+        animation:chipIn 240ms var(--ease-snap) both; }
+@keyframes chipIn{ from{opacity:0;transform:translateY(12px) scale(.85)} to{opacity:1;transform:none} }
+.gchip .avatar{ width:36px; height:36px; font-size:15px; box-shadow:0 0 0 2px var(--mint); }
+.gchip .gname{ font-size:11px; color:var(--slate-300); max-width:56px; overflow:hidden;
+               text-overflow:ellipsis; white-space:nowrap; }
+.delta{
+  position:absolute; top:-2px; left:50%; transform:translateX(-50%);
+  font-family:var(--font-num); font-variant-numeric:tabular-nums lining-nums;
+  font-size:15px; font-weight:700; color:var(--mint); white-space:nowrap; pointer-events:none;
+  animation:deltaUp 900ms var(--ease-out-expo) forwards;
+}
+@keyframes deltaUp{ 0%{opacity:0;transform:translate(-50%,0)} 15%{opacity:1}
+                    100%{opacity:0;transform:translate(-50%,-20px)} }
+/* FASTEST sits in the layout instead of floating — a travelling label that
+   crosses the avatar and the name is just noise. */
+.fast-tag{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.14em;
+           text-transform:uppercase; color:var(--amber); white-space:nowrap;
+           animation:restIn 260ms var(--ease-out-soft) 260ms both; }
+.gchip.more{ display:grid; place-items:center; width:36px; height:36px; border-radius:var(--r-pill);
+             background:var(--ink-700); border:1px solid var(--hair); color:var(--slate-300);
+             font-family:var(--font-num); font-size:13px; font-weight:700; }
+
+.dwell{ position:fixed; left:0; bottom:0; height:3px; width:100%; background:var(--amber);
+        transform-origin:left; transform:scaleX(0); z-index:50; pointer-events:none; opacity:0; }
+.dwell.run{ opacity:.9; animation:dwell var(--dwell,4000ms) linear forwards; }
+@keyframes dwell{ from{transform:scaleX(0)} to{transform:scaleX(1)} }
+
+/* ================================================================
+   5.4 SCOREBOARD — the movement is the content
+   ================================================================ */
+.board{ margin:0 auto; width:100%; max-width:880px; display:flex; flex-direction:column;
+        gap:var(--sp-5); }
+.board-head{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-3); }
+.rows{ display:flex; flex-direction:column; gap:10px; }
+.row{
+  position:relative; display:flex; align-items:center; gap:var(--sp-4);
+  min-height:72px; padding:0 var(--sp-5); border-radius:var(--r-lg);
+  background:var(--ink-800); border:1px solid var(--hair); overflow:hidden;
+  contain:layout paint;
+}
+.row-enter{ animation:rowIn 240ms var(--ease-out-soft) both; }
+@keyframes rowIn{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.row-bar{
+  position:absolute; inset:0; z-index:0; transform-origin:left; transform:scaleX(0);
+  background:linear-gradient(90deg, hsla(var(--ph,220),62%,54%,.28), hsla(var(--ph,220),62%,54%,.04));
+  transition:transform 900ms var(--ease-out-expo);
+}
+.row-cap{ position:absolute; left:0; top:0; bottom:0; width:1px; z-index:1; opacity:0;
+          background:var(--mint); transition:opacity 900ms var(--ease-out-soft); }
+.row-cap.up{ opacity:1; background:var(--mint); }
+.row-cap.down{ opacity:1; background:var(--slate-400); }
+.row-rank{ position:relative; z-index:1; font-family:var(--font-num);
+           font-variant-numeric:tabular-nums lining-nums; font-size:28px; font-weight:700;
+           color:var(--slate-400); min-width:1.4em; text-align:right; flex:0 0 auto; }
+.row.r1 .row-rank{ color:var(--amber); }
+.row.r2 .row-rank{ color:var(--paper-200); }
+.row.r3 .row-rank{ color:#C2743A; }
+
+/* --- The podium.
+   Tinting the rank numeral alone was too quiet to register: second place
+   looked exactly like eighth with a different number on it. A medal needs
+   to own its whole row. The edge, the wash and the numeral weight do that
+   without a single layout-triggering property — these rows sit under
+   `contain: layout paint`, and it stays that way. --- */
+.podium .row.r2, .podium .row.r3{
+  --medal:var(--paper-200); --medal-rgb:201,206,222;
+  box-shadow:inset 3px 0 0 var(--medal), 0 1px 0 rgba(0,0,0,.35);
+  background-image:linear-gradient(100deg,
+    rgba(var(--medal-rgb),.11) 0%, rgba(var(--medal-rgb),0) 42%);
+}
+.podium .row.r3{ --medal:#C2743A; --medal-rgb:194,116,58; }
+.podium .row.r2{ min-height:76px; }
+.podium .row.r3{ min-height:70px; }
+.podium .row.r2 .row-rank, .podium .row.r3 .row-rank{
+  font-size:26px; font-weight:700;
+  text-shadow:0 0 14px rgba(var(--medal-rgb),.45);
+}
+.podium .row.r2 .row-name, .podium .row.r3 .row-name{ font-weight:650; }
+.podium .row.r2 .row-score, .podium .row.r3 .row-score{ color:var(--medal); }
+/* The avatar carries the medal too, so the row reads as one object rather
+   than a tinted stripe next to an unrelated circle. */
+.podium .row.r2 .avatar, .podium .row.r3 .avatar{
+  box-shadow:0 0 0 2px rgba(var(--medal-rgb),.55);
+}
+.row .avatar{ position:relative; z-index:1; width:40px; height:40px; font-size:16px; }
+.row-name{ position:relative; z-index:1; flex:1 1 auto; min-width:0; font-size:var(--fs-name);
+           font-weight:600; color:var(--paper-100); overflow:hidden; text-overflow:ellipsis;
+           white-space:nowrap; }
+.row-you{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em; color:var(--amber);
+          text-transform:uppercase; margin-left:var(--sp-2); }
+.row-gain{ position:relative; z-index:1; font-family:var(--font-num); font-size:13px; font-weight:700;
+           color:var(--mint); flex:0 0 auto; opacity:0; transition:opacity 400ms var(--ease-out-soft); }
+.row-gain.on{ opacity:1; }
+.row-score{ position:relative; z-index:1; font-family:var(--font-num);
+            font-variant-numeric:tabular-nums lining-nums; font-size:var(--fs-score);
+            font-weight:700; letter-spacing:-.01em; color:var(--paper-000); flex:0 0 auto; }
+.row.off{ opacity:.55; }
+.board-actions{ display:flex; justify-content:center; align-items:center; gap:var(--sp-4);
+                min-height:56px; }
+
+/* ================================================================
+   5.5 FINAL — podium, house lights, applause
+   ================================================================ */
+.final{ margin:auto; width:100%; max-width:880px; display:flex; flex-direction:column;
+        align-items:center; gap:var(--sp-6); }
+.winner{ position:relative; display:flex; flex-direction:column; align-items:center; gap:var(--sp-3);
+         padding-top:var(--sp-5); }
+.winner.play{ animation:winnerIn 760ms var(--ease-elastic) both, float 6s ease-in-out 1200ms infinite; }
+@keyframes winnerIn{ from{opacity:0;transform:translateY(60px) scale(.82)} to{opacity:1;transform:none} }
+@keyframes float{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+.winner-bloom{
+  position:absolute; top:-40px; left:50%; width:420px; height:420px; transform:translateX(-50%);
+  border-radius:var(--r-pill); pointer-events:none; opacity:0; z-index:0;
+  background:radial-gradient(circle, rgba(var(--amber-rgb),.30), transparent 68%);
+}
+.winner-bloom.on{ animation:wbloom 900ms var(--ease-out-soft) forwards; }
+@keyframes wbloom{ from{opacity:0} to{opacity:.55} }
+.winner .avatar{ position:relative; z-index:1; width:128px; height:128px; font-size:52px;
+                 box-shadow:0 0 0 3px var(--amber); }
+.winner-label{ position:relative; z-index:1; }
+.name-wrap{ position:relative; z-index:1; padding:0 4px; max-width:100%; }
+.winner-name{
+  margin:0; font-size:var(--fs-display); font-weight:700; letter-spacing:-.03em; line-height:.96;
+  color:var(--paper-000); text-align:center; overflow-wrap:anywhere;
+  background:linear-gradient(180deg,#FFFFFF,var(--paper-200));
+}
+/* The shine is a second gradient layer inside the same background-clip:text
+   fill, not an overlay. An overlay would paint a bright rectangle across
+   the transparent glyphs — which is exactly what it looked like. One
+   element, an 8s loop, and it is genuinely clipped to the letterforms. */
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .winner-name{
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    background-image:
+      linear-gradient(100deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.95) 50%, rgba(255,255,255,0) 58%),
+      linear-gradient(180deg, #FFFFFF, var(--paper-200));
+    background-size: 320% 100%, 100% 100%;
+    background-position: 160% 0, 0 0;
+    background-repeat: no-repeat;
+    animation: shine 8s linear infinite;
+  }
+}
+@keyframes shine{ from{ background-position:160% 0, 0 0; } to{ background-position:-160% 0, 0 0; } }
+.winner-score{ position:relative; z-index:1; font-family:var(--font-num);
+               font-variant-numeric:tabular-nums lining-nums;
+               font-size:clamp(32px,4vw,64px); font-weight:700; color:var(--amber); line-height:1; }
+.podium{ display:flex; flex-direction:column; gap:10px; width:100%; }
+.podium .row{ min-height:64px; }
+.pod-rise{ animation:podIn 520ms var(--ease-out-expo) both; }
+@keyframes podIn{ from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
+.rest-rise{ animation:restIn 260ms var(--ease-out-soft) both; }
+@keyframes restIn{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.final-actions{ display:flex; justify-content:center; min-height:56px; }
+.pop-in{ animation:popIn 280ms var(--ease-snap) both; }
+@keyframes popIn{ from{opacity:0;transform:scale(.9)} to{opacity:1;transform:none} }
+
+/* ---------- confetti ---------- */
+.cf{ position:absolute; top:-6vh; width:6px; height:10px; border-radius:2px; opacity:0;
+     will-change:transform,opacity; animation:cf var(--dur,2200ms) var(--ease-out-soft) forwards; }
+@keyframes cf{
+  0%   { opacity:1; transform:translate3d(0,0,0) rotate(0deg); }
+  16%  { transform:translate3d(calc(var(--dx,0px) * .25), -18vh, 0) rotate(160deg); }
+  75%  { opacity:1; }
+  100% { opacity:0; transform:translate3d(var(--dx,0px), 116vh, 0) rotate(720deg); }
+}
+
+/* ---------- net bar + toasts ---------- */
+.netbar{
+  position:fixed; left:0; right:0; z-index:80;
+  bottom: max(0px, env(safe-area-inset-bottom));
+  display:none; align-items:center; justify-content:center; gap:var(--sp-3);
+  padding:12px var(--sp-4); background:rgba(10,12,20,.94); border-top:1px solid var(--hair);
+  font-size:14px; color:var(--paper-100);
+}
+.netbar.on{ display:flex; }
+.netbar .spin{ width:12px; height:12px; border-radius:var(--r-pill);
+               border:2px solid rgba(var(--amber-rgb),.25); border-top-color:var(--amber);
+               animation:spin 900ms linear infinite; flex:0 0 auto; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.netbar .btn{ padding:8px 16px; min-height:0; font-size:12px; }
+
+.toasts{
+  position:fixed; left:50%; transform:translateX(-50%); z-index:90;
+  bottom: calc(env(safe-area-inset-bottom) + 84px);
+  display:flex; flex-direction:column; gap:var(--sp-2); align-items:center;
+  width:min(92vw,440px); pointer-events:none;
+}
+.toast{
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-md);
+  box-shadow:var(--e2); padding:12px 16px; font-size:14px; color:var(--paper-100);
+  animation:toastIn 220ms var(--ease-out-soft) both; text-align:center;
+}
+.toast.bad{ border-color:rgba(var(--crimson-rgb),.45); }
+.toast.out{ animation:toastOut 200ms var(--ease-in-fast) forwards; }
+@keyframes toastIn{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+@keyframes toastOut{ from{opacity:1} to{opacity:0;transform:translateY(6px)} }
+
+.sr{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+     clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+
+/* ================================================================
+   Responsive — people will play this on phones, in portrait
+   ================================================================ */
+@media (max-width: 719px){
+  .tiles{ grid-template-columns:1fr; gap:var(--sp-3); margin-top:var(--sp-6); }
+  .tile{ min-height:72px; padding:14px 16px; gap:var(--sp-3); }
+  .badge{ width:34px; height:34px; }
+  .badge-letter{ font-size:16px; }
+  .clock{ width:104px; height:104px; }
+  .ring{ width:104px; height:104px; }
+  .ring-svg{ width:104px; height:104px; }
+  .clock-bloom{ width:190px; height:190px; }
+  .digits{ width:78px; height:52px; }
+  .row{ min-height:64px; padding:0 var(--sp-4); gap:var(--sp-3); }
+  .row-rank{ font-size:22px; }
+  .row .avatar{ width:34px; height:34px; font-size:14px; }
+  .card{ padding:var(--sp-5); }
+  .seat{ width:76px; }
+  .players{ gap:var(--sp-3); }
+  .winner .avatar{ width:96px; height:96px; font-size:40px; }
+  .hud{ gap:var(--sp-2); }
+  .brand-text{ display:none; }
+  .pill{ width:11px; }
+}
+@media (max-width: 380px){
+  .code-ch{ padding:10px; font-size:30px; }
+  .pill{ width:8px; }
+}
+@media (hover: none){
+  .tiles:not(.locked) .tile:hover{ transform:none; box-shadow:var(--e2); border-color:var(--hair); }
+}
+
+/* Short viewports: the question screen is the one screen that must not
+   scroll — you cannot read what you have to answer in twenty seconds if it
+   is below the fold. Tighten the rhythm rather than shrink the type. */
+@media (max-height: 900px) and (min-width: 720px){
+  .cat{ margin-top:var(--sp-5); }
+  .q-wrap{ margin-top:var(--sp-4); }
+  .tiles{ margin-top:var(--sp-6); }
+  .lock-line{ margin-top:var(--sp-4); }
+  .whogot{ margin-top:var(--sp-3); min-height:104px; }
+  .screen{ padding-bottom:var(--sp-5); }
+}
+@media (max-height: 800px) and (min-width: 720px){
+  .clock, .ring, .ring-svg{ width:104px; height:104px; }
+  .clock-bloom{ width:200px; height:200px; }
+  .digits{ width:80px; height:54px; }
+  .tile{ min-height:84px; padding:16px 20px; }
+  .cat{ margin-top:var(--sp-4); }
+  .tiles{ margin-top:var(--sp-5); }
+}
+
+/* ================================================================
+   Reduced motion — a quieter experience, not a degraded one.
+   Colour changes, the stage light, the clock's linear sweep and the
+   scoreboard bar fill all survive. Everything else stops moving.
+   ================================================================ */
+@media (prefers-reduced-motion: reduce){
+  .screen.leaving{ animation:rmOut 120ms linear forwards; }
+  .screen.entering{ animation:rmIn 120ms linear both; }
+  @keyframes rmOut{ to{opacity:0} }
+  @keyframes rmIn{ from{opacity:0} to{opacity:1} }
+
+  .code-ch, .slot, .onair, .pill.now, .dots i, .winner-name, .winner.play{ animation:none !important; }
+  .clock.panic:not(.locked) .ring{ animation:none !important; }
+  .wave, .shock, .ping, .cf, .delta{ display:none !important; }
+  .tile-enter, .q-enter, .seat.filled, .row-enter, .gchip, .pod-rise, .rest-rise, .pop-in{
+    animation:rmIn 120ms linear both !important;
+  }
+  .q-rule.on{ animation:none; transform:scaleX(1); }
+  .tile.picked, .tile.correct, .tile.drained, .tile.mywrong{ transform:none !important; }
+  .tile.mywrong.shake{ animation:none !important; }
+  .clock.gone{ animation:rmOut 120ms linear forwards; }
+  #roomPulse.beat, #flash.pop{ animation:none !important; }
+  .digit.in, .digit.out{ animation:none !important; }
+  .grid-bloom.on{ animation:none; opacity:.22; }
+  .winner-bloom.on{ animation:none; opacity:.55; }
+  .btn:active{ transform:none; }
+  /* retained on purpose: the bar fill is information, not decoration */
+  .row-bar{ transition:transform 900ms var(--ease-out-expo); }
+  .dwell.run{ animation:dwell var(--dwell,4000ms) linear forwards; }
+}
+</style>
+</head>
+<body data-screen="landing">
+
+<div class="stage" aria-hidden="true"></div>
+<div class="fx" id="roomPulse" aria-hidden="true"></div>
+<div class="fx" id="flash" aria-hidden="true"></div>
+<div id="confetti" aria-hidden="true"></div>
+
+<header class="hud" id="hud">
+  <div class="brand">
+    <span class="onair" aria-hidden="true"></span>
+    <span class="brand-text"><b>LATE</b> SIGNAL</span>
+  </div>
+  <div class="hud-mid"><div class="pills" id="hudPills" aria-hidden="true"></div></div>
+  <div class="hud-right">
+    <button type="button" class="chip-btn" id="hudCode" title="Copy the room link">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 5H4v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span class="code" id="hudCodeText">----</span>
+    </button>
+    <button type="button" class="chip-btn" id="soundBtn" aria-pressed="false" title="Sound">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="soundOff" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <span class="sr" id="soundLabel">Sound off</span>
+    </button>
+    <button type="button" class="chip-btn" id="langBtn" title="Language / Idioma">
+      <span id="langLabel">EN</span>
+    </button>
+    <span class="netdot" id="netdot" data-net="up" title="Connection"></span>
+  </div>
+</header>
+
+<main class="stagewrap">
+
+  <!-- ============ LANDING ============ -->
+  <section class="screen" id="s-landing" aria-labelledby="landingTitle">
+    <div class="landing">
+      <div class="brand-big">
+        <span class="onair" aria-hidden="true"></span>
+        <h1 class="wordmark" id="landingTitle">LATE<span>SIGNAL</span></h1>
+      </div>
+      <p class="lede">Live trivia for one to eight people. Ten questions, twenty seconds each &mdash; and a server that flatly refuses to tell your browser the answer until the clock is done.</p>
+      <form class="card" id="joinForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label class="field-label" for="nameInput">Your name</label>
+          <input type="text" id="nameInput" maxlength="16" placeholder="Somebody"
+                 autocomplete="nickname" spellcheck="false" enterkeyhint="go">
+        </div>
+        <div class="field">
+          <label class="field-label" for="codeInput">Room code</label>
+          <input type="text" id="codeInput" maxlength="6" placeholder="ABCD"
+                 autocapitalize="characters" autocorrect="off" spellcheck="false"
+                 inputmode="text" enterkeyhint="go">
+        </div>
+        <div class="join-actions">
+          <button type="submit" class="btn btn-primary" id="joinBtn">Join room</button>
+          <button type="button" class="btn btn-ghost" id="createBtn">Create a room</button>
+        </div>
+        <p class="field-note" id="joinNote">A room is just a link. Share it and people land straight in.</p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ LOBBY ============ -->
+  <section class="screen" id="s-lobby" aria-labelledby="lobbyTitle">
+    <div class="lobby">
+      <div class="code-block">
+        <div class="micro" id="lobbyTitle">Room code</div>
+        <div class="code-tiles" id="codeTiles" aria-live="off"></div>
+        <button type="button" class="chip-btn" id="copyBtn">Copy the invite link</button>
+      </div>
+      <div class="callsheet" id="callSheet">
+        <button type="button" class="slot" id="genreSlot">
+          <span class="slot-k">Genre</span>
+          <span class="slot-v" id="genreVal">Mixed</span>
+        </button>
+        <button type="button" class="slot" id="diffSlot">
+          <span class="slot-k">Difficulty</span>
+          <span class="slot-v" id="diffVal">Any</span>
+        </button>
+      </div>
+      <div class="players" id="lobbyPlayers"></div>
+      <div class="board-actions">
+        <button type="button" class="btn btn-primary" id="startBtn" hidden>Start game</button>
+        <div class="waiting" id="waitLine" hidden>
+          <span id="waitText">Waiting for host</span>
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUESTION + REVEAL ============ -->
+  <section class="screen" id="s-play" aria-labelledby="questionText">
+    <div class="play">
+      <div class="clock" id="clock" aria-hidden="true">
+        <div class="clock-bloom"></div>
+        <div class="ring" id="ring">
+          <svg class="ring-svg" viewBox="0 0 128 128">
+            <circle class="ring-track" cx="64" cy="64" r="56"></circle>
+            <circle class="ring-arc" id="arc" cx="64" cy="64" r="56"></circle>
+          </svg>
+          <div class="digits" id="digits"><span class="digit">--</span></div>
+        </div>
+      </div>
+      <div class="cat" id="catChip">
+        <span class="cat-cap" id="catCap" aria-hidden="true"></span>
+        <span class="cat-text" id="catText">General knowledge</span>
+        <span class="cat-diff" id="catDiff"></span>
+      </div>
+      <div class="q-wrap">
+        <h2 class="question" id="questionText">&nbsp;</h2>
+        <div class="q-rule" id="qRule" aria-hidden="true"></div>
+      </div>
+      <div class="tiles-wrap">
+        <div class="grid-bloom" id="gridBloom" aria-hidden="true"></div>
+        <div class="tiles" id="tiles" role="group" aria-label="Answers"></div>
+      </div>
+      <div class="lock-line" id="lockLine" aria-live="polite"></div>
+      <div class="whogot" id="whoGot"></div>
+    </div>
+  </section>
+
+  <!-- ============ SCOREBOARD ============ -->
+  <section class="screen" id="s-board" aria-labelledby="boardRound">
+    <div class="board">
+      <div class="board-head">
+        <div class="micro" id="boardRound">Round 1 of 10</div>
+        <div class="pills" id="boardPills" aria-hidden="true"></div>
+      </div>
+      <div class="rows" id="boardRows"></div>
+      <div class="board-actions" id="boardActions"></div>
+    </div>
+  </section>
+
+  <!-- ============ FINAL ============ -->
+  <section class="screen" id="s-final" aria-labelledby="winnerName">
+    <div class="final">
+      <div class="winner" id="winner">
+        <div class="winner-bloom" id="winnerBloom" aria-hidden="true"></div>
+        <div class="avatar" id="winnerAvatar" aria-hidden="true"></div>
+        <div class="micro winner-label">Winner</div>
+        <div class="name-wrap">
+          <h2 class="winner-name" id="winnerName">&nbsp;</h2>
+        </div>
+        <div class="winner-score" id="winnerScore">0</div>
+      </div>
+      <div class="podium" id="finalRest"></div>
+      <div class="final-actions" id="finalActions"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="studio" id="studio" aria-hidden="true"></div>
+<div class="dwell" id="dwell" aria-hidden="true"></div>
+<div class="netbar" id="netbar" role="status"></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==================================================================
+     BACKEND
+     Local development points at wrangler dev. At deploy this becomes the
+     workers.dev URL, e.g. 'wss://trivia-rooms.<subdomain>.workers.dev'.
+     Change this ONE line and nothing else.
+
+     (Note for local testing: the Worker rejects a WebSocket handshake with
+     no Origin header, so open this page over http://localhost/... — not
+     file:///. A file:// page sends Origin: null and will be refused.)
+     ================================================================== */
+  var BACKEND = 'ws://localhost:8787';
+
+  /* ------------------------------------------------------------------
+     THE INVARIANT, restated on the client side:
+
+     Nothing in this file knows, guesses, derives, caches or displays the
+     correct answer until a message of type 'reveal' arrives and hands us
+     `correctIndex`. `state.correctIndex` is null at every other moment and
+     is reset to null the instant a new question is rendered. There is no
+     local answer list, no scoring maths, no "probably this one" heuristic.
+     The client is a renderer.
+     ------------------------------------------------------------------ */
+
+  /* ---------- rules (display only; the server is the authority) ---------- */
+  var QUESTION_MS = 20000;  // used ONLY to draw the ring's starting fraction
+  var WARM_MS     = 10000;
+  var PANIC_MS    = 5000;
+  var MAX_PLAYERS = 8;
+  var MIN_PLAYERS = 1;
+  var RING_C      = 351.86; // 2 * PI * 56
+  var DWELL_MS    = 4000;
+
+  var ROOM_RE = /^[A-Z0-9]{4,6}$/;
+
+  /* ==================================================================
+     Language.
+
+     Per player, not per room: two people at the same table can read
+     different languages. It is only ever a rendering choice — the server
+     sends every language in the same slot order, so switching mid-question
+     re-renders the board without touching the game.
+
+     Only strings a PLAYER sees live here. Server messages arrive already
+     worded and are shown as sent; translating them on the client would mean
+     keeping two copies of the same sentence in sync across a network
+     boundary, which is how they drift apart.
+     ================================================================== */
+  var STRINGS = {
+    en: {
+      yourName: 'Your name', roomCode: 'Room code', joinRoom: 'Join room',
+      createRoom: 'Create a room', copyInvite: 'Copy the invite link',
+      genre: 'Genre', difficulty: 'Difficulty', any: 'Any',
+      easy: 'Easy', medium: 'Medium', hard: 'Hard',
+      startGame: 'Start game', startSolo: 'Start solo game', starting: 'Starting…',
+      waitingHost: 'Waiting for host', needMore: 'Need # more players',
+      needMore1: 'Need 1 more player',
+      winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
+      nextQuestion: 'Next question', scoreboard: 'Scoreboard',
+      roundOf: 'Round # of #', pickOne: 'Pick one', pickOneKeys: 'Pick one — keys 1-4 work too',
+      answerLocked: 'Answer locked', youGotIt: 'You got it', notThisTime: 'Not this time',
+      noAnswer: 'No answer this round', fastest: 'Fastest', you: 'You',
+      host: 'Host', away: 'Away', sound: 'Sound', general: 'General knowledge',
+      lede: 'Live trivia for one to eight people. Ten questions, twenty seconds each — and a server that flatly refuses to tell your browser the answer until the clock is done.',
+      inviteNote: 'A room is just a link. Share it and people land straight in.',
+      noSpanish: 'No Spanish questions yet',
+      m_bilingual: 'Bilingual set — #. Everyone can read these in their own language.',
+      m_offline: 'Offline pack — #. Open Trivia DB did not answer, so these are from the built-in set.',
+      m_noLang: '# has no Spanish questions yet. Pick another genre, or switch everyone to English.',
+      m_noQuestions: 'Could not find enough # questions right now. Try another genre, or Mixed.'
+    },
+    es: {
+      yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
+      createRoom: 'Crear una sala', copyInvite: 'Copiar el enlace',
+      genre: 'Género', difficulty: 'Dificultad', any: 'Cualquiera',
+      easy: 'Fácil', medium: 'Media', hard: 'Difícil',
+      startGame: 'Empezar', startSolo: 'Jugar en solitario', starting: 'Empezando…',
+      waitingHost: 'Esperando al anfitrión', needMore: 'Faltan # jugadores',
+      needMore1: 'Falta 1 jugador',
+      winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
+      nextQuestion: 'Siguiente pregunta', scoreboard: 'Marcador',
+      roundOf: 'Ronda # de #', pickOne: 'Elige una', pickOneKeys: 'Elige una — las teclas 1-4 también sirven',
+      answerLocked: 'Respuesta enviada', youGotIt: 'Correcto', notThisTime: 'Esta vez no',
+      noAnswer: 'Sin respuesta', fastest: 'La más rápida', you: 'Tú',
+      host: 'Anfitrión', away: 'Ausente', sound: 'Sonido', general: 'Cultura general',
+      lede: 'Trivia en directo para una a ocho personas. Diez preguntas, veinte segundos cada una — y un servidor que se niega en redondo a decirle la respuesta a tu navegador hasta que el reloj termine.',
+      inviteNote: 'Una sala es solo un enlace. Compártelo y entran directamente.',
+      noSpanish: 'Aún sin preguntas en español',
+      m_bilingual: 'Set bilingüe — #. Cada quien puede leerlas en su idioma.',
+      m_offline: 'Set sin conexión — #. Open Trivia DB no respondió, así que estas vienen del set incluido.',
+      m_noLang: '# aún no tiene preguntas en español. Elige otro género, o que todos jueguen en inglés.',
+      m_noQuestions: 'No se encontraron suficientes preguntas de # ahora mismo. Prueba otro género, o Mixto.'
+    }
+  };
+
+  var LANGS = ['en', 'es'];
+  var lang = 'en';
+  try {
+    var savedLang = localStorage.getItem('ls:lang');
+    if (savedLang && LANGS.indexOf(savedLang) >= 0) lang = savedLang;
+    else if ((navigator.language || '').slice(0, 2) === 'es') lang = 'es';
+  } catch (e) {}
+
+  /* The server words its own messages in English and also sends a code. When
+     we recognise the code we say it in the reader's language; otherwise we show
+     what the server sent, which is always something sensible. That way a new
+     server message is never invisible — it is just untranslated until someone
+     adds a wording. */
+  function serverText(msg) {
+    var raw = String(msg.message || '');
+    if (!msg.code) return raw;
+    var pattern = STRINGS[lang] && STRINGS[lang]['m_' + msg.code];
+    if (!pattern) return raw;
+    return pattern.replace('#', msg.genre || msg.count || '');
+  }
+
+  function T(key) {
+    var table = STRINGS[lang] || STRINGS.en;
+    return table[key] != null ? table[key] : (STRINGS.en[key] || key);
+  }
+
+  /* ---------- tiny helpers ---------- */
+  function $(id) { return document.getElementById(id); }
+  function mk(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+  function clamp(n, a, b) { return n < a ? a : (n > b ? b : n); }
+  function on(el, ev, fn) { el.addEventListener(ev, fn); }
+
+  var motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var REDUCED = !!(motionQuery && motionQuery.matches);
+  if (motionQuery && motionQuery.addEventListener) {
+    motionQuery.addEventListener('change', function (e) { REDUCED = e.matches; });
+  }
+  var LOW_POWER = (navigator.hardwareConcurrency || 4) <= 2;
+  if (LOW_POWER) document.documentElement.classList.add('low-power');
+  // Telling a phone user that "keys 1-4 work too" is noise.
+  var COARSE = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+
+  var T_OUT = 220, T_GAP = 120, T_IN = 380;
+  function tOut() { return REDUCED ? 120 : T_OUT; }
+  function tGap() { return REDUCED ? 0 : T_GAP; }
+  function tIn()  { return REDUCED ? 120 : T_IN;  }
+
+  /* A small fixed entity table. OpenTriviaDB text arrives percent-decoded,
+     but a handful of source questions still carry literal HTML entities.
+     Decoded against a whitelist, then written with textContent — this file
+     never touches innerHTML with anything that came off the wire. */
+  var ENTS = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–',
+    mdash: '—', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+    hellip: '…', eacute: 'é', egrave: 'è', uuml: 'ü', ouml: 'ö',
+    auml: 'ä', ntilde: 'ñ', deg: '°', pound: '£', euro: '€',
+    shy: '', frac12: '½', frac14: '¼', times: '×', divide: '÷'
+  };
+  function decodeEntities(s) {
+    s = String(s == null ? '' : s);
+    if (s.indexOf('&') === -1) return s;
+    return s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, function (m, body) {
+      if (body.charAt(0) === '#') {
+        var cp = body.charAt(1) === 'x' || body.charAt(1) === 'X'
+          ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+        if (!isFinite(cp) || cp < 9 || cp > 0x10FFFF) return m;
+        try { return String.fromCodePoint(cp); } catch (e) { return m; }
+      }
+      return Object.prototype.hasOwnProperty.call(ENTS, body) ? ENTS[body] : m;
+    });
+  }
+  function setText(el, s) { el.textContent = decodeEntities(s); }
+
+  function hueOf(name) {
+    var h = 0, s = String(name || '');
+    for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; }
+    return h % 360;
+  }
+  function initialOf(name) {
+    var s = String(name || '?').trim();
+    if (!s) return '?';
+    var ch = Array.from(s)[0] || '?';
+    return ch.toUpperCase();
+  }
+  function avatarEl(player, cls) {
+    var a = mk('div', 'avatar' + (cls ? ' ' + cls : ''));
+    a.style.setProperty('--ph', String(hueOf(player.name)));
+    a.textContent = initialOf(player.name);
+    return a;
+  }
+
+  /* ---------- timers, bucketed so a phase change can cancel cleanly ---------- */
+  var buckets = { scr: [], rev: [], seq: [] };
+  function later(bucket, fn, ms) { var id = setTimeout(fn, ms); buckets[bucket].push(id); return id; }
+  function clearBucket(b) { for (var i = 0; i < buckets[b].length; i++) clearTimeout(buckets[b][i]); buckets[b] = []; }
+  function clearAllTimers() { clearBucket('scr'); clearBucket('rev'); clearBucket('seq'); }
+
+  /* ---------- state ---------- */
+  var state = {
+    code: '',
+    name: '',
+    me: null,              // {id,name}
+    isHost: false,
+    phase: 'lobby',
+    players: [],           // roster
+    question: null,        // {index,total,text,choices,endsAt,category,difficulty}
+    settings: { genre: 'mixed', difficulty: 'any' },
+    catalog: [],           // [{slug,label}] — what the server will actually serve
+    difficulties: ['any', 'easy', 'medium', 'hard'],
+    starting: false,
+    myChoice: null,        // my picked index for the open question, or null
+    locked: false,         // I have locked in (server-confirmed or optimistic)
+    answered: {},          // playerId -> true, for the open question
+    correctIndex: null,    // ONLY ever set from a 'reveal' message
+    reveal: null,
+    prevScores: {},        // scores as of the start of the current round
+    lastBoardOrder: [],     // ids in the order the board is currently showing
+    final: null,
+    everConnected: false,
+    handshakeFails: 0
+  };
+
+  /* ---------- elements ---------- */
+  var elHud = $('hud'), elHudCode = $('hudCode'), elHudCodeText = $('hudCodeText'),
+      elHudPills = $('hudPills'), elNetdot = $('netdot'), elNetbar = $('netbar'),
+      elToasts = $('toasts'), elDwell = $('dwell'),
+      elClock = $('clock'), elRing = $('ring'), elArc = $('arc'), elDigits = $('digits'),
+      elCatChip = $('catChip'), elCatCap = $('catCap'), elCatText = $('catText'), elCatDiff = $('catDiff'),
+      elLangBtn = $('langBtn'), elLangLabel = $('langLabel'),
+      elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
+      elDiffSlot = $('diffSlot'), elDiffVal = $('diffVal'),
+      elQuestion = $('questionText'), elQRule = $('qRule'),
+      elTiles = $('tiles'), elGridBloom = $('gridBloom'),
+      elLockLine = $('lockLine'), elWhoGot = $('whoGot'),
+      elBoardRows = $('boardRows'), elBoardRound = $('boardRound'), elBoardPills = $('boardPills'),
+      elBoardActions = $('boardActions'),
+      elWinner = $('winner'), elWinnerBloom = $('winnerBloom'), elWinnerAvatar = $('winnerAvatar'),
+      elWinnerName = $('winnerName'), elWinnerScore = $('winnerScore'), elFinalRest = $('finalRest'),
+      elFinalActions = $('finalActions'),
+      elConfetti = $('confetti'), elRoomPulse = $('roomPulse'), elFlash = $('flash'),
+      elCodeTiles = $('codeTiles'), elLobbyPlayers = $('lobbyPlayers'),
+      elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
+      elCopyBtn = $('copyBtn'), elNameInput = $('nameInput'), elCodeInput = $('codeInput'),
+      elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
+      elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel');
+
+  var CHOICES = [
+    { letter: 'A', c: '#3D6BFF', rgb: '61,107,255',  fill: '#FFFFFF', key: '1' },
+    { letter: 'B', c: '#9A55FF', rgb: '154,85,255',  fill: '#FFFFFF', key: '2' },
+    { letter: 'C', c: '#10B8C8', rgb: '16,184,200',  fill: '#05060B', key: '3' },
+    { letter: 'D', c: '#FFA92E', rgb: '255,169,46',  fill: '#05060B', key: '4' }
+  ];
+
+  /* Genre identity lives on the client; the server owns availability and
+     sends a catalog on welcome. That split is deliberate — the client has no
+     business knowing OpenTDB category ids, and the server has no business
+     holding colours. A genre the server offers but this table has not heard
+     of still renders, truthfully, with no colour of its own. */
+  var GENRE_META = {
+    mixed:     { accent:'#AEB6CC', stage:'#161B2E' },
+    film:      { accent:'#B08CFF', stage:'#1E1630' },
+    music:     { accent:'#4FD1E0', stage:'#10222B' },
+    games:     { accent:'#2BE39A', stage:'#10261E' },
+    science:   { accent:'#9BE35B', stage:'#1B2413' },
+    history:   { accent:'#FFA92E', stage:'#2A1F13' },
+    geography: { accent:'#6EA8FF', stage:'#131E33' }
+  };
+  function genreOf(slug) {
+    var fromCat = null;
+    for (var i = 0; i < state.catalog.length; i++) {
+      if (state.catalog[i].slug === slug) { fromCat = state.catalog[i]; break; }
+    }
+    var meta = GENRE_META[slug];
+    return {
+      slug: slug,
+      label: (fromCat && fromCat.label) || slug || 'Mixed',
+      accent: (meta && meta.accent) || 'var(--slate-300)',
+      stage: (meta && meta.stage) || '#161B2E'
+    };
+  }
+  function titleCase(s) { return String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1); }
+
+  var STAGE = {
+    lobby:   '#161B2E',
+    cruise:  '#1A1B2E',
+    warm:    '#241B22',
+    panic:   '#2C1620',
+    right:   '#0E2A22',
+    bruise:  '#1E1420',
+    board:   '#191A2B',
+    final:   '#241C10'
+  };
+  var stageHue = '';
+  /* The floor glow takes the stage colour too, so a genre change lights the
+     whole room rather than just the back wall. Parsed once per change, not
+     per frame. */
+  function setFloor(hex) {
+    var h = String(hex || '').replace('#', '');
+    if (h.length !== 6) return;
+    var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    // Lifted well above the background value — at the stage hue's own
+    // darkness the glow is invisible against it.
+    var lift = function (v) { return Math.min(255, Math.round(v * 2.6 + 46)); };
+    document.documentElement.style.setProperty(
+      '--floor-rgb', lift(r) + ',' + lift(g) + ',' + lift(b));
+  }
+
+  function setStage(hex) {
+    if (stageHue === hex) return;
+    stageHue = hex;
+    document.documentElement.style.setProperty('--stage-hue', hex);
+    setFloor(hex);
+  }
+
+  /* ==================================================================
+     Screen manager — 220 out, 120 of bare stage, 380 in.
+     The gap is load-bearing; without it the screens smear together.
+     ================================================================== */
+  var curScreen = null;
+  function setScreen(name) {
+    if (curScreen === name) return;
+    curScreen = name;
+    clearBucket('scr'); clearBucket('seq');
+    var to = $('s-' + name);
+    var from = document.querySelector('.screen.active');
+    if (!to) return;
+
+    function finish() {
+      var all = document.querySelectorAll('.screen');
+      for (var i = 0; i < all.length; i++) {
+        all[i].classList.remove('active', 'leaving', 'entering');
+      }
+      to.classList.add('active');
+      void to.offsetWidth;
+      to.classList.add('entering');
+      later('scr', function () { to.classList.remove('entering'); }, tIn() + 60);
+      document.body.dataset.screen = name;
+      try { window.scrollTo(0, 0); } catch (e) {}
+      onScreenEnter(name);
+    }
+
+    if (from && from !== to) {
+      from.classList.remove('entering');
+      from.classList.add('leaving');
+      later('scr', finish, tOut() + tGap());
+    } else {
+      finish();
+    }
+  }
+
+  function onScreenEnter(name) {
+    if (name === 'lobby')  { setStage(lobbyStage()); }
+    if (name === 'board')  { setStage(STAGE.board); runBoardSequence(); }
+    if (name === 'final')  { runFinalSequence(); }
+    if (name === 'landing'){ setStage(STAGE.lobby); }
+  }
+
+  /* ==================================================================
+     Toasts and the connection bar
+     ================================================================== */
+  function toast(msg, bad) {
+    var t = mk('div', 'toast' + (bad ? ' bad' : ''));
+    t.textContent = msg;
+    elToasts.appendChild(t);
+    setTimeout(function () {
+      t.classList.add('out');
+      t.addEventListener('animationend', function () { if (t.parentNode) t.parentNode.removeChild(t); });
+    }, 3600);
+    while (elToasts.children.length > 3) elToasts.removeChild(elToasts.firstChild);
+  }
+
+  function netbar(mode, text, action) {
+    elNetbar.textContent = '';
+    if (!mode) { elNetbar.classList.remove('on'); elNetdot.dataset.net = 'up'; return; }
+    elNetbar.classList.add('on');
+    elNetdot.dataset.net = (mode === 'dead') ? 'dead' : 'down';
+    if (mode === 'busy') elNetbar.appendChild(mk('span', 'spin'));
+    var s = mk('span'); s.textContent = text; elNetbar.appendChild(s);
+    if (action) {
+      var b = mk('button', 'btn btn-ghost'); b.type = 'button'; b.textContent = action.label;
+      on(b, 'click', action.fn);
+      elNetbar.appendChild(b);
+    }
+  }
+
+  /* ==================================================================
+     Optional sound. Muted by default, zero assets — a bare oscillator.
+     ================================================================== */
+  var audio = { on: false, ctx: null };
+  try { audio.on = localStorage.getItem('ls:sound') === '1'; } catch (e) {}
+  function paintSound() {
+    elSoundBtn.setAttribute('aria-pressed', audio.on ? 'true' : 'false');
+    elSoundOff.style.display = audio.on ? 'none' : '';
+    elSoundLabel.textContent = audio.on ? 'Sound on' : 'Sound off';
+  }
+  paintSound();
+  paintLang();
+  function paintLang() {
+    if (elLangLabel) elLangLabel.textContent = lang.toUpperCase();
+    if (elLangBtn) {
+      elLangBtn.setAttribute('aria-label',
+        lang === 'es' ? 'Idioma: español. Cambiar a inglés.' : 'Language: English. Switch to Spanish.');
+    }
+    document.documentElement.setAttribute('lang', lang);
+    paintStatic();
+  }
+
+  /* Static chrome only — anything driven by game state is repainted by its own
+     renderer on the next tick. */
+  function paintStatic() {
+    var set = function (id, key) { var e = $(id); if (e) e.textContent = T(key); };
+    set('joinBtn', 'joinRoom');
+    set('createBtn', 'createRoom');
+    set('copyBtn', 'copyInvite');
+    var lede = document.querySelector('.lede'); if (lede) lede.textContent = T('lede');
+    var note = $('joinNote'); if (note) note.textContent = T('inviteNote');
+    var labels = document.querySelectorAll('.field-label');
+    if (labels[0]) labels[0].textContent = T('yourName');
+    if (labels[1]) labels[1].textContent = T('roomCode');
+    var slotKs = document.querySelectorAll('.slot-k');
+    if (slotKs[0]) slotKs[0].textContent = T('genre');
+    if (slotKs[1]) slotKs[1].textContent = T('difficulty');
+    if (curScreen === 'lobby') renderLobby();
+  }
+
+  on(elLangBtn, 'click', function () {
+    lang = cycle(LANGS, lang, 1);
+    try { localStorage.setItem('ls:lang', lang); } catch (e) {}
+    paintLang();
+    // Tell the server, so it knows whether this room needs bilingual questions.
+    send({ type: 'lang', lang: lang });
+    // Re-render whatever is on screen right now. Switching language mid-question
+    // is legal precisely because every language is already on the wire.
+    if (state.question && curScreen === 'play') renderQuestion(state.question);
+    if (curScreen === 'lobby') paintCallSheet();
+  });
+
+  on(elSoundBtn, 'click', function () {
+    audio.on = !audio.on;
+    try { localStorage.setItem('ls:sound', audio.on ? '1' : '0'); } catch (e) {}
+    paintSound();
+    if (audio.on) SFX.join();
+  });
+  /* The AudioContext is built on demand — constructing one before a user
+     gesture gets it suspended by autoplay policy, and constructing one at
+     all is wasted work for a player who never turns sound on. */
+  function audioCtx() {
+    if (!audio.ctx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audio.ctx = new AC();
+    }
+    if (audio.ctx.state === 'suspended' && audio.ctx.resume) audio.ctx.resume();
+    return audio.ctx;
+  }
+
+  function makeAudio(getCtx, isOn) {
+    var master = null;
+    var mctx = null;
+
+    /* One shared master bus. The compressor matters — the arpeggios and
+       the podium sequence stack several voices inside 300ms and without it
+       the sum clips into a crackle on cheap laptop speakers. */
+    function bus() {
+      var ctx = getCtx();
+      if (!ctx) return null;
+      if (mctx !== ctx) {
+        master = null;
+        mctx = ctx;
+      }
+      if (!master) {
+        var g = ctx.createGain();
+        g.gain.value = 0.85;
+        var comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -18;
+        comp.knee.value = 12;
+        comp.ratio.value = 6;
+        comp.attack.value = 0.003;
+        comp.release.value = 0.18;
+        g.connect(comp);
+        comp.connect(ctx.destination);
+        master = g;
+      }
+      return master;
+    }
+
+    function now() {
+      var ctx = getCtx();
+      return ctx ? ctx.currentTime : 0;
+    }
+
+    /* ---------- voices ---------- */
+
+    /* A single shaped tone. `slide` bends the pitch over the life of the
+       note; `cut` puts a lowpass in front of it so bright waveforms can be
+       used without turning harsh. */
+    function tone(o) {
+      var ctx = getCtx(), out = bus();
+      if (!ctx || !out) return;
+      var t0 = (o.at || 0) + ctx.currentTime;
+      var dur = o.dur || 0.12;
+      var osc = ctx.createOscillator();
+      var g = ctx.createGain();
+      osc.type = o.type || 'sine';
+      osc.frequency.setValueAtTime(o.freq, t0);
+      if (o.slide) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.slide), t0 + dur);
+      }
+      if (o.detune) osc.detune.value = o.detune;
+
+      var node = osc;
+      if (o.cut) {
+        var f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.value = o.cut;
+        f.Q.value = o.q || 0.7;
+        osc.connect(f);
+        node = f;
+      }
+
+      // Attack must never be 0 — an instant jump to full gain is a click.
+      var peak = o.gain == null ? 0.06 : o.gain;
+      var atk = o.atk == null ? 0.006 : o.atk;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + atk);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      node.connect(g);
+      g.connect(out);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.03);
+    }
+
+    /* Filtered noise — the body of anything percussive. A click made only
+       of sine waves sounds like a videogame; a click with a noise
+       transient sounds like an object. */
+    function noise(o) {
+      var ctx = getCtx(), out = bus();
+      if (!ctx || !out) return;
+      var dur = o.dur || 0.08;
+      var t0 = (o.at || 0) + ctx.currentTime;
+      var frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
+      var buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < frames; i++) {
+        // Fade the noise inside the buffer as well as with the gain node;
+        // it decays more naturally than a pure envelope on flat noise.
+        d[i] = (Math.random() * 2 - 1) * (1 - i / frames);
+      }
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      var f = ctx.createBiquadFilter();
+      f.type = o.band ? 'bandpass' : 'lowpass';
+      f.frequency.value = o.freq || 1200;
+      f.Q.value = o.q || 1;
+
+      var g = ctx.createGain();
+      var peak = o.gain == null ? 0.05 : o.gain;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      src.connect(f); f.connect(g); g.connect(out);
+      src.start(t0);
+      src.stop(t0 + dur + 0.02);
+    }
+
+    function chord(freqs, o) {
+      o = o || {};
+      for (var i = 0; i < freqs.length; i++) {
+        tone({
+          freq: freqs[i],
+          type: o.type || 'sine',
+          dur: o.dur || 0.5,
+          gain: (o.gain == null ? 0.05 : o.gain) / Math.sqrt(freqs.length),
+          at: (o.at || 0) + i * (o.spread || 0),
+          cut: o.cut,
+          atk: o.atk,
+        });
+      }
+    }
+
+    /* ---------- the sounds ---------- */
+
+    var S = {};
+
+    /* Someone walks into the lobby. Warm, small, two notes up. Never
+       competes with conversation in the room. */
+    S.join = function () {
+      tone({ freq: 392, dur: 0.10, gain: 0.035, type: 'sine' });
+      tone({ freq: 587, dur: 0.14, gain: 0.030, type: 'sine', at: 0.06 });
+    };
+
+    /* Someone leaves. The same shape inverted, quieter — information, not
+       an event. */
+    S.leave = function () {
+      tone({ freq: 494, dur: 0.10, gain: 0.026, type: 'sine' });
+      tone({ freq: 330, dur: 0.16, gain: 0.024, type: 'sine', at: 0.06 });
+    };
+
+    /* ON AIR. The show starting: a low swell under a bright ping, the way
+       a broadcast desk comes alive. This is the only sound in the game
+       that is allowed to feel ceremonial without being loud. */
+    S.start = function () {
+      tone({ freq: 110, slide: 220, dur: 0.85, gain: 0.055, type: 'triangle', cut: 900, atk: 0.16 });
+      tone({ freq: 1319, dur: 0.30, gain: 0.030, type: 'sine', at: 0.34, atk: 0.01 });
+      noise({ freq: 2600, band: true, q: 1.4, dur: 0.20, gain: 0.022, at: 0.30 });
+    };
+
+    /* A question arrives. A short riser under the tiles coming in. */
+    S.question = function () {
+      tone({ freq: 262, slide: 392, dur: 0.34, gain: 0.032, type: 'triangle', cut: 1400, atk: 0.07 });
+    };
+
+    /* RULE 1 — the clock, and only the clock, is allowed to be sharp.
+       `heat` runs 0..1 across the panic window: the click gets higher,
+       drier and fractionally louder as the deadline closes. */
+    S.tick = function (heat) {
+      var h = Math.max(0, Math.min(1, heat || 0));
+      noise({ freq: 1800 + 1400 * h, band: true, q: 2.2, dur: 0.030, gain: 0.026 + 0.020 * h });
+      tone({ freq: 740 + 300 * h, dur: 0.035, gain: 0.020 + 0.016 * h, type: 'square', cut: 2200 });
+    };
+
+    /* Time ran out with no answer from you. Low, blunt, over quickly. It
+       is a full stop, not a scolding. */
+    S.timeup = function () {
+      tone({ freq: 196, slide: 98, dur: 0.42, gain: 0.055, type: 'triangle', cut: 700, atk: 0.008 });
+      noise({ freq: 380, dur: 0.26, gain: 0.030 });
+    };
+
+    /* RULE 3 — you locked in. Two quick rising notes to confirm the input,
+       then a warm low note underneath: the room going quiet for you while
+       everyone else is still under the clock. */
+    S.lock = function () {
+      tone({ freq: 587, dur: 0.07, gain: 0.045, type: 'sine' });
+      tone({ freq: 784, dur: 0.10, gain: 0.042, type: 'sine', at: 0.055 });
+      tone({ freq: 294, dur: 0.55, gain: 0.028, type: 'sine', at: 0.10, atk: 0.09, cut: 800 });
+    };
+
+    /* Held a beat before the answer floods in. Tension, not threat. */
+    S.reveal = function () {
+      tone({ freq: 330, slide: 262, dur: 0.28, gain: 0.030, type: 'triangle', cut: 1100, atk: 0.05 });
+    };
+
+    /* RULE 2 — celebration is LOUD. A major arpeggio that keeps climbing,
+       with an octave shimmer on top. This is the biggest per-question
+       sound in the game and it should be. */
+    S.correct = function () {
+      chord([523, 659, 784, 1047], { spread: 0.055, dur: 0.55, gain: 0.085, type: 'sine' });
+      tone({ freq: 2093, dur: 0.42, gain: 0.020, type: 'sine', at: 0.20, atk: 0.05 });
+      noise({ freq: 5200, band: true, q: 1.1, dur: 0.30, gain: 0.014, at: 0.18 });
+    };
+
+    /* RULE 2 — correction is QUIET. One soft low note, heavily filtered,
+       gone in under a fifth of a second. No buzzer. No minor-second sting.
+       Everyone in the room already saw what happened. */
+    S.wrong = function () {
+      tone({ freq: 175, dur: 0.30, gain: 0.034, type: 'sine', cut: 420, atk: 0.02 });
+    };
+
+    /* A scoreboard row settling. Pitch rises with rank so a whole board
+       resolving upward sounds like a scale rather than a rattle. */
+    S.rowLand = function (rank, total) {
+      var t = total || 8;
+      var frac = 1 - Math.max(0, Math.min(1, (rank - 1) / Math.max(1, t - 1)));
+      noise({ freq: 900 + 600 * frac, band: true, q: 1.6, dur: 0.045, gain: 0.022 });
+      tone({ freq: 220 + 200 * frac, dur: 0.10, gain: 0.024, type: 'sine' });
+    };
+
+    /* The podium assembling. Bronze is a bare note; silver adds a fifth;
+       gold is a full triad with a noise flourish. The ceremony grows. */
+    S.podium = function (rank) {
+      if (rank === 3) {
+        tone({ freq: 330, dur: 0.34, gain: 0.045, type: 'triangle', cut: 1500, atk: 0.012 });
+        noise({ freq: 1500, band: true, q: 1.6, dur: 0.09, gain: 0.020 });
+      } else if (rank === 2) {
+        chord([392, 587], { dur: 0.42, gain: 0.055, spread: 0.03, type: 'triangle', cut: 1800 });
+        noise({ freq: 2000, band: true, q: 1.6, dur: 0.10, gain: 0.022 });
+      } else {
+        chord([523, 659, 784], { dur: 0.55, gain: 0.070, spread: 0.035, type: 'triangle', cut: 2400 });
+        noise({ freq: 3000, band: true, q: 1.3, dur: 0.14, gain: 0.024, at: 0.02 });
+      }
+    };
+
+    /* The winner. The one real fanfare: a I-V-I lift with an octave over
+       the top. Longer and fuller than anything else in the game, because
+       it only happens once. */
+    S.win = function () {
+      chord([523, 659, 784], { dur: 0.42, gain: 0.075, spread: 0.045, type: 'sine' });
+      chord([587, 740, 880], { dur: 0.42, gain: 0.070, spread: 0.045, type: 'sine', at: 0.20 });
+      chord([659, 784, 1047, 1319], { dur: 1.05, gain: 0.085, spread: 0.05, type: 'sine', at: 0.42, atk: 0.02 });
+      tone({ freq: 131, dur: 1.20, gain: 0.045, type: 'triangle', cut: 700, at: 0.42, atk: 0.10 });
+      noise({ freq: 4200, band: true, q: 1.0, dur: 0.55, gain: 0.016, at: 0.46 });
+    };
+
+    /* Finished, but not first. Not a sad trombone — a soft resolved cadence.
+       Losing should not sound like failure. */
+    S.finish = function () {
+      chord([392, 494, 587], { dur: 0.70, gain: 0.045, spread: 0.05, type: 'sine', atk: 0.03 });
+    };
+
+    /* 3 - 2 - 1 pips before a round. The last one is higher and brighter so
+       the drop into the question lands on a resolution. */
+    S.countdown = function (n) {
+      if (n > 1) {
+        tone({ freq: 523, dur: 0.11, gain: 0.045, type: 'sine' });
+      } else {
+        tone({ freq: 784, dur: 0.28, gain: 0.060, type: 'sine' });
+        noise({ freq: 2400, band: true, q: 1.4, dur: 0.12, gain: 0.018 });
+      }
+    };
+
+    /* Reconnected after dropping. Deliberately reassuring, deliberately
+       small — it fires at a moment the player is already anxious. */
+    S.reconnect = function () {
+      tone({ freq: 440, dur: 0.10, gain: 0.030, type: 'sine' });
+      tone({ freq: 660, dur: 0.18, gain: 0.028, type: 'sine', at: 0.07 });
+    };
+
+    /* ---------- public surface ---------- */
+
+    var api = {};
+    // Every sound goes through one gate and one try/catch. Audio is never
+    // allowed to throw into the render path.
+    Object.keys(S).forEach(function (k) {
+      api[k] = function (a, b) {
+        if (!isOn()) return;
+        try { S[k](a, b); } catch (e) {}
+      };
+    });
+
+    // Kept so existing call sites keep working during the migration.
+    api.blip = function (freq, ms, vol) {
+      if (!isOn()) return;
+      try { tone({ freq: freq, dur: (ms || 120) / 1000, gain: vol || 0.06 }); } catch (e) {}
+    };
+
+    api._internals = { tone: tone, noise: noise, chord: chord, bus: bus, now: now };
+    return api;
+  }
+
+  var SFX = makeAudio(audioCtx, function () { return audio.on; });
+  /* Kept as a name so any call site not yet migrated still makes a noise
+     rather than throwing. */
+  function blip(freq, ms, vol) { SFX.blip(freq, ms, vol); }
+
+  /* ==================================================================
+     The clock. Driven entirely from the server's endsAt — never from a
+     locally started timer, because clocks drift and this one has to
+     tell the truth. The arc is one CSS animation. The digits are
+     written only when the displayed integer changes.
+     ================================================================== */
+  var clock = { endsAt: 0, raf: 0, shown: -1, state: '', locked: false, live: false };
+
+  function setClockState(s) {
+    if (clock.state === s) return;
+    clock.state = s;
+    elClock.classList.remove('warm', 'panic');
+    if (s === 'warm') elClock.classList.add('warm');
+    if (s === 'panic') elClock.classList.add('panic');
+    if (!clock.locked) {
+      if (s === 'warm') setStage(STAGE.warm);
+      else if (s === 'panic') setStage(STAGE.panic);
+      else setStage(STAGE.cruise);
+    }
+  }
+
+  function startClock(endsAt) {
+    stopClockLoop();
+    clock.endsAt = endsAt;
+    clock.locked = false;
+    clock.shown = -1;
+    clock.state = '';
+    clock.live = true;
+    elClock.classList.remove('warm', 'panic', 'locked', 'gone');
+    setClockState('cruise');
+
+    paintArc();
+    tick();
+  }
+
+  /* The arc's duration is set once from the server's deadline. A hidden tab
+     throttles CSS animations as well as frames, so coming back to the tab
+     re-derives the arc from the deadline rather than trusting where the
+     animation happens to have got to. */
+  function paintArc() {
+    var remaining = clamp(clock.endsAt - Date.now(), 0, 120000);
+    var frac = clamp(remaining / QUESTION_MS, 0, 1);
+    elArc.style.animation = 'none';
+    void elArc.offsetWidth;
+    elArc.style.setProperty('--from', (RING_C * (1 - frac)).toFixed(2));
+    elArc.style.setProperty('--to', RING_C.toFixed(2));
+    elArc.style.animation = 'drain ' + Math.max(0, remaining) + 'ms linear forwards';
+  }
+
+  function stopClockLoop() {
+    if (clock.raf) { cancelAnimationFrame(clock.raf); clock.raf = 0; }
+    clock.live = false;
+  }
+
+  function tick() {
+    clock.raf = requestAnimationFrame(tick);
+    var rem = clock.endsAt - Date.now();
+    var secs = clamp(Math.ceil(rem / 1000), 0, 999);
+    if (secs !== clock.shown) {
+      var wasPanic = (clock.state === 'panic');
+      clock.shown = secs;
+      writeDigits(secs);
+      // Panic's beats land ON the second, not near it.
+      if (wasPanic && !clock.locked && rem > -400) panicBeat();
+    }
+    if (!clock.locked) {
+      if (rem <= PANIC_MS) setClockState('panic');
+      else if (rem <= WARM_MS) setClockState('warm');
+    }
+    if (rem < -2000) stopClockLoop();
+  }
+
+  function writeDigits(n) {
+    var txt = String(n);
+    if (clock.state === 'panic' && !clock.locked && !REDUCED && elDigits.firstElementChild) {
+      var old = elDigits.lastElementChild;
+      var el = mk('span', 'digit in');
+      el.textContent = txt;
+      elDigits.appendChild(el);
+      if (old) {
+        old.classList.remove('in');
+        old.classList.add('out');
+        old.addEventListener('animationend', function () { if (old.parentNode) old.parentNode.removeChild(old); }, { once: true });
+      }
+      el.addEventListener('animationend', function () { el.classList.remove('in'); }, { once: true });
+      while (elDigits.children.length > 3) elDigits.removeChild(elDigits.firstChild);
+    } else {
+      elDigits.textContent = '';
+      var d = mk('span', 'digit');
+      d.textContent = txt;
+      elDigits.appendChild(d);
+    }
+  }
+
+  /* One shockwave, one full-screen opacity pulse, one blip. The cheapest
+     effect in the whole design and by far the most physical. */
+  function panicBeat() {
+    // heat runs 0..1 across the panic window so the click rises in pitch and
+    // bite as the deadline closes. The clock is the only aggressive element.
+    var heat = clock.endsAt
+      ? clamp(1 - (clock.endsAt - Date.now()) / PANIC_MS, 0, 1)
+      : 0;
+    if (REDUCED) { SFX.tick(heat); return; }
+    var w = mk('div', 'wave');
+    elRing.appendChild(w);
+    w.addEventListener('animationend', function () { if (w.parentNode) w.parentNode.removeChild(w); }, { once: true });
+
+    elRoomPulse.classList.remove('beat');
+    void elRoomPulse.offsetWidth;
+    elRoomPulse.classList.add('beat');
+
+    // restart the heartbeat every second so drift never accumulates
+    elRing.style.animation = 'none';
+    void elRing.offsetWidth;
+    elRing.style.animation = '';
+
+    SFX.tick(heat);
+  }
+
+  /* The rule that matters most: the moment you lock in, the panic
+     treatment stops for you. Answering early is relief you can see. */
+  function calmClock() {
+    clock.locked = true;
+    elClock.classList.add('locked');
+    elRoomPulse.classList.remove('beat');
+    if (state.phase === 'question') setStage(STAGE.cruise);
+  }
+
+  function retireClock(timeUp) {
+    stopClockLoop();
+    if (timeUp && !REDUCED) {
+      elFlash.classList.remove('pop');
+      void elFlash.offsetWidth;
+      elFlash.classList.add('pop');
+      SFX.timeup();
+    }
+    elClock.classList.add('gone');
+  }
+
+  /* ==================================================================
+     Confetti — capped, removed on animationend, skipped on weak hardware
+     ================================================================== */
+  var CONF_COLORS = ['#3D6BFF', '#9A55FF', '#10B8C8', '#FFA92E', '#2BE39A', '#E7EAF2'];
+  function confetti(count) {
+    if (REDUCED || LOW_POWER) return;
+    var n = Math.min(count, 80);
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var s = mk('span', 'cf');
+      s.style.left = (Math.random() * 100).toFixed(2) + 'vw';
+      s.style.background = CONF_COLORS[(Math.random() * CONF_COLORS.length) | 0];
+      s.style.setProperty('--dx', ((Math.random() * 80) - 40).toFixed(0) + 'px');
+      s.style.setProperty('--dur', (1800 + Math.random() * 800).toFixed(0) + 'ms');
+      s.style.animationDelay = (Math.random() * 220).toFixed(0) + 'ms';
+      s.addEventListener('animationend', function () {
+        if (this.parentNode) this.parentNode.removeChild(this);
+      }, { once: true });
+      frag.appendChild(s);
+    }
+    elConfetti.appendChild(frag);
+  }
+
+  /* ==================================================================
+     Lobby
+     ================================================================== */
+  function renderCodeTiles(code) {
+    elCodeTiles.textContent = '';
+    var chars = String(code || '').split('');
+    for (var i = 0; i < chars.length; i++) {
+      var d = mk('div', 'code-ch');
+      d.textContent = chars[i];
+      // the light travels left to right across the code
+      d.style.animationDelay = (i * 90) + 'ms';
+      elCodeTiles.appendChild(d);
+    }
+  }
+
+  var seenPlayerIds = Object.create(null);
+  /* The lobby's back wall takes the genre's colour. It is the one place the
+     choice is felt rather than read, and it is why the picker does not need
+     to be loud. */
+  function lobbyStage() { return genreOf(state.settings.genre).stage; }
+
+  function paintCallSheet() {
+    if (!elCallSheet) return;
+    var g = genreOf(state.settings.genre);
+    // Say up front when the current genre cannot be played in this reader's
+    // language, rather than letting them find out when the game refuses to
+    // start. Same principle as the genre promise.
+    var entry = null;
+    for (var ci = 0; ci < state.catalog.length; ci++) {
+      if (state.catalog[ci].slug === state.settings.genre) { entry = state.catalog[ci]; break; }
+    }
+    var missing = !!(entry && entry.langs && entry.langs.indexOf(lang) < 0);
+    elGenreVal.textContent = g.label + (missing ? ' \u00b7 ' + T('noSpanish') : '');
+    elGenreSlot.style.setProperty('--accent', g.accent);
+    var d = state.settings.difficulty;
+    elDiffVal.textContent = d === 'any' ? 'Any' : titleCase(d);
+    elDiffSlot.style.setProperty('--accent', d === 'any' ? 'var(--paper-100)' : g.accent);
+
+    elCallSheet.classList.toggle('readonly', !state.isHost);
+    elCallSheet.classList.toggle('busy', !!state.starting);
+    // A readout is not a button, and screen readers should not be told it is.
+    elGenreSlot.disabled = !state.isHost;
+    elDiffSlot.disabled = !state.isHost;
+    elGenreSlot.setAttribute('aria-label',
+      (state.isHost ? 'Genre, tap to change. Currently ' : 'Genre: ') + g.label);
+    elDiffSlot.setAttribute('aria-label',
+      (state.isHost ? 'Difficulty, tap to change. Currently ' : 'Difficulty: ') + elDiffVal.textContent);
+
+    if (curScreen === 'lobby') setStage(lobbyStage());
+  }
+
+  function cycle(list, current, dir) {
+    var i = list.indexOf(current);
+    if (i < 0) i = 0;
+    return list[(i + (dir || 1) + list.length) % list.length];
+  }
+
+  function sendSettings(next) {
+    // Painted immediately so the tap feels like a control rather than a
+    // request, but the server's echo is the truth — if it disagrees, its
+    // broadcast overwrites this a moment later.
+    state.settings = next;
+    paintCallSheet();
+    send({ type: 'settings', settings: next });
+  }
+
+  var lobbyPainted = false;
+  function renderLobby() {
+    var wrap = elLobbyPlayers;
+    wrap.textContent = '';
+    var players = state.players;
+    var arrivals = 0;
+    for (var i = 0; i < players.length; i++) {
+      var p = players[i];
+      var seat = mk('div', 'seat');
+      var isNew = !seenPlayerIds[p.id];
+      if (isNew) { seat.classList.add('filled'); seenPlayerIds[p.id] = true; arrivals++; }
+      var av = avatarEl(p, (p.isHost ? 'host ' : '') + (p.connected ? '' : 'off'));
+      if (isNew && !REDUCED) {
+        var ping = mk('div', 'ping');
+        ping.style.setProperty('--ph', String(hueOf(p.name)));
+        av.appendChild(ping);
+        ping.addEventListener('animationend', function () {
+          if (this.parentNode) this.parentNode.removeChild(this);
+        }, { once: true });
+      }
+      seat.appendChild(av);
+      var nm = mk('div', 'seat-name');
+      nm.textContent = p.name;
+      seat.appendChild(nm);
+      var sub = mk('div', 'seat-sub');
+      sub.textContent = p.isHost ? 'Host' : (p.connected ? '' : 'Away');
+      if (!p.connected) sub.style.color = 'var(--slate-400)';
+      seat.appendChild(sub);
+      wrap.appendChild(seat);
+    }
+    var empties = Math.max(0, Math.min(MAX_PLAYERS, MAX_PLAYERS) - players.length);
+    for (var j = 0; j < empties; j++) {
+      var slotWrap = mk('div', 'seat');
+      slotWrap.appendChild(mk('div', 'slot'));
+      wrap.appendChild(slotWrap);
+    }
+
+    var connected = 0;
+    for (var k = 0; k < players.length; k++) if (players[k].connected) connected++;
+
+    if (state.isHost) {
+      elStartBtn.hidden = false;
+      elWaitLine.hidden = true;
+      var need = MIN_PLAYERS - connected;
+      if (need > 0) {
+        elStartBtn.disabled = true;
+        elStartBtn.textContent = 'Need ' + need + ' more player' + (need === 1 ? '' : 's');
+      } else {
+        elStartBtn.disabled = false;
+        // Playing alone is a real choice, so name it rather than leaving the
+        // host wondering whether the button is going to refuse them.
+        elStartBtn.textContent = connected < 2 ? 'Start solo game' : 'Start game';
+      }
+    } else {
+      elStartBtn.hidden = true;
+      elWaitLine.hidden = false;
+      elWaitText.textContent = 'Waiting for host';
+    }
+
+    if (lobbyPainted && arrivals > 0) SFX.join();
+    lobbyPainted = true;
+    paintCallSheet();
+  }
+
+  /* ==================================================================
+     Question
+     ================================================================== */
+  function renderPills(target, index, total) {
+    target.textContent = '';
+    var n = total || 10;
+    for (var i = 0; i < n; i++) {
+      var p = mk('span', 'pill');
+      if (i < index) p.classList.add('done');
+      else if (i === index) p.classList.add('now');
+      target.appendChild(p);
+    }
+  }
+
+  function pickKey() { return 'ls:pick:' + state.code + ':' + (state.question ? state.question.index : -1); }
+
+  /* The question as THIS player should read it. The server sends every
+     language in the same slot order, so picking a language is picking a view
+     of the same board — the indices, and therefore the answer, do not move.
+     Falls back to the base text whenever a translation is absent, which is
+     what a live OpenTDB question always is. */
+  function localised(q) {
+    if (!q) return q;
+    var tr = q.i18n && q.i18n[lang];
+    if (!tr || !tr.text || !Array.isArray(tr.choices) || tr.choices.length !== q.choices.length) {
+      return q;
+    }
+    return {
+      index: q.index, total: q.total, text: tr.text, choices: tr.choices,
+      endsAt: q.endsAt, category: q.category, difficulty: q.difficulty, i18n: q.i18n
+    };
+  }
+
+  function renderQuestion(q) {
+    clearBucket('rev'); clearBucket('seq');
+    // Only for a question that is genuinely starting. A reconnect replays the
+    // current question through here too (catchUp), and a riser for a round
+    // everyone else began fifteen seconds ago just sounds like a bug. The
+    // phase flag cannot distinguish them — it is already 'question' by the
+    // time we get here — but the clock can: a fresh question has essentially
+    // its whole window left.
+    if ((q.endsAt - Date.now()) > QUESTION_MS * 0.85) SFX.question();
+
+    // Reset every trace of the last round. correctIndex goes back to null
+    // here and stays null until a 'reveal' arrives.
+    state.question = q;
+    q = localised(q);
+    state.correctIndex = null;
+    state.reveal = null;
+    state.myChoice = null;
+    state.locked = false;
+    state.answered = {};
+
+    // A reload mid-question shouldn't lose which tile you chose. This is
+    // your own pick, echoed back to you — it says nothing about the answer.
+    try {
+      var saved = sessionStorage.getItem(pickKey());
+      if (saved !== null) {
+        var si = parseInt(saved, 10);
+        if (si >= 0 && si <= 3) { state.myChoice = si; state.locked = true; }
+      }
+    } catch (e) {}
+
+    elDwell.classList.remove('run');
+    elGridBloom.classList.remove('on', 'settle');
+    elWhoGot.textContent = '';
+    elTiles.classList.remove('locked', 'revealing', 'dip');
+
+    setText(elCatText, q.category || T('general'));
+    setText(elCatDiff, q.difficulty ? String(q.difficulty).toUpperCase() : '');
+    elCatCap.style.background = CHOICES[q.index % 4].c;
+
+    setText(elQuestion, q.text);
+    elQuestion.style.opacity = '';
+    elQuestion.style.transform = '';
+    elQuestion.classList.remove('q-enter');
+    void elQuestion.offsetWidth;
+    elQuestion.classList.add('q-enter');
+    elQRule.classList.remove('on');
+    void elQRule.offsetWidth;
+    elQRule.classList.add('on');
+
+    // tiles
+    elTiles.textContent = '';
+    var choices = Array.isArray(q.choices) ? q.choices : [];
+    for (var i = 0; i < 4; i++) {
+      var meta = CHOICES[i];
+      var b = mk('button', 'tile tile-enter');
+      b.type = 'button';
+      b.dataset.i = String(i);
+      b.style.setProperty('--tc', meta.c);
+      b.style.setProperty('--tcr', meta.rgb);
+      b.style.setProperty('--tf', meta.fill);
+      b.style.animationDelay = (REDUCED ? 0 : i * 45) + 'ms';
+      b.setAttribute('aria-pressed', 'false');
+
+      var badge = mk('span', 'badge');
+      var letter = mk('span', 'badge-letter');
+      letter.textContent = meta.letter;
+      badge.appendChild(letter);
+      badge.appendChild(makeCheck());
+      b.appendChild(badge);
+
+      var txt = mk('span', 'tile-text');
+      txt.textContent = decodeEntities(choices[i] == null ? '' : choices[i]);
+      b.appendChild(txt);
+
+      b.addEventListener('animationend', function () { this.classList.remove('tile-enter'); }, { once: true });
+      on(b, 'click', onTileClick);
+      elTiles.appendChild(b);
+    }
+
+    renderPills(elHudPills, q.index, q.total);
+    renderPills(elBoardPills, q.index, q.total);
+
+    // scores as they stood before this round — the scoreboard needs a
+    // "before" to animate out of
+    state.prevScores = {};
+    for (var s = 0; s < state.players.length; s++) {
+      state.prevScores[state.players[s].id] = state.players[s].score || 0;
+    }
+
+    startClock(q.endsAt);
+    if (state.locked) applyLockVisuals(state.myChoice, true);
+    else paintLockLine();
+
+    if (curScreen !== 'play') setScreen('play');
+    else { setStage(STAGE.cruise); }
+  }
+
+  function makeCheck() {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'badge-check');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M5 12.5 L10 17.5 L19 7');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function tileAt(i) { return elTiles.querySelector('.tile[data-i="' + i + '"]'); }
+
+  function onTileClick(ev) {
+    var i = parseInt(ev.currentTarget.dataset.i, 10);
+    lockIn(i);
+  }
+
+  function lockIn(i) {
+    if (state.locked || !state.question || state.phase !== 'question') return;
+    if (!(i >= 0 && i <= 3)) return;
+    state.locked = true;
+    state.myChoice = i;
+    try { sessionStorage.setItem(pickKey(), String(i)); } catch (e) {}
+    send({ type: 'answer', index: state.question.index, choice: i });
+    applyLockVisuals(i, false);
+  }
+
+  function applyLockVisuals(i, silent) {
+    elTiles.classList.add('locked');
+    var tiles = elTiles.querySelectorAll('.tile');
+    for (var t = 0; t < tiles.length; t++) {
+      tiles[t].disabled = true;
+      tiles[t].setAttribute('aria-pressed', 'false');
+    }
+    var el = (i === null || i === undefined) ? null : tileAt(i);
+    if (el) {
+      el.classList.add('picked');
+      el.setAttribute('aria-pressed', 'true');
+      if (!silent && !REDUCED) {
+        var sh = mk('span', 'shock');
+        el.appendChild(sh);
+        sh.addEventListener('animationend', function () {
+          if (this.parentNode) this.parentNode.removeChild(this);
+        }, { once: true });
+      }
+      if (!silent) SFX.lock();
+    }
+    calmClock();
+    paintLockLine();
+  }
+
+  function paintLockLine() {
+    elLockLine.textContent = '';
+    if (state.phase !== 'question') return;
+    if (!state.locked) {
+      var hint = mk('span', 'lock-tag muted');
+      hint.textContent = COARSE ? 'Tap your answer' : 'Pick one — keys 1–4 work too';
+      elLockLine.appendChild(hint);
+      return;
+    }
+    var a = mk('span', 'lock-tag');
+    a.textContent = state.myChoice === null ? 'Answer locked' : 'Answer locked — ' + CHOICES[state.myChoice].letter;
+    elLockLine.appendChild(a);
+
+    // Counts stay off while you are still choosing — they leak nothing about
+    // the answer, but they do cost suspense. Once you've locked in you can
+    // no longer be influenced, so it's safe (and kinder) to show progress.
+    var total = 0, done = 0;
+    for (var i = 0; i < state.players.length; i++) {
+      if (!state.players[i].connected) continue;
+      total++;
+      if (state.answered[state.players[i].id]) done++;
+    }
+    if (total > 1) {
+      var c = mk('span', 'lock-tag muted');
+      c.textContent = done + ' of ' + total + ' locked in';
+      elLockLine.appendChild(c);
+    }
+  }
+
+  /* ==================================================================
+     Reveal — emotional beat 2. The pause at the front is the whole trick:
+     the drain must fully land before the answer arrives, or the reveal has
+     nothing to arrive out of.
+     ================================================================== */
+  function runReveal(rev) {
+    clearBucket('rev');
+    state.reveal = rev;
+    state.correctIndex = rev.correctIndex;   // the FIRST moment this is known
+
+    if (!state.question || curScreen !== 'play') {
+      // Reconnected straight into a reveal with no question on screen.
+      // Don't invent one — go to the scoreboard, which is all true.
+      setScreen('board');
+      return;
+    }
+
+    var timeUp = (clock.endsAt - Date.now()) <= 300;
+    retireClock(timeUp);
+
+    var ci = rev.correctIndex;
+    var mine = null;
+    if (state.me && Array.isArray(rev.perPlayer)) {
+      for (var i = 0; i < rev.perPlayer.length; i++) {
+        if (rev.perPlayer[i].id === state.me.id) { mine = rev.perPlayer[i]; break; }
+      }
+    }
+    // The server is the authority on what I picked; if I reloaded, this is
+    // also how I find out.
+    if (mine && mine.choice !== null && mine.choice !== undefined) state.myChoice = mine.choice;
+    var iWasRight = !!(mine && mine.correct);
+
+    var tiles = elTiles.querySelectorAll('.tile');
+    for (var t = 0; t < tiles.length; t++) tiles[t].disabled = true;
+    elTiles.classList.add('revealing', 'dip');
+    elLockLine.textContent = '';
+
+    // 140ms — the drain
+    later('rev', function () {
+      elTiles.classList.remove('dip');
+      var list = elTiles.querySelectorAll('.tile');
+      for (var k = 0; k < list.length; k++) {
+        if (parseInt(list[k].dataset.i, 10) === ci) continue;
+        list[k].classList.remove('picked');
+        list[k].classList.add('drained');
+      }
+      elQuestion.style.opacity = '.55';
+      elQuestion.style.transform = 'scale(.98)';
+    }, 140);
+
+    // 520ms — the arrival
+    later('rev', function () {
+      var win = tileAt(ci);
+      if (win) {
+        win.classList.remove('drained');
+        win.classList.add('correct');
+        win.setAttribute('aria-label', 'Correct answer');
+        if (!REDUCED) {
+          var sh = mk('span', 'shock mint');
+          win.appendChild(sh);
+          sh.addEventListener('animationend', function () {
+            if (this.parentNode) this.parentNode.removeChild(this);
+          }, { once: true });
+        }
+      }
+      elGridBloom.classList.add('on');
+      setStage(iWasRight ? STAGE.right : STAGE.bruise);
+      if (iWasRight) { SFX.correct(); } else { SFX.wrong(); }
+    }, 520);
+
+    // 560ms — your verdict, 40ms after the answer so it reads as consequence
+    later('rev', function () {
+      if (iWasRight) {
+        confetti(40);
+      } else if (state.myChoice !== null && state.myChoice !== ci) {
+        var el = tileAt(state.myChoice);
+        if (el) {
+          el.classList.remove('drained');
+          el.classList.add('mywrong');
+          el.setAttribute('aria-label', 'Your answer, incorrect');
+          if (!REDUCED) {
+            el.classList.add('shake');
+            el.addEventListener('animationend', function () { el.classList.remove('shake'); }, { once: true });
+          }
+        }
+      }
+      var verdict = mk('span', 'lock-tag' + (iWasRight ? '' : ' muted'));
+      if (iWasRight) verdict.textContent = 'You got it — +' + (mine.gained || 0);
+      else if (state.myChoice === null) verdict.textContent = 'No answer this round';
+      else verdict.textContent = 'Not this time';
+      elLockLine.textContent = '';
+      elLockLine.appendChild(verdict);
+    }, 560);
+
+    // 600ms — the badge becomes a checkmark
+    later('rev', function () {
+      var win = tileAt(ci);
+      if (win) win.classList.add('checked');
+    }, 600);
+
+    // 760ms — who got it
+    later('rev', function () { renderWhoGot(rev); }, 760);
+
+    // 1600ms — settle, and an auto-advance you can see coming
+    later('rev', function () {
+      elGridBloom.classList.remove('on');
+      elGridBloom.classList.add('settle');
+      elDwell.style.setProperty('--dwell', DWELL_MS + 'ms');
+      elDwell.classList.remove('run');
+      void elDwell.offsetWidth;
+      elDwell.classList.add('run');
+    }, 1600);
+
+    later('rev', function () {
+      elDwell.classList.remove('run');
+      if (state.phase === 'reveal') setScreen('board');
+    }, 1600 + DWELL_MS);
+  }
+
+  function renderWhoGot(rev) {
+    elWhoGot.textContent = '';
+    var byId = {};
+    for (var i = 0; i < state.players.length; i++) byId[state.players[i].id] = state.players[i];
+
+    var winners = [];
+    var pp = Array.isArray(rev.perPlayer) ? rev.perPlayer : [];
+    for (var j = 0; j < pp.length; j++) if (pp[j].correct) winners.push(pp[j]);
+    winners.sort(function (a, b) { return (b.gained || 0) - (a.gained || 0); });
+
+    var label = mk('div', 'whogot-label');
+    label.textContent = winners.length
+      ? (winners.length === 1 ? '1 player got it' : winners.length + ' players got it')
+      : 'Nobody got it';
+    elWhoGot.appendChild(label);
+    if (!winners.length) return;
+
+    var chips = mk('div', 'chips');
+    var shown = Math.min(winners.length, 8);
+    for (var k = 0; k < shown; k++) {
+      var w = winners[k];
+      var p = byId[w.id] || { id: w.id, name: '?' };
+      var chip = mk('div', 'gchip');
+      chip.style.animationDelay = (REDUCED ? 0 : k * 55) + 'ms';
+      chip.appendChild(avatarEl(p));
+      var nm = mk('div', 'gname');
+      nm.textContent = (state.me && p.id === state.me.id) ? 'You' : p.name;
+      chip.appendChild(nm);
+
+      if (!REDUCED) {
+        var d = mk('div', 'delta');
+        d.textContent = '+' + (w.gained || 0);
+        d.style.animationDelay = (140 + k * 55) + 'ms';
+        chip.appendChild(d);
+        // "fastest" is derived honestly: the biggest gain is the speed bonus
+        // talking, and it is the only speed signal the protocol carries.
+      }
+      if (k === 0 && winners.length > 1 && (w.gained || 0) > (winners[1].gained || 0)) {
+        var f = mk('div', 'fast-tag');
+        f.textContent = 'Fastest';
+        chip.appendChild(f);
+      }
+      chips.appendChild(chip);
+    }
+    if (winners.length > shown) {
+      var more = mk('div', 'gchip more');
+      more.textContent = '+' + (winners.length - shown);
+      chips.appendChild(more);
+    }
+    elWhoGot.appendChild(chips);
+  }
+
+  /* ==================================================================
+     Scoreboard — the movement IS the content
+     ================================================================== */
+  var boardRowEls = Object.create(null);
+
+  function sortedBy(scoreMap) {
+    var arr = state.players.slice();
+    arr.sort(function (a, b) {
+      var sa = scoreMap[a.id] || 0, sb = scoreMap[b.id] || 0;
+      if (sb !== sa) return sb - sa;
+      return String(a.name).localeCompare(String(b.name));
+    });
+    return arr;
+  }
+
+  function buildRow(p) {
+    var row = mk('div', 'row');
+    row.dataset.pid = p.id;
+    var bar = mk('div', 'row-bar');
+    bar.style.setProperty('--ph', String(hueOf(p.name)));
+    row.appendChild(bar);
+    row.appendChild(mk('div', 'row-cap'));
+    row.appendChild(mk('div', 'row-rank'));
+    row.appendChild(avatarEl(p));
+    var name = mk('div', 'row-name');
+    name.textContent = p.name;
+    if (state.me && p.id === state.me.id) {
+      var you = mk('span', 'row-you');
+      you.textContent = 'You';
+      name.appendChild(you);
+    }
+    row.appendChild(name);
+    row.appendChild(mk('div', 'row-gain'));
+    var sc = mk('div', 'row-score');
+    sc.textContent = '0';
+    row.appendChild(sc);
+    return row;
+  }
+
+  function runBoardSequence() {
+    var q = state.question;
+    var idx = q ? q.index : 0, total = q ? q.total : 10;
+    // Reconnecting straight into a scoreboard means we never saw the question,
+    // so we don't know the round. Say "Scoreboard" rather than guess "Round 1".
+    elBoardRound.textContent = q ? ('Round ' + (idx + 1) + ' of ' + total) : 'Scoreboard';
+    renderPills(elBoardPills, q ? idx : -1, total);
+    renderPills(elHudPills, q ? idx : -1, total);
+
+    // Rows first appear in the order they were in BEFORE this round, showing
+    // the old scores. The reorder is only meaningful if there is a before.
+    var prev = state.prevScores || {};
+    var now = {};
+    for (var i = 0; i < state.players.length; i++) now[state.players[i].id] = state.players[i].score || 0;
+
+    var beforeList = sortedBy(prev);
+    elBoardRows.textContent = '';
+    boardRowEls = Object.create(null);
+
+    var leaderNow = 0;
+    for (var l = 0; l < state.players.length; l++) leaderNow = Math.max(leaderNow, now[state.players[l].id] || 0);
+    var leaderPrev = 0;
+    for (var m = 0; m < beforeList.length; m++) leaderPrev = Math.max(leaderPrev, prev[beforeList[m].id] || 0);
+
+    for (var j = 0; j < beforeList.length; j++) {
+      var p = beforeList[j];
+      var row = buildRow(p);
+      row.classList.add('row-enter');
+      row.style.animationDelay = (REDUCED ? 0 : j * 70) + 'ms';
+      if (!p.connected) row.classList.add('off');
+      row.querySelector('.row-rank').textContent = String(j + 1);
+      row.querySelector('.row-score').textContent = String(prev[p.id] || 0);
+      var b0 = leaderPrev > 0 ? (prev[p.id] || 0) / leaderPrev : 0;
+      var bar = row.querySelector('.row-bar');
+      bar.style.transition = 'none';
+      bar.style.transform = 'scaleX(' + b0.toFixed(4) + ')';
+      boardRowEls[p.id] = row;
+      elBoardRows.appendChild(row);
+      (function (rank, n) {
+        later('seq', function () { SFX.rowLand(rank, n); },
+              (REDUCED ? 0 : rank * 70) + (REDUCED ? 60 : 200));
+      })(j + 1, beforeList.length);
+      (function (r) {
+        r.addEventListener('animationend', function () { r.classList.remove('row-enter'); }, { once: true });
+      })(row);
+    }
+    // re-enable the bar transition on the next frame
+    requestAnimationFrame(function () {
+      for (var id in boardRowEls) { if (boardRowEls[id]) boardRowEls[id].querySelector('.row-bar').style.transition = ''; }
+    });
+
+    paintBoardActions();
+
+    // rows land (240 + stagger) -> 400ms hold, so people can find their own
+    // name before it moves -> then count-up and reorder fire together
+    var settleIn = (REDUCED ? 120 : 240) + (REDUCED ? 0 : beforeList.length * 70) + 400;
+    later('seq', function () { flipBoard(prev, now, leaderNow); }, settleIn);
+  }
+
+  function paintBoardActions() {
+    elBoardActions.textContent = '';
+    var q = state.question;
+    var isLast = q ? (q.index + 1 >= q.total) : false;
+    if (state.isHost) {
+      var b = mk('button', 'btn btn-primary');
+      b.type = 'button';
+      b.textContent = isLast ? 'Final standings' : 'Next question';
+      on(b, 'click', function () { send({ type: 'next' }); b.disabled = true; });
+      elBoardActions.appendChild(b);
+    } else {
+      var w = mk('div', 'waiting');
+      var s = mk('span'); s.textContent = 'Waiting for host';
+      w.appendChild(s);
+      var dots = mk('span', 'dots');
+      dots.appendChild(mk('i')); dots.appendChild(mk('i')); dots.appendChild(mk('i'));
+      w.appendChild(dots);
+      elBoardActions.appendChild(w);
+    }
+  }
+
+  /* FLIP: measure, reorder, measure, invert, play. Transform only —
+     twelve rows hold their frame rate on integrated graphics. */
+  function flipBoard(prev, now, leaderNow) {
+    var order = sortedBy(now);
+    var first = {};
+    var id;
+    for (id in boardRowEls) {
+      if (boardRowEls[id]) first[id] = boardRowEls[id].getBoundingClientRect().top;
+    }
+
+    var prevRankOf = {};
+    var beforeOrder = sortedBy(prev);
+    for (var a = 0; a < beforeOrder.length; a++) prevRankOf[beforeOrder[a].id] = a;
+
+    // reorder the DOM
+    for (var i = 0; i < order.length; i++) {
+      var row = boardRowEls[order[i].id];
+      if (row) elBoardRows.appendChild(row);
+    }
+
+    // Measure every "last" position BEFORE mutating any row content, so a
+    // text change in row 1 can never move the reading for row 2.
+    var lastTop = {};
+    for (var q = 0; q < order.length; q++) {
+      var rq = boardRowEls[order[q].id];
+      if (rq) lastTop[order[q].id] = rq.getBoundingClientRect().top;
+    }
+
+    var moves = [];
+    for (var j = 0; j < order.length; j++) {
+      var p = order[j];
+      var r = boardRowEls[p.id];
+      if (!r) continue;
+      var last = lastTop[p.id];
+      var delta = (first[p.id] === undefined ? last : first[p.id]) - last;
+      moves.push({ el: r, delta: delta, id: p.id, rank: j });
+
+      r.className = 'row' + (p.connected ? '' : ' off') +
+                    (j === 0 ? ' r1' : j === 1 ? ' r2' : j === 2 ? ' r3' : '');
+      r.querySelector('.row-rank').textContent = String(j + 1);
+
+      var gain = (now[p.id] || 0) - (prev[p.id] || 0);
+      var gEl = r.querySelector('.row-gain');
+      if (gain > 0) { gEl.textContent = '+' + gain; gEl.classList.add('on'); }
+      else { gEl.textContent = ''; gEl.classList.remove('on'); }
+
+      var frac = leaderNow > 0 ? (now[p.id] || 0) / leaderNow : 0;
+      r.querySelector('.row-bar').style.transform = 'scaleX(' + frac.toFixed(4) + ')';
+
+      countUp(r.querySelector('.row-score'), prev[p.id] || 0, now[p.id] || 0, REDUCED ? 300 : 1200);
+
+      var cap = r.querySelector('.row-cap');
+      cap.classList.remove('up', 'down');
+      var wasRank = prevRankOf[p.id];
+      if (wasRank !== undefined && wasRank !== j) {
+        cap.classList.add(j < wasRank ? 'up' : 'down');
+        (function (c) { later('seq', function () { c.classList.remove('up', 'down'); }, 900); })(cap);
+      }
+    }
+
+    if (REDUCED) return; // instant re-sort; the cap flash already marked who moved
+
+    // biggest mover leads
+    moves.sort(function (x, y) { return Math.abs(y.delta) - Math.abs(x.delta); });
+    for (var k = 0; k < moves.length; k++) {
+      var mv = moves[k];
+      if (!mv.delta) continue;
+      mv.el.style.transition = 'none';
+      mv.el.style.transform = 'translateY(' + mv.delta + 'px)';
+    }
+    void elBoardRows.offsetWidth; // force reflow so the invert is committed
+    for (var n = 0; n < moves.length; n++) {
+      (function (mv, i) {
+        if (!mv.delta) return;
+        mv.el.style.willChange = 'transform';
+        later('seq', function () {
+          mv.el.style.transition = 'transform 620ms var(--ease-out-expo)';
+          mv.el.style.transform = 'translateY(0)';
+          mv.el.addEventListener('transitionend', function h(ev) {
+            if (ev.propertyName !== 'transform') return;
+            mv.el.removeEventListener('transitionend', h);
+            mv.el.style.transition = '';
+            mv.el.style.transform = '';
+            mv.el.style.willChange = '';
+          });
+        }, i * 40);
+      })(moves[n], n);
+    }
+  }
+
+  /* A count-up is an animation, but the number it lands on is information.
+     A backgrounded tab gets no animation frames at all, so the rAF loop is
+     the nice version and the timeout is the guarantee — the score is right
+     whether or not anyone was watching it get there. */
+  function countUp(el, from, to, dur) {
+    if (from === to) { el.textContent = String(to); return; }
+    var start = performance.now(), shown = -1, done = false;
+    function land() {
+      if (done) return;
+      done = true;
+      el.textContent = String(to);
+    }
+    function step(now) {
+      if (done) return;
+      var t = clamp((now - start) / dur, 0, 1);
+      var e = 1 - Math.pow(1 - t, 4); // ease-out-expo-ish
+      var v = Math.round(from + (to - from) * e);
+      if (v !== shown) { shown = v; el.textContent = String(v); }
+      if (t < 1) requestAnimationFrame(step);
+      else land();
+    }
+    requestAnimationFrame(step);
+    later('seq', land, dur + 80);
+  }
+
+  /* ==================================================================
+     Final standings — podium, house lights, applause
+     ================================================================== */
+  function runFinalSequence() {
+    var f = state.final;
+    if (!f || !Array.isArray(f.standings) || !f.standings.length) return;
+    var st = f.standings;
+    var win = st[0];
+
+    setStage('#0B0C13');
+    elWinner.classList.remove('play');
+    elWinnerBloom.classList.remove('on');
+    elWinnerAvatar.style.setProperty('--ph', String(hueOf(win.name)));
+    elWinnerAvatar.textContent = initialOf(win.name);
+    elWinnerName.textContent = win.name;
+    elWinnerScore.textContent = '0';
+    elFinalRest.textContent = '';
+    elFinalActions.textContent = '';
+    elWinner.style.visibility = 'hidden';
+    elHudPills.textContent = '';   // the round counter has nothing left to say
+    var topScore = win.score || 0;
+
+    // 0ms: the room clears
+    later('seq', function () { setStage(STAGE.final); }, 300);
+
+    // 300 / 560: bronze then silver rise, each with its own weight of
+    // ceremony. They are not "the rest of the list that happens to be near
+    // the top" — a podium is a three-place shape and it has to read as one.
+    var pod = [];
+    if (st[2]) pod.push({ p: st[2], rank: 3, at: 300 });
+    if (st[1]) pod.push({ p: st[1], rank: 2, at: 560 });
+    pod.forEach(function (entry) {
+      later('seq', function () {
+        var row = smallRow(entry.p, entry.rank, topScore);
+        row.classList.add('pod-rise');
+        elFinalRest.insertBefore(row, elFinalRest.firstChild);
+        SFX.podium(entry.rank);
+        // The medal rows count up too, just faster and quieter than the
+        // winner's — the ceremony belongs to all three.
+        var sc = row.querySelector('.row-score');
+        if (sc) countUp(sc, 0, entry.p.score || 0, REDUCED ? 200 : 620);
+      }, entry.at);
+    });
+
+    // 820ms: the winner
+    later('seq', function () {
+      elWinner.style.visibility = '';
+      elWinner.classList.add('play');
+      elWinnerBloom.classList.add('on');
+      countUp(elWinnerScore, 0, win.score || 0, REDUCED ? 300 : 1200);
+      SFX.win();
+    }, 820);
+
+    // 1100ms: confetti
+    later('seq', function () { confetti(80); }, 1100);
+
+    // 1600ms: the rest of the field
+    later('seq', function () {
+      for (var i = 3; i < st.length; i++) {
+        (function (p, rank, k, n) {
+          later('seq', function () {
+            var row = smallRow(p, rank, topScore);
+            row.classList.add('rest-rise');
+            elFinalRest.appendChild(row);
+            SFX.rowLand(rank, n);
+          }, k * 60);
+        })(st[i], i + 1, i - 3, st.length);
+      }
+    }, 1600);
+
+    // 2200ms: play again
+    later('seq', function () {
+      elFinalActions.textContent = '';
+      if (state.isHost) {
+        var b = mk('button', 'btn btn-primary pop-in');
+        b.type = 'button';
+        b.textContent = 'Play again';
+        on(b, 'click', function () { send({ type: 'again' }); b.disabled = true; });
+        elFinalActions.appendChild(b);
+      } else {
+        var w = mk('div', 'waiting pop-in');
+        var s = mk('span'); s.textContent = 'Waiting for host';
+        w.appendChild(s);
+        var dots = mk('span', 'dots');
+        dots.appendChild(mk('i')); dots.appendChild(mk('i')); dots.appendChild(mk('i'));
+        w.appendChild(dots);
+        elFinalActions.appendChild(w);
+      }
+    }, 2200);
+  }
+
+  function smallRow(p, rank, topScore) {
+    var row = mk('div', 'row' + (rank === 1 ? ' r1' : rank === 2 ? ' r2' : rank === 3 ? ' r3' : ''));
+    var bar = mk('div', 'row-bar');
+    bar.style.setProperty('--ph', String(hueOf(p.name)));
+    // Honest length: a full bar on every row would imply everybody tied.
+    bar.style.transform = 'scaleX(' + (topScore > 0 ? clamp((p.score || 0) / topScore, 0, 1) : 0).toFixed(4) + ')';
+    bar.style.opacity = '.55';
+    row.appendChild(bar);
+    var rk = mk('div', 'row-rank');
+    rk.textContent = String(rank);
+    row.appendChild(rk);
+    row.appendChild(avatarEl(p));
+    var nm = mk('div', 'row-name');
+    nm.textContent = p.name;
+    if (state.me && p.id === state.me.id) {
+      var you = mk('span', 'row-you'); you.textContent = 'You'; nm.appendChild(you);
+    }
+    row.appendChild(nm);
+    var sc = mk('div', 'row-score');
+    sc.textContent = String(p.score || 0);
+    row.appendChild(sc);
+    return row;
+  }
+
+  /* ==================================================================
+     Networking
+     ================================================================== */
+  var ws = null;
+  var retryAt = 0, retryTimer = 0, attempt = 0, wantOpen = false, replaced = false;
+  var forceClose = null, watchdog = 0;
+  // A round whose deadline passed this long ago with no reveal means we are
+  // not hearing the server any more, whatever the socket claims.
+  var STALL_MS = 12000;
+
+  /* ws:// vs wss:// derived from BACKEND, not guessed. A page served over
+     https cannot open an insecure socket, so anything non-local is upgraded. */
+  function socketUrl(code, name) {
+    var raw = String(BACKEND || '').trim().replace(/\/+$/, '');
+    var scheme = '', rest = raw;
+    var m = raw.match(/^([a-z][a-z0-9+.\-]*):\/\/(.*)$/i);
+    if (m) { scheme = m[1].toLowerCase(); rest = m[2]; }
+    var slash = rest.indexOf('/');
+    var host = slash === -1 ? rest : rest.slice(0, slash);
+    var path = slash === -1 ? '' : rest.slice(slash).replace(/\/+$/, '');
+    var isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
+
+    var proto;
+    if (scheme === 'wss' || scheme === 'https') proto = 'wss';
+    else if (scheme === 'ws' || scheme === 'http') proto = 'ws';
+    else proto = (location.protocol === 'https:' ? 'wss' : 'ws');
+    if (location.protocol === 'https:' && proto === 'ws' && !isLocal) proto = 'wss';
+
+    return proto + '://' + host + path + '/room?code=' + encodeURIComponent(code) +
+           '&name=' + encodeURIComponent(name) +
+           // Announced on the handshake so the room knows before anyone hits
+           // Start whether it needs a source that has Spanish.
+           '&lang=' + encodeURIComponent(lang);
+  }
+
+  function connect() {
+    if (!state.code || !state.name) return;
+    wantOpen = true;
+    replaced = false;
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = 0; }
+    if (ws) { try { ws.onclose = null; ws.close(); } catch (e) {} ws = null; }
+    forceClose = null;
+
+    netbar('busy', state.everConnected ? 'Lost the connection — trying to get you back in.' : 'Connecting to the room…');
+
+    var url;
+    try { url = socketUrl(state.code, state.name); }
+    catch (e) { netbar('dead', 'That backend address does not look right.'); return; }
+
+    var sock;
+    try { sock = new WebSocket(url); }
+    catch (e) {
+      scheduleRetry();
+      return;
+    }
+    ws = sock;
+    var opened = false, handled = false;
+
+    function closed(code) {
+      if (handled) return;
+      handled = true;
+      if (ws === sock) ws = null;
+      if (forceClose === closed) forceClose = null;
+      if (!wantOpen) return;
+
+      // 4000 = the server replaced this socket with a newer one for the same
+      // name. Retrying would start a tug-of-war between two tabs.
+      if (code === 4000) {
+        replaced = true;
+        wantOpen = false;
+        netbar('dead', 'This room is open in another tab or device.', {
+          label: 'Play here', fn: function () { attempt = 0; connect(); }
+        });
+        return;
+      }
+
+      if (!opened && !state.everConnected) {
+        state.handshakeFails++;
+        if (state.handshakeFails >= 4) {
+          wantOpen = false;
+          netbar('dead', 'Could not join that room — it may be full, or the code may be wrong.', {
+            label: 'Change room', fn: function () { goLanding(true); }
+          });
+          return;
+        }
+      }
+      scheduleRetry();
+    }
+    forceClose = closed;
+
+    sock.onopen = function () {
+      opened = true;
+      attempt = 0;
+      // welcome clears the bar; until then keep it honest
+    };
+
+    sock.onmessage = function (ev) {
+      var msg;
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (!msg || typeof msg !== 'object') return;
+      handle(msg);
+    };
+
+    sock.onerror = function () { /* the close path does the work */ };
+    sock.onclose = function (ev) { closed(ev && ev.code); };
+
+    startWatchdog();
+  }
+
+  /* A socket does not always have the decency to tell you it is dead.
+     Two failure modes this catches, both of which otherwise leave a player
+     staring at a healthy-looking screen forever:
+       1. readyState went to CLOSING/CLOSED but no close event ever fired
+          (a half-completed closing handshake — observed against the real
+          Worker when the client closes first).
+       2. The socket still reports OPEN, but the round's deadline came and
+          went with no reveal. That is a dead TCP connection with no FIN —
+          the normal way mobile networks disappear.
+     Neither adds anything to the wire protocol; both just reconnect. */
+  function startWatchdog() {
+    if (watchdog) return;
+    watchdog = setInterval(function () {
+      if (!wantOpen || !ws) return;
+      if (ws.readyState >= 2) {
+        if (forceClose) forceClose(1006);
+        return;
+      }
+      if (ws.readyState === 1 && state.phase === 'question' && clock.endsAt &&
+          Date.now() > clock.endsAt + STALL_MS) {
+        var dead = ws, f = forceClose;
+        try { dead.onclose = null; dead.onerror = null; dead.close(); } catch (e) {}
+        if (f) f(1006);
+      }
+    }, 2000);
+  }
+  function stopWatchdog() {
+    if (watchdog) { clearInterval(watchdog); watchdog = 0; }
+  }
+
+  function scheduleRetry() {
+    if (!wantOpen) return;
+    attempt++;
+    var base = Math.min(10000, 500 * Math.pow(2, Math.min(attempt - 1, 5)));
+    var wait = Math.round(base * (0.75 + Math.random() * 0.5));
+    retryAt = Date.now() + wait;
+    netbar('busy', state.everConnected
+      ? 'Lost the connection — trying to get you back in.'
+      : 'Could not reach the room. Retrying…');
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(function () { retryTimer = 0; connect(); }, wait);
+  }
+
+  function send(obj) {
+    if (!ws || ws.readyState !== 1) {
+      toast('Not connected yet — hang on.', true);
+      return false;
+    }
+    try { ws.send(JSON.stringify(obj)); return true; }
+    catch (e) { return false; }
+  }
+
+  window.addEventListener('online', function () {
+    if (wantOpen && !ws) { attempt = 0; if (retryTimer) clearTimeout(retryTimer); retryTimer = 0; connect(); }
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && clock.live && state.phase === 'question') {
+      paintArc();
+      clock.shown = -1;   // force one digit write against the real deadline
+      if (!clock.raf) tick();
+    }
+    if (document.visibilityState === 'visible' && wantOpen && !ws && retryAt - Date.now() > 1200) {
+      attempt = Math.max(0, attempt - 1);
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = 0;
+      connect();
+    }
+  });
+
+  /* ==================================================================
+     Message handling — exactly the protocol, nothing invented
+     ================================================================== */
+  function handle(msg) {
+    switch (msg.type) {
+
+      case 'welcome':
+        state.me = msg.you || null;
+        state.isHost = !!msg.isHost;
+        state.phase = msg.phase || 'lobby';
+        if (Array.isArray(msg.catalog)) state.catalog = msg.catalog;
+        if (Array.isArray(msg.difficulties) && msg.difficulties.length) {
+          state.difficulties = msg.difficulties;
+        }
+        if (msg.settings) state.settings = msg.settings;
+        state.starting = false;
+        paintCallSheet();
+        state.everConnected = true;
+        state.handshakeFails = 0;
+        netbar(null);
+        elHudCodeText.textContent = state.code;
+        if (state.phase === 'lobby') {
+          resetRound();
+          setScreen('lobby');
+        }
+        // For question / reveal / final the server replays the payload right
+        // behind this; the screen switches when the real data lands, so we
+        // never show an empty stage.
+        break;
+
+      case 'roster':
+        state.players = Array.isArray(msg.players) ? msg.players : [];
+        if (state.me) {
+          for (var i = 0; i < state.players.length; i++) {
+            if (state.players[i].id === state.me.id) state.isHost = !!state.players[i].isHost;
+          }
+        }
+        if (curScreen === 'lobby') renderLobby();
+        if (curScreen === 'play' && state.phase === 'question') paintLockLine();
+        if (curScreen === 'board') paintBoardActions();
+        break;
+
+      case 'phase':
+        state.phase = msg.phase;
+        if (msg.phase === 'lobby') {
+          resetRound();
+          seenPlayerIds = Object.create(null);
+          setScreen('lobby');
+          renderLobby();
+        }
+        if (msg.phase === 'question') {
+          // wait for the question payload
+        }
+        break;
+
+      case 'question': {
+        // Tripwire. If the server ever ships anything answer-shaped alongside
+        // a question, this is a protocol violation and the whole project has
+        // lost its reason to exist. The client ignores it either way.
+        var leak = ['correctIndex', 'correct', 'answer', 'answerIndex', 'correctAnswer',
+                    'solution', 'hash', 'answerHash'];
+        for (var L = 0; L < leak.length; L++) {
+          if (Object.prototype.hasOwnProperty.call(msg, leak[L])) {
+            if (window.console) console.error('[late signal] PROTOCOL VIOLATION: question carried "' + leak[L] + '"');
+          }
+        }
+        state.phase = 'question';
+        renderQuestion({
+          index: msg.index | 0,
+          total: msg.total | 0,
+          text: msg.text,
+          choices: msg.choices,
+          endsAt: Number(msg.endsAt) || Date.now(),
+          category: msg.category,
+          difficulty: msg.difficulty,
+          // Every language of this same question, in the same slot order.
+          // This object is rebuilt field by field on purpose — that is what
+          // keeps a stray server field from reaching the renderer — so a new
+          // field has to be added HERE as well as in questionMessage(), or it
+          // is silently dropped and the feature simply does not appear.
+          i18n: msg.i18n
+        });
+        break;
+      }
+
+      case 'answered':
+        state.answered[msg.playerId] = true;
+        if (state.me && msg.playerId === state.me.id && !state.locked) {
+          // We reconnected into a question we had already answered. We know we
+          // are locked; we are NOT told which choice, and we do not guess.
+          state.locked = true;
+          applyLockVisuals(state.myChoice, true);
+        } else if (state.locked) {
+          paintLockLine();
+        }
+        break;
+
+      case 'reveal':
+        state.phase = 'reveal';
+        runReveal({
+          correctIndex: msg.correctIndex,
+          perPlayer: Array.isArray(msg.perPlayer) ? msg.perPlayer : [],
+          scores: Array.isArray(msg.scores) ? msg.scores : []
+        });
+        break;
+
+      case 'final':
+        state.phase = 'final';
+        state.final = { standings: Array.isArray(msg.standings) ? msg.standings : [] };
+        stopClockLoop();
+        elDwell.classList.remove('run');
+        setScreen('final');
+        break;
+
+      case 'settings':
+        if (msg.settings) state.settings = msg.settings;
+        state.starting = false;
+        paintCallSheet();
+        break;
+
+      /* Not an error — the game is starting normally, it just isn't coming
+         from the live source. Said once, in the ordinary voice. */
+      case 'notice':
+        toast(serverText(msg));
+        break;
+
+      case 'error':
+        state.starting = false;
+        paintCallSheet();
+        toast(msg.code ? serverText(msg) : String(msg.message || 'Something went wrong.'), true);
+        if (elStartBtn) elStartBtn.disabled = false;
+        if (curScreen === 'board') paintBoardActions();
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  function resetRound() {
+    clearBucket('rev'); clearBucket('seq');
+    stopClockLoop();
+    state.question = null;
+    state.correctIndex = null;
+    state.reveal = null;
+    state.myChoice = null;
+    state.locked = false;
+    state.answered = {};
+    state.prevScores = {};
+    elDwell.classList.remove('run');
+    elGridBloom.classList.remove('on', 'settle');
+    elWhoGot.textContent = '';
+    elLockLine.textContent = '';
+    elHudPills.textContent = '';
+  }
+
+  /* ==================================================================
+     Keyboard — 1-4 / A-D select, Enter confirms
+     ================================================================== */
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (curScreen !== 'play' || state.phase !== 'question' || state.locked) return;
+
+    var k = e.key;
+    var idx = -1;
+    if (k >= '1' && k <= '4') idx = k.charCodeAt(0) - 49;
+    else if (k && k.length === 1) {
+      var u = k.toUpperCase();
+      if (u >= 'A' && u <= 'D') idx = u.charCodeAt(0) - 65;
+    }
+    if (idx < 0) return;
+    e.preventDefault();
+
+    var tile = tileAt(idx);
+    if (!tile) return;
+    if (document.activeElement === tile) lockIn(idx);   // same key twice = confirm
+    else tile.focus();                                  // first press = select
+  });
+
+  /* ==================================================================
+     Landing / routing
+     ================================================================== */
+  function readHashCode() {
+    var h = String(location.hash || '').replace(/^#/, '');
+    var m = h.match(/(?:^|&)room=([^&]*)/i);
+    if (!m) return '';
+    var raw = '';
+    try { raw = decodeURIComponent(m[1]); } catch (e) { raw = m[1]; }
+    raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return ROOM_RE.test(raw) ? raw : '';
+  }
+
+  function randomCode() {
+    var alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O — they read as 1 and 0
+    var out = '';
+    var buf = null;
+    try {
+      if (window.crypto && window.crypto.getRandomValues) {
+        buf = new Uint32Array(4);
+        window.crypto.getRandomValues(buf);
+      }
+    } catch (e) { buf = null; }
+    for (var i = 0; i < 4; i++) {
+      var r = buf ? buf[i] : Math.floor(Math.random() * 4294967296);
+      out += alpha.charAt(r % alpha.length);
+    }
+    return out;
+  }
+
+  function storedName() {
+    try { return localStorage.getItem('ls:name') || ''; } catch (e) { return ''; }
+  }
+  function storeName(n) {
+    try { localStorage.setItem('ls:name', n); } catch (e) {}
+  }
+
+  function note(text, bad) {
+    elJoinNote.textContent = text;
+    elJoinNote.classList.toggle('err', !!bad);
+  }
+
+  function goLanding(keepCode) {
+    wantOpen = false;
+    stopWatchdog();
+    forceClose = null;
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = 0; }
+    if (ws) { try { ws.onclose = null; ws.close(); } catch (e) {} ws = null; }
+    netbar(null);
+    clearAllTimers();
+    stopClockLoop();
+    state.everConnected = false;
+    state.handshakeFails = 0;
+    attempt = 0;
+    if (!keepCode) {
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    }
+    elNameInput.value = state.name || storedName();
+    elCodeInput.value = keepCode ? (state.code || '') : '';
+    setScreen('landing');
+    note('A room is just a link. Share it and people land straight in.');
+  }
+
+  function beginSession(code, name) {
+    state.code = code;
+    state.name = name;
+    storeName(name);
+    state.everConnected = false;
+    state.handshakeFails = 0;
+    attempt = 0;
+    seenPlayerIds = Object.create(null);
+    elHudCodeText.textContent = code;
+    if (readHashCode() !== code) {
+      try { history.replaceState(null, '', location.pathname + location.search + '#room=' + code); } catch (e) {}
+    }
+    renderCodeTiles(code);
+    setScreen('lobby');
+    renderLobby();
+    connect();
+  }
+
+  function submitJoin() {
+    var name = String(elNameInput.value || '').trim().slice(0, 16);
+    var code = String(elCodeInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
+    if (!ROOM_RE.test(code)) { note('A room code is 4 to 6 letters or digits.', true); elCodeInput.focus(); return; }
+    beginSession(code, name);
+  }
+
+  on(elJoinForm, 'submit', function (e) { e.preventDefault(); submitJoin(); });
+  on(elCreateBtn, 'click', function () {
+    var name = String(elNameInput.value || '').trim().slice(0, 16);
+    if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
+    beginSession(randomCode(), name);
+  });
+  on(elCodeInput, 'input', function () {
+    var v = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    if (v !== this.value) this.value = v;
+  });
+
+  /* Tap cycles forward; shift-tap (or right-click) goes back, so a host who
+     overshoots a seven-item list does not have to go all the way round. */
+  on(elGenreSlot, 'click', function (ev) {
+    if (!state.isHost || state.starting) return;
+    var slugs = state.catalog.map(function (g) { return g.slug; });
+    if (!slugs.length) return;
+    var next = { genre: cycle(slugs, state.settings.genre, ev.shiftKey ? -1 : 1),
+                 difficulty: state.settings.difficulty };
+    sendSettings(next);
+  });
+  on(elGenreSlot, 'contextmenu', function (ev) {
+    if (!state.isHost || state.starting) return;
+    ev.preventDefault();
+    var slugs = state.catalog.map(function (g) { return g.slug; });
+    if (!slugs.length) return;
+    sendSettings({ genre: cycle(slugs, state.settings.genre, -1),
+                   difficulty: state.settings.difficulty });
+  });
+  on(elDiffSlot, 'click', function (ev) {
+    if (!state.isHost || state.starting) return;
+    sendSettings({ genre: state.settings.genre,
+                   difficulty: cycle(state.difficulties, state.settings.difficulty,
+                                     ev.shiftKey ? -1 : 1) });
+  });
+
+  on(elStartBtn, 'click', function () {
+    elStartBtn.disabled = true;
+    elStartBtn.textContent = 'Starting…';
+    // The server freezes settings the moment it begins fetching; the call
+    // sheet should say so rather than accept taps that will be rejected.
+    state.starting = true;
+    paintCallSheet();
+    send({ type: 'start' });
+    setTimeout(function () {
+      // The existing recovery beat: if we are somehow still in the lobby after
+      // four seconds, the start did not take. Unfreeze the call sheet too.
+      if (state.phase === 'lobby' && curScreen === 'lobby') {
+        state.starting = false;
+        renderLobby();
+      }
+    }, 4000);
+  });
+
+  function copyLink() {
+    var url = location.origin + location.pathname + location.search + '#room=' + state.code;
+    var done = function () { toast('Invite link copied.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url, done); });
+    } else fallbackCopy(url, done);
+  }
+  function fallbackCopy(text, done) {
+    try {
+      var ta = mk('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch (e) { toast('Copy this: ' + text); }
+  }
+  on(elCopyBtn, 'click', copyLink);
+  on(elHudCode, 'click', copyLink);
+
+  window.addEventListener('hashchange', function () {
+    var code = readHashCode();
+    if (code && code !== state.code && state.name) beginSession(code, state.name);
+    else if (!code && curScreen !== 'landing') goLanding(false);
+  });
+
+  /* ---------- boot ---------- */
+  (function boot() {
+    var code = readHashCode();
+    var name = storedName();
+    elNameInput.value = name;
+    elCodeInput.value = code;
+    setStage(STAGE.lobby);
+    if (code && name) {
+      beginSession(code, name);
+    } else {
+      setScreen('landing');
+      if (code) { note('Room ' + code + ' is waiting. What should we call you?'); }
+      setTimeout(function () {
+        try { (name ? elCodeInput : elNameInput).focus({ preventScroll: true }); } catch (e) {}
+      }, 500);
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
