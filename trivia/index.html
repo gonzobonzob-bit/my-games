@@ -204,11 +204,50 @@ body[data-screen="landing"] .hud{ display:none; }
 .netdot[data-net="down"]{ background:var(--amber); animation:pillPulse 1s ease-in-out infinite; }
 .netdot[data-net="dead"]{ background:var(--crimson); }
 
+/* --- The studio.
+   The game is called Late Signal and it was rendering like a clean web
+   page. This is the broadcast: fine scanlines, a vignette that closes the
+   corners down so the stage light reads as a light rather than a colour,
+   and a wide floor glow that gives the room somewhere to stand — the
+   composition is top-heavy and the lower third was dead space.
+
+   Static on purpose. It never animates, never transitions and is never
+   promoted, so it costs one composited layer and nothing per frame. No
+   blur and no backdrop-filter anywhere in here: the target machine has
+   Haswell integrated graphics and those are precisely what it cannot pay
+   for. Everything below is a gradient, which it can.
+
+   pointer-events:none is load-bearing — without it this sits on top of
+   every answer tile in the game and swallows the click. --- */
+.studio{
+  position:fixed; inset:0; pointer-events:none; z-index:1;
+  background-image:
+    /* floor glow — the stage hue pooling at the bottom of the room */
+    radial-gradient(150% 44% at 50% 104%,
+      rgba(var(--floor-rgb,120,140,200),.10) 0%, rgba(0,0,0,0) 70%),
+    /* vignette — closes the corners so the light has an edge */
+    radial-gradient(115% 88% at 50% 40%,
+      rgba(0,0,0,0) 42%, rgba(3,5,12,.34) 78%, rgba(3,5,12,.62) 100%),
+    /* scanlines — 1 in 3, low alpha. Any stronger and it stops reading as
+       texture and starts reading as a broken screen. */
+    repeating-linear-gradient(0deg,
+      rgba(0,0,0,.13) 0px, rgba(0,0,0,.13) 1px,
+      rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px);
+}
+/* Two cores or fewer: the scanline layer is the one thing here with a real
+   per-pixel cost, so drop it and keep the light. Mirrors the existing
+   LOW_POWER guard on confetti rather than inventing a second policy. */
+html.low-power .studio{
+  background-image:
+    radial-gradient(115% 88% at 50% 40%,
+      rgba(0,0,0,0) 42%, rgba(3,5,12,.34) 78%, rgba(3,5,12,.62) 100%);
+}
+
 /* ---------- screens ---------- */
 .stagewrap{ position:relative; z-index:10; flex:1 1 auto; display:flex; }
 .screen{
   display:none; flex:1 1 auto; flex-direction:column; align-items:center;
-  width:100%;
+  width:100%; position:relative; z-index:2;
   padding: var(--sp-4) max(var(--pad-stage), env(safe-area-inset-right))
            max(var(--sp-7), calc(env(safe-area-inset-bottom) + var(--sp-6)))
            max(var(--pad-stage), env(safe-area-inset-left));
@@ -1012,6 +1051,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
 </main>
 
+<div class="studio" id="studio" aria-hidden="true"></div>
 <div class="dwell" id="dwell" aria-hidden="true"></div>
 <div class="netbar" id="netbar" role="status"></div>
 <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
@@ -1066,6 +1106,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     motionQuery.addEventListener('change', function (e) { REDUCED = e.matches; });
   }
   var LOW_POWER = (navigator.hardwareConcurrency || 4) <= 2;
+  if (LOW_POWER) document.documentElement.classList.add('low-power');
   // Telling a phone user that "keys 1-4 work too" is noise.
   var COARSE = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
 
@@ -1219,10 +1260,25 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     final:   '#241C10'
   };
   var stageHue = '';
+  /* The floor glow takes the stage colour too, so a genre change lights the
+     whole room rather than just the back wall. Parsed once per change, not
+     per frame. */
+  function setFloor(hex) {
+    var h = String(hex || '').replace('#', '');
+    if (h.length !== 6) return;
+    var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    // Lifted well above the background value — at the stage hue's own
+    // darkness the glow is invisible against it.
+    var lift = function (v) { return Math.min(255, Math.round(v * 2.6 + 46)); };
+    document.documentElement.style.setProperty(
+      '--floor-rgb', lift(r) + ',' + lift(g) + ',' + lift(b));
+  }
+
   function setStage(hex) {
     if (stageHue === hex) return;
     stageHue = hex;
     document.documentElement.style.setProperty('--stage-hue', hex);
+    setFloor(hex);
   }
 
   /* ==================================================================

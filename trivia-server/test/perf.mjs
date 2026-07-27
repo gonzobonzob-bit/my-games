@@ -17,7 +17,7 @@ const CDP = 'http://127.0.0.1:9222';
 const PAGE = 'http://localhost:8000/trivia/';
 const ROOM = process.argv[2] || 'PRF1';
 const LABEL = process.argv[3] || 'baseline';
-const OUT = `process.env.LS_OUT || '/tmp/late-signal'/perf-${LABEL}.json`;
+const OUT = `${process.env.LS_OUT || '/tmp/late-signal'}/perf-${LABEL}.json`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
