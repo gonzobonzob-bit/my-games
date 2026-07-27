@@ -275,6 +275,45 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 /* --- lobby --- */
 .lobby{ margin:auto; width:100%; max-width:960px; display:flex; flex-direction:column;
         align-items:center; gap:var(--sp-6); }
+
+/* --- The call sheet.
+   What is on tonight, stated once. The lobby is the calm screen in this
+   game and it stays calm: two flat slots, no dialog, no dropdown, no
+   settings icon. Tap to cycle — a native <select> opens an OS sheet that
+   covers the room code someone is reading out loud, which is the one
+   thing the lobby cannot afford to hide.
+
+   For everyone who is not the host these are not controls at all; they
+   are a readout, and they say so by losing the border and the pointer
+   rather than by greying into unreadability. --- */
+.callsheet{ display:flex; gap:var(--sp-3); flex-wrap:wrap; justify-content:center; }
+.slot{
+  font:inherit; text-align:left; cursor:pointer;
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:10px 16px; min-width:150px; display:flex; flex-direction:column; gap:3px;
+  transition:border-color var(--d-micro) var(--ease-out-soft),
+             background var(--d-micro) var(--ease-out-soft);
+}
+.slot:hover{ border-color:var(--hair-strong); background:var(--ink-700); }
+.slot:focus-visible{ outline:2px solid var(--accent, var(--slate-300)); outline-offset:2px; }
+.slot-k{
+  font-size:var(--fs-micro); font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--slate-400);
+}
+.slot-v{
+  font-size:var(--fs-name); font-weight:650; color:var(--accent, var(--paper-100));
+  transition:color var(--d-micro) var(--ease-out-soft);
+}
+/* A readout, not a disabled control. */
+.callsheet.readonly .slot{
+  cursor:default; background:transparent; border-color:transparent; padding-left:0;
+}
+.callsheet.readonly .slot:hover{ background:transparent; border-color:transparent; }
+/* While the game is being fetched, the choice is already frozen server-side. */
+.callsheet.busy .slot{ opacity:.5; pointer-events:none; }
+@media (max-width:420px){
+  .slot{ min-width:0; flex:1 1 46%; padding:8px 12px; }
+}
 .code-block{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-3); }
 .code-tiles{ display:flex; gap:var(--sp-2); }
 .code-ch{
@@ -890,6 +929,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <div class="code-tiles" id="codeTiles" aria-live="off"></div>
         <button type="button" class="chip-btn" id="copyBtn">Copy the invite link</button>
       </div>
+      <div class="callsheet" id="callSheet">
+        <button type="button" class="slot" id="genreSlot">
+          <span class="slot-k">Genre</span>
+          <span class="slot-v" id="genreVal">Mixed</span>
+        </button>
+        <button type="button" class="slot" id="diffSlot">
+          <span class="slot-k">Difficulty</span>
+          <span class="slot-v" id="diffVal">Any</span>
+        </button>
+      </div>
       <div class="players" id="lobbyPlayers"></div>
       <div class="board-actions">
         <button type="button" class="btn btn-primary" id="startBtn" hidden>Start game</button>
@@ -1084,6 +1133,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     phase: 'lobby',
     players: [],           // roster
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
+    settings: { genre: 'mixed', difficulty: 'any' },
+    catalog: [],           // [{slug,label}] — what the server will actually serve
+    difficulties: ['any', 'easy', 'medium', 'hard'],
+    starting: false,
     myChoice: null,        // my picked index for the open question, or null
     locked: false,         // I have locked in (server-confirmed or optimistic)
     answered: {},          // playerId -> true, for the open question
@@ -1102,6 +1155,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elToasts = $('toasts'), elDwell = $('dwell'),
       elClock = $('clock'), elRing = $('ring'), elArc = $('arc'), elDigits = $('digits'),
       elCatChip = $('catChip'), elCatCap = $('catCap'), elCatText = $('catText'), elCatDiff = $('catDiff'),
+      elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
+      elDiffSlot = $('diffSlot'), elDiffVal = $('diffVal'),
       elQuestion = $('questionText'), elQRule = $('qRule'),
       elTiles = $('tiles'), elGridBloom = $('gridBloom'),
       elLockLine = $('lockLine'), elWhoGot = $('whoGot'),
@@ -1123,6 +1178,35 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     { letter: 'C', c: '#10B8C8', rgb: '16,184,200',  fill: '#05060B', key: '3' },
     { letter: 'D', c: '#FFA92E', rgb: '255,169,46',  fill: '#05060B', key: '4' }
   ];
+
+  /* Genre identity lives on the client; the server owns availability and
+     sends a catalog on welcome. That split is deliberate — the client has no
+     business knowing OpenTDB category ids, and the server has no business
+     holding colours. A genre the server offers but this table has not heard
+     of still renders, truthfully, with no colour of its own. */
+  var GENRE_META = {
+    mixed:     { accent:'#AEB6CC', stage:'#161B2E' },
+    film:      { accent:'#B08CFF', stage:'#1E1630' },
+    music:     { accent:'#4FD1E0', stage:'#10222B' },
+    games:     { accent:'#2BE39A', stage:'#10261E' },
+    science:   { accent:'#9BE35B', stage:'#1B2413' },
+    history:   { accent:'#FFA92E', stage:'#2A1F13' },
+    geography: { accent:'#6EA8FF', stage:'#131E33' }
+  };
+  function genreOf(slug) {
+    var fromCat = null;
+    for (var i = 0; i < state.catalog.length; i++) {
+      if (state.catalog[i].slug === slug) { fromCat = state.catalog[i]; break; }
+    }
+    var meta = GENRE_META[slug];
+    return {
+      slug: slug,
+      label: (fromCat && fromCat.label) || slug || 'Mixed',
+      accent: (meta && meta.accent) || 'var(--slate-300)',
+      stage: (meta && meta.stage) || '#161B2E'
+    };
+  }
+  function titleCase(s) { return String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1); }
 
   var STAGE = {
     lobby:   '#161B2E',
@@ -1178,7 +1262,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function onScreenEnter(name) {
-    if (name === 'lobby')  { setStage(STAGE.lobby); }
+    if (name === 'lobby')  { setStage(lobbyStage()); }
     if (name === 'board')  { setStage(STAGE.board); runBoardSequence(); }
     if (name === 'final')  { runFinalSequence(); }
     if (name === 'landing'){ setStage(STAGE.lobby); }
@@ -1711,6 +1795,48 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   var seenPlayerIds = Object.create(null);
+  /* The lobby's back wall takes the genre's colour. It is the one place the
+     choice is felt rather than read, and it is why the picker does not need
+     to be loud. */
+  function lobbyStage() { return genreOf(state.settings.genre).stage; }
+
+  function paintCallSheet() {
+    if (!elCallSheet) return;
+    var g = genreOf(state.settings.genre);
+    elGenreVal.textContent = g.label;
+    elGenreSlot.style.setProperty('--accent', g.accent);
+    var d = state.settings.difficulty;
+    elDiffVal.textContent = d === 'any' ? 'Any' : titleCase(d);
+    elDiffSlot.style.setProperty('--accent', d === 'any' ? 'var(--paper-100)' : g.accent);
+
+    elCallSheet.classList.toggle('readonly', !state.isHost);
+    elCallSheet.classList.toggle('busy', !!state.starting);
+    // A readout is not a button, and screen readers should not be told it is.
+    elGenreSlot.disabled = !state.isHost;
+    elDiffSlot.disabled = !state.isHost;
+    elGenreSlot.setAttribute('aria-label',
+      (state.isHost ? 'Genre, tap to change. Currently ' : 'Genre: ') + g.label);
+    elDiffSlot.setAttribute('aria-label',
+      (state.isHost ? 'Difficulty, tap to change. Currently ' : 'Difficulty: ') + elDiffVal.textContent);
+
+    if (curScreen === 'lobby') setStage(lobbyStage());
+  }
+
+  function cycle(list, current, dir) {
+    var i = list.indexOf(current);
+    if (i < 0) i = 0;
+    return list[(i + (dir || 1) + list.length) % list.length];
+  }
+
+  function sendSettings(next) {
+    // Painted immediately so the tap feels like a control rather than a
+    // request, but the server's echo is the truth — if it disagrees, its
+    // broadcast overwrites this a moment later.
+    state.settings = next;
+    paintCallSheet();
+    send({ type: 'settings', settings: next });
+  }
+
   var lobbyPainted = false;
   function renderLobby() {
     var wrap = elLobbyPlayers;
@@ -1770,6 +1896,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     if (lobbyPainted && arrivals > 0) SFX.join();
     lobbyPainted = true;
+    paintCallSheet();
   }
 
   /* ==================================================================
@@ -2670,6 +2797,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.me = msg.you || null;
         state.isHost = !!msg.isHost;
         state.phase = msg.phase || 'lobby';
+        if (Array.isArray(msg.catalog)) state.catalog = msg.catalog;
+        if (Array.isArray(msg.difficulties) && msg.difficulties.length) {
+          state.difficulties = msg.difficulties;
+        }
+        if (msg.settings) state.settings = msg.settings;
+        state.starting = false;
+        paintCallSheet();
         state.everConnected = true;
         state.handshakeFails = 0;
         netbar(null);
@@ -2761,7 +2895,21 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         setScreen('final');
         break;
 
+      case 'settings':
+        if (msg.settings) state.settings = msg.settings;
+        state.starting = false;
+        paintCallSheet();
+        break;
+
+      /* Not an error — the game is starting normally, it just isn't coming
+         from the live source. Said once, in the ordinary voice. */
+      case 'notice':
+        toast(String(msg.message || ''));
+        break;
+
       case 'error':
+        state.starting = false;
+        paintCallSheet();
         toast(String(msg.message || 'Something went wrong.'), true);
         if (elStartBtn) elStartBtn.disabled = false;
         if (curScreen === 'board') paintBoardActions();
@@ -2914,12 +3062,46 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (v !== this.value) this.value = v;
   });
 
+  /* Tap cycles forward; shift-tap (or right-click) goes back, so a host who
+     overshoots a seven-item list does not have to go all the way round. */
+  on(elGenreSlot, 'click', function (ev) {
+    if (!state.isHost || state.starting) return;
+    var slugs = state.catalog.map(function (g) { return g.slug; });
+    if (!slugs.length) return;
+    var next = { genre: cycle(slugs, state.settings.genre, ev.shiftKey ? -1 : 1),
+                 difficulty: state.settings.difficulty };
+    sendSettings(next);
+  });
+  on(elGenreSlot, 'contextmenu', function (ev) {
+    if (!state.isHost || state.starting) return;
+    ev.preventDefault();
+    var slugs = state.catalog.map(function (g) { return g.slug; });
+    if (!slugs.length) return;
+    sendSettings({ genre: cycle(slugs, state.settings.genre, -1),
+                   difficulty: state.settings.difficulty });
+  });
+  on(elDiffSlot, 'click', function (ev) {
+    if (!state.isHost || state.starting) return;
+    sendSettings({ genre: state.settings.genre,
+                   difficulty: cycle(state.difficulties, state.settings.difficulty,
+                                     ev.shiftKey ? -1 : 1) });
+  });
+
   on(elStartBtn, 'click', function () {
     elStartBtn.disabled = true;
     elStartBtn.textContent = 'Starting…';
+    // The server freezes settings the moment it begins fetching; the call
+    // sheet should say so rather than accept taps that will be rejected.
+    state.starting = true;
+    paintCallSheet();
     send({ type: 'start' });
     setTimeout(function () {
-      if (state.phase === 'lobby' && curScreen === 'lobby') renderLobby();
+      // The existing recovery beat: if we are somehow still in the lobby after
+      // four seconds, the start did not take. Unfreeze the call sheet too.
+      if (state.phase === 'lobby' && curScreen === 'lobby') {
+        state.starting = false;
+        renderLobby();
+      }
     }, 4000);
   });
 
