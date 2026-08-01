@@ -6,7 +6,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const PORT = 9323;
+/* Port is overridable so parallel builders can each own one (VL_PORT). */
+const PORT = Number(process.env.VL_PORT || 9323);
 // resolve the game relative to this harness so it runs from any clone
 const GAME = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html')).href;
 const W = Number(process.argv[2] || 390), H = Number(process.argv[3] || 760);
@@ -47,7 +48,8 @@ await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceSc
    pagehide autosave. The tutorial itself is covered separately at the end. */
 const ALL_TIPS = JSON.stringify({
   tut_combat: 1, tut_focus: 1, tut_overdraw: 1, tut_tier: 1, tut_settle: 1,
-  tut_par: 1, tut_draft: 1, tut_breach: 1, tut_wraith: 1, tut_boss: 1
+  tut_par: 1, tut_draft: 1, tut_breach: 1, tut_wraith: 1, tut_boss: 1,
+  tut_familiar: 1, tut_autofire: 1
 });
 const seedRes = await send('Page.addScriptToEvaluateOnNewDocument',
   { source: `try{localStorage.setItem('veilLegendsSeenTips',${JSON.stringify(ALL_TIPS)})}catch(e){}` });
@@ -171,6 +173,15 @@ if (tutShown) {
   const t2 = await evaluate('Sim.state.time'); await sleep(300);
   ok('sim advances again after the tip', (await evaluate('Sim.state.time')) > t2);
   ok('the same tip does not fire twice', await evaluate('!!JSON.parse(localStorage.veilLegendsSeenTips||"{}").tut_combat'));
+
+  /* The auto-fire tip fires on the first real toggle-on, from either control. */
+  await evaluate('document.getElementById("btn-auto").click()');
+  await sleep(250);
+  ok('turning auto-fire on fires its tip', await evaluate('!document.getElementById("tutorial").hidden'),
+    await evaluate('document.getElementById("tut-title").textContent'));
+  ok('the auto-fire tip is the AUTO-CAST card', await evaluate('/AUTO.CAST/i.test(document.getElementById("tut-title").textContent)'));
+  await evaluate('document.getElementById("tut-ok").click()'); await sleep(200);
+  ok('auto-fire tip marked seen', await evaluate('!!JSON.parse(localStorage.veilLegendsSeenTips||"{}").tut_autofire'));
 }
 
 console.log('\n=== REAL MODULES ' + W + 'x' + H + ' ===');

@@ -39,9 +39,10 @@
      pulsed-Veil play wins is an artefact of THIS TABLE'S STEEPNESS. If the
      harness finds one policy dominating the other by more than 8%
      motes-per-HP, the fix is the multipliers below and NOTHING ELSE. ***
-     Shape is x1 / x2 / x4 / x8 / x16 at 0 / 25 / 50 / 75 / 90.
+     Shape is x1 / x2 / x3.5 / x6 / x11 at 0 / 25 / 50 / 75 / 90.
      Any copy in STRINGS that quotes a tier number is derived from here —
-     grep '×16' before touching it.
+     grep '×11' before touching it. Quoted in: STRINGS.help 'WHAT VEIL PAYS',
+     hud.tierBands, tutorial tut_tier, death.causes.brink[1].
      ======================================================================== */
   var VEIL_TIERS = [
     { min: 0,  mult: 1  },
@@ -71,7 +72,7 @@
         { id: 'war_bulwark', name: 'Bulwark', icon: '🛡️', kind: 'aoe',
           damage: 70, range: 95, cd: 0, maxCd: 11, focusCost: 20,
           shield: { amount: 320, duration: 5 },
-          tip: '320 shield for 5s. Shield eats this hit; it does not stop the Veil raising the next one.' },
+          tip: '70 in a ring and a 320 shield for 5s. The shield eats this hit; it does not stop the Veil raising the next one.' },
         { id: 'war_berserk', name: 'BERSERKER', icon: '💢', kind: 'aoe',
           damage: 420, range: 130, cd: 0, maxCd: 14, focusCost: 55,
           buff: { stat: 'atk', amount: 35, duration: 5 }, heal: 180,
@@ -169,7 +170,7 @@
         { id: 'vlc_settle', name: 'FULL SETTLE', icon: '🌑', kind: 'aoe',
           damage: 640, range: 230, cd: 0, maxCd: 16, focusCost: 54,
           delay: 0.8, slow: { amount: 0.55, duration: 3 },
-          tip: '0.8s of nothing, then 640 and 55% slower for 3s. Keep your hands still another 0.7s after it lands and the Veil starts bleeding.' }
+          tip: '0.8s of nothing, then 640 and 55% slower for 3s. Borrow nothing for 0.7s after it lands and the Veil starts bleeding.' }
       ]
     }
   ];
@@ -182,7 +183,10 @@
      Zero-upkeep Pacts are defence, sustain, mote logistics and Veil plumbing
      ONLY. This is the rule that stops "buy Attack Boost forever" reappearing.
 
-     Costs follow the pressure curve: T1 60-120 motes, T2 165-250, T3 340-470.
+     Costs follow the pressure curve: T1 60-110 motes, T2 370-565, T3 680-940.
+     (T2/T3 were repriced upward on 2026-08-01; this comment was stale and is
+     the sort of thing copy quotes by accident. No STRINGS line quotes a Pact
+     cost — the draft screen renders `cost` directly. Keep it that way.)
      Chains are by synergy, not by a requires field — the texts point at each
      other so a player can read the build off the draft screen.
      ======================================================================== */
@@ -246,12 +250,12 @@
 
     { id: 't1_beckon', name: 'Beckon', icon: '🧲', tier: 1, cost: 75, upkeep: 0,
       ops: { moteMagnetRadius: 70 },
-      text: 'Motes within 70px come to you.',
-      flavor: 'They come to the hand now. You still have to bring the hand.' },
+      text: 'Pick motes up from 96px away instead of 26.',
+      flavor: 'A longer reach, not a shorter walk. You still have to be there.' },
 
     { id: 't1_short_memory', name: 'Short Memory', icon: '🌫️', tier: 1, cost: 110, upkeep: 0,
       ops: { settleWindowAdd: -0.45 },
-      text: 'Veil starts bleeding 1.05s after your last cast, not 1.5s.',
+      text: 'Veil starts bleeding 1.05s after your last overdraw, not 1.5s.',
       flavor: 'You learn to stop breathing before the Veil notices you started.' },
 
     { id: 't1_ledger_grace', name: "Ledger's Grace", icon: '📜', tier: 1, cost: 85, upkeep: 0,
@@ -562,7 +566,7 @@
     /* --- Branch: The Ledger --- */
     { id: 'cov_short_memory', name: 'Short Memory', icon: '🌫️', cost: 60, clean: false,
       upkeep: 0, requires: [], ops: { settleWindowAdd: -0.3 },
-      text: 'Veil starts bleeding 1.2s after your last cast, not 1.5s.',
+      text: 'Veil starts bleeding 1.2s after your last overdraw, not 1.5s.',
       flavor: 'Three tenths of a second, bought once, kept for every run you ever make.' },
 
     { id: 'cov_ebb', name: 'Ebb', icon: '🌒', cost: 160, clean: false,
@@ -583,7 +587,7 @@
     /* --- Branch: The Take --- */
     { id: 'cov_long_wick', name: 'Long Wick', icon: '🏮', cost: 50, clean: false,
       upkeep: 0, requires: [], ops: { moteLifeAdd: 1.5, moteMagnetRadius: 60 },
-      text: 'Motes last 7.5s instead of 6s, and drift in from 60px.',
+      text: 'Motes last 7.5s instead of 6s. Pick them up from 86px, not 26.',
       flavor: 'Someone trims the wicks on Lampwick Row. Nobody has met them.' },
 
     { id: 'cov_grace_period', name: 'Grace Period', icon: '📜', cost: 140, clean: false,
@@ -660,9 +664,16 @@
      FAMILIARS  (pets)
 
      A familiar exists mostly to SOLVE A MEASURED PROBLEM: motes expire 6s after
-     they drop and must be walked over, and a player who is correctly kiting is
-     running away from their own drops. 36% of all motes dropped were expiring
-     uncollected. The familiar walks the ground you cannot afford to walk.
+     they drop, must be walked over (pickup radius 26px), and are wiped at the
+     wave boundary — and a player who is correctly kiting is running away from
+     their own drops. ~29% of all motes dropped were expiring uncollected
+     (CONTRACT.md still quotes the older 36% figure; 29% is the current
+     measurement and is what the copy uses). The familiar walks the ground you
+     cannot afford to walk.
+
+     BEHAVIOUR THE COPY MUST MATCH (sim.js updatePet): nearest mote ANYWHERE in
+     the arena wins, every frame. There is no leash. `followDist` is only what
+     it does when the floor is empty. Nothing below may imply it stays at heel.
 
      Its damage is deliberately small. DESIGN 5.1 derives the whole pressure
      curve from the player's own 12-damage-per-Focus, and a pet that meaningfully
@@ -673,20 +684,31 @@
     { id: 'pet_moth', name: 'Cinder Moth', icon: '🦋', shape: 'moth',
       color: '#fbbf24', unlockAt: null,
       collectR: 78, dps: 6, spd: 300, followDist: 46,
-      text: 'Drifts wide and gathers what you had to leave behind. Collects motes from 78px.',
+      text: 'Crosses the whole arena for a mote and picks it up from 78px. Six damage a second, which is not a weapon.',
       flavor: 'It was drawn to the light of the Veil once, and never learned better.' },
 
     { id: 'pet_hound', name: 'Ashen Hound', icon: '🐺', shape: 'hound',
       color: '#f87171', unlockAt: { wave: 6 },
       collectR: 48, dps: 16, spd: 360, followDist: 38,
-      text: 'Gathers from a tighter 48px, but bites what comes close.',
+      text: 'Fetches from a tighter 48px and bites for 16 a second on the way past. It goes to the mote, not to you.',
       flavor: 'Kept at the door of the old chapter house. It remembers the job.' },
 
     { id: 'pet_lantern', name: 'Pale Lantern', icon: '🏮', shape: 'lantern',
       color: '#38bdf8', unlockAt: { wave: 12 },
       collectR: 104, dps: 2, spd: 265, followDist: 54,
-      text: 'Barely fights at all, and sweeps motes from a full 104px.',
+      text: 'Sweeps a full 104px and wanders off to do it. Two damage a second — treat it as luggage.',
       flavor: 'Somebody carried this ahead of the column, so the column could watch the dark instead of the ground.' }
+  ];
+
+  /* The catch-all death. ui.js calls this bucket 'swarm'; older content called
+     it 'contact'. One array, bound to both keys below, so neither name can go
+     stale against the other. Tokens: {wave} {breaches} {floor} ONLY. */
+  var SWARM_CAUSES = [
+    'Backed into the edge of the arena on wave {wave} with the Nettles orbiting at 120px and darting in every 1.6 seconds.',
+    'Every body keeps its own 1.5-second attack cadence and there is no shared mercy between them. Being surrounded is arithmetic, and it finished.',
+    'A Lancer connected at the end of its 0.7s windup. That is the one you were meant to step sideways for, not back from.',
+    'Your HP ran out before the wave HP did. Wave {wave}, floor {floor}.',
+    'A Slagbrute died close enough to matter — 34 across 95px, on top of everything already touching you.'
   ];
 
   /* ==========================================================================
@@ -704,24 +726,40 @@
      4. Mobile-short. One or two lines at 390px. An emoji at the head of a line
         is a category icon, not a reaction.
 
-     PLACEHOLDERS UI must substitute: {wave} {floor} {headroom} {breaches}
-     {kills} {motes} {echoes} {time} {n}. Missing keys should render as the
-     literal brace text rather than crash.
+     PLACEHOLDERS: ui.js fillTokens() substitutes {wave} {n} {breaches} {floor}
+     ON THE DEATH SCREEN AND NOWHERE ELSE, and {n} there means PLAYER HP — which
+     is 0 when the death screen is up. So death copy may use {wave}, {breaches}
+     and {floor} only. {kills}, {motes}, {headroom}, {time}, {echoes} render as
+     literal brace text on that screen today. Other screens fill their own
+     tokens via tok(); those are listed per key below.
 
-     FACT-CHECK LOG — every number quoted below is sourced from this file or
-     from DESIGN.md's binding constants:
-       0.8 Veil per Focus (= "4 Veil per 5 Focus")  DESIGN 1
-       decay 4/s after 1.5s settle                  DESIGN 1
-       tiers 25/50/75/90 -> x2/x3.5/x6/x11         VEIL_TIERS above
-       contact x(1+V/50): V=50 -> x2, V=96 -> x2.92 DESIGN 1
-       brink at 100, resets to 60                   DESIGN 1
-       wraith speed 1.05x player base               DESIGN 1
-       over par: +4 Veil/s, +0.1 floor/s            DESIGN 1
+     FACT-CHECK LOG — every number quoted below is sourced from sim.js `T` (the
+     running code) first and DESIGN.md second, and they now DISAGREE in one
+     place, marked:
+       0.8 Veil per Focus (= "4 Veil per 5 Focus")  T.OVERDRAW_Q
+       decay 4/s                                    T.VEIL_DECAY
+       settle 1.5s, AND ONLY AN OVERDRAW RESETS IT  sim.useAbility (see below)
+       tiers 25/50/75/90 -> x2/x3.5/x6/x11          VEIL_TIERS above
+       contact x(1+V/50): V=50 -> x2, V=96 -> x2.92 sim hurtPlayer
+       enemy speed x(1+V/60)                        sim enemyMoveSpeed
+       brink at 100, resets to 60                   T.BREACH_RESET
+       wraith speed 1.05x player base               T.WRAITH_SPEED_MULT
+       over par: +1.5 Veil/s, +0.1 floor/s          T.PAR_OVERRUN_VEIL
+           *** DESIGN.md Part 1 and CONTRACT.md still say +4 Veil/s. sim.js
+           lowered it to 1.5 so the overrun spiral is survivable. The COPY
+           FOLLOWS THE CODE. If sim moves it back, grep '1.5 Veil'. ***
        headroom = 85 - floor                        DESIGN 3
-       restore +25% max HP between waves            DESIGN 7
-       motes expire 6s                              DESIGN 3
-       T_par(w) = 20 + 0.8w -> par(10) = 28s        DESIGN 7
+       restore +25% max HP between waves            T.HP_RESTORE_BETWEEN
+       motes expire 6s, pickup radius 26px          T.MOTE_LIFE / T.PICKUP_R
+       ground motes are wiped at the wave boundary  sim startWave
+       enemy contact cadence 1.5s, per enemy        T.ENEMY_ATTACK_PERIOD
+       T_par(w) = 20 + 0.8w -> par(10) = 28s        sim waveParTime
        N(w) = 6 + 2w -> N(25)=56, N(50)=106, N(100)=206
+
+     SETTLE, IN FULL, because three strings used to get it wrong: sim.js resets
+     the settle timer ONLY when a cast overdraws. Casting inside your own Focus
+     does not hold the Veil open — it keeps bleeding while you fight. Any copy
+     that says "stop casting" instead of "stop borrowing" is a lie.
      ======================================================================== */
   var STRINGS = {
 
@@ -775,15 +813,21 @@
         { h: 'WHAT VEIL DOES',
           p: 'At 50 Veil everything that touches you hits twice as hard, and everything on the field is faster. Near 100, the quick ones run you down.' },
         { h: 'WHAT VEIL PAYS',
-          p: 'Motes multiply with held Veil: ×2 at 25, ×3.5 at 50, ×6 at 75, ×11 at 90. Held Veil is the price. You are not paid for touching the number, only for staying there.' },
+          p: 'Motes multiply with Veil: ×2 at 25, ×3.5 at 50, ×6 at 75, ×11 at 90. The multiplier is read at the instant each thing dies. Spike the number with nothing dying and you paid for nothing.' },
         { h: 'SETTLE',
-          p: 'Stop casting for 1.5 seconds and Veil bleeds off at 4 a second. That pause is a real move. Most deaths are somebody who never took one.' },
+          p: 'Only borrowing holds the Veil open. Stop overdrawing for 1.5 seconds and it bleeds off at 4 a second — you can keep casting inside your Focus the whole time.' },
         { h: 'BRINK',
           p: 'At 100 Veil the Veil breaches. A Veilwraith steps through at 1.05× your base speed, Veil drops to 60, and the wraith stays — through this wave and every wave after.' },
         { h: 'THE PAR CLOCK',
-          p: 'Each wave has a par time. Every second past it adds +4 Veil and +0.1 to your run\'s permanent Veil floor. The floor never comes back down.' },
+          p: 'Each wave has a par time. Every second past it adds +1.5 Veil and +0.1 to your run\'s permanent Veil floor. The Veil you can bleed off. The floor never comes back down.' },
         { h: 'HEADROOM',
-          p: 'Headroom is 85 minus your floor. Pacts that raise damage all raise the floor. Around wave 12 the correct answer to a Pact offer starts being no.' }
+          p: 'Headroom is 85 minus your floor. Every Pact that raises damage raises the floor. Once you can afford Tier II, the correct answer to an offer starts being no.' },
+        { h: 'MOTES',
+          p: 'Motes lie on the ground for 6 seconds, are picked up from 26px, and are swept away when the wave ends. Walking to one is a position you chose for money.' },
+        { h: 'FAMILIARS',
+          p: 'Optional, chosen before the run. It goes to the nearest mote anywhere in the arena — gold first, you second, no leash. Without one a kiting player abandons about 29% of their own drops.' },
+        { h: 'AUTO-CAST',
+          p: 'Optional, in Settings. It fires a ready ability whenever your Focus covers the cost, and never one Focus past it. It handles the spending. The debt is still a button you press.' }
       ]
     },
 
@@ -804,10 +848,10 @@
         body: 'Motes now drop double. Contact damage is up half again, and it keeps climbing with the number.' },
       { id: 'tut_settle', when: 'settle_available',
         title: 'SETTLE',
-        body: 'Hands still for 1.5s and Veil bleeds at 4 a second. Kiting is not stalling.' },
+        body: 'Borrow nothing for 1.5s and Veil bleeds at 4 a second. Casting inside your Focus does not interrupt that.' },
       { id: 'tut_par', when: 'par_visible',
         title: 'PAR',
-        body: 'Past par: +4 Veil a second, and +0.1 on your Veil floor. The floor is permanent.' },
+        body: 'Past par: +1.5 Veil a second, and +0.1 on your Veil floor. The Veil comes off. The floor does not.' },
       { id: 'tut_draft', when: 'first_draft',
         title: 'PACTS',
         body: 'Anything that raises damage raises your floor. There is no free one. Declining is a build.' },
@@ -819,7 +863,18 @@
         body: 'They stack and they carry between waves. Three is usually the end of a run.' },
       { id: 'tut_boss', when: 'first_boss',
         title: 'WAVE 5',
-        body: 'Named waves every fifth. The par clock does not get longer for them.' }
+        body: 'Named waves every fifth. The par clock does not get longer for them.' },
+      /* NEW — needs a ui.js trigger. Fires on the first mote_pickup event
+         carrying byPet:true. The card exists because the familiar leaving to
+         fetch reads as a bug until somebody says it is the job. */
+      { id: 'tut_familiar', when: 'first_pet_collect',
+        title: 'IT FETCHES',
+        body: 'Motes rot 6 seconds after they drop. It goes to them anywhere in the arena — it is not following you.' },
+      /* NEW — needs a ui.js trigger. Fires the first time auto-fire is switched
+         on, from either the Settings toggle or the in-combat control. */
+      { id: 'tut_autofire', when: 'autofire_on',
+        title: 'AUTO-CAST',
+        body: 'It spends Focus you already have and stops at zero. Overdrawing stays yours to press.' }
     ],
 
     hud: {
@@ -844,18 +899,54 @@
 
     toast: {
       overdraw: '⚠️ Overdraw — {n} Focus on credit.',
-      tierUp: '🕯️ Veil {tier}. Motes {mult}.',
+      tierUp: '🕯️ Veil {tier}. Motes {mult}, contact damage with it.',
       tierDown: '🕯️ Veil {tier}. Motes {mult}.',
       breach: '🩸 Breach. Veil 60. One wraith on the field.',
       breachGuarded: '🕊️ Breach absorbed. No wraith. That was the only one.',
       wraith: '🩸 {name} came through.',
-      parLost: '⏳ Past par. +0.1 floor a second from here.',
+      parLost: '⏳ Past par. +1.5 Veil and +0.1 floor a second from here.',
       waveClear: '✔ Wave {wave} cleared. {time}s under par.',
       waveClearLate: '✔ Wave {wave} cleared. {time}s over par. Floor now {floor}.',
       pactTaken: '📜 {name} bound. Veil floor {floor}.',
       pactDeclined: '📜 Declined. Floor holds at {floor}.',
       restore: '❤️ +{n} HP. {hp}/{hpMax}.',
+      motesLost: '🕯️ Wave over. {n} motes left on the stones.',
+      autoFireOn: '🔁 Auto-cast on. Focus only — it will not overdraw for you.',
+      autoFireOff: '🔁 Auto-cast off.',
       saved: '💾 Saved.'
+    },
+
+    /* ---- AUTO-FIRE ---------------------------------------------------
+       Sim.setAutoFire(on). It casts a ready ability ONLY while the Focus is
+       already in the pool, and never one point past it — DESIGN Part 1 makes
+       casting past your Focus the central decision of the game, so automating
+       that debt would delete the game. Every string here has to carry that
+       boundary; none of them may imply it plays for you. ---------------- */
+    autoFire: {
+      label: 'Auto-cast within Focus',
+      hint: 'Fires a ready ability whenever your Focus already covers it, and stops there. It never overdraws — the debt stays your call.',
+      buttonOn: 'AUTO',
+      buttonOff: 'AUTO',
+      stateOn: 'ON — spending only',
+      stateOff: 'OFF',
+      /* Shown on the in-combat control when the pool is empty and it is
+         deliberately doing nothing. This is the affordance that stops it
+         reading as broken. */
+      waiting: 'Waiting on Focus. Overdraw is yours to press.',
+      /* One-line explainer for the Pause / Controls sheet. */
+      note: 'Auto-cast handles the spending. It does not handle the borrowing.'
+    },
+
+    /* ---- FAMILIAR SELECT --------------------------------------------- */
+    familiars: {
+      title: 'A FAMILIAR',
+      sub: 'It fetches motes. That is the whole of it — the damage is a rounding error.',
+      none: 'NONE',
+      noneText: 'No familiar. Every mote is one you walked to. A player kiting properly leaves about 29% of them to rot.',
+      lockedLabel: 'Locked — reach wave {wave}.',
+      unlockedToast: '🐾 {name} unlocked. Choose it before the run, not during.',
+      /* Category icon, not a reaction. Fires on the first byPet pickup. */
+      firstCollect: '🐾 {name} took that one. It does not wait for you.'
     },
 
     pactDraft: {
@@ -881,7 +972,7 @@
       owned: 'BOUND',
       cantAfford: 'Short {n} echoes.',
       respec: 'UNBIND ALL',
-      respecConfirm: 'Unbind everything? Clean nodes refund half. The rest refund nothing.',
+      respecConfirm: 'Unbind everything? Ordinary nodes refund in full. Clean nodes refund half — you paid for the silence.',
       floorLine: 'Starting Veil floor {floor}. Headroom {headroom} of 85.',
       empty: 'Nothing bound. Every run starts at floor 0 and that is worth something.'
     },
@@ -927,7 +1018,8 @@
     /* ---- Milestones at 1 / 10 / 25 / 50 / 100 ---- */
     milestones: {
       wave: {
-        1:   'Wave 1 cleared. Everything after this is bought on credit.',
+        1:   'Wave 1 cleared. The Veil has not asked you for anything yet. It will.',
+        5:   'Wave 5. Something with a name is standing in the ring and the par clock did not move for it.',
         10:  'Wave 10. Par is 28 seconds and the HP pool is not waiting for it.',
         25:  'Wave 25. Fifty-six bodies a wave. You are past where the maths was written for.',
         50:  'Wave 50. A hundred and six of them, sixty seconds of par.',
@@ -966,12 +1058,24 @@
     /* ==========================================================================
        DEATH — the passage that earns the run. Specific about what happened.
        Does not console. Does not mention doing well or badly.
+
+       TOKEN RULE, PAID FOR THE HARD WAY: ui.js fillTokens() knows {wave},
+       {breaches}, {floor} and {n} — and {n} is PLAYER HP, which is zero on this
+       screen. Nothing here may use {n}, {kills}, {headroom}, {motes} or {time};
+       they printed as literal braces on the one screen that has to land.
+
+       KEY RULE: ui.js deathCause() returns 'wraith' | 'brink' | 'attrition' |
+       'swarm'. 'swarm' is the catch-all and therefore the most-shown line in
+       the game; it had no entry here at all, so every ordinary death fell back
+       to a hardcoded string in ui.js. SWARM_CAUSES below fixes that, and is
+       also exported as `contact` so an older key still resolves.
        ======================================================================== */
     death: {
       titles: {
         brink:     'BREACHED',
         wraith:    'RUN DOWN',
         attrition: 'OUTPACED',
+        swarm:     'SURROUNDED',
         contact:   'SURROUNDED',
         boss:      'COLLECTED',
         default:   'ENDED'
@@ -981,25 +1085,22 @@
           'You held above 90 Veil for the last stretch of it. At that height a Husk hits for very nearly three times its listed number, and there were more than three Husks.',
           'You were buying ×11 motes and paying for them with the only body you had.',
           'The breach opened under your feet on wave {wave}. Nothing on the field was faster than you when the wave started. By the end, most of it was.',
-          'Veil 100 with {n} HP in hand. The arithmetic finished without you.'
+          'Veil 100 on wave {wave}, floor {floor}. The arithmetic finished without you.'
         ],
         wraith: [
           '{breaches} breaches, {breaches} wraiths. Each of them moves at 1.05× your base speed and not one of them expires.',
           'Wraiths carry between waves. You brought that one in from two waves back and never found the time.',
           'You cannot kite something faster than you. There was never a lap that closed.',
-          '{n} wraiths on the field. The wave was almost irrelevant by then.'
+          'By wave {wave} the wave itself was incidental. You were being chased by {breaches} decisions you made earlier.'
         ],
         attrition: [
           'You never went into debt. Par went unmet often enough that the floor climbed to {floor}, and headroom is 85 minus that.',
-          'Veil floor {floor}. Headroom {headroom}. The wave needed more damage than {headroom} points of Veil could buy.',
+          'Veil floor {floor}. The wave needed more damage than the Veil above that floor could buy.',
           'Every second over par cost a tenth of a point of floor. You paid it in small change across {wave} waves and it came to this.',
-          'Nothing killed you quickly. The par clock did it over about eleven minutes.'
+          'Nothing killed you quickly. The par clock did it a tenth of a point at a time, and none of it came back.'
         ],
-        contact: [
-          'Backed into the low edge of the arena on wave {wave} with three Nettles orbiting. {kills} kills.',
-          'HP ran out before the wave HP did. {n} of the pool was still standing.',
-          'A Lancer connected at the end of its windup. That is the one you were meant to step sideways for.'
-        ],
+        swarm: SWARM_CAUSES,
+        contact: SWARM_CAUSES,
         boss: [
           'It closed the distance on wave {wave} and there was nothing left in the pool to answer with.',
           'The named one does not get a longer par clock, and neither did you.'
@@ -1049,6 +1150,8 @@
       screenShake: 'Screen shake',
       reducedFx: 'Reduced effects',
       reducedFxHint: 'Fewer particles and no palette warping. Use it if the arena is hard to read.',
+      autoFire: 'Auto-cast within Focus',
+      autoFireHint: 'Fires a ready ability whenever your Focus already covers it, and stops there. It never overdraws — the debt stays your call.',
       controls: 'Controls',
       resetSave: 'Reset save',
       resetConfirm1: 'Erase everything? Echoes, Covenant, Ascension, unlocked heroes.',
@@ -1061,6 +1164,7 @@
       title: 'CONTROLS',
       keyboard: 'WASD or arrows to move. 1–4 to cast. Esc to pause.',
       touch: 'Left thumb moves. Four buttons on the right cast.',
+      autoFire: 'Auto-cast, if it is on, spends Focus you already have. It never overdraws.',
       controllerToast: '🎮 Controller connected. Left stick moves, A/B/X/Y cast 1–4, Start pauses.',
       controllerBindings: [
         'Left stick — move',
@@ -1247,7 +1351,8 @@
     if (!asc(5) || asc(5).mods.veilFloorAdd !== 10) out.push('A5 must be veilFloorAdd 10');
     if (!asc(7) || asc(7).mods.parMult !== 0.8) out.push('A7 must be parMult 0.8');
 
-    /* Veil tiers keep the x1/2/4/8/16 shape. */
+    /* Veil tiers keep the x1/2/3.5/6/11 shape. If this list is retuned, the
+       copy that quotes it is listed in the VEIL_TIERS header comment. */
     var wantMult = [1, 2, 3.5, 6, 11];
     for (i = 0; i < wantMult.length; i++) {
       if (!VEIL_TIERS[i] || VEIL_TIERS[i].mult !== wantMult[i]) {

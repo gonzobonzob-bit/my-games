@@ -531,6 +531,7 @@ function clearPools() {
   for (i = 0; i < FMAX; i++) FL[i].on = 0;
   for (i = 0; i < TMAX; i++) TG[i].on = 0;
   for (i = 0; i < MMAX; i++) MO[i].on = 0;
+  for (i = 0; i < CO.length; i++) CO[i].on = 0;
   shakeMag = 0; flashA = 0; hurtA = 0; slam = 0;
 }
 
@@ -992,182 +993,508 @@ function setOptions(o) {
 }
 
 /* ===========================================================================
-   8. ENEMY SILHOUETTES — the full 12-shape enum.
-   Every shape gets the same treatment (cast shadow, additive glow, radial
-   gradient body, light rim); each is chosen to be told apart in one glance
-   at 360px width. shapeBody() lays down the path and returns its gradient
-   geometry plus an optional decoration pass.
+   8. CREATURES — the full 12-shape enum, drawn as figures rather than blobs.
+
+   Three ideas hold this together:
+
+   1. A creature is a small DISPLAY LIST (the op buffer below), not a pile of
+      inline canvas calls. That buys a proper two-pass render: everything is
+      stroked once in ink at +outline width, then filled in colour. A hard
+      dark contour is what keeps a 26px creature readable against a lit
+      background — detail does not survive that size, contrast does.
+
+   2. Silhouette carries the archetype, colour only confirms it. The twelve
+      forms are deliberately spread across silhouette classes — upright biped,
+      comet, stacked stack, wide low hulk, faceted pod, back-swept flyer,
+      lance, robed hourglass, holed torso, crowned column, lantern, caged
+      core. Two of them may never be told apart by hue alone.
+
+   3. Bodies are BAKED. Each (shape, size, colour, wraith) gets one offscreen
+      strip of gait frames, blitted with a single drawImage per enemy. That
+      removes the per-enemy createRadialGradient the old drawEnemy did every
+      frame, and it is what pays for this much detail at 43 enemies. Bosses
+      and anything mid-telegraph are drawn live instead — there are never more
+      than a handful, and their pose has to be continuous.
    =========================================================================== */
 
-function shapeBody(x, y, s, shape, col, ph, ang) {
-  var c = ctx, i, a, r, px, py;
+var TAU = 6.28318531;
+
+/* --- op buffer. Reused; only ever filled inside one paintCreature call. --- */
+var OPS = [], OPN = 0;
+function opClear() { OPN = 0; }
+function opNext() { var o = OPS[OPN]; if (!o) o = OPS[OPN] = { t: 0, pts: null }; OPN++; return o; }
+function LN(x0, y0, x1, y1, w, ci) {
+  var o = opNext(); o.t = 1; o.a = x0; o.b = y0; o.c = x1; o.d = y1; o.w = w; o.ci = ci; o.qx = null; return o;
+}
+function CV(x0, y0, cx, cy, x1, y1, w, ci) {
+  var o = LN(x0, y0, x1, y1, w, ci); o.qx = cx; o.qy = cy; return o;
+}
+function EL(x, y, rx, ry, rot, ci) {
+  var o = opNext(); o.t = 2; o.a = x; o.b = y; o.c = rx; o.d = ry; o.w = rot; o.ci = ci; return o;
+}
+function PY(pts, ci) { var o = opNext(); o.t = 3; o.pts = pts; o.ci = ci; return o; }
+function RN(x, y, ro, ri, ci) { var o = opNext(); o.t = 4; o.a = x; o.b = y; o.c = ro; o.d = ri; o.ci = ci; return o; }
+function AR(x, y, r, a0, a1, w, ci) {
+  var o = opNext(); o.t = 5; o.a = x; o.b = y; o.c = r; o.d = a0; o.qx = a1; o.w = w; o.ci = ci; return o;
+}
+/* rotated rectangle -> 8 numbers, for slabs and plates */
+function slab(cx, cy, hw, hh, rot) {
+  var co = Math.cos(rot), si = Math.sin(rot);
+  return [cx - hw * co + hh * si, cy - hw * si - hh * co,
+          cx + hw * co + hh * si, cy + hw * si - hh * co,
+          cx + hw * co - hh * si, cy + hw * si + hh * co,
+          cx - hw * co - hh * si, cy - hw * si + hh * co];
+}
+
+function opPath(c, o) {
+  c.beginPath();
+  if (o.t === 1) {
+    c.moveTo(o.a, o.b);
+    if (o.qx != null) c.quadraticCurveTo(o.qx, o.qy, o.c, o.d); else c.lineTo(o.c, o.d);
+  } else if (o.t === 2) {
+    c.ellipse(o.a, o.b, Math.max(0.05, o.c), Math.max(0.05, o.d), o.w, 0, TAU);
+  } else if (o.t === 3) {
+    var p = o.pts; c.moveTo(p[0], p[1]);
+    for (var i = 2; i < p.length; i += 2) c.lineTo(p[i], p[i + 1]);
+    c.closePath();
+  } else if (o.t === 4) {
+    c.arc(o.a, o.b, Math.max(0.05, o.c), 0, TAU);
+    c.arc(o.a, o.b, Math.max(0.03, o.d), 0, TAU, true);
+  } else {
+    c.arc(o.a, o.b, Math.max(0.05, o.c), o.d, o.qx);
+  }
+}
+/* ci 0..5 index K.c; ci+10 means "no ink outline" (glowing bits, voids). */
+function paintOps(c, K, ow) {
+  var i, o, stroked;
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  c.strokeStyle = K.ink; c.fillStyle = K.ink;
+  for (i = 0; i < OPN; i++) {
+    o = OPS[i]; if (o.ci >= 10) continue;
+    stroked = (o.t === 1 || o.t === 5);
+    opPath(c, o);
+    if (stroked) { c.lineWidth = o.w + ow * 2; c.stroke(); }
+    else { c.lineWidth = ow * 2; c.stroke(); c.fill(); }
+  }
+  for (i = 0; i < OPN; i++) {
+    o = OPS[i];
+    var st = K.c[(o.ci >= 10 ? o.ci - 10 : o.ci) % 6];
+    c.fillStyle = st; c.strokeStyle = st;
+    stroked = (o.t === 1 || o.t === 5);
+    opPath(c, o);
+    if (stroked) { c.lineWidth = o.w; c.stroke(); } else c.fill();
+  }
+}
+
+/* --- colour kits. K.c = [dark, bodyGradient, highlight, glow, void, flat] --- */
+function makeKit(c, col, wraith, S) {
+  var base = wraith ? desat(col, 0.8, C_WRAITH) : col;
+  var hi = lighten(base, 52), dk = mixCol(base, '#080410', 0.74);
+  var glow = wraith ? '#eef5ff' : lighten(base, 165);
+  var vd = wraith ? 'rgba(206,226,248,0.5)' : 'rgba(9,4,18,0.9)';
+  var ink = wraith ? 'rgba(150,178,208,0.55)' : 'rgba(6,3,13,0.94)';
+  var grad;
+  try {
+    grad = c.createLinearGradient(0, -S * 1.25, 0, S * 1.15);
+    grad.addColorStop(0, lighten(base, 34)); grad.addColorStop(0.34, base); grad.addColorStop(1, dk);
+  } catch (e) { grad = base; }
+  return { c: [dk, grad, hi, glow, vd, base], ink: ink, base: base, glow: glow, hi: hi, dk: dk };
+}
+var liveKits = {}, liveKitN = 0;
+function liveKit(col, wraith, S) {
+  var key = col + '|' + (wraith ? 1 : 0) + '|' + (S | 0);
+  var k = liveKits[key];
+  if (k) return k;
+  k = makeKit(ctx, col, wraith, S);
+  if (liveKitN > 40) { liveKits = {}; liveKitN = 0; }
+  liveKits[key] = k; liveKitN++;
+  return k;
+}
+
+/* --- per-shape form data. ext = sprite box side in units of S. --- */
+var FORM = {
+  husk:    { or: 1, hov: 0.00, fr: 8, ext: 3.4 },
+  wisp:    { or: 2, hov: 0.10, fr: 8, ext: 3.6 },
+  block:   { or: 1, hov: 0.00, fr: 6, ext: 3.2 },
+  hex:     { or: 1, hov: 0.00, fr: 6, ext: 3.2 },
+  diamond: { or: 1, hov: 0.09, fr: 6, ext: 3.2 },
+  shard:   { or: 2, hov: 0.07, fr: 8, ext: 3.4 },
+  spike:   { or: 1, hov: 0.00, fr: 8, ext: 4.4 },
+  star:    { or: 1, hov: 0.10, fr: 8, ext: 3.4 },
+  ring:    { or: 1, hov: 0.07, fr: 6, ext: 3.2 },
+  crown:   { or: 1, hov: 0.00, fr: 5, ext: 3.4 },
+  orb:     { or: 1, hov: 0.06, fr: 5, ext: 3.6 },
+  core:    { or: 2, hov: 0.07, fr: 5, ext: 3.6 }
+};                                      /* or: 1 = flip on facing, 2 = rotate */
+
+/* ---------------------------------------------------------------------------
+   paintCreature — builds the display list for one figure, centred on 0,0,
+   facing +x, with a body radius of S and feet on y = +S. `u` is the gait
+   phase 0..1. Nothing here touches the canvas; paintOps does the drawing.
+   --------------------------------------------------------------------------- */
+function paintCreature(shape, S, u) {
+  var i, a, sw, sw2, bob, pulse, mx, my;
+  opClear();
+  sw = Math.sin(u * TAU); sw2 = -sw;
+
   switch (shape) {
 
-    case 'block': {                      /* BRUTE — heavy rounded slab */
-      var bw = s * 1.2, bh = s * 1.5, br = s * 0.3, bx = x - bw / 2, by = y - bh / 2;
-      c.beginPath();
-      c.moveTo(bx + br, by);
-      c.lineTo(bx + bw - br, by); c.quadraticCurveTo(bx + bw, by, bx + bw, by + br);
-      c.lineTo(bx + bw, by + bh - br); c.quadraticCurveTo(bx + bw, by + bh, bx + bw - br, by + bh);
-      c.lineTo(bx + br, by + bh); c.quadraticCurveTo(bx, by + bh, bx, by + bh - br);
-      c.lineTo(bx, by + br); c.quadraticCurveTo(bx, by, bx + br, by);
-      c.closePath();
-      return { grad: [x, y - s * 0.3, 2, x, y, s * 1.1], rim: 1.5 };
+    /* HUSK — a shambling biped. The only walker among the small enemies, so
+       "two legs, arms swinging" is the whole read at 30px. */
+    case 'husk': {
+      bob = -Math.abs(sw) * S * 0.10;
+      LN(-S * 0.06, S * 0.22 + bob, -S * 0.10 + sw2 * S * 0.5, S * 1.02, S * 0.20, 0);
+      CV(-S * 0.02, -S * 0.42 + bob, -S * 0.40, -S * 0.02 + bob, -S * 0.28 - sw * S * 0.3, S * 0.54 + bob, S * 0.15, 0);
+      PY([-S * 0.34, S * 0.30 + bob, -S * 0.42, -S * 0.34 + bob, -S * 0.18, -S * 0.78 + bob,
+           S * 0.28, -S * 0.72 + bob, S * 0.40, -S * 0.10 + bob, S * 0.30, S * 0.32 + bob], 1);
+      LN(S * 0.08, S * 0.22 + bob, S * 0.14 + sw * S * 0.5, S * 1.02, S * 0.22, 5);
+      CV(S * 0.14, -S * 0.44 + bob, S * 0.48, -S * 0.02 + bob, S * 0.34 - sw2 * S * 0.3, S * 0.58 + bob, S * 0.17, 5);
+      PY([S * 0.02, -S * 0.74 + bob, S * 0.46, -S * 0.92 + bob, S * 0.54, -S * 1.24 + bob,
+          S * 0.08, -S * 1.32 + bob, -S * 0.18, -S * 1.00 + bob], 2);
+      LN(-S * 0.02, -S * 1.16 + bob, S * 0.16, -S * 0.86 + bob, S * 0.07, 14);   /* the crack */
+      EL(S * 0.36, -S * 1.04 + bob, S * 0.14, S * 0.09, -0.22, 3);
+      break;
     }
 
-    case 'hex': {                        /* CASTER — hexagon with an orbiting mote */
-      c.beginPath();
-      for (i = 0; i < 6; i++) {
-        a = (Math.PI / 3) * i - Math.PI / 6;
-        px = x + s * Math.cos(a); py = y + s * Math.sin(a);
-        i === 0 ? c.moveTo(px, py) : c.lineTo(px, py);
+    /* WISP — a comet: burning head, streaming tail. Drawn along +x and
+       rotated to velocity, because a flame has no up. */
+    case 'wisp': {
+      var fl = Math.sin(u * TAU), fl2 = Math.sin(u * TAU * 2 + 1.1);
+      EL(-S * 1.42 + fl * S * 0.10, fl2 * S * 0.18, S * 0.22, S * 0.15, 0, 10);
+      EL(-S * 0.88, fl * S * 0.14, S * 0.38, S * 0.26, 0, 0);
+      PY([S * 1.08, 0, S * 0.30, -S * 0.70, -S * 0.50, -S * 0.44 + fl * S * 0.12,
+          -S * 1.10, fl * S * 0.22, -S * 0.50, S * 0.44 + fl * S * 0.12, S * 0.30, S * 0.70], 1);
+      PY([S * 0.30, -S * 0.62, S * 0.10, -S * 1.20 - fl * S * 0.2, -S * 0.10, -S * 0.58], 2);
+      PY([-S * 0.16, -S * 0.52, -S * 0.44, -S * 0.98 + fl2 * S * 0.18, -S * 0.56, -S * 0.40], 2);
+      EL(-S * 0.05, 0, S * 0.36, S * 0.28, 0, 13);
+      EL(S * 0.46, 0, S * 0.22, S * 0.15, 0, 3);
+      break;
+    }
+
+    /* BLOCK — the Cairnbound: three stacked slabs on stub legs, rune-lit at
+       the seams. Tall, rectangular, lurching. The par clock walking. */
+    case 'block': {
+      var lean = sw * 0.05;
+      bob = -Math.abs(sw) * S * 0.05;
+      LN(-S * 0.34, S * 0.55 + bob, -S * 0.40 + sw2 * S * 0.14, S * 1.08, S * 0.30, 0);
+      LN(S * 0.34, S * 0.55 + bob, S * 0.40 + sw * S * 0.14, S * 1.08, S * 0.32, 0);
+      PY(slab(0, S * 0.40 + bob, S * 0.92, S * 0.28, lean * 0.5), 1);
+      PY(slab(sw * S * 0.05, -S * 0.18 + bob, S * 0.76, S * 0.30, -lean), 1);
+      PY(slab(sw2 * S * 0.04, -S * 0.80 + bob, S * 0.56, S * 0.32, lean * 1.4), 2);
+      EL(0, S * 0.10 + bob, S * 0.74, S * 0.05, lean * 0.5, 13);
+      EL(0, -S * 0.48 + bob, S * 0.60, S * 0.045, -lean, 13);
+      EL(-S * 0.22, -S * 0.82 + bob, S * 0.11, S * 0.13, lean, 3);
+      EL(S * 0.22, -S * 0.82 + bob, S * 0.11, S * 0.13, lean, 3);
+      LN(-S * 0.55, S * 0.44 + bob, -S * 0.30, S * 0.34 + bob, S * 0.05, 10);
+      break;
+    }
+
+    /* HEX — the Slagbrute: wide, low, crusted, cracked with magma. Reads
+       against the Cairnbound by proportion alone: broad where that is tall. */
+    case 'hex': {
+      pulse = 0.5 + 0.5 * Math.sin(u * TAU);
+      bob = -Math.abs(sw) * S * 0.05;
+      LN(-S * 0.52, S * 0.42 + bob, -S * 0.62 + sw2 * S * 0.14, S * 1.00, S * 0.32, 0);
+      LN(S * 0.52, S * 0.42 + bob, S * 0.62 + sw * S * 0.14, S * 1.00, S * 0.34, 0);
+      CV(-S * 0.62, -S * 0.22 + bob, -S * 1.16, -S * 0.05 + bob, -S * 0.94, S * 0.56 + bob, S * 0.24, 0);
+      PY([-S * 1.12, -S * 0.05 + bob, -S * 0.62, -S * 0.74 + bob, S * 0.60, -S * 0.74 + bob,
+          S * 1.10, -S * 0.05 + bob, S * 0.66, S * 0.52 + bob, -S * 0.66, S * 0.52 + bob], 1);
+      PY([-S * 0.92, -S * 0.34 + bob, -S * 0.52, -S * 0.98 + bob, -S * 0.12, -S * 0.44 + bob], 0);
+      PY([-S * 0.20, -S * 0.50 + bob, S * 0.20, -S * 1.08 + bob, S * 0.52, -S * 0.50 + bob], 0);
+      LN(-S * 0.60, -S * 0.30 + bob, -S * 0.34, S * 0.12 + bob, S * 0.075 * (0.6 + pulse * 0.8), 13);
+      LN(-S * 0.18, S * 0.24 + bob, S * 0.04, -S * 0.20 + bob, S * 0.09 * (0.6 + pulse * 0.8), 13);
+      LN(S * 0.24, -S * 0.06 + bob, S * 0.50, S * 0.30 + bob, S * 0.065 * (0.6 + pulse * 0.8), 13);
+      EL(S * 0.86, S * 0.16 + bob, S * 0.30, S * 0.24, -0.2, 2);
+      EL(S * 0.97, S * 0.12 + bob, S * 0.11, S * 0.08, 0, 3);
+      CV(S * 0.62, -S * 0.20 + bob, S * 1.20, -S * 0.02 + bob, S * 1.00, S * 0.60 + bob, S * 0.26, 5);
+      break;
+    }
+
+    /* DIAMOND — the Motherglass: a faceted pod with three lit embryos visibly
+       circling inside it. The count is the mechanic; you can read the split
+       off the body before it ever dies. */
+    case 'diamond': {
+      var sp = u * TAU;
+      CV(-S * 0.30, S * 0.92, -S * 0.44, S * 1.24, -S * 0.18, S * 1.38, S * 0.08, 0);
+      CV(S * 0.30, S * 0.92, S * 0.44, S * 1.24, S * 0.18, S * 1.38, S * 0.08, 0);
+      PY([0, -S * 1.30, S * 0.86, -S * 0.14, S * 0.50, S * 0.96, -S * 0.50, S * 0.96, -S * 0.86, -S * 0.14], 1);
+      PY([0, -S * 0.88, S * 0.58, -S * 0.10, S * 0.34, S * 0.62, -S * 0.34, S * 0.62, -S * 0.58, -S * 0.10], 14);
+      for (i = 0; i < 3; i++) {
+        a = sp + i * 2.0944;
+        EL(Math.cos(a) * S * 0.30, Math.sin(a) * S * 0.30 - S * 0.06, S * 0.17, S * 0.14, 0, 3);
       }
-      c.closePath();
-      return { grad: [x, y, 1, x, y, s], rim: 1, after: function () {
-        var oa = t * 4.2 + ph, orb = s * 1.3;
-        c.beginPath(); c.arc(x + orb * Math.cos(oa), y + orb * Math.sin(oa), s * 0.18, 0, 6.2832);
-        c.fillStyle = lighten(col, 80); c.fill();
-      } };
+      LN(-S * 0.48, -S * 0.36, -S * 0.04, -S * 1.06, S * 0.07, 12);
+      break;
     }
 
-    case 'star': {                       /* 8-point star — the old boss silhouette */
-      var outer = s, inner = s * 0.45, pts = 8;
-      c.beginPath();
-      for (i = 0; i < pts * 2; i++) {
-        a = (Math.PI / pts) * i - Math.PI / 2 + t * 0.35;
-        r = (i % 2 === 0) ? outer : inner;
-        px = x + r * Math.cos(a); py = y + r * Math.sin(a);
-        i === 0 ? c.moveTo(px, py) : c.lineTo(px, py);
-      }
-      c.closePath();
-      return { grad: [x, y, 2, x, y, s * 1.2], rim: 2, rimCol: 'rgba(255,200,0,0.4)' };
+    /* SHARD — the Nettle: a back-swept blade-flyer with a stinger. Rotated to
+       velocity, so its darts read as a body turning, not a sprite sliding. */
+    case 'shard': {
+      var beat = Math.sin(u * TAU * 2);
+      PY([S * 0.05, -S * 0.16, -S * 1.05, -S * 0.86 - beat * S * 0.34,
+          -S * 0.85, -S * 0.28, -S * 0.50, -S * 0.06], 2);
+      PY([S * 0.05, S * 0.16, -S * 1.05, S * 0.86 + beat * S * 0.34,
+          -S * 0.85, S * 0.28, -S * 0.50, S * 0.06], 2);
+      LN(-S * 0.5, 0, -S * 1.50, beat * S * 0.08, S * 0.13, 0);
+      EL(0, 0, S * 0.88, S * 0.34, 0, 1);
+      LN(S * 0.30, -S * 0.14, S * 1.30, -S * 0.52, S * 0.12, 5);
+      LN(S * 0.30, S * 0.14, S * 1.30, S * 0.52, S * 0.12, 5);
+      EL(S * 0.54, 0, S * 0.24, S * 0.17, 0, 3);
+      break;
     }
 
-    case 'orb': {                        /* smooth sphere — the baseline body */
-      c.beginPath(); c.arc(x, y, s, 0, 6.2832); c.closePath();
-      return { grad: [x - s * 0.3, y - s * 0.3, 1, x, y, s], rim: 1 };
-    }
-
-    case 'wisp': {                       /* teardrop with a wavering tail */
-      var hd = ang + Math.PI;                          /* the tail trails behind */
-      var wob = Math.sin(t * 7 + ph) * 0.35;
-      c.save(); c.translate(x, y); c.rotate(hd + wob * 0.25);
-      c.beginPath();
-      c.moveTo(s * 2.0, 0);
-      c.quadraticCurveTo(s * 0.7, s * 0.85 + wob * s * 0.3, 0, s * 0.72);
-      c.arc(0, 0, s * 0.72, Math.PI / 2, -Math.PI / 2, false);
-      c.quadraticCurveTo(s * 0.7, -s * 0.85 + wob * s * 0.3, s * 2.0, 0);
-      c.closePath(); c.restore();
-      return { grad: [x, y, 1, x, y, s * 1.3], rim: 1, alpha: 0.85 };
-    }
-
-    case 'shard': {                      /* narrow blade, slow spin, hard edges */
-      c.save(); c.translate(x, y); c.rotate(t * 1.6 + ph);
-      c.beginPath();
-      c.moveTo(0, -s * 1.35); c.lineTo(s * 0.5, s * 0.2);
-      c.lineTo(0, s * 0.62); c.lineTo(-s * 0.5, s * 0.2);
-      c.closePath(); c.restore();
-      return { grad: [x, y - s * 0.4, 1, x, y, s], rim: 1.2, rimCol: 'rgba(255,255,255,0.45)' };
-    }
-
-    case 'ring': {                       /* hollow annulus — the hole is the read */
-      c.beginPath();
-      c.arc(x, y, s, 0, 6.2832);
-      c.arc(x, y, s * 0.52, 0, 6.2832, true);
-      c.closePath();
-      return { grad: [x, y, s * 0.45, x, y, s], rim: 1, after: function () {
-        var ra = -t * 1.1 + ph;
-        c.strokeStyle = rgba(col, 0.55); c.lineWidth = 2;
-        for (i = 0; i < 6; i++) {
-          a = ra + i * 1.047;
-          c.beginPath();
-          c.moveTo(x + Math.cos(a) * s * 1.18, y + Math.sin(a) * s * 1.18);
-          c.lineTo(x + Math.cos(a) * s * 1.42, y + Math.sin(a) * s * 1.42);
-          c.stroke();
-        }
-      } };
-    }
-
-    case 'crown': {                      /* squat base + three prongs — authority */
-      var cw = s * 1.15, bh2 = s * 0.62;
-      c.beginPath();
-      c.moveTo(x - cw, y + bh2);
-      c.lineTo(x + cw, y + bh2);
-      c.lineTo(x + cw, y - bh2 * 0.1);
-      c.lineTo(x + cw * 0.62, y - s * 0.55);
-      c.lineTo(x + cw * 0.32, y - bh2 * 0.05);
-      c.lineTo(x, y - s * 1.15);
-      c.lineTo(x - cw * 0.32, y - bh2 * 0.05);
-      c.lineTo(x - cw * 0.62, y - s * 0.55);
-      c.lineTo(x - cw, y - bh2 * 0.1);
-      c.closePath();
-      return { grad: [x, y + bh2 * 0.4, 2, x, y, s * 1.3], rim: 1.6, rimCol: 'rgba(255,225,160,0.42)' };
-    }
-
+    /* SPIKE — the Lancer: a jouster. The lance is 1.9S of straight line out
+       of the body and it is the only thing you need to see. */
     case 'spike': {
-      /* four long needles from a small hub — a caltrop. Deliberately sparser
-         and longer-armed than `star`, which is a dense 8-point sunburst. */
-      var ka = t * 0.9 + ph;
-      c.beginPath();
-      for (i = 0; i < 4; i++) {
-        a = ka + i * 1.5708;
-        var a1 = a - 0.30, a2 = a + 0.30;
-        if (i === 0) c.moveTo(x + Math.cos(a1) * s * 0.30, y + Math.sin(a1) * s * 0.30);
-        else c.lineTo(x + Math.cos(a1) * s * 0.30, y + Math.sin(a1) * s * 0.30);
-        c.lineTo(x + Math.cos(a) * s * 1.55, y + Math.sin(a) * s * 1.55);
-        c.lineTo(x + Math.cos(a2) * s * 0.30, y + Math.sin(a2) * s * 0.30);
+      bob = -Math.abs(sw) * S * 0.07;
+      LN(-S * 0.10, S * 0.28 + bob, -S * 0.22 + sw2 * S * 0.42, S * 1.00, S * 0.15, 0);
+      CV(-S * 0.05, -S * 0.40 + bob, -S * 0.42, -S * 0.10 + bob, -S * 0.30, S * 0.42 + bob, S * 0.13, 0);
+      PY([-S * 0.30, S * 0.30 + bob, -S * 0.34, -S * 0.34 + bob, -S * 0.05, -S * 0.72 + bob,
+          S * 0.30, -S * 0.62 + bob, S * 0.34, -S * 0.05 + bob, S * 0.24, S * 0.32 + bob], 1);
+      LN(S * 0.06, S * 0.28 + bob, S * 0.18 + sw * S * 0.42, S * 1.00, S * 0.17, 5);
+      EL(-S * 0.12, -S * 0.46 + bob, S * 0.30, S * 0.20, -0.3, 0);
+      PY([0, -S * 0.68 + bob, S * 0.46, -S * 0.86 + bob, S * 0.58, -S * 1.06 + bob,
+          S * 0.06, -S * 1.20 + bob, -S * 0.20, -S * 0.92 + bob], 2);
+      EL(S * 0.34, -S * 0.96 + bob, S * 0.13, S * 0.07, -0.2, 3);
+      LN(-S * 0.38, S * 0.04 + bob, S * 1.68, -S * 0.28 + bob, S * 0.11, 5);
+      EL(S * 0.40, -S * 0.10 + bob, S * 0.19, S * 0.16, -0.15, 5);
+      PY([S * 1.52, -S * 0.44 + bob, S * 1.98, -S * 0.28 + bob, S * 1.52, -S * 0.12 + bob], 3);
+      break;
+    }
+
+    /* STAR — the Ashcaster: a robed conjurer with a charge held out front.
+       No legs, tattered hem: it hovers where the walkers walk. */
+    case 'star': {
+      bob = sw * S * 0.06;
+      var hem = Math.sin(u * TAU + 1.0);
+      CV(-S * 0.40, -S * 0.30 + bob, -S * 0.88, -S * 0.20 + bob, -S * 0.62, S * 0.36 + bob, S * 0.20, 0);
+      PY([-S * 0.46, -S * 0.40 + bob, S * 0.46, -S * 0.40 + bob, S * 0.90, S * 1.02 + bob,
+          S * 0.58, S * 0.80 + bob, S * 0.28, S * 1.14 + bob + hem * S * 0.08, 0, S * 0.84 + bob,
+          -S * 0.30, S * 1.16 + bob - hem * S * 0.08, -S * 0.60, S * 0.82 + bob, -S * 0.90, S * 1.00 + bob], 1);
+      PY([-S * 0.44, -S * 0.34 + bob, -S * 0.32, -S * 1.00 + bob, S * 0.12, -S * 1.26 + bob,
+          S * 0.52, -S * 0.88 + bob, S * 0.46, -S * 0.32 + bob], 2);
+      PY([-S * 0.18, -S * 0.48 + bob, -S * 0.10, -S * 0.94 + bob, S * 0.32, -S * 0.88 + bob,
+          S * 0.32, -S * 0.46 + bob], 14);
+      EL(S * 0.04, -S * 0.68 + bob, S * 0.08, S * 0.06, 0, 13);
+      EL(S * 0.22, -S * 0.70 + bob, S * 0.08, S * 0.06, 0, 13);
+      CV(S * 0.38, -S * 0.28 + bob, S * 0.92, -S * 0.48 + bob, S * 0.88, -S * 0.78 + bob, S * 0.21, 5);
+      EL(S * 0.96, -S * 0.98 + bob, S * 0.24 + Math.abs(sw) * S * 0.07, S * 0.24 + Math.abs(sw) * S * 0.07, 0, 3);
+      break;
+    }
+
+    /* RING — the Hollow Warden: the hole through its chest is the silhouette.
+       Arms held out; three ward-runes orbit. Its aura is drawn separately. */
+    case 'ring': {
+      var rot = u * TAU;
+      bob = sw * S * 0.05;
+      CV(-S * 0.62, -S * 0.12 + bob, -S * 1.28, -S * 0.34 + bob, -S * 1.16, S * 0.36 + bob, S * 0.17, 0);
+      CV(S * 0.62, -S * 0.12 + bob, S * 1.28, -S * 0.34 + bob, S * 1.16, S * 0.36 + bob, S * 0.17, 0);
+      RN(0, S * 0.14 + bob, S * 0.86, S * 0.37, 1);
+      PY([-S * 0.80, -S * 0.42 + bob, -S * 0.36, -S * 0.76 + bob, S * 0.36, -S * 0.76 + bob,
+          S * 0.80, -S * 0.42 + bob, S * 0.50, -S * 0.18 + bob, -S * 0.50, -S * 0.18 + bob], 2);
+      PY([-S * 0.26, -S * 0.70 + bob, -S * 0.20, -S * 1.12 + bob, S * 0.20, -S * 1.12 + bob,
+          S * 0.26, -S * 0.70 + bob], 2);
+      EL(0, -S * 0.94 + bob, S * 0.17, S * 0.07, 0, 13);
+      for (i = 0; i < 3; i++) {
+        a = rot + i * 2.0944;
+        EL(Math.cos(a) * S * 1.18, Math.sin(a) * S * 0.5 + S * 0.14 + bob, S * 0.13, S * 0.13, 0.7854, 3);
       }
-      c.closePath();
-      return { grad: [x, y, 1, x, y, s * 1.1], rim: 1, rimCol: 'rgba(255,255,255,0.35)', after: function () {
-        c.fillStyle = 'rgba(10,6,18,0.75)';
-        c.beginPath(); c.arc(x, y, s * 0.26, 0, 6.2832); c.fill();
-      } };
+      break;
     }
 
-    case 'husk': {                       /* cracked shell, dim, about to split */
-      c.beginPath();
-      c.moveTo(x, y - s);
-      c.quadraticCurveTo(x + s * 0.98, y - s * 0.72, x + s * 0.86, y + s * 0.14);
-      c.quadraticCurveTo(x + s * 0.62, y + s * 1.02, x, y + s * 0.94);
-      c.quadraticCurveTo(x - s * 0.66, y + s * 1.02, x - s * 0.88, y + s * 0.1);
-      c.quadraticCurveTo(x - s * 0.96, y - s * 0.74, x, y - s);
-      c.closePath();
-      return { grad: [x - s * 0.2, y - s * 0.3, 1, x, y, s * 1.05], rim: 1, after: function () {
-        c.strokeStyle = 'rgba(0,0,0,0.62)'; c.lineWidth = Math.max(1.4, s * 0.13);
-        c.beginPath();
-        c.moveTo(x - s * 0.42, y - s * 0.8);
-        c.lineTo(x - s * 0.06, y - s * 0.16);
-        c.lineTo(x - s * 0.34, y + s * 0.16);
-        c.lineTo(x + s * 0.16, y + s * 0.88);
-        c.stroke();
-        var e = 0.35 + 0.3 * Math.sin(t * 3 + ph);
-        c.fillStyle = rgba(lighten(col, 90), e);
-        c.beginPath(); c.arc(x - s * 0.06, y - s * 0.16, s * 0.16, 0, 6.2832); c.fill();
-      } };
+    /* CROWN — the Toll Collector: a crowned column with one hand always out.
+       Tallest silhouette in the game and the only one with a lit crown. */
+    case 'crown': {
+      bob = -Math.abs(sw) * S * 0.04;
+      PY([-S * 0.52, -S * 0.30 + bob, S * 0.52, -S * 0.30 + bob, S * 0.96, S * 1.10,
+          S * 0.56, S * 0.90, S * 0.16, S * 1.16, -S * 0.26, S * 0.90, -S * 0.72, S * 1.12], 1);
+      CV(-S * 0.46, -S * 0.46 + bob, -S * 0.98, -S * 0.20 + bob, -S * 0.84, S * 0.30 + bob, S * 0.16, 0);
+      PY(slab(-S * 0.88, S * 0.44 + bob, S * 0.20, S * 0.26, 0.22), 0);
+      PY([-S * 0.72, -S * 0.34 + bob, -S * 0.46, -S * 0.80 + bob, S * 0.46, -S * 0.80 + bob,
+          S * 0.72, -S * 0.34 + bob, S * 0.42, -S * 0.14 + bob, -S * 0.42, -S * 0.14 + bob], 2);
+      LN(-S * 0.34, -S * 0.20 + bob, -S * 0.20, S * 0.34 + bob, S * 0.05, 10);
+      LN(S * 0.30, -S * 0.20 + bob, S * 0.18, S * 0.30 + bob, S * 0.05, 10);
+      PY([-S * 0.20, -S * 0.74 + bob, -S * 0.24, -S * 1.08 + bob, S * 0.24, -S * 1.08 + bob,
+          S * 0.20, -S * 0.74 + bob], 2);
+      PY([-S * 0.16, -S * 0.98 + bob, S * 0.16, -S * 0.98 + bob, S * 0.14, -S * 0.80 + bob,
+          -S * 0.14, -S * 0.80 + bob], 14);
+      EL(-S * 0.07, -S * 0.90 + bob, S * 0.05, S * 0.045, 0, 13);
+      EL(S * 0.09, -S * 0.90 + bob, S * 0.05, S * 0.045, 0, 13);
+      PY([-S * 0.32, -S * 1.04 + bob, -S * 0.36, -S * 1.34 + bob, -S * 0.14, -S * 1.18 + bob,
+          0, -S * 1.52 + bob, S * 0.14, -S * 1.18 + bob, S * 0.36, -S * 1.34 + bob,
+          S * 0.32, -S * 1.04 + bob], 3);
+      CV(S * 0.52, -S * 0.50 + bob, S * 1.02, -S * 0.42 + bob, S * 1.06, -S * 0.04 + bob, S * 0.15, 5);
+      EL(S * 1.14, S * 0.06 + bob, S * 0.15, S * 0.11, 0, 3);
+      break;
     }
 
-    case 'core': {                       /* nucleus inside counter-rotating brackets */
-      c.beginPath(); c.arc(x, y, s * 0.52, 0, 6.2832); c.closePath();
-      return { grad: [x, y, 0.5, x, y, s * 0.62], rim: 1.2, rimCol: 'rgba(255,255,255,0.55)', after: function () {
-        var b1 = t * 1.5 + ph, b2 = -t * 1.05 + ph;
-        c.lineWidth = Math.max(1.5, s * 0.15);
-        c.strokeStyle = rgba(col, 0.85);
-        for (i = 0; i < 2; i++) { c.beginPath(); c.arc(x, y, s * 0.95, b1 + i * Math.PI, b1 + i * Math.PI + 1.15); c.stroke(); }
-        c.strokeStyle = rgba(lighten(col, 60), 0.55);
-        c.lineWidth = Math.max(1, s * 0.1);
-        for (i = 0; i < 2; i++) { c.beginPath(); c.arc(x, y, s * 1.3, b2 + i * Math.PI, b2 + i * Math.PI + 0.75); c.stroke(); }
-      } };
+    /* ORB — the Lamplighter: a cowled bearer holding a caged lamp. The lamp
+       is the biggest bright mass on screen; the shield dome hangs off it. */
+    case 'orb': {
+      var fl3 = Math.sin(u * TAU * 2);
+      bob = sw * S * 0.05;
+      PY([-S * 0.52, -S * 0.10 + bob, S * 0.48, -S * 0.10 + bob, S * 0.84, S * 1.14 + bob,
+          S * 0.38, S * 0.94 + bob, 0, S * 1.20 + bob, -S * 0.42, S * 0.94 + bob, -S * 0.84, S * 1.14 + bob], 1);
+      CV(-S * 0.40, -S * 0.30 + bob, -S * 0.90, -S * 0.10 + bob, -S * 0.76, S * 0.38 + bob, S * 0.16, 0);
+      PY([-S * 0.62, -S * 0.16 + bob, -S * 0.34, -S * 0.52 + bob, S * 0.34, -S * 0.52 + bob,
+          S * 0.62, -S * 0.16 + bob, S * 0.34, -S * 0.02 + bob, -S * 0.34, -S * 0.02 + bob], 2);
+      PY([-S * 0.28, -S * 0.44 + bob, -S * 0.22, -S * 0.92 + bob, S * 0.06, -S * 1.16 + bob,
+          S * 0.32, -S * 0.78 + bob, S * 0.30, -S * 0.40 + bob], 2);
+      PY([-S * 0.13, -S * 0.56 + bob, -S * 0.07, -S * 0.90 + bob, S * 0.22, -S * 0.84 + bob,
+          S * 0.22, -S * 0.52 + bob], 14);
+      EL(0, -S * 0.72 + bob, S * 0.06, S * 0.05, 0, 13);
+      EL(S * 0.16, -S * 0.74 + bob, S * 0.06, S * 0.05, 0, 13);
+      CV(S * 0.50, -S * 0.26 + bob, S * 0.90, -S * 0.30 + bob, S * 0.96, -S * 0.58 + bob, S * 0.17, 5);
+      LN(S * 0.96, -S * 0.60 + bob, S * 0.96, -S * 0.44 + bob, S * 0.05, 0);
+      PY(slab(S * 0.96, -S * 0.40 + bob, S * 0.25, S * 0.07, 0), 0);
+      EL(S * 0.96, S * 0.10 + bob, S * 0.46, S * 0.50, 0, 14);
+      EL(S * 0.96, S * 0.10 + bob, S * 0.28 + fl3 * S * 0.05, S * 0.32, 0, 3);
+      AR(S * 0.96, S * 0.10 + bob, S * 0.46, -2.5, -0.65, S * 0.055, 12);
+      AR(S * 0.96, S * 0.10 + bob, S * 0.46, 0.65, 2.5, S * 0.055, 12);
+      LN(S * 0.52, S * 0.10 + bob, S * 1.40, S * 0.10 + bob, S * 0.05, 12);
+      PY(slab(S * 0.96, S * 0.62 + bob, S * 0.23, S * 0.07, 0), 0);
+      break;
     }
 
-    case 'diamond':                      /* MINION — ported verbatim */
-    default: {
-      c.beginPath();
-      c.moveTo(x, y - s); c.lineTo(x + s * 0.7, y);
-      c.lineTo(x, y + s); c.lineTo(x - s * 0.7, y);
-      c.closePath();
-      return { grad: [x - s * 0.2, y - s * 0.2, 1, x, y, s], rim: 1 };
+    /* CORE — the Reckoner: a nucleus in a cage of counter-turning brackets
+       with four claw limbs. The only shape whose centre is brighter than
+       its edge, which is the warning that it detonates. */
+    case 'core': {
+      var b1 = u * TAU;
+      pulse = 0.5 + 0.5 * Math.sin(u * TAU * 2);
+      for (i = 0; i < 4; i++) {
+        a = b1 * 0.35 + i * 1.5708 + 0.4;
+        mx = Math.cos(a) * S * 0.95; my = Math.sin(a) * S * 0.95;
+        CV(Math.cos(a) * S * 0.34, Math.sin(a) * S * 0.34, mx, my,
+           Math.cos(a + 0.55) * S * 1.52, Math.sin(a + 0.55) * S * 1.52, S * 0.11, 0);
+      }
+      AR(0, 0, S * 0.92, b1, b1 + 1.5, S * 0.16, 5);
+      AR(0, 0, S * 0.92, b1 + 3.1416, b1 + 4.64, S * 0.16, 5);
+      AR(0, 0, S * 1.24, -b1 * 0.7, -b1 * 0.7 + 0.9, S * 0.10, 0);
+      AR(0, 0, S * 1.24, -b1 * 0.7 + 3.1416, -b1 * 0.7 + 4.04, S * 0.10, 0);
+      EL(0, 0, S * 0.54, S * 0.54, 0, 1);
+      EL(0, 0, S * 0.34 * (0.86 + pulse * 0.3), S * 0.34 * (0.86 + pulse * 0.3), 0, 3);
+      EL(0, 0, S * 0.10, S * 0.26, 0, 14);
+      break;
+    }
+
+    default:
+      return paintCreature('orb', S, u);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Baked gait strips. One canvas per (shape, size, colour, wraith) holding
+   FORM.fr frames side by side. LRU-capped; a wave's roster is 5-7 sheets.
+   --------------------------------------------------------------------------- */
+/* Sheets are LRU-evicted, not FIFO. A wave's roster is small (the real game
+   only ever needs 9 body sheets plus one wraith), but evicting a sheet that
+   is still on screen re-bakes it immediately and the churn shows up as a GC
+   spike, so least-recently-DRAWN is the only safe policy here. */
+var sheets = {}, sheetKeys = [], bakeQ = [], SHEET_MAX = 24;
+var DASH_AURA = [7, 10], DASH_OFF = [];
+
+function inkWidth(S) { return Math.max(0.85, Math.min(2.9, S * 0.078)); }
+
+function sheetFor(shape, S, col, wraith) {
+  var F = FORM[shape] || FORM.orb;
+  var key = shape + '|' + (S | 0) + '|' + col + '|' + (wraith ? 1 : 0);
+  var sh = sheets[key];
+  if (sh) { sh.used = t; return sh.ready ? sh : null; }
+  if (!doc) return null;
+  var ext = F.ext * S;
+  var dprc = Math.min(DPR || 1, 2);
+  var ss = Math.round(Math.max(40, Math.min(288, ext * dprc)));
+  var cv, c;
+  try {
+    cv = doc.createElement('canvas');
+    cv.width = ss * F.fr; cv.height = ss;
+    c = cv.getContext('2d');
+    if (!c) return null;
+  } catch (e) { return null; }
+  sh = { cv: cv, cx: c, ss: ss, n: F.fr, ext: ext, shape: shape, S: S,
+         K: makeKit(c, col, wraith, S), f: 0, ready: 0, key: key };
+  sheets[key] = sh; sheetKeys.push(key);
+  bakeQ.push(sh);
+  while (sheetKeys.length > SHEET_MAX) {
+    var old = sheetKeys.shift();
+    if (old !== key && sheets[old] && sheets[old].ready) delete sheets[old];
+  }
+  return null;                                   /* live-drawn until it is ready */
+}
+
+/* Bake at most two gait frames per rendered frame. A whole boss strip in one
+   go is a visible 16ms hitch on the frame the boss walks in; two frames is
+   under a millisecond and the figure is live-drawn in the meantime. */
+function pumpBakes() {
+  var budget = 2, sh, sc, ow;
+  while (bakeQ.length && budget-- > 0) {
+    sh = bakeQ[0];
+    sc = sh.ss / sh.ext; ow = inkWidth(sh.S);
+    try {
+      sh.cx.setTransform(sc, 0, 0, sc, (sh.f + 0.5) * sh.ss, sh.ss * 0.5);
+      paintCreature(sh.shape, sh.S, sh.f / sh.n);
+      paintOps(sh.cx, sh.K, ow);
+    } catch (e) { }
+    sh.f++;
+    if (sh.f >= sh.n) {
+      try { sh.cx.setTransform(1, 0, 0, 1, 0, 0); } catch (e2) { }
+      sh.ready = 1; bakeQ.shift();
     }
   }
+}
+
+/* --- CONTENT lookups (read-only): behaviour class + aura radius per
+   archetype, so a telegraph can look like what it is about to do. --- */
+var behCache = {}, shapeSizeMap = null;
+function behOf(id) {
+  if (!id) return null;
+  var b = behCache[id];
+  if (b !== undefined) return b;
+  b = null;
+  try {
+    var T = g.CONTENT && g.CONTENT.ENEMY_TYPES, i, j;
+    for (i = 0; T && i < T.length; i++) {
+      if (T[i].id !== id) continue;
+      b = { charge: 0, bomb: 0, ranged: 0, aura: 0 };
+      for (j = 0; j < (T[i].behaviors || []).length; j++) {
+        var d = T[i].behaviors[j];
+        if (d.type === 'charger') b.charge = 1;
+        else if (d.type === 'bomber') b.bomb = +d.radius || 0;
+        else if (d.type === 'ranged') b.ranged = +d.range || 0;
+        else if (d.type === 'shielder') b.aura = +d.radius || 0;
+      }
+      break;
+    }
+  } catch (e) { b = null; }
+  behCache[id] = b;
+  return b;
+}
+function shapeSize(shape) {
+  if (!shapeSizeMap) {
+    shapeSizeMap = {};
+    try {
+      var T = g.CONTENT && g.CONTENT.ENEMY_TYPES;
+      for (var i = 0; T && i < T.length; i++)
+        if (shapeSizeMap[T[i].shape] == null) shapeSizeMap[T[i].shape] = T[i].size;
+    } catch (e) { }
+  }
+  var s = shapeSizeMap[shape];
+  return (s && isFinite(s)) ? s : 16;
+}
+
+/* --- per-enemy animation state, held weakly off the enemy object --- */
+var anim = (typeof g.WeakMap === 'function') ? new g.WeakMap() : null;
+var animFallback = { u: 0, face: 1, hp: -1, hit: 0, tt: 0 };
+function animOf(e) {
+  if (!anim) return animFallback;
+  var r = anim.get(e);
+  if (!r) {
+    var seed = ((e.uid | 0) * 0.61803399) % 1;
+    r = { u: seed, face: (e.vx || 0) < 0 ? -1 : 1, hp: e.hp, hit: 0, ph: seed * TAU, tt: -1 };
+    anim.set(e, r);
+  }
+  return r;
 }
 
 /* short position history for wraith trails, held weakly off the enemy object.
@@ -1182,75 +1509,178 @@ function trailOf(e) {
   return r;
 }
 
-function drawEnemy(e, pal) {
-  var s = e.size || 12;
-  var x = e.x, y = e.y;
+/* blit one gait frame of a baked sheet, in the caller's local transform */
+function blitSheet(sh, fi, a, comp) {
+  var h = sh.ext * 0.5;
+  if (comp) ctx.globalCompositeOperation = 'lighter';
+  if (a !== 1) ctx.globalAlpha = a;
+  ctx.drawImage(sh.cv, ((fi % sh.n) + sh.n) % sh.n * sh.ss, 0, sh.ss, sh.ss, -h, -h, h * 2, h * 2);
+  if (a !== 1) ctx.globalAlpha = 1;
+  if (comp) ctx.globalCompositeOperation = 'source-over';
+}
+
+/* ---------------------------------------------------------------------------
+   drawEnemy — one figure, one frame.
+
+   Cheap path (every ordinary enemy): shadow ellipse + one drawImage of the
+   baked gait frame, under a translate/scale that carries facing, hover, the
+   hit pop and the telegraph crouch. Everything else is opt-in.
+
+   Live path (bosses, and anything mid-telegraph): the same paintCreature
+   display list drawn straight to the arena, so the pose can be continuous
+   and the windup can lean, stretch and aim.
+   --------------------------------------------------------------------------- */
+function drawEnemy(e, pal, ptx, pty) {
+  var S = e.size || 12, x = e.x, y = e.y;
   var wraith = !!e.isWraith, boss = !!e.isBoss;
   var col = e.color || pal.accent;
-  var ph = Math.abs(((e.x * 0.37 + e.y * 0.11) | 0) % 628) / 100;
-  var ang = Math.atan2(e.vy || 0, e.vx || 0.0001);
-  var shape = e.shape || 'orb';
+  var shape = FORM[e.shape] ? e.shape : 'orb';
+  var F = FORM[shape];
+  var r = animOf(e);
   var c = ctx, i;
 
-  if (wraith) col = desat(col, 0.85, C_WRAITH);
+  var vx = e.vx || 0, vy = e.vy || 0;
+  var sp = Math.sqrt(vx * vx + vy * vy);
 
-  /* --- wraith trails: ghost copies dragged behind the true position --- */
-  if (wraith) {
-    var tr = trailOf(e), gmax = lowFx() ? 2 : 4, gx, gy, idx;
-    for (i = 1; i <= gmax; i++) {
-      if (tr.n > i && tr.x) { idx = (tr.i - i + 8) % 8; gx = tr.x[idx]; gy = tr.y[idx]; }
-      else { gx = x - (e.vx || 0) * 0.035 * i; gy = y - (e.vy || 0) * 0.035 * i; }
-      c.save();
-      c.globalAlpha = 0.30 - i * 0.055;
-      c.translate(Math.sin(t * 11 + i) * 1.2, 0);
-      shapeBody(gx, gy, s * (1 - i * 0.06), shape, col, ph, ang);
-      c.fillStyle = rgba(C_WRAITH, 0.5); c.fill();
-      c.restore();
-    }
-    c.globalAlpha = 1;
+  /* gait: rate follows real speed, with a floor so an idle creature breathes */
+  r.u += (0.7 + Math.min(3.4, sp / 62)) * dt;
+  if (r.u >= 1 || r.u < 0) r.u -= Math.floor(r.u);
+
+  /* facing: eased through zero, so a turn reads as a turn */
+  if (F.or === 1) {
+    var want = vx < -5 ? -1 : vx > 5 ? 1 : (r.face >= 0 ? 1 : -1);
+    r.face += (want - r.face) * Math.min(1, dt * 11);
+    if (r.face > -0.09 && r.face < 0.09) r.face = r.face < 0 ? -0.09 : 0.09;
   }
 
-  /* --- cast shadow. Wraiths cast theirs the wrong way: upward. --- */
-  c.fillStyle = wraith ? 'rgba(150,180,220,0.13)' : 'rgba(0,0,0,0.35)';
-  c.beginPath();
-  if (wraith) c.ellipse(x, y - s * 0.9, s * 0.62, s * 0.18, 0, 0, 6.2832);
-  else c.ellipse(x, y + s * 0.8, s * 0.7, s * 0.2, 0, 0, 6.2832);
-  c.fill();
+  /* hit reaction: hp falling is the only signal sim gives, and it is enough */
+  if (r.hp >= 0 && e.hp < r.hp - 0.01) r.hit = 1;
+  r.hp = e.hp;
+  if (r.hit > 0) { r.hit -= dt * 5.2; if (r.hit < 0) r.hit = 0; }
 
-  /* --- shiver: a wraith never sits still --- */
-  var jx = 0, jy = 0;
-  if (wraith && !lowFx()) { jx = Math.sin(t * 27 + ph * 3) * 1.1; jy = Math.cos(t * 31 + ph * 5) * 1.1; }
-  if (jx || jy) { c.save(); c.translate(jx, jy); }
+  /* telegraph: 0 at the start of the windup, 1 at the moment it lands */
+  var tmax = e.telegraphMax > 0 ? e.telegraphMax : 0;
+  var tleft = e.telegraph > 0 ? e.telegraph : 0;
+  var winding = tleft > 0.0001;
+  var k = (winding && tmax > 0) ? Math.max(0, Math.min(1, 1 - tleft / tmax)) : 0;
+  if (winding && tmax <= 0) k = 0.5;
 
-  var sz = s * (boss ? 1 + 0.035 * Math.sin(t * 2.4) : 1);
-  var info = shapeBody(x, y, sz, shape, col, ph, ang);
-  var gr;
-  try {
-    gr = c.createRadialGradient(info.grad[0], info.grad[1], info.grad[2],
-                                info.grad[3], info.grad[4], Math.max(0.1, info.grad[5]));
-    if (wraith) {
-      gr.addColorStop(0, 'rgba(226,236,248,0.92)');
-      gr.addColorStop(0.55, col);
-      gr.addColorStop(1, 'rgba(24,30,44,0.75)');
-    } else if (boss) {
-      gr.addColorStop(0, lighten(col, 90));
-      gr.addColorStop(0.5, col);
-      gr.addColorStop(1, mixCol(col, '#160006', 0.72));
-    } else {
-      gr.addColorStop(0, lighten(col, 60));
-      gr.addColorStop(1, col);
+  var kit = liveKit(col, wraith, S);
+  var hov = F.hov ? Math.sin(t * 2.6 + r.ph) * S * F.hov : 0;
+
+  /* --- wraith echoes: the same body, dragged behind the true position --- */
+  if (wraith) {
+    var tr = trailOf(e), gmax = lowFx() ? 2 : 4, gx, gy, idx;
+    var gsh = sheetFor(shape, S, col, 1);
+    if (gsh) {
+      for (i = gmax; i >= 1; i--) {
+        if (tr.n > i && tr.x) { idx = (tr.i - i + 8) % 8; gx = tr.x[idx]; gy = tr.y[idx]; }
+        else { gx = x - vx * 0.035 * i; gy = y - vy * 0.035 * i; }
+        c.save();
+        c.translate(gx + Math.sin(t * 11 + i) * 1.2, gy + hov);
+        if (F.or === 2) c.rotate(Math.atan2(vy, vx || 0.0001)); else c.scale(r.face || 1, 1);
+        blitSheet(gsh, (r.u * gsh.n | 0) - i, 0.26 - i * 0.05, 0);
+        c.restore();
+      }
     }
-  } catch (err) { gr = col; }
-  if (info.alpha) c.globalAlpha = info.alpha;
-  c.fillStyle = gr;
-  c.fill();
-  c.globalAlpha = 1;
-  c.strokeStyle = wraith ? 'rgba(220,235,255,0.55)' : (info.rimCol || 'rgba(255,255,255,0.2)');
-  c.lineWidth = info.rim || 1;
-  c.stroke();
-  if (info.after) info.after();
+  }
 
-  if (jx || jy) c.restore();
+  /* --- ground contact. A wraith's shadow falls the wrong way, upward. --- */
+  c.fillStyle = wraith ? 'rgba(150,180,220,0.13)' : 'rgba(0,0,0,0.34)';
+  c.beginPath();
+  if (wraith) c.ellipse(x, y - S * 0.95, S * 0.6, S * 0.17, 0, 0, TAU);
+  else c.ellipse(x, y + S * (F.hov ? 1.15 : 1.0), S * (0.62 - hov * 0.006), S * 0.19, 0, 0, TAU);
+  c.fill();
+
+  /* --- slowed: a frost bracket at the feet. Shape, not just colour. --- */
+  if (e.slowMult != null && e.slowMult < 0.99) {
+    c.strokeStyle = 'rgba(147,220,255,0.75)'; c.lineWidth = Math.max(1.2, S * 0.09);
+    c.beginPath(); c.arc(x, y + S * 0.55, S * 0.85, 0.55, 2.59); c.stroke();
+  }
+
+  /* --- shielder aura: the radius is the fight, so draw the radius --- */
+  var beh = behOf(e.archetypeId);
+  if (beh && beh.aura > 0 && !lowFx()) {
+    c.strokeStyle = rgba(kit.base, 0.16 + 0.06 * Math.sin(t * 1.8 + r.ph));
+    c.lineWidth = 1.5;
+    c.setLineDash([7, 10]);
+    c.beginPath(); c.arc(x, y, beh.aura, t * 0.18, t * 0.18 + TAU); c.stroke();
+    c.setLineDash([]);
+  }
+
+  /* --- the body --- */
+  var live = boss || winding;
+  var sh = live ? null : sheetFor(shape, S, col, wraith ? 1 : 0);
+  if (!sh) live = true;
+
+  /* squash & stretch. Hits pop; a windup crouches then throws itself forward. */
+  var anticip = winding ? Math.sin(k * 3.14159) : 0;
+  var release = winding ? Math.pow(k, 7) : 0;
+  var sx = 1 + r.hit * 0.13 - anticip * 0.14 + release * 0.26;
+  var sy = 1 + r.hit * 0.13 + anticip * 0.11 - release * 0.16;
+  var breathe = boss ? 1 + 0.03 * Math.sin(t * 2.4) : 1;
+  sx *= breathe; sy *= breathe;
+
+  c.save();
+  c.translate(x + (winding && !lowFx() ? (Math.random() - 0.5) * k * S * 0.09 : 0), y + hov);
+  if (F.or === 2) c.rotate(Math.atan2(vy, vx || 0.0001));
+  else c.scale(r.face || 1, 1);
+  c.scale(sx, sy);
+
+  if (live) {
+    var lw = inkWidth(S);
+    opClear();
+    paintCreature(shape, S, r.u);
+    paintOps(c, kit, lw);
+    if (r.hit > 0.02) { c.globalAlpha = r.hit * 0.45; paintOps(c, HITKIT, lw * 0.5); c.globalAlpha = 1; }
+  } else {
+    blitSheet(sh, r.u * sh.n | 0, 1, 0);
+    if (r.hit > 0.02) blitSheet(sh, r.u * sh.n | 0, r.hit * 0.85, 1);   /* additive flash */
+  }
+  c.restore();
+
+  /* --- what the windup is FOR. Reads before the hit lands, every time. --- */
+  if (winding) {
+    var aim = Math.atan2((pty == null ? y : pty) - y, (ptx == null ? x : ptx) - x);
+    var ca = Math.cos(aim), sa = Math.sin(aim);
+    if (!beh || beh.charge) {
+      /* charge lane: step sideways, not back */
+      var lane = 210 + S * 2, hw = S * (0.5 + k * 0.35);
+      c.globalAlpha = 0.08 + k * 0.24;
+      c.fillStyle = kit.glow;
+      c.beginPath();
+      c.moveTo(x - sa * hw, y + ca * hw);
+      c.lineTo(x + sa * hw, y - ca * hw);
+      c.lineTo(x + ca * lane + sa * hw * 0.25, y + sa * lane - ca * hw * 0.25);
+      c.lineTo(x + ca * lane - sa * hw * 0.25, y + sa * lane + ca * hw * 0.25);
+      c.closePath(); c.fill();
+      c.globalAlpha = 1;
+      /* the lance itself, aimed at the player rather than at its facing */
+      if (shape === 'spike' || shape === 'crown') {
+        var reach = S * (1.5 + k * 1.1);
+        c.strokeStyle = kit.glow; c.lineWidth = Math.max(2, S * 0.16);
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(x + ca * S * 0.2, y + sa * S * 0.2);
+        c.lineTo(x + ca * reach, y + sa * reach);
+        c.stroke(); c.lineCap = 'butt';
+      }
+    } else if (beh.bomb) {
+      c.strokeStyle = rgba(C_DANGER, 0.35 + k * 0.5);
+      c.lineWidth = 2 + k * 3;
+      c.beginPath(); c.arc(x, y, beh.bomb * (0.3 + k * 0.7), 0, TAU); c.stroke();
+    } else {
+      c.strokeStyle = rgba(kit.glow, 0.3 + k * 0.55);
+      c.lineWidth = 1.5 + k * 2.5;
+      c.beginPath(); c.arc(x, y, S * (2.0 - k * 0.9), 0, TAU); c.stroke();
+      if (beh.ranged) {
+        c.globalAlpha = 0.16 + k * 0.3;
+        c.beginPath(); c.moveTo(x, y);
+        c.lineTo(x + ca * beh.ranged, y + sa * beh.ranged); c.lineWidth = 1.5; c.stroke();
+        c.globalAlpha = 1;
+      }
+    }
+  }
 
   /* --- boss regalia: tick ring + counter-rotating arc --- */
   if (boss) {
@@ -1259,12 +1689,12 @@ function drawEnemy(e, pal) {
     for (i = 0; i < 8; i++) {
       aa = ba + i * 0.7854;
       c.beginPath();
-      c.moveTo(x + Math.cos(aa) * sz * 1.45, y + Math.sin(aa) * sz * 1.45);
-      c.lineTo(x + Math.cos(aa) * sz * 1.72, y + Math.sin(aa) * sz * 1.72);
+      c.moveTo(x + Math.cos(aa) * S * 1.42, y + Math.sin(aa) * S * 1.42);
+      c.lineTo(x + Math.cos(aa) * S * 1.62, y + Math.sin(aa) * S * 1.62);
       c.stroke();
     }
-    c.strokeStyle = rgba(C_GOLD, 0.34); c.lineWidth = 1.5;
-    c.beginPath(); c.arc(x, y, sz * 1.9, -t * 0.4, -t * 0.4 + 4.6); c.stroke();
+    c.strokeStyle = rgba(C_GOLD, 0.3); c.lineWidth = 1.5;
+    c.beginPath(); c.arc(x, y, S * 1.76, -t * 0.4, -t * 0.4 + 4.6); c.stroke();
   }
 
   /* --- HP bar: only when damaged (always for bosses). Never colour alone —
@@ -1272,7 +1702,7 @@ function drawEnemy(e, pal) {
   var hp = e.hp, mx = e.maxHp || e.hp || 1;
   if (hp != null && mx > 0 && (hp < mx - 0.001 || boss)) {
     var bw2 = boss ? 56 : 40, frac = Math.max(0, Math.min(1, hp / mx));
-    var byy = y - sz - (boss ? 16 : 10), bh3 = boss ? 5 : 4;
+    var byy = y - S * (boss ? 1.6 : 1.45) - (boss ? 14 : 8), bh3 = boss ? 5 : 4;
     c.fillStyle = 'rgba(15,12,24,0.85)';
     c.fillRect(x - bw2 / 2, byy, bw2, bh3);
     c.fillStyle = wraith ? '#dbe7f5' : col;
@@ -1283,6 +1713,46 @@ function drawEnemy(e, pal) {
     }
   }
 }
+
+/* flat white kit, used to flash a live-drawn body on a hit */
+var HITKIT = { c: ['#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff'],
+               ink: '#ffffff', base: '#ffffff', glow: '#ffffff', hi: '#ffffff', dk: '#ffffff' };
+
+/* ---------------------------------------------------------------------------
+   Death beat. A kill flashes the creature's own silhouette white, then
+   collapses it — so a death is legible as "that thing, gone" without reading
+   the number that floated off it.
+   --------------------------------------------------------------------------- */
+var CO = new Array(10);
+for (var ci0 = 0; ci0 < 10; ci0++) CO[ci0] = { on: 0, x: 0, y: 0, shape: 'orb', S: 16, col: '#fff', life: 0, max: 1, face: 1 };
+function corpse(x, y, shape, col, face) {
+  var e = null, i, worst = null;
+  for (i = 0; i < 10; i++) {
+    if (!CO[i].on) { e = CO[i]; break; }
+    if (!worst || CO[i].life < worst.life) worst = CO[i];
+  }
+  if (!e) e = worst;
+  e.on = 1; e.x = x; e.y = y;
+  e.shape = FORM[shape] ? shape : 'orb';
+  e.S = shapeSize(shape); e.col = col || '#c4b5fd';
+  e.life = e.max = 0.42; e.face = face || 1;
+}
+function drawCorpses() {
+  var i, e, c = ctx, f, sh;
+  for (i = 0; i < 10; i++) {
+    e = CO[i]; if (!e.on) continue;
+    f = e.life / e.max;
+    sh = sheets[e.shape + '|' + (e.S | 0) + '|' + e.col + '|0'];
+    if (!sh) continue;
+    c.save();
+    c.translate(e.x, e.y);
+    c.scale(e.face * (1 + (1 - f) * 0.5), Math.max(0.06, f * 0.85 + 0.15));
+    blitSheet(sh, 0, f * 0.9, f > 0.72 ? 1 : 0);
+    c.restore();
+  }
+}
+
+
 
 /* ===========================================================================
    9. EVENTS -> JUICE
@@ -1334,6 +1804,7 @@ function handleEvent(ev, st, pal) {
     case 'kill': {
       var kc = ev.color || pal.accent;
       var kx = ev.x == null ? px : ev.x, ky = ev.y == null ? py : ev.y;
+      corpse(kx, ky, ev.shape, kc, kx < px ? 1 : -1);
       burst(kx, ky, kc, 14, 230, 3.2, 0.5);
       burst(kx, ky, lighten(kc, 90), 5, 90, 2.0, 0.36);
       ringFx(kx, ky, kc, 3, 46, 0.36, 3);
@@ -1537,6 +2008,7 @@ function stepPools() {
   }
   for (i = 0; i < TMAX; i++) { if (TG[i].on) { TG[i].life -= dt; if (TG[i].life <= 0) TG[i].on = 0; } }
   for (i = 0; i < MMAX; i++) { if (MO[i].on) { MO[i].life -= dt; if (MO[i].life <= 0) MO[i].on = 0; } }
+  for (i = 0; i < 10; i++) { if (CO[i].on) { CO[i].life -= dt; if (CO[i].life <= 0) CO[i].on = 0; } }
 }
 
 function drawParticles() {
@@ -1683,6 +2155,30 @@ function drawMotes() {
   c.globalAlpha = 1;
 }
 
+/* comet sprite cache — the tail gradient is baked once per colour instead of
+   being rebuilt per projectile per frame (which is what this used to do). */
+var cometCache = {}, cometN = 0;
+function cometSprite(col) {
+  var s = cometCache[col];
+  if (s) return s;
+  if (!doc) return null;
+  var CW = 96, CH = 32, cv = doc.createElement('canvas');
+  cv.width = CW; cv.height = CH;
+  var c = cv.getContext('2d');
+  try {
+    var gr = c.createLinearGradient(0, 0, CW, 0);
+    gr.addColorStop(0, rgba(col, 0));
+    gr.addColorStop(0.72, rgba(col, 0.75));
+    gr.addColorStop(1, col);
+    c.fillStyle = gr;
+  } catch (e) { c.fillStyle = col; }
+  c.beginPath(); c.ellipse(CW * 0.72, CH / 2, CW * 0.72, CH * 0.34, 0, 0, TAU); c.fill();
+  c.fillStyle = '#ffffff';
+  c.beginPath(); c.arc(CW * 0.78, CH / 2, CH * 0.24, 0, TAU); c.fill();
+  if (cometN > 14) { cometCache = {}; cometN = 0; }
+  cometCache[col] = cv; cometN++;
+  return cv;
+}
 function drawProjectiles(list) {
   var c = ctx, i, p;
   for (i = 0; i < list.length; i++) {
@@ -1690,25 +2186,18 @@ function drawProjectiles(list) {
     if (!p || !isFinite(p.x) || !isFinite(p.y)) continue;
     var vx = p.vx || 0, vy = p.vy || 0;
     var sp = Math.sqrt(vx * vx + vy * vy);
-    var ang = Math.atan2(vy, vx);
     var r = p.r || 4;
-    var len = Math.min(sp * 0.05, 22) + r;
+    var len = Math.min(sp * 0.05, 22) + r * 2.4;
     var col = p.col || '#c4b5fd';
+    var s = cometSprite(col);
+    drawGlowAdd(col, p.x, p.y, r * 4.2, 0.45);
+    if (!s) continue;
     c.save();
-    c.translate(p.x, p.y); c.rotate(ang);
+    c.translate(p.x, p.y); c.rotate(Math.atan2(vy, vx));
     c.globalCompositeOperation = 'lighter';
-    var tg2;
-    try {
-      tg2 = c.createLinearGradient(-len, 0, r, 0);
-      tg2.addColorStop(0, rgba(col, 0)); tg2.addColorStop(1, col);
-    } catch (e) { tg2 = col; }
-    c.fillStyle = tg2;
-    c.beginPath(); c.ellipse(0, 0, len, r * 0.55, 0, 0, 6.2832); c.fill();
+    c.drawImage(s, -len * 1.39 + r * 0.55, -r * 1.3, len * 1.39, r * 2.6);
     c.globalCompositeOperation = 'source-over';
-    c.fillStyle = '#ffffff';
-    c.beginPath(); c.arc(0, 0, r * 0.7, 0, 6.2832); c.fill();
     c.restore();
-    drawGlowAdd(col, p.x, p.y, r * 4.5, 0.5);
   }
 }
 
@@ -1798,6 +2287,15 @@ function drawPet(pet, pal) {
   c.restore();
 }
 
+/* ---------------------------------------------------------------------------
+   The player: a hooded delver, not a disc with an emoji on it.
+
+   Drawn live every frame — there is exactly one — so the run cycle, the
+   cloak drag and the weapon hand can all follow real velocity. Body radius
+   stays 16 (= Sim T.PLAYER_R), so what you see is what collides.
+   --------------------------------------------------------------------------- */
+var plGait = 0, plFace = 1, plLean = 0, plKit = null, plKitCol = '';
+
 function drawPlayer(pl, pal) {
   if (!pl || !isFinite(pl.x) || !isFinite(pl.y)) return;
   var c = ctx, px = pl.x, py = pl.y, i;
@@ -1825,35 +2323,75 @@ function drawPlayer(pl, pal) {
     }
   }
 
-  c.fillStyle = 'rgba(0,0,0,0.4)';
-  c.beginPath(); c.ellipse(px, py + 22, 16, 5, 0, 0, 6.2832); c.fill();
-
-  drawGlowAdd(col, px, py, 44, 0.55);
-
-  var gr;
-  try {
-    gr = c.createRadialGradient(px - 5, py - 5, 2, px, py, 18);
-    gr.addColorStop(0, lighten(col, 80));
-    gr.addColorStop(0.5, col);
-    gr.addColorStop(1, '#1a0030');
-  } catch (e) { gr = col; }
-  c.beginPath(); c.arc(px, py, 18, 0, 6.2832);
-  c.fillStyle = gr; c.fill();
-  c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 1.5; c.stroke();
-
-  if (pl.icon) {
-    c.font = '14px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(pl.icon, px, py);
-  }
-
-  /* facing tick — heading stays readable without motion blur */
   var vx = pl.vx || 0, vy = pl.vy || 0;
-  if (vx * vx + vy * vy > 4) {
-    var ang = Math.atan2(vy, vx);
-    c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = 2.5; c.lineCap = 'round';
+  var sp = Math.sqrt(vx * vx + vy * vy);
+  var run = Math.min(1, sp / 190);
+  var S = 16;
+
+  /* gait + eased facing + a lean into the run */
+  plGait += (0.9 + run * 4.6) * dt;
+  if (plGait >= 1) plGait -= Math.floor(plGait);
+  var want = vx < -6 ? -1 : vx > 6 ? 1 : (plFace >= 0 ? 1 : -1);
+  plFace += (want - plFace) * Math.min(1, dt * 13);
+  if (plFace > -0.1 && plFace < 0.1) plFace = plFace < 0 ? -0.1 : 0.1;
+  plLean += ((run * 0.16) - plLean) * Math.min(1, dt * 8);
+
+  c.fillStyle = 'rgba(0,0,0,0.4)';
+  c.beginPath(); c.ellipse(px, py + S * 1.15, S * 0.82, S * 0.24, 0, 0, TAU); c.fill();
+
+  drawGlowAdd(col, px, py, 40, 0.42);
+
+  if (plKitCol !== col) { plKit = makeKit(c, col, false, S); plKitCol = col; }
+  var K = plKit;
+  var u = plGait, swg = Math.sin(u * TAU), swg2 = -swg;
+  var bob = -Math.abs(swg) * S * 0.09 * (0.4 + run);
+  var drag = -plFace * (0.1 + run * 0.55);          /* cloak trails the run */
+
+  opClear();
+  /* back leg + back arm */
+  LN(-S * 0.06, S * 0.24 + bob, -S * 0.10 + swg2 * S * 0.5 * (0.35 + run), S * 1.02, S * 0.19, 0);
+  CV(-S * 0.04, -S * 0.36 + bob, -S * 0.38, -S * 0.02 + bob,
+     -S * 0.26 - swg * S * 0.26 * run, S * 0.5 + bob, S * 0.14, 0);
+  /* cloak, dragged opposite to travel and rippling on the run */
+  PY([-S * 0.30, -S * 0.62 + bob, S * 0.26, -S * 0.60 + bob,
+      S * 0.10 + drag * S * 1.2, S * 0.34 + bob,
+      S * 0.30 + drag * S * 2.1, S * 1.06 + swg * S * 0.12,
+      -S * 0.12 + drag * S * 1.5, S * 0.86 + bob,
+      -S * 0.44 + drag * S * 0.5, S * 0.30 + bob], 0);
+  /* torso */
+  PY([-S * 0.30, S * 0.28 + bob, -S * 0.34, -S * 0.32 + bob, -S * 0.10, -S * 0.70 + bob,
+      S * 0.26, -S * 0.66 + bob, S * 0.36, -S * 0.06 + bob, S * 0.26, S * 0.30 + bob], 1);
+  /* front leg */
+  LN(S * 0.08, S * 0.24 + bob, S * 0.14 + swg * S * 0.5 * (0.35 + run), S * 1.02, S * 0.21, 5);
+  /* hood */
+  PY([-S * 0.34, -S * 0.34 + bob, -S * 0.26, -S * 0.94 + bob, S * 0.12, -S * 1.22 + bob,
+      S * 0.46, -S * 0.86 + bob, S * 0.42, -S * 0.30 + bob], 2);
+  PY([-S * 0.10, -S * 0.50 + bob, -S * 0.04, -S * 0.88 + bob, S * 0.34, -S * 0.82 + bob,
+      S * 0.34, -S * 0.46 + bob], 14);
+  EL(S * 0.10, -S * 0.66 + bob, S * 0.07, S * 0.055, 0, 13);
+  EL(S * 0.26, -S * 0.68 + bob, S * 0.07, S * 0.055, 0, 13);
+  /* weapon arm, held forward, carrying the Focus light */
+  CV(S * 0.24, -S * 0.34 + bob, S * 0.72, -S * 0.30 + bob, S * 0.82, S * 0.02 + bob, S * 0.16, 5);
+  EL(S * 0.94, S * 0.06 + bob, S * 0.19, S * 0.19, 0, 3);
+
+  c.save();
+  c.translate(px, py);
+  c.rotate(plLean * (plFace >= 0 ? 1 : -1) * 0.5);
+  c.scale(plFace, 1);
+  paintOps(c, K, 1.25);
+  c.restore();
+
+  /* the Focus light itself, additive so it sits on top of the veil tint */
+  var ha = Math.atan2(vy, vx || 0.0001);
+  drawGlowAdd(lighten(col, 120), px + plFace * S * 0.94, py + S * 0.06 + bob, 13,
+              0.4 + 0.16 * Math.sin(t * 5));
+
+  /* heading tick — direction stays readable even when facing is only ±1 */
+  if (sp > 12) {
+    c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 2.2; c.lineCap = 'round';
     c.beginPath();
-    c.moveTo(px + Math.cos(ang) * 15, py + Math.sin(ang) * 15);
-    c.lineTo(px + Math.cos(ang) * 23, py + Math.sin(ang) * 23);
+    c.moveTo(px + Math.cos(ha) * 20, py + Math.sin(ha) * 20);
+    c.lineTo(px + Math.cos(ha) * 27, py + Math.sin(ha) * 27);
     c.stroke(); c.lineCap = 'butt';
   }
 }
@@ -1994,6 +2532,7 @@ function render(state, events) {
   }
 
   /* --- integrate --- */
+  pumpBakes();                        /* creature sheets, two gait frames a go */
   stepPools();
   shakeMag *= Math.pow(0.0009, dt);
   if (shakeMag < 0.05) shakeMag = 0;
@@ -2029,7 +2568,9 @@ function render(state, events) {
   syncMotes(st);
   drawMotes();
 
-  /* enemy glow pass — one additive blit each, no shadowBlur anywhere */
+  /* enemy backlight — one additive blit each, no shadowBlur anywhere. Kept
+     tight so it separates a figure from the ground without eating its
+     contour; the creatures carry their own read now. */
   var glowBudget = lowFx() ? 26 : 60;
   c.globalCompositeOperation = 'lighter';
   for (i = 0; i < enemies.length && i < glowBudget; i++) {
@@ -2037,17 +2578,21 @@ function render(state, events) {
     if (!en || !isFinite(en.x) || !isFinite(en.y)) continue;
     if (en.x < -60 || en.y < -60 || en.x > W + 60 || en.y > H + 60) continue;
     drawGlow(en.isWraith ? C_WRAITH : (en.color || pal.accent), en.x, en.y,
-             (en.size || 12) * (en.isBoss ? 3.4 : 2.2), en.isBoss ? 0.75 : 0.5);
+             (en.size || 12) * (en.isBoss ? 3.0 : 1.9), en.isBoss ? 0.6 : 0.38);
   }
   c.globalCompositeOperation = 'source-over';
   c.globalAlpha = 1;
 
+  drawCorpses();
+
   /* enemy bodies */
+  var ptx = (st.player && isFinite(st.player.x)) ? st.player.x : W / 2;
+  var pty = (st.player && isFinite(st.player.y)) ? st.player.y : H / 2;
   for (i = 0; i < enemies.length; i++) {
     var e3 = enemies[i];
     if (!e3 || !isFinite(e3.x) || !isFinite(e3.y)) continue;
-    if (e3.x < -80 || e3.y < -80 || e3.x > W + 80 || e3.y > H + 80) continue;
-    try { drawEnemy(e3, pal); } catch (err) { }
+    if (e3.x < -110 || e3.y < -110 || e3.x > W + 110 || e3.y > H + 110) continue;
+    try { drawEnemy(e3, pal, ptx, pty); } catch (err) { }
   }
 
   drawParticles();

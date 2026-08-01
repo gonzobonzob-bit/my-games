@@ -155,17 +155,23 @@
   }
 
   /* ------------------------------ settings --------------------------- */
-  var settings = { volume: 0.7, muted: false, shake: true, reducedFx: false };
+  var settings = { volume: 0.7, muted: false, shake: true, reducedFx: false, autoFire: false };
 
+  /* Persisted settings are untrusted input: every field is validated by type
+     against a known default, one at a time. Never Object.assign the parsed
+     blob - a JSON-parsed own "__proto__" would poison the shape. */
   function loadSettings() {
     try {
       var raw = g.localStorage && g.localStorage.getItem(SETTINGS_KEY);
       if (!raw) return;
       var o = JSON.parse(raw) || {};
-      if (typeof o.volume === 'number') settings.volume = clamp(o.volume, 0, 1);
-      if (typeof o.muted === 'boolean') settings.muted = o.muted;
-      if (typeof o.shake === 'boolean') settings.shake = o.shake;
-      if (typeof o.reducedFx === 'boolean') settings.reducedFx = o.reducedFx;
+      if (typeof o !== 'object' || o instanceof Array) return;
+      function has(k) { return Object.prototype.hasOwnProperty.call(o, k); }
+      if (has('volume') && typeof o.volume === 'number') settings.volume = clamp(o.volume, 0, 1);
+      if (has('muted') && typeof o.muted === 'boolean') settings.muted = o.muted;
+      if (has('shake') && typeof o.shake === 'boolean') settings.shake = o.shake;
+      if (has('reducedFx') && typeof o.reducedFx === 'boolean') settings.reducedFx = o.reducedFx;
+      if (has('autoFire') && typeof o.autoFire === 'boolean') settings.autoFire = o.autoFire;
     } catch (e) { /* corrupt settings: keep defaults */ }
   }
   function persistSettings() {
@@ -185,7 +191,9 @@
       screenShake: settings.shake, reducedFx: settings.reducedFx
     });
     if (gestured) call(g.FX, 'music', musicWanted && !settings.muted);
+    pushAutoFire();
     paintSettings();
+    paintAutoFire(true);
   }
   function paintSettings() {
     var v = Math.round(settings.volume * 100);
@@ -195,8 +203,50 @@
     toggleState($('set-mute'), settings.muted);
     toggleState($('set-shake'), settings.shake);
     toggleState($('set-fx'), settings.reducedFx);
+    toggleState($('set-autofire'), autoFireOn());
   }
   function toggleState(btn, isOn) { if (btn) btn.setAttribute('aria-checked', isOn ? 'true' : 'false'); }
+
+  /* ------------------------------ auto-fire ---------------------------
+     Contract with sim.js:  Sim.setAutoFire(on)  /  Sim.state.autoFire.
+     Guarded in both directions. If setAutoFire has not landed yet the
+     control still paints from the persisted setting instead of dying, and
+     the flag is re-pushed on every newRun/continueRun so a fresh run cannot
+     silently drop it.
+
+     Auto-fire casts ONLY what the player's Focus already covers. It never
+     overdraws, because overdrawing is the decision this whole game is made
+     of (DESIGN Part 1) and automating the debt would delete it. Every
+     string below has to keep saying that.
+     -------------------------------------------------------------------- */
+  function simAutoFire() {
+    var v = state().autoFire;
+    return typeof v === 'boolean' ? v : null;
+  }
+  function autoFireOn() { var v = simAutoFire(); return v === null ? !!settings.autoFire : v; }
+  function pushAutoFire() { call(g.Sim, 'setAutoFire', !!settings.autoFire); }
+  function setAutoFire(on, announce) {
+    settings.autoFire = !!on;
+    persistSettings();
+    pushAutoFire();
+    paintAutoFire(true);
+    if (announce) {
+      toast(settings.autoFire ? 'Auto-fire ON — only what your Focus covers' : 'Auto-fire OFF',
+        settings.autoFire ? 'good' : 'info', '⟳', 2200);
+    }
+    if (settings.autoFire) fireTip('autofire_on');
+  }
+  function toggleAutoFire() { tapSfx(); setAutoFire(!autoFireOn(), true); }
+  /* State lives on the thing it automates: the four ability buttons badge
+     themselves, so the player never has to remember whether it is on. */
+  function paintAutoFire(force) {
+    var on = autoFireOn();
+    if (!force && last.auto === on) return;
+    last.auto = on;
+    toggleState($('btn-auto'), on);
+    toggleState($('set-autofire'), on);
+    for (var i = 0; i < 4; i++) { var b = abBtn(i); if (b) b.classList.toggle('auto', on); }
+  }
 
   /* ------------------------------- toasts ---------------------------- */
   /* One at a time in an in-flow, FIXED-HEIGHT rail: the arena never resizes
@@ -476,6 +526,7 @@
         tutSeenBreaches++;
         fireTip(tutSeenBreaches >= 2 ? 'second_breach' : 'first_breach');
       } else if (e.type === 'wave_start' && s.wave === 5) fireTip('first_boss');
+      else if (e.type === 'mote_pickup' && e.byPet) fireTip('first_pet_collect');
     }
     if (s.phase === 'pactDraft') fireTip('first_draft');
     /* Settle and par have no event of their own — they are states. */
@@ -1036,7 +1087,8 @@
     /* --- ability buttons --- */
     var abs = s.abilities || [];
     var sig = abs.map(function (a) { return a && a.id; }).join('|');
-    if (sig !== abilitySig) { abilitySig = sig; rebuildAbilities(abs); }
+    if (sig !== abilitySig) { abilitySig = sig; rebuildAbilities(abs); paintAutoFire(true); }
+    paintAutoFire(false);          // no-op unless the flag actually moved
     for (var i = 0; i < 4; i++) {
       var a = abs[i]; if (!a) continue;
       var btn = abBtn(i); if (!btn) continue;
@@ -1222,6 +1274,9 @@
       if (hit(1)) fireAbility(1);              // B
       if (hit(2)) fireAbility(2);              // X
       if (hit(3)) fireAbility(3);              // Y
+      /* RB is free in combat - LB/RB only cycle focus inside menus, and this
+         branch is the not-in-a-menu one, so there is no collision. */
+      if (hit(5)) toggleAutoFire();            // RB
     }
     padPrev = now;
   }
@@ -1290,6 +1345,9 @@
           settings.muted = !settings.muted; applySettings(); persistSettings();
           toast(settings.muted ? 'Muted' : 'Unmuted', 'info', '♪');
           break;
+        case 'KeyF':                       // free: WASD/arrows move, 1-4 cast
+          e.preventDefault(); toggleAutoFire();
+          break;
         case 'ArrowUp': case 'ArrowDown': case 'ArrowLeft': case 'ArrowRight':
           if (inRange && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) break;
           if (navTargets().length) {
@@ -1325,6 +1383,7 @@
       lastPhase = null; last = {}; abilitySig = '';
       var ok = call(g.Sim, 'continueRun');
       if (ok === false) { toast('No saved run', 'warn', '⚠'); routeTo('menu'); return; }
+      pushAutoFire();                           // a restored run must not lose it
       startLoop();
     });
     on($('btn-covenant'), 'click', function () { tapSfx(); covReturn = 'menu'; routeTo('covenant'); });
@@ -1349,6 +1408,7 @@
 
     /* hud */
     on($('btn-pause'), 'click', function () { tapSfx(); togglePause(); });
+    on($('btn-auto'), 'click', function () { toggleAutoFire(); });
     var bar = $('hud-bottom');
     on(bar, 'pointerdown', function (e) {
       var b = e.target && e.target.closest && e.target.closest('.ability-btn');
@@ -1400,6 +1460,7 @@
     on($('set-mute'), 'click', function () { settings.muted = !settings.muted; applySettings(); persistSettings(); tapSfx(); });
     on($('set-shake'), 'click', function () { settings.shake = !settings.shake; applySettings(); persistSettings(); tapSfx(); });
     on($('set-fx'), 'click', function () { settings.reducedFx = !settings.reducedFx; applySettings(); persistSettings(); tapSfx(); });
+    on($('set-autofire'), 'click', function () { tapSfx(); setAutoFire(!autoFireOn(), false); });
     on($('set-reset'), 'click', function () {
       tapSfx();
       askConfirm('RESET SAVE?', 'This erases echoes, the Covenant, every unlock and any run in progress.',
@@ -1446,6 +1507,7 @@
     call(g.Sim, 'setAscension', selAsc);
     echoesAtStart = num(meta().echoes);
     call(g.Sim, 'newRun', heroId, riftId, petId || null);
+    pushAutoFire();                              // newRun may reset sim flags
     clearToasts();
     startLoop();
   }
@@ -1581,13 +1643,15 @@
     ['B', 'Ability 2 (menus: back)'],
     ['X', 'Ability 3'],
     ['Y', 'Ability 4'],
-    ['LB / RB', 'Cycle Pact cards and menu focus'],
+    ['LB / RB', 'Menus: cycle Pact cards and focus'],
+    ['RB', 'Combat: auto-fire on / off'],
     ['Start', 'Pause / resume'],
     ['View', 'Back']
   ];
   var KEYS = [
     ['WASD / Arrows', 'Move'],
     ['1 2 3 4', 'Abilities'],
+    ['F', 'Auto-fire on / off'],
     ['Esc / P', 'Pause'],
     ['B', 'Covenant (from the menu)'],
     ['M', 'Mute'],

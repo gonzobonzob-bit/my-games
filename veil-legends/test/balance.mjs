@@ -556,7 +556,8 @@ function benchAbility(heroId, idx, trials) {
   return { declared, delivered: n ? total / n : 0 };
 }
 
-function HW(w) { return (6 + 2 * w) * 100 * (1 + 0.15 * w) / (20 + 0.8 * w); }
+/* The wave ramp is read from the sim (Sim.waveCurve), never re-derived from a literal. This file used to carry four copies of N(w)/avgHP(w)/T_par(w); when the ramp was compressed on 2026-08-01 every one of them would have gone on silently measuring the retired curve, which is the worst failure mode a harness has: green numbers about a game that no longer exists. */
+function HW(w) { return Sim.waveCurve(w).reqDps; }
 
 section('ABILITY DAMAGE AUDIT — what the buttons actually deliver');
 {
@@ -799,7 +800,7 @@ sub('Veil equilibrium probe — is there a reachable steady state?');
   }
   const from = 85, to = 25;
   const idleNeeded = (from - to) / T.VEIL_DECAY + T.SETTLE_WINDOW;
-  const par8 = 20 + 0.8 * 8;
+  const par8 = Sim.waveCurve(8).par;
   console.log(`  Fastest ability cooldown ${fastest}s (${fastestName}); every cast of every ability ` +
     'resets the settle window.');
   console.log(`  Shedding Veil ${from} -> ${to} therefore costs ${idleNeeded.toFixed(1)}s of ZERO ` +
@@ -988,8 +989,8 @@ function aggregate(pactIds) {
   }
   return m;
 }
-const H_of = w => (6 + 2 * w) * 100 * (1 + 0.15 * w);   // DESIGN Part 7
-const Tpar_of = (w, m) => 20 + 0.8 * w + m.parAdd;
+const H_of = w => Sim.waveCurve(w).pool;                 // DESIGN Part 7, as shipped
+const Tpar_of = (w, m) => Sim.waveCurve(w).par + m.parAdd;
 const heroRegen = h => (CONTENT.HEROES.find(x => x.id === h) || { focusRegen: 18 }).focusRegen;
 
 /* (a) DESIGN 5.1's own burn: B = (H - C)/30, C = 100k(1+V/50)/q.
@@ -1279,7 +1280,7 @@ for (let W = 2; W <= (QUICK ? 9 : 12); W++) {
   }
   if (!rows.length) continue;
   const rec = {
-    W, n: 6 + 2 * W,
+    W, n: Sim.waveCurve(W).count,
     pool: mean(rows.map(r => r.pool0)), par: mean(rows.map(r => r.par)),
     dur: mean(rows.map(r => r.dur)),
     req: mean(rows.map(r => r.pool0 / r.par)),
@@ -1361,7 +1362,7 @@ console.log('  (in-memory mutation of CONTENT only, restored after each trial)')
   const husk = CONTENT.ENEMY_TYPES.find(e => e.id === 'husk');
   console.log(`\n  The summon tax: ${snapshot.behaviors[1].count} x ${husk.hp} HP every ` +
     `${snapshot.behaviors[1].period}s of husk, scaled into a wave whose whole pool is ` +
-    `${(6 + 2 * 5) * 100 * (1 + 0.15 * 5)} HP over a ${20 + 0.8 * 5}s par clock.`);
+    `${Sim.waveCurve(5).pool.toFixed(0)} HP over a ${Sim.waveCurve(5).par}s par clock.`);
   console.log('  It is time-proportional, so falling behind makes the wave bigger, which ' +
     'makes you fall further behind. Nothing else in the game does this.');
 }

@@ -152,8 +152,10 @@ The sim exposes the live one as `Sim.state.pet` (null when the run has none),
 carrying `{id, name, icon, shape, color, x, y, vx, vy, collectR, dps, bob}` for
 fx.js to draw. A familiar collects motes within `collectR` of ITSELF, which is
 the whole point of it: motes expire 6s after they drop and a correctly-kiting
-player is running away from their own drops, so 36% of all motes dropped were
-expiring uncollected. `dps` is chip damage and must stay small — DESIGN 5.1
+player is running away from their own drops, so 29% of all motes dropped were
+expiring uncollected (the earlier 36% figure predated the mote-value retune).
+A familiar prioritises the nearest mote ANYWHERE in the arena over following
+the player, with no leash — fetching is the job, following is the fallback. `dps` is chip damage and must stay small — DESIGN 5.1
 derives the entire pressure curve from the player's own 12-damage-per-Focus, so
 a familiar that meaningfully fought would invalidate it. Emits `pet_attack`;
 `mote_pickup` gains `byPet`/`petX`/`petY`.
@@ -219,8 +221,14 @@ unlockAt:{...}|null}`.
 **Numbers content.js must respect** (from DESIGN.md): base `focusRegen` 18
 (hero variance ±20%), damage-per-focus ≈ 12 at baseline, wave formulas
 `N(w)=6+2w`, `avgHP=100(1+0.15w)`, `T_par=20+0.8w`, Veil q=0.8, decay 4/s,
-settle 1.5s, wraith speed 1.05× player base, breach reset 60, par overrun
-+4 V/s and +0.1 floor/s, between-wave restore +25% hpMax, mote life 6s.
+settle 1.5s **with no OVERDRAW** (casting inside your Focus does not hold the
+Veil open — changed 2026-08-01, see DESIGN Part 1), wraith speed 1.05× player
+base, breach reset 60, par overrun **+1.5 V/s** and +0.1 floor/s (the Veil term
+must stay strictly under `VEIL_DECAY` or the overrun spiral is terminal by
+construction; the attrition pressure lives in the permanent floor ratchet),
+between-wave restore +25% hpMax, mote life 6s.
+NOTE: `N(w)`, `avgHP(w)` and `T_par(w)` above are under active retune — read
+`Sim.TUNING` and the formulas in sim.js as the authority, not this line.
 
 ## FX public API (art-and-feel implements)
 
