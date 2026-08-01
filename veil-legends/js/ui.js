@@ -234,6 +234,7 @@
       toast(settings.autoFire ? 'Auto-fire ON — only what your Focus covers' : 'Auto-fire OFF',
         settings.autoFire ? 'good' : 'info', '⟳', 2200);
     }
+    if (settings.autoFire) fireTip('autofire_on');
   }
   function toggleAutoFire() { tapSfx(); setAutoFire(!autoFireOn(), true); }
   /* State lives on the thing it automates: the four ability buttons badge
@@ -525,6 +526,7 @@
         tutSeenBreaches++;
         fireTip(tutSeenBreaches >= 2 ? 'second_breach' : 'first_breach');
       } else if (e.type === 'wave_start' && s.wave === 5) fireTip('first_boss');
+      else if (e.type === 'mote_pickup' && e.byPet) fireTip('first_pet_collect');
     }
     if (s.phase === 'pactDraft') fireTip('first_draft');
     /* Settle and par have no event of their own — they are states. */

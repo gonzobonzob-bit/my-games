@@ -73,7 +73,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceSc
    pauses the run and sits over the layout assertions below. Setting this after
    navigation loses the race with the game's own pagehide autosave. */
 await send('Page.addScriptToEvaluateOnNewDocument', {
-  source: "try{localStorage.setItem('veilLegendsSeenTips',JSON.stringify({tut_combat:1,tut_focus:1,tut_overdraw:1,tut_tier:1,tut_settle:1,tut_par:1,tut_draft:1,tut_breach:1,tut_wraith:1,tut_boss:1}))}catch(e){}"
+  source: "try{localStorage.setItem('veilLegendsSeenTips',JSON.stringify({tut_combat:1,tut_focus:1,tut_overdraw:1,tut_tier:1,tut_settle:1,tut_par:1,tut_draft:1,tut_breach:1,tut_wraith:1,tut_boss:1,tut_familiar:1,tut_autofire:1}))}catch(e){}"
 });
 await send('Page.navigate', { url: GAME });
 await sleep(1400);
