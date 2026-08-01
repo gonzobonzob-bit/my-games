@@ -187,6 +187,119 @@ function ensureSize() {
 var gridCanvas = null, gridCtx = null, gridDirty = true, gridBand = -1;
 var HEX = 30, GPAD = 40;
 
+/* ------------------------------------------------------------------ *
+ * Terrain. Purely decorative — nothing here collides, blocks or costs
+ * anything, so none of the balance measurements are affected. Baked
+ * once per (rift, size) into its own canvas and blitted, exactly like
+ * the hex lattice, so it costs one drawImage per frame rather than a
+ * few hundred path ops.
+ *
+ * Seeded off the rift id so a resize re-bakes the SAME ground rather
+ * than randomly redecorating the arena under the player.
+ * ------------------------------------------------------------------ */
+var terrCanvas = null, terrCtx = null, terrKey = '', curRift = '';
+
+function terrRng(seedStr) {
+  var h = 2166136261;
+  for (var i = 0; i < seedStr.length; i++) {
+    h ^= seedStr.charCodeAt(i); h = (h * 16777619) >>> 0;
+  }
+  return function () {
+    h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0;
+    return h / 4294967296;
+  };
+}
+
+function buildTerrain(riftId, pal) {
+  if (!doc) return;
+  if (!terrCanvas) { terrCanvas = doc.createElement('canvas'); terrCtx = terrCanvas.getContext('2d'); }
+  var tw = Math.max(1, Math.round(W * DPR)), th = Math.max(1, Math.round(H * DPR));
+  if (terrCanvas.width !== tw || terrCanvas.height !== th) { terrCanvas.width = tw; terrCanvas.height = th; }
+  var c = terrCtx, i, j, x, y, r;
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.clearRect(0, 0, W, H);
+  var rnd = terrRng((riftId || 'rift_hollow') + ':' + Math.round(W) + 'x' + Math.round(H));
+  var ink = pal.grid || 'rgba(160,140,220,0.2)';
+
+  /* --- flagstones: every rift stands on something --- */
+  var cell = riftId === 'rift_press' ? 46 : 74;
+  c.lineWidth = 1;
+  for (y = -cell; y < H + cell; y += cell) {
+    for (x = -cell; x < W + cell; x += cell) {
+      var ox = (Math.round(y / cell) % 2) * cell * 0.5;
+      var jx = (rnd() - 0.5) * 5, jy = (rnd() - 0.5) * 5;
+      c.strokeStyle = rgba(ink, 0.14 + rnd() * 0.12);
+      c.strokeRect(x + ox + jx, y + jy, cell - 2, cell - 2);
+      if (rnd() < 0.22) {                       // a few stones sit darker
+        c.fillStyle = 'rgba(0,0,0,' + (0.10 + rnd() * 0.16).toFixed(3) + ')';
+        c.fillRect(x + ox + jx, y + jy, cell - 2, cell - 2);
+      }
+    }
+  }
+
+  /* --- cracks --- */
+  var cracks = riftId === 'rift_press' ? 26 : riftId === 'rift_famine' ? 22 : 14;
+  c.lineCap = 'round';
+  for (i = 0; i < cracks; i++) {
+    x = rnd() * W; y = rnd() * H;
+    var ang = rnd() * 6.2832, len = 24 + rnd() * 90;
+    c.strokeStyle = 'rgba(0,0,0,' + (0.22 + rnd() * 0.26).toFixed(3) + ')';
+    c.lineWidth = 0.6 + rnd() * 1.5;
+    c.beginPath(); c.moveTo(x, y);
+    for (j = 0; j < 4; j++) {
+      ang += (rnd() - 0.5) * 1.1;
+      x += Math.cos(ang) * len / 4; y += Math.sin(ang) * len / 4;
+      c.lineTo(x, y);
+    }
+    c.stroke();
+  }
+
+  /* --- per-rift character --- */
+  if (riftId === 'rift_crowd') {
+    for (i = 0; i < 60; i++) {                  // rubble field
+      x = rnd() * W; y = rnd() * H; r = 1.5 + rnd() * 5;
+      c.fillStyle = 'rgba(0,0,0,' + (0.26 + rnd() * 0.24).toFixed(3) + ')';
+      c.beginPath(); c.ellipse(x, y, r, r * (0.5 + rnd() * 0.5), rnd() * 3, 0, 6.2832); c.fill();
+      c.fillStyle = rgba(ink, 0.14 + rnd() * 0.14);
+      c.beginPath(); c.ellipse(x - r * 0.3, y - r * 0.3, r * 0.6, r * 0.4, 0, 0, 6.2832); c.fill();
+    }
+  } else if (riftId === 'rift_famine') {
+    for (i = 0; i < 16; i++) {                  // ash drifts
+      x = rnd() * W; y = rnd() * H;
+      c.fillStyle = 'rgba(220,215,200,' + (0.045 + rnd() * 0.055).toFixed(3) + ')';
+      c.beginPath();
+      c.ellipse(x, y, 30 + rnd() * 70, 10 + rnd() * 22, rnd() * 3.14, 0, 6.2832);
+      c.fill();
+    }
+    for (i = 0; i < 14; i++) {                  // bone shards
+      x = rnd() * W; y = rnd() * H;
+      c.strokeStyle = 'rgba(226,222,205,' + (0.22 + rnd() * 0.24).toFixed(3) + ')';
+      c.lineWidth = 1.5 + rnd() * 1.5;
+      var a2 = rnd() * 6.2832, l2 = 5 + rnd() * 12;
+      c.beginPath();
+      c.moveTo(x, y); c.lineTo(x + Math.cos(a2) * l2, y + Math.sin(a2) * l2);
+      c.stroke();
+    }
+  } else if (riftId === 'rift_press') {
+    for (i = 0; i < 10; i++) {                  // scorch marks
+      x = rnd() * W; y = rnd() * H; r = 16 + rnd() * 40;
+      try {
+        var g2 = c.createRadialGradient(x, y, 1, x, y, r);
+        g2.addColorStop(0, 'rgba(0,0,0,0.38)');
+        g2.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = g2;
+      } catch (e) { c.fillStyle = 'rgba(0,0,0,0.10)'; }
+      c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fill();
+    }
+  } else {
+    for (i = 0; i < 22; i++) {                  // hollow: worn patches
+      x = rnd() * W; y = rnd() * H; r = 10 + rnd() * 34;
+      c.fillStyle = 'rgba(0,0,0,' + (0.12 + rnd() * 0.14).toFixed(3) + ')';
+      c.beginPath(); c.ellipse(x, y, r, r * 0.62, rnd() * 3.14, 0, 6.2832); c.fill();
+    }
+  }
+}
+
 function buildGrid(pal) {
   if (!doc) return;
   if (!gridCanvas) { gridCanvas = doc.createElement('canvas'); gridCtx = gridCanvas.getContext('2d'); }
@@ -1752,6 +1865,15 @@ function drawBackground(pal) {
   c.fillStyle = bgGrad;
   c.fillRect(-30, -30, W + 60, H + 60);
 
+  /* terrain sits under the lattice; re-baked only when the rift or size moves */
+  var tk = curRift + ':' + Math.round(W) + 'x' + Math.round(H) + ':' + DPR;
+  if (tk !== terrKey) { terrKey = tk; buildTerrain(curRift, pal); }
+  if (terrCanvas && terrCanvas.width > 1) {
+    c.globalAlpha = lowFx() ? 0.5 : 0.85;
+    c.drawImage(terrCanvas, 0, 0, W, H);
+    c.globalAlpha = 1;
+  }
+
   var band = Math.round(pal.heat * 8);
   if (gridDirty || band !== gridBand) { gridBand = band; buildGrid(pal); }
 
@@ -1850,6 +1972,7 @@ function render(state, events) {
   if (!ensureSize()) return;
 
   var st = state || {};
+  curRift = typeof st.riftId === 'string' ? st.riftId : '';
   var pal = veilPalette(typeof st.veil === 'number' ? st.veil : 0);
   var enemies = (st.enemies && st.enemies.length) ? st.enemies : EMPTY;
   var projectiles = (st.projectiles && st.projectiles.length) ? st.projectiles : EMPTY;
