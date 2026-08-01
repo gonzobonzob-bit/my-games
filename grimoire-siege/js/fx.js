@@ -55,11 +55,60 @@ function shade(hex,amt){
   return `rgb(${r},${g},${b})`;
 }
 
+// ---------------- Settings reads (sim owns the `settings` global) ----------------
+// fx never assumes the global exists: pre-overhaul saves / partial merges must
+// not crash the render loop. Missing settings mean full volume, shake on.
+function fxVolume(){
+  if(typeof settings==='object'&&settings&&typeof settings.volume==='number'){
+    return Math.max(0,Math.min(1,settings.volume));
+  }
+  return 1;
+}
+const _reducedMotion=(typeof matchMedia==='function')&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fxShakeEnabled(){
+  if(_reducedMotion)return false;
+  if(typeof settings==='object'&&settings)return settings.shake!==false;
+  return true;
+}
+
+// ---------------- Damage-class visual language ----------------
+// Every resist cue pairs a COLOUR with a SHAPE (vault accessibility rule:
+// never colour alone): pierce = lime arrowhead, blast = orange starburst,
+// arcane = violet diamond. Shared by enemy badges, rims, and the portal stir.
+const FX_CLASS_LIST=(typeof DAMAGE_CLASSES!=='undefined')?DAMAGE_CLASSES:['pierce','blast','arcane'];
+const FX_CLASS={
+  pierce:{col:'#a3e635'},
+  blast:{col:'#fb923c'},
+  arcane:{col:'#c084fc'},
+};
+function fxClassCol(cls){ return (FX_CLASS[cls]&&FX_CLASS[cls].col)||'#e5e7eb'; }
+// Draws the class shape centred at (x,y) with "radius" r into context g.
+function drawClassShape(g,cls,x,y,r){
+  g.beginPath();
+  if(cls==='pierce'){          // arrowhead, point up
+    g.moveTo(x,y-r);g.lineTo(x+r*0.85,y+r*0.8);g.lineTo(x,y+r*0.3);g.lineTo(x-r*0.85,y+r*0.8);
+  }else if(cls==='blast'){     // 4-point starburst
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4-Math.PI/2,rr=i%2===0?r:r*0.38;
+      i===0?g.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr):g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);
+    }
+  }else{                       // arcane (and fallback): diamond
+    g.moveTo(x,y-r);g.lineTo(x+r*0.72,y);g.lineTo(x,y+r);g.lineTo(x-r*0.72,y);
+  }
+  g.closePath();
+}
+
 let _audioCtx;
 function sfx(name){
+  const vol=fxVolume();
+  if(vol<=0)return; // muted — skip node creation entirely
   if(!_audioCtx) try{_audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  if(_audioCtx.state==='suspended')try{_audioCtx.resume();}catch(e){}
   const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
-  o.connect(g);g.connect(_audioCtx.destination);
+  // Per-sound envelope stays authored at its original level; the master gain
+  // applies settings.volume so every sfx respects the slider uniformly.
+  const master=_audioCtx.createGain();master.gain.value=vol;
+  o.connect(g);g.connect(master);master.connect(_audioCtx.destination);
   const t=_audioCtx.currentTime; g.gain.setValueAtTime(0.07,t);
   if(name==='place'){o.type='sine';o.frequency.setValueAtTime(440,t);o.frequency.setValueAtTime(660,t+0.06);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);o.start(t);o.stop(t+0.12);}
   else if(name==='kill'){o.type='square';o.frequency.setValueAtTime(300,t);o.frequency.setValueAtTime(150,t+0.08);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);o.start(t);o.stop(t+0.1);}
@@ -68,6 +117,24 @@ function sfx(name){
   else if(name==='sell'){o.type='triangle';o.frequency.setValueAtTime(500,t);o.frequency.setValueAtTime(320,t+0.08);g.gain.exponentialRampToValueAtTime(0.001,t+0.14);o.start(t);o.stop(t+0.14);}
   else if(name==='lose'){o.type='sawtooth';o.frequency.setValueAtTime(300,t);o.frequency.setValueAtTime(100,t+0.3);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.start(t);o.stop(t+0.5);}
   else if(name==='win'){o.type='sine';o.frequency.setValueAtTime(523,t);o.frequency.setValueAtTime(659,t+0.12);o.frequency.setValueAtTime(784,t+0.24);o.frequency.setValueAtTime(1047,t+0.36);g.gain.exponentialRampToValueAtTime(0.001,t+0.7);o.start(t);o.stop(t+0.7);}
+  // A branch pick is a decisive stamp: short major arpeggio, done in a quarter second.
+  else if(name==='branch'){o.type='triangle';g.gain.setValueAtTime(0.09,t);o.frequency.setValueAtTime(392,t);o.frequency.setValueAtTime(523,t+0.05);o.frequency.setValueAtTime(659,t+0.1);g.gain.exponentialRampToValueAtTime(0.001,t+0.24);o.start(t);o.stop(t+0.24);}
+  // Crossing into endless: a long rise from the depths, with a detuned twin
+  // oscillator beating against the fundamental so the swell carries menace.
+  else if(name==='endless'){
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(82,t);
+    o.frequency.exponentialRampToValueAtTime(392,t+0.85);
+    g.gain.setValueAtTime(0.045,t);
+    g.gain.linearRampToValueAtTime(0.085,t+0.6);
+    g.gain.exponentialRampToValueAtTime(0.001,t+1.05);
+    const o2=_audioCtx.createOscillator();
+    o2.type='sawtooth';
+    o2.frequency.setValueAtTime(82*1.06,t);
+    o2.frequency.exponentialRampToValueAtTime(392*1.06,t+0.85);
+    o2.connect(g);
+    o.start(t);o.stop(t+1.05);o2.start(t);o2.stop(t+1.05);
+  }
   else{o.disconnect();}
 }
 
@@ -243,7 +310,9 @@ function render(dt){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
   ctx.save();
-  if(shake>0.05){
+  // Shake is gated on settings.shake and on prefers-reduced-motion; the sim
+  // still decays the `shake` value either way so re-enabling is seamless.
+  if(shake>0.05&&fxShakeEnabled()){
     ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
   }
 
@@ -253,6 +322,7 @@ function render(dt){
   drawEmbers();
   drawPathFlow();
   drawPortal();
+  drawWavePreviewStir();
   drawCrystal();
 
   // Ground-level effects first so units read on top of them
@@ -353,6 +423,64 @@ function drawPortal(){
   ctx.fillStyle='rgba(10,2,26,0.85)';
   ctx.beginPath();ctx.ellipse(0,0,7,14,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
+}
+
+// ---------------- Wave-preview portal stir ----------------
+// While `nextWaveDef` exists and no wave is running (the read-and-react gap),
+// the portal churns in the resist-class colours of what is about to come
+// through: rotating arcs plus motes sucked inward. The preview panel is ui's;
+// this is the on-board presence for the same moment, coordinated purely via
+// the existing `nextWaveDef` / `waveActive` globals. Cost: <=3 arcs per frame
+// and at most one particle every 6th frame, MAX_PARTICLES-gated.
+let _stirDef=null,_stirCols=null;
+function previewStirCols(){
+  if(typeof nextWaveDef==='undefined'||!nextWaveDef)return null;
+  if(nextWaveDef===_stirDef)return _stirCols;
+  _stirDef=nextWaveDef;
+  const cols=[];
+  const profs=nextWaveDef.profiles;
+  if(Array.isArray(profs)){
+    for(const pr of profs){
+      if(!pr||!pr.resists)continue;
+      let best=null,bestV=0.15; // ignore token resists
+      for(const cls of FX_CLASS_LIST){
+        const v=pr.resists[cls]||0;
+        if(v>bestV){bestV=v;best=cls;}
+      }
+      if(best)cols.push(fxClassCol(best));
+    }
+  }
+  // A no-resist wave still stirs, in the portal's own violet.
+  if(!cols.length)cols.push('#a855f7');
+  _stirCols=cols.slice(0,3);
+  return _stirCols;
+}
+function drawWavePreviewStir(){
+  if(!gameStarted||waveActive)return;
+  const cols=previewStirCols();
+  if(!cols)return;
+  const p=path[0];
+  ctx.save();
+  ctx.translate(p.x,p.y);
+  drawGlow(cols[0],0,0,40,0.22+0.1*Math.sin(now*3));
+  for(let i=0;i<cols.length;i++){
+    const dirn=i%2?-1:1;
+    const a=now*(1.5+i*0.4)*dirn;
+    ctx.strokeStyle=hexA(cols[i],0.38+0.18*Math.sin(now*4+i*2.1));
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(0,0,23+i*5,a,a+1.7);ctx.stroke();
+  }
+  ctx.restore();
+  // Motes drawn into the maw — spawned sparingly, budget-gated.
+  if(frame%6===0&&particles.length<MAX_PARTICLES-20){
+    const col=cols[(frame/6|0)%cols.length];
+    const a=Math.random()*Math.PI*2,r=22+Math.random()*16;
+    particles.push({
+      x:p.x+Math.cos(a)*r,y:p.y+Math.sin(a)*r,
+      vx:-Math.cos(a)*1.1,vy:-Math.sin(a)*1.1-0.3,
+      life:1,decay:0.04,col,r:1.3+Math.random()*1.4
+    });
+  }
 }
 
 // The crystal you are defending — pulses, spins, and reddens as lives drop.
@@ -500,6 +628,34 @@ function drawTower(t){
   if(ctx.roundRect)ctx.roundRect(-9.5,-13+bob,19,5,1.8);else ctx.rect(-9.5,-13+bob,19,5);
   ctx.fill();
 
+  // Branch crest: a chosen specialization flies its colours. Colour AND shape
+  // differ per branch — 'a' is a gold triangular pennant, 'b' a cyan
+  // swallowtail — plus a matching stripe on the battlement lip, so the pick
+  // reads at a glance without hover text.
+  if(t.branch==='a'||t.branch==='b'){
+    const isA=t.branch==='a';
+    const bcol=isA?'#fbbf24':'#22d3ee';
+    const px=-11,py=-13+bob;         // pole foot on the battlement's left edge
+    ctx.strokeStyle='#0f0a20';ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,py-11);ctx.stroke();
+    const flut=Math.sin(now*6+t.phase)*1.1; // gentle flutter at the tip
+    ctx.fillStyle=bcol;
+    ctx.beginPath();
+    if(isA){ // triangular pennant
+      ctx.moveTo(px,py-11);ctx.lineTo(px+9+flut,py-9);ctx.lineTo(px,py-6.5);
+    }else{   // swallowtail
+      ctx.moveTo(px,py-11);ctx.lineTo(px+9+flut,py-10);ctx.lineTo(px+5.5,py-8.6);
+      ctx.lineTo(px+9+flut,py-7);ctx.lineTo(px,py-6.5);
+    }
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle=hexA('#000000',0.35);ctx.lineWidth=0.8;ctx.stroke();
+    // Lip stripe in the branch colour
+    ctx.fillStyle=hexA(bcol,0.4);
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(-9.5,-13+bob,19,1.6,0.8);else ctx.rect(-9.5,-13+bob,19,1.6);
+    ctx.fill();
+  }
+
   // Level pips
   for(let i=0;i<MAX_TOWER_LEVEL;i++){
     ctx.fillStyle=i<lvl?'#fbbf24':'rgba(255,255,255,0.13)';
@@ -554,9 +710,71 @@ function drawTower(t){
   ctx.restore();
 }
 
+// ---------------- Resist badges ----------------
+// Each resist profile gets a small plaque — profile icon + one shape-pip per
+// resisted damage class (shape AND colour per class, pip size scales with the
+// resist fraction) — pre-rendered ONCE per profile into an offscreen canvas
+// (same idiom as glowSprite) and blitted above each enemy. Per enemy per
+// frame this costs one drawImage plus one stroked rim arc; no text, no
+// shadowBlur, no gradients on the hot path.
+const _badgeCache=new Map();
+const BADGE_SCALE=3; // sprites rendered at 3x so the glyphs stay crisp under dpr
+function resistBadge(e){
+  const rz=e.resists;
+  if(!rz)return null;
+  const classes=[];
+  for(const cls of FX_CLASS_LIST){ if((rz[cls]||0)>=0.15)classes.push(cls); }
+  if(!classes.length)return null; // no-resist profile: clean board, no badge
+  const prof=e.profile||null;
+  const key=(prof&&prof.id)||classes.map(c=>c+((rz[c]*10)|0)).join('|');
+  let entry=_badgeCache.get(key);
+  if(!entry){
+    entry=renderResistBadge((prof&&prof.icon)||'',classes,rz);
+    _badgeCache.set(key,entry);
+  }
+  return entry;
+}
+function renderResistBadge(icon,classes,rz){
+  const S=BADGE_SCALE;
+  // Dominant class tints the plaque border — the same colour used for the
+  // enemy's rim, so badge and body read as one statement.
+  let dom=classes[0];
+  for(const cls of classes){ if((rz[cls]||0)>(rz[dom]||0))dom=cls; }
+  const iconW=icon?11:0;
+  const w=(5+iconW+classes.length*9+3),h=13;
+  const c=document.createElement('canvas');
+  c.width=w*S;c.height=h*S;
+  const g=c.getContext('2d');
+  g.scale(S,S);
+  g.fillStyle='rgba(8,4,18,0.8)';
+  g.strokeStyle=hexA(fxClassCol(dom),0.85);
+  g.lineWidth=0.8;
+  g.beginPath();
+  if(g.roundRect)g.roundRect(0.6,0.6,w-1.2,h-1.2,3);else g.rect(0.6,0.6,w-1.2,h-1.2);
+  g.fill();g.stroke();
+  if(icon){
+    g.font='8px serif';g.textAlign='center';g.textBaseline='middle';
+    g.fillStyle='#e5e7eb';
+    g.fillText(icon,4+iconW/2,h/2+0.5);
+  }
+  let x=5+iconW+4;
+  for(const cls of classes){
+    const v=rz[cls]||0;
+    g.fillStyle=fxClassCol(cls);
+    drawClassShape(g,cls,x,h/2,2.4+v*2.6); // heavier resist = bigger pip
+    g.fill();
+    if(v>=0.5){ // severe resist gets a white keyline on top of size
+      g.strokeStyle='rgba(255,255,255,0.85)';g.lineWidth=0.6;g.stroke();
+    }
+    x+=9;
+  }
+  return {c,domCol:fxClassCol(dom)};
+}
+
 // ---------------- Enemy art ----------------
 function drawEnemy(e){
   const s=e.size;
+  const badge=resistBadge(e); // cached sprite lookup — cheap map get per frame
   const walk=now*(e.kind==='fast'?11:6)+e.phase;
   const bob=Math.sin(walk)*(e.kind==='boss'?1.4:2.1);
   const lean=Math.sin(walk*0.5)*0.07;
@@ -638,6 +856,14 @@ function drawEnemy(e){
     ctx.fill();
   }
 
+  // Resist rim: a slow-pulsing ward circle in the dominant resisted class's
+  // colour. The shape half of the pairing lives in the badge overhead.
+  if(badge){
+    ctx.strokeStyle=hexA(badge.domCol,0.3+0.14*Math.sin(now*2.5+e.phase));
+    ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.arc(0,-s*0.15,s*1.02,0,Math.PI*2);ctx.stroke();
+  }
+
   // Boss crown of horns
   if(e.kind==='boss'){
     ctx.fillStyle='#fbbf24';
@@ -690,6 +916,14 @@ function drawEnemy(e){
   }
 
   ctx.restore();
+
+  // Resist badge floats above the health-bar slot: profile icon + class pips.
+  // One drawImage of a pre-rendered sprite; sits at a fixed offset so it does
+  // not jump when the health bar appears below it.
+  if(badge){
+    const bw=badge.c.width/BADGE_SCALE,bh=badge.c.height/BADGE_SCALE;
+    ctx.drawImage(badge.c,e.x-bw/2,e.y-s-14-bh,bw,bh);
+  }
 
   // Health bar (only once wounded — keeps the board clean)
   if(e.hp<e.maxHp){

@@ -68,3 +68,13 @@ Per vault rule 2, the §3 economy-overprovisioning estimate and any rebalanced n
 - **For the build squad:** balance harness (vault rule 2) must verify the §3 economy-overprovision estimate before any rebalanced numbers are trusted. The Google Fonts CDN link in index.html violates the no-CDN rule and should be vendored during the art pass (also true of Chop Shop Circuit's Babylon CDN scripts, noted for a separate cleanup).
 
 See PRODUCER.md for the commercial read, cost model, and the INVEST verdict this plan executes.
+
+## 75% checkpoint (Build) — reached 2026-08-01
+
+Squad 1 delivered all four files against CONTRACT.md; integrator reconciled and
+verified with the 28-check smoke suite (28/28): resist system live (7 profiles,
+randomized + previewed), rebalanced tower classes, branching upgrades, endless
+mode, settings, save schema v2 with v1 migration, fonts vendored (no CDN).
+Known integration notes: ui hardcodes its overlay copy — STR_* consts in
+content.js are partially unused; consolidate to one copy source in the 100%
+content/qa pass. BALANCE IS UNVERIFIED — the harness (rule 2) runs at 100%.

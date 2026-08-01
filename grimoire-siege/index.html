@@ -4,8 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Grimoire Siege</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
 <style>
+/* Vendored fonts (latin subset, variable weight) — no CDN at runtime, per vault rule.
+   Emoji glyphs render from system fonts. */
+@font-face{font-family:'Cinzel';font-style:normal;font-weight:600 900;font-display:swap;src:url(assets/fonts/cinzel.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F;}
+@font-face{font-family:'Nunito';font-style:normal;font-weight:700 800;font-display:swap;src:url(assets/fonts/nunito.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F;}
 :root{--bg:#04030e;--panel:#08060f;--card:#0d0b18;--border:#1d1238;--purple:#7c3aed;--gold:#d97706;--red:#dc2626;--green:#16a34a;--blue:#2563eb;--text:#e2d9f3;--muted:#4a3d6a;}
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
@@ -30,6 +33,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 .sp-btn:active{transform:translateY(0) scale(0.97);}
 .sp-btn.continue{background:linear-gradient(135deg,#166534,#16a34a);border-color:#4ade8055;box-shadow:0 6px 26px rgba(22,163,74,0.55),inset 0 1px 0 rgba(255,255,255,0.18);}
 .sp-btn.continue:hover{box-shadow:0 10px 32px rgba(22,163,74,0.7),inset 0 1px 0 rgba(255,255,255,0.25);}
+.sp-btn.small{font-size:13px;padding:12px 30px;min-height:44px;background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b556355;box-shadow:0 4px 16px rgba(0,0,0,0.4);}
 #splash-stats{display:none;font-size:11px;color:#6d5f92;font-weight:700;}
 #splash-stats b{color:#fbbf24;}
 
@@ -42,9 +46,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 @keyframes lowPulse{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 14px rgba(239,68,68,0.7)}}
 .hud-gold{color:#fbbf24;}
 .hud-wave{color:#c4b5fd;font-family:'Cinzel',serif;letter-spacing:0.5px;}
+.hud-wave.endless{color:#fbbf24;border-color:#d9770655;text-shadow:0 0 8px rgba(251,191,36,0.6);}
 .hud-kills{color:#a78bfa;}
 .hud-controls{display:flex;gap:5px;margin-left:auto;}
-.hud-icon-btn{background:linear-gradient(180deg,#1a1130,#0d0918);border:1px solid #2a1c4d;border-radius:8px;color:var(--text);font-size:12px;font-weight:800;padding:5px 10px;cursor:pointer;transition:border-color 0.15s;}
+/* position:relative + ::after extend the touch hit area to ~48px tall without growing the visual box (vault touch-target rule). */
+.hud-icon-btn{position:relative;background:linear-gradient(180deg,#1a1130,#0d0918);border:1px solid #2a1c4d;border-radius:8px;color:var(--text);font-size:12px;font-weight:800;padding:5px 10px;cursor:pointer;transition:border-color 0.15s;}
+.hud-icon-btn::after{content:'';position:absolute;inset:-10px -3px;}
 .hud-icon-btn:hover{border-color:var(--purple);}
 .hud-icon-btn:active{transform:scale(0.93);}
 #wave-bar{height:3px;background:#150d2b;flex-shrink:0;overflow:hidden;}
@@ -65,6 +72,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 .tower-btn.selected::after{opacity:0.26;}
 .tower-btn.cant{opacity:0.4;filter:grayscale(0.6);}
 .tb-icon{font-size:21px;display:block;line-height:1.1;filter:drop-shadow(0 0 7px var(--tcol));}
+.tb-class{position:absolute;top:3px;right:4px;font-size:9px;line-height:1;opacity:0.95;z-index:1;}
+.tb-class.pierce{filter:drop-shadow(0 0 4px #4ade80);}
+.tb-class.blast{filter:drop-shadow(0 0 4px #f87171);}
+.tb-class.arcane{filter:drop-shadow(0 0 4px #c084fc);}
 .tb-name{font-size:7px;font-weight:800;color:#d6cced;display:block;text-transform:uppercase;letter-spacing:0.4px;}
 .tb-stats{font-size:6.5px;color:#6d5f92;font-weight:700;display:block;letter-spacing:0.2px;}
 .tb-cost{font-size:8.5px;color:#fbbf24;font-weight:800;display:block;margin-top:1px;}
@@ -81,20 +92,92 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 .tap-stats{font-size:9px;color:#8b7bb8;font-weight:700;margin-bottom:8px;line-height:1.6;}
 .tap-stats b{color:#e2d9f3;}
 .tap-btns{display:flex;gap:6px;}
-.tap-btns button{flex:1;background:linear-gradient(135deg,#5b21b6,#7c3aed);border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:800;color:#f3e8ff;cursor:pointer;}
+.tap-btns button{flex:1;background:linear-gradient(135deg,#5b21b6,#7c3aed);border:none;border-radius:8px;padding:7px 4px;min-height:40px;font-size:10px;font-weight:800;color:#f3e8ff;cursor:pointer;}
 .tap-btns button:disabled{opacity:0.35;cursor:not-allowed;}
 .tap-btns button.sell-btn{background:linear-gradient(135deg,#7f1d1d,#dc2626);}
 .tap-close{position:absolute;top:3px;right:6px;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:2px;}
+.tap-close::before{content:'';position:absolute;inset:-12px;} /* 40px hit area on a 16px glyph */
 
-/* ---------------- Overlays ---------------- */
-#pause-overlay,#gameover{position:fixed;inset:0;background:rgba(3,1,10,0.9);backdrop-filter:blur(4px);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:14px;padding:24px;text-align:center;}
+/* ---------------- Overlays ----------------
+   Explicit stacking plan (shared z-index lets DOM order silently decide —
+   that once put Help invisibly behind pause in another game; never again):
+     40 wave preview (in-canvas, pointer-events none)
+     50 msg-overlay | 60 tower-action-panel
+    150 branch picker | 190 endless prompt | 200 pause | 240 game over
+   1000 splash | 1100 settings (openable from splash AND pause, so topmost) */
+#pause-overlay,#gameover{position:fixed;inset:0;background:rgba(3,1,10,0.9);backdrop-filter:blur(4px);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;}
+#pause-overlay{z-index:200;}
+#gameover{z-index:240;}
 #pause-overlay.show,#gameover.show{display:flex;}
 .go-title{font-family:'Cinzel',serif;font-size:32px;font-weight:900;text-shadow:0 0 30px rgba(168,85,247,0.6);}
 #pause-overlay .go-title{font-size:26px;}
 .go-score{font-family:'Cinzel',serif;font-size:13px;color:#fbbf24;max-width:290px;line-height:1.8;}
-.go-btn{background:linear-gradient(135deg,#5b21b6,#7c3aed);border:1px solid #a78bfa44;border-radius:12px;padding:12px 36px;font-family:'Cinzel',serif;font-size:16px;color:#f3e8ff;cursor:pointer;margin-top:6px;box-shadow:0 5px 20px rgba(124,58,237,0.45);}
+.go-btn{background:linear-gradient(135deg,#5b21b6,#7c3aed);border:1px solid #a78bfa44;border-radius:12px;padding:12px 36px;min-height:46px;font-family:'Cinzel',serif;font-size:16px;color:#f3e8ff;cursor:pointer;margin-top:6px;box-shadow:0 5px 20px rgba(124,58,237,0.45);}
 .go-btn:active{transform:scale(0.96);}
-.go-btn.secondary{background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b556344;font-size:13px;padding:9px 26px;box-shadow:none;}
+.go-btn.secondary{background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b556344;font-size:13px;padding:10px 26px;min-height:42px;box-shadow:none;}
+.go-btn.victory{background:linear-gradient(135deg,#92400e,#d97706);border-color:#fbbf2455;box-shadow:0 5px 20px rgba(217,119,6,0.45);}
+
+/* ---------------- Wave preview (z 40) ----------------
+   Read-only: pointer-events none so prep-time tower placement taps pass
+   straight through to the canvas beneath it. */
+#wave-preview{position:absolute;top:8px;left:50%;transform:translateX(-50%) scale(0.96);width:min(360px,calc(100% - 12px));z-index:40;background:linear-gradient(180deg,rgba(22,13,46,0.93),rgba(9,5,20,0.93));border:1px solid #4c1d95;border-radius:12px;padding:8px 11px 6px;pointer-events:none;opacity:0;transition:opacity 0.25s,transform 0.25s;box-shadow:0 6px 24px rgba(0,0,0,0.55),0 0 18px -6px #7c3aed;}
+#wave-preview.show{opacity:1;transform:translateX(-50%) scale(1);animation:wpPulse 0.6s ease;}
+@keyframes wpPulse{0%{box-shadow:0 0 0 0 rgba(168,85,247,0.55)}100%{box-shadow:0 0 0 16px rgba(168,85,247,0)}}
+.wp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.wp-title{font-family:'Cinzel',serif;font-size:12px;font-weight:900;color:#f0abfc;letter-spacing:0.5px;}
+.wp-total{font-size:10px;font-weight:800;color:#fbbf24;white-space:nowrap;}
+.wp-kinds{display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 5px;}
+.wp-kind{font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);}
+.wp-kind.grunt{color:#f87171;border-color:#dc262655;}
+.wp-kind.fast{color:#c084fc;border-color:#a855f766;}
+.wp-kind.boss{color:#fbbf24;border-color:#d9770699;background:rgba(217,119,6,0.14);}
+.wp-prof{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0;border-top:1px solid rgba(255,255,255,0.07);}
+.wp-prof-icon{font-size:16px;filter:drop-shadow(0 0 6px #7c3aed);}
+.wp-prof-name{font-size:9.5px;font-weight:800;color:#e2d9f3;text-transform:uppercase;letter-spacing:0.4px;}
+.wp-chips{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;}
+.wp-chip{font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid;}
+.wp-chip.pierce{color:#4ade80;border-color:#4ade8055;}
+.wp-chip.blast{color:#f87171;border-color:#f8717155;}
+.wp-chip.arcane{color:#c084fc;border-color:#c084fc55;}
+.wp-chip.none{color:#8b7bb8;border-color:#6d5f9244;}
+
+/* ---------------- Branch picker (z 150) ---------------- */
+#branch-overlay{position:fixed;inset:0;background:rgba(3,1,10,0.82);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:150;padding:20px;}
+#branch-overlay.show{display:flex;}
+.br-card{background:linear-gradient(180deg,#191033,#0c0818);border:1px solid var(--purple);border-radius:14px;padding:16px;width:min(340px,100%);box-shadow:0 12px 40px rgba(0,0,0,0.7),0 0 26px -8px #7c3aed;text-align:center;animation:popIn 0.16s ease;}
+.br-title{font-family:'Cinzel',serif;font-size:15px;font-weight:900;color:#f0abfc;margin-bottom:4px;}
+.br-cost{font-size:11px;color:#fbbf24;font-weight:800;margin-bottom:10px;}
+.br-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.br-opt{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;background:linear-gradient(135deg,#2e1065,#5b21b6);border:1px solid #a78bfa55;border-radius:12px;padding:12px 14px;min-height:64px;width:100%;cursor:pointer;color:#f3e8ff;transition:transform 0.12s,box-shadow 0.15s;}
+.br-opt:hover{box-shadow:0 0 16px -4px #a78bfa;}
+.br-opt:active{transform:scale(0.97);}
+.br-opt:disabled{opacity:0.4;cursor:not-allowed;}
+.br-opt-name{font-family:'Cinzel',serif;font-size:13px;font-weight:900;color:#fbbf24;}
+.br-opt-blurb{font-size:10.5px;color:#d6cced;line-height:1.5;font-weight:700;}
+.br-cancel{background:none;border:1px solid #2a1c4d;border-radius:10px;color:#8b7bb8;font-size:12px;font-weight:800;padding:11px 22px;min-height:44px;cursor:pointer;}
+
+/* ---------------- Endless prompt (z 190) ---------------- */
+#endless-overlay{position:fixed;inset:0;background:rgba(3,1,10,0.9);backdrop-filter:blur(4px);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:190;gap:14px;padding:24px;text-align:center;}
+#endless-overlay.show{display:flex;}
+
+/* ---------------- Settings (z 1100) ---------------- */
+#settings-overlay{position:fixed;inset:0;background:rgba(3,1,10,0.88);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1100;padding:20px;}
+#settings-overlay.show{display:flex;}
+.set-card{background:linear-gradient(180deg,#191033,#0c0818);border:1px solid var(--purple);border-radius:14px;padding:18px;width:min(320px,100%);display:flex;flex-direction:column;gap:14px;text-align:left;box-shadow:0 12px 40px rgba(0,0,0,0.7),0 0 26px -8px #7c3aed;animation:popIn 0.16s ease;}
+.set-title{font-family:'Cinzel',serif;font-size:16px;font-weight:900;color:#f0abfc;text-align:center;}
+.set-row{display:flex;flex-direction:column;gap:2px;}
+.set-label{font-size:12px;font-weight:800;color:#d6cced;display:flex;justify-content:space-between;align-items:baseline;}
+.set-label b{color:#fbbf24;}
+#set-volume{width:100%;height:44px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;}
+#set-volume::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:#241844;}
+#set-volume::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#7c3aed);border:2px solid rgba(243,232,255,0.25);margin-top:-9px;box-shadow:0 0 10px #7c3aed;}
+#set-volume::-moz-range-track{height:8px;border-radius:99px;background:#241844;}
+#set-volume::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#7c3aed;border:2px solid rgba(243,232,255,0.25);}
+.set-toggle{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid #2a1c4d;border-radius:12px;padding:12px 14px;min-height:48px;cursor:pointer;color:#d6cced;font-size:12px;font-weight:800;width:100%;text-align:left;}
+.set-toggle-dot{width:38px;height:22px;border-radius:99px;background:#241844;position:relative;flex-shrink:0;transition:background 0.2s;}
+.set-toggle-dot::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#6d5f92;transition:left 0.2s,background 0.2s;}
+.set-toggle.on .set-toggle-dot{background:#3b0764;}
+.set-toggle.on .set-toggle-dot::after{left:18px;background:#4ade80;box-shadow:0 0 8px #4ade80;}
 </style>
 </head>
 <body>
@@ -109,13 +192,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
     <div id="splash-stats">Best Wave <b id="best-wave-disp">0</b>/12 &nbsp;·&nbsp; High Score <b id="high-score-disp">0</b></div>
     <button class="sp-btn continue" id="continue-btn" style="display:none;" onclick="startGame(true)">Continue Siege</button>
     <button class="sp-btn" onclick="startGame(false)">New Siege</button>
+    <button class="sp-btn small" onclick="openSettings()">⚙️ Settings</button>
   </div>
 </div>
 <div id="app" style="display:none;flex-direction:column;height:100%;">
   <div id="hud">
     <div class="hud-stat hud-lives" id="hud-lives-box"><span class="icon">❤️</span><span id="hud-lives">20</span></div>
     <div class="hud-stat hud-gold"><span class="icon">🪙</span><span id="hud-gold">240</span></div>
-    <div class="hud-stat hud-wave"><span>WAVE&nbsp;</span><span id="hud-wave">0</span><span>/12</span></div>
+    <div class="hud-stat hud-wave" id="hud-wave-box"><span>WAVE&nbsp;</span><span id="hud-wave">0</span><span id="hud-wave-cap">/12</span></div>
     <div class="hud-stat hud-kills"><span id="hud-kills">0</span><span style="font-size:9px;margin-left:2px;color:var(--muted)">kills</span></div>
     <div class="hud-controls">
       <button class="hud-icon-btn" id="speed-btn" onclick="toggleSpeed()" title="Toggle speed">1x</button>
@@ -125,6 +209,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
   <div id="wave-bar"><div id="wave-bar-fill"></div></div>
   <div id="game-wrap">
     <canvas id="main-canvas"></canvas>
+    <div id="wave-preview" aria-live="polite"></div>
     <div id="msg-overlay"></div>
     <div id="tower-action-panel">
       <button class="tap-close" onclick="closeTowerActionPanel()">✕</button>
@@ -141,8 +226,34 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 <div id="pause-overlay">
   <div class="go-title">⏸️ PAUSED</div>
   <button class="go-btn" onclick="resumeGame()">Resume</button>
+  <button class="go-btn secondary" onclick="openSettings()">⚙️ Settings</button>
   <button class="go-btn secondary" onclick="saveAndExit()">Save &amp; Main Menu</button>
   <button class="go-btn secondary" onclick="exitNoSave()">Main Menu (No Save)</button>
+</div>
+<div id="branch-overlay">
+  <div class="br-card">
+    <div class="br-title" id="br-title"></div>
+    <div class="br-cost" id="br-cost"></div>
+    <div class="br-opts" id="br-opts"></div>
+    <button class="br-cancel" onclick="closeBranchPicker()">Cancel</button>
+  </div>
+</div>
+<div id="endless-overlay">
+  <div class="go-title">🏰 THE SIEGE HOLDS</div>
+  <div class="go-score">Wave 12 cleared. The darkness regroups beyond the gate —<br>press on for glory, or claim your victory now.</div>
+  <button class="go-btn" onclick="uiBeginEndless()">♾️ Continue Endless</button>
+  <button class="go-btn victory" onclick="uiClaimVictory()">🏆 Claim Victory</button>
+</div>
+<div id="settings-overlay">
+  <div class="set-card">
+    <div class="set-title">⚙️ SETTINGS</div>
+    <div class="set-row">
+      <label class="set-label" for="set-volume">🔊 Volume <b id="set-volume-val">80%</b></label>
+      <input type="range" id="set-volume" min="0" max="100" step="5" value="80">
+    </div>
+    <button class="set-toggle on" id="set-shake" onclick="toggleShakeSetting()"><span class="set-toggle-dot"></span><span id="set-shake-label">Screen Shake: ON</span></button>
+    <button class="go-btn" onclick="closeSettings()">Done</button>
+  </div>
 </div>
 <div id="gameover">
   <div class="go-title" id="go-title">☠️ DEFEATED</div>

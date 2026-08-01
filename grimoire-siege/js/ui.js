@@ -38,10 +38,20 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 window.addEventListener('pagehide',()=>{ if(gameStarted)saveCheckpoint(); });
+// Hotkeys are accelerators only — every one of these actions also has an
+// on-screen button/route (phones have no Esc key).
+function overlayShown(id){const el=document.getElementById(id);return !!el&&el.classList.contains('show');}
 document.addEventListener('keydown',(e)=>{
-  if(!gameStarted||lives<=0)return;
-  if(e.key==='Escape'){ if(paused)resumeGame();else pauseGame(); return; }
-  if(paused)return;
+  if(e.key==='Escape'){
+    // Innermost layer first, matching the visual stacking order.
+    if(overlayShown('settings-overlay')){closeSettings();return;}
+    if(overlayShown('branch-overlay')){closeBranchPicker();return;}
+    if(overlayShown('endless-overlay'))return; // must choose a button
+    if(!gameStarted||lives<=0)return;
+    if(paused)resumeGame();else pauseGame();
+    return;
+  }
+  if(!gameStarted||lives<=0||paused)return;
   // 1-9 then 0 select the shop slots in order.
   if(e.key>='0'&&e.key<='9'){
     const idx=e.key==='0'?9:parseInt(e.key,10)-1;
@@ -99,6 +109,10 @@ function startGame(continueRun){
   selectedTower=null;selectedPlacedTower=null;waveState=null;
   shake=0;damageFlash=0;crystalHit=0;
   gameSpeed=1;
+  endlessPromptShown=false;
+  hideEndlessPrompt();
+  closeBranchPicker();
+  lastPreviewDef=null;
   const speedBtn=document.getElementById('speed-btn');
   if(speedBtn)speedBtn.textContent='1x';
 
@@ -191,10 +205,18 @@ function toggleSpeed(){
 }
 
 // ---------------- Tower panel / placement ----------------
+// Damage-class glyphs. content.js may ship its own DMG_CLASS_ICONS const;
+// prefer it so ui/fx/preview all show the same glyph per class.
+function dmgClassIcon(c){
+  if(typeof DMG_CLASS_ICONS!=='undefined'&&DMG_CLASS_ICONS[c])return DMG_CLASS_ICONS[c];
+  return ({pierce:'🗡️',blast:'💥',arcane:'🔮'})[c]||'';
+}
+
 function buildTowerPanel(){
   const panel=document.getElementById('tower-panel');
   panel.innerHTML=TOWERS.map((t)=>`
     <div class="tower-btn ${gold<t.cost?'cant':''} ${selectedTower&&selectedTower.id===t.id?'selected':''}" id="tbtn-${t.id}" style="--tcol:${t.color}" onclick="selectTower('${t.id}')">
+      ${t.dmgClass?`<span class="tb-class ${t.dmgClass}" title="${t.dmgClass}">${dmgClassIcon(t.dmgClass)}</span>`:''}
       <span class="tb-icon">${t.icon}</span>
       <span class="tb-name">${t.name}</span>
       <span class="tb-stats">${t.dmg}dmg · ${t.range}r</span>
@@ -268,7 +290,9 @@ function openTowerActionPanel(t){
   const panel=document.getElementById('tower-action-panel');
   const stats=towerStats(t);
   const maxed=(t.level||0)>=MAX_TOWER_LEVEL;
-  document.getElementById('tap-name').textContent=`${t.icon} ${t.name} Lv.${(t.level||0)+1}`;
+  const spec=(typeof BRANCHES!=='undefined')?BRANCHES[t.id]:null;
+  const branchName=(t.branch&&spec&&spec[t.branch])?` · ${spec[t.branch].name}`:'';
+  document.getElementById('tap-name').textContent=`${t.icon} ${t.name} Lv.${(t.level||0)+1}${branchName}`;
   document.getElementById('tap-stats').innerHTML=
     `DMG <b>${stats.dmg}</b> · RNG <b>${stats.range}</b><br>Rate <b>${(60/stats.rate).toFixed(1)}/s</b> · Sell <b>${sellValue(t)}🪙</b>`;
   const upBtn=document.getElementById('tap-upgrade-btn');
@@ -277,7 +301,8 @@ function openTowerActionPanel(t){
     upBtn.disabled=true;
   }else{
     const cost=upgradeCost(t);
-    upBtn.textContent=`Upgrade (${cost}🪙)`;
+    // Past L1 the upgrade IS the branch choice — label it as one.
+    upBtn.textContent=(!t.branch&&(t.level||0)>=1&&spec)?`Choose Path (${cost}🪙)`:`Upgrade (${cost}🪙)`;
     upBtn.disabled=gold<cost;
   }
   const maxLeft=Math.max(6,(gameWrapEl?gameWrapEl.offsetWidth:W)-166);
@@ -296,6 +321,18 @@ function closeTowerActionPanel(){
 function upgradeSelectedTower(){
   const t=selectedPlacedTower;
   if(!t||(t.level||0)>=MAX_TOWER_LEVEL)return;
+  // Contract: upgrading past L1 opens the two-branch choice instead of a
+  // bare upgrade. Falls back to the plain upgrade if BRANCHES/chooseBranch
+  // haven't landed (parallel build safety).
+  if(!t.branch&&(t.level||0)>=1&&typeof BRANCHES!=='undefined'&&BRANCHES[t.id]&&typeof chooseBranch==='function'){
+    openBranchPicker(t);
+    return;
+  }
+  doPlainUpgrade(t);
+}
+
+function doPlainUpgrade(t){
+  if(!t||(t.level||0)>=MAX_TOWER_LEVEL)return;
   const cost=upgradeCost(t);
   if(gold<cost)return;
   gold-=cost;
@@ -307,6 +344,46 @@ function upgradeSelectedTower(){
   floater(t.x,t.y-24,'LV '+(t.level+1),'#fbbf24');
   updateHUD();
   refreshGoldUI();
+}
+
+// ---------------- Branch picker ----------------
+let branchTarget=null;
+function openBranchPicker(t){
+  const spec=(typeof BRANCHES!=='undefined')?BRANCHES[t.id]:null;
+  if(!spec){doPlainUpgrade(t);return;}
+  branchTarget=t;
+  const cost=upgradeCost(t);
+  document.getElementById('br-title').textContent=`${t.icon} ${t.name} — Choose a Path`;
+  document.getElementById('br-cost').textContent=`Cost ${cost}🪙 · you have ${gold}🪙`;
+  document.getElementById('br-opts').innerHTML=['a','b'].map(k=>`
+    <button class="br-opt" ${gold<cost?'disabled':''} onclick="pickBranch('${k}')">
+      <span class="br-opt-name">${spec[k].name}</span>
+      <span class="br-opt-blurb">${spec[k].blurb}</span>
+    </button>`).join('');
+  document.getElementById('branch-overlay').classList.add('show');
+}
+
+function closeBranchPicker(){
+  branchTarget=null;
+  const el=document.getElementById('branch-overlay');
+  if(el)el.classList.remove('show');
+}
+
+function pickBranch(which){
+  const t=branchTarget;
+  closeBranchPicker();
+  if(!t)return;
+  if(typeof chooseBranch!=='function'){doPlainUpgrade(t);return;}
+  const before=gold;
+  chooseBranch(t,which); // sim: sets t.branch, charges upgradeCost
+  if(gold===before&&!t.branch)return; // choice rejected (e.g. can't afford)
+  try{sfx('branch');}catch(err){}
+  ring(t.x,t.y,'#f0abfc',56,0.8);
+  for(let i=0;i<16;i++)spark(t.x,t.y,'#f0abfc',3.4);
+  const spec=(typeof BRANCHES!=='undefined')?BRANCHES[t.id]:null;
+  floater(t.x,t.y-24,(spec&&spec[which])?spec[which].name.toUpperCase():'PATH CHOSEN','#f0abfc');
+  updateHUD();
+  refreshGoldUI(); // reopens the action panel with the new branch shown
 }
 
 function sellSelectedTower(){
@@ -335,8 +412,21 @@ function updateHUD(){
   document.getElementById('hud-gold').textContent=gold;
   document.getElementById('hud-wave').textContent=wave;
   document.getElementById('hud-kills').textContent=kills;
+  // Endless: past wave 12 the /12 cap is meaningless — drop it, and tint the
+  // counter gold (non-textual signal that the run has gone endless).
+  const cap=document.getElementById('hud-wave-cap');
+  if(cap)cap.style.display=wave>12?'none':'';
+  const wb=document.getElementById('hud-wave-box');
+  if(wb)wb.classList.toggle('endless',wave>12);
   const lb=document.getElementById('hud-lives-box');
   if(lb)lb.classList.toggle('critical',lives<=5);
+  updateWavePreview();
+  // sim raises endlessOffered after wave 12 clears and holds scheduling
+  // until the player answers; poll it here (updateHUD runs every tick).
+  if(typeof endlessOffered!=='undefined'){
+    if(endlessOffered&&gameStarted&&lives>0)showEndlessPrompt();
+    else if(!endlessOffered)endlessPromptShown=false;
+  }
   const fill=document.getElementById('wave-bar-fill');
   if(fill){
     if(waveState&&waveState.total>0){
@@ -355,10 +445,138 @@ function showGameOver(win){
   if(waveState&&waveState.intervalId){clearInterval(waveState.intervalId);waveState.intervalId=null;}
   if(autosaveIntervalId){clearInterval(autosaveIntervalId);autosaveIntervalId=null;}
   gameStarted=false;
+  // Retire mid-game layers so nothing lingers beneath the game-over screen.
+  closeBranchPicker();
+  hideEndlessPrompt();
+  const wp=document.getElementById('wave-preview');
+  if(wp){wp.classList.remove('show');previewVisible=false;}
   const {bestWave,highScore}=recordRunEnd();
   const go=document.getElementById('gameover');
   go.classList.add('show');
   document.getElementById('go-title').textContent=win?'🏆 VICTORY!':'☠️ DEFEATED';
   document.getElementById('go-score').innerHTML=
-    `Wave ${wave}/12 &nbsp;|&nbsp; ${kills} kills &nbsp;|&nbsp; ${gold}🪙<br>Best Wave ${bestWave} &nbsp;|&nbsp; High Score ${highScore}`;
+    `Wave ${wave}${wave>12?'':'/12'} &nbsp;|&nbsp; ${kills} kills &nbsp;|&nbsp; ${gold}🪙<br>Best Wave ${bestWave} &nbsp;|&nbsp; High Score ${highScore}`;
 }
+
+// ---------------- Wave preview panel ----------------
+// The read-and-react moment the redesign hangs on: during prep and every wave
+// gap, show what's coming (count, kinds, resist profiles) so the next
+// purchase is a reaction, not a script. sim generates nextWaveDef at
+// scheduleWave() time, so it exists for the entire gap. DOM is rebuilt only
+// when the def object changes; visibility is a cheap class toggle per tick.
+let lastPreviewDef=null,previewVisible=false;
+function updateWavePreview(){
+  const el=document.getElementById('wave-preview');
+  if(!el)return;
+  const def=(typeof nextWaveDef!=='undefined')?nextWaveDef:null;
+  const offered=(typeof endlessOffered!=='undefined')&&endlessOffered;
+  const show=gameStarted&&lives>0&&!waveActive&&!offered&&!!def;
+  if(!show){
+    if(previewVisible){el.classList.remove('show');previewVisible=false;}
+    return;
+  }
+  if(def!==lastPreviewDef){
+    lastPreviewDef=def;
+    el.innerHTML=buildWavePreviewHTML(def);
+  }
+  if(!previewVisible){el.classList.add('show');previewVisible=true;}
+}
+
+function buildWavePreviewHTML(def){
+  const n=def.n||wave+1;
+  const total=(def.count||0)+(def.boss||0)+(def.fast||0);
+  // Leak costs come from LEAK_COST so the preview can never drift from the sim.
+  const lc=k=>(typeof LEAK_COST!=='undefined'&&LEAK_COST[k]>1)?` −${LEAK_COST[k]}♥`:'';
+  let kinds=`<span class="wp-kind grunt">👹 ×${def.count||0}${lc('grunt')}</span>`;
+  if(def.fast)kinds+=`<span class="wp-kind fast">💨 FAST ×${def.fast}${lc('fast')}</span>`;
+  if(def.boss)kinds+=`<span class="wp-kind boss">👑 BOSS ×${def.boss}${lc('boss')} each</span>`;
+  const profs=(def.profiles||[]).map(p=>{
+    const entries=Object.entries(p.resists||{}).filter(([,v])=>v>0);
+    const chips=entries.length
+      ?entries.map(([c,v])=>`<span class="wp-chip ${c}">${dmgClassIcon(c)} ${c} −${Math.round(v*100)}%</span>`).join('')
+      :'<span class="wp-chip none">no resistances</span>';
+    return `<div class="wp-prof"><span class="wp-prof-icon">${p.icon||'❔'}</span><span class="wp-prof-name">${p.name||p.id||'?'}</span><span class="wp-chips">${chips}</span></div>`;
+  }).join('');
+  return `<div class="wp-head"><span class="wp-title">NEXT — WAVE ${n}</span><span class="wp-total">${total} foes</span></div><div class="wp-kinds">${kinds}</div>${profs}`;
+}
+
+// ---------------- Endless prompt ----------------
+let endlessPromptShown=false;
+function showEndlessPrompt(){
+  if(endlessPromptShown)return;
+  endlessPromptShown=true;
+  const el=document.getElementById('endless-overlay');
+  if(el)el.classList.add('show');
+}
+function hideEndlessPrompt(){
+  const el=document.getElementById('endless-overlay');
+  if(el)el.classList.remove('show');
+}
+function uiBeginEndless(){
+  hideEndlessPrompt();
+  if(typeof beginEndless==='function')beginEndless();
+  try{sfx('endless');}catch(err){}
+  showMsg('♾️ ENDLESS SIEGE');
+  updateHUD();
+}
+function uiClaimVictory(){
+  hideEndlessPrompt();
+  if(typeof claimVictory==='function')claimVictory();
+  else showGameOver(true); // parallel-build fallback until sim lands
+}
+
+// ---------------- Settings ----------------
+// sim owns the settings global + persistence (save schema v2); ui owns the
+// widgets. Guarded fallback keeps the menu working if loaded against an
+// older sim.
+function getSettings(){
+  if(typeof settings==='undefined'||!settings)window.settings={volume:0.8,shake:true};
+  return settings;
+}
+function persistSettings(){
+  try{
+    if(typeof saveSettings==='function')saveSettings();
+    else if(typeof writeSave==='function')writeSave({settings:getSettings()});
+  }catch(err){console.warn('Grimoire Siege: settings persist failed',err);}
+}
+function syncSettingsUI(){
+  const s=getSettings();
+  const vol=document.getElementById('set-volume');
+  const val=document.getElementById('set-volume-val');
+  const pct=Math.round((typeof s.volume==='number'?s.volume:0.8)*100);
+  if(vol)vol.value=pct;
+  if(val)val.textContent=pct+'%';
+  const tog=document.getElementById('set-shake');
+  const lab=document.getElementById('set-shake-label');
+  if(tog)tog.classList.toggle('on',!!s.shake);
+  if(lab)lab.textContent='Screen Shake: '+(s.shake?'ON':'OFF');
+}
+function openSettings(){
+  syncSettingsUI();
+  document.getElementById('settings-overlay').classList.add('show');
+}
+function closeSettings(){
+  document.getElementById('settings-overlay').classList.remove('show');
+  persistSettings();
+}
+function toggleShakeSetting(){
+  const s=getSettings();
+  s.shake=!s.shake;
+  syncSettingsUI();
+  persistSettings();
+}
+(function initSettingsWidgets(){
+  const vol=document.getElementById('set-volume');
+  if(!vol)return;
+  vol.addEventListener('input',()=>{
+    const s=getSettings();
+    s.volume=vol.value/100;
+    const val=document.getElementById('set-volume-val');
+    if(val)val.textContent=vol.value+'%';
+  });
+  // Persist on release, not per-notch, and blip so the level is audible.
+  vol.addEventListener('change',()=>{
+    persistSettings();
+    try{if(typeof sfx==='function')sfx('place');}catch(err){}
+  });
+})();
