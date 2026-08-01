@@ -2,6 +2,100 @@
 
 This file governs every game added to or modified in this repository (GitHub Pages site "Gonzo's Game Vault"). It exists because the 2026-07 portfolio review found the same handful of mistakes repeated across a dozen independently-built games. Read this before adding a new game or doing a polish pass on an existing one.
 
+## The three binding rules (new builds and major overhauls)
+
+These are binding for any **new game** and any **major overhaul**. Existing games
+are grandfathered until their next major pass — they are not retroactively in
+violation, but they cannot pass a major pass without meeting these.
+
+### 1. Design proves the decision before any code is written
+A new build starts with a one-page design proof stating: the core recurring
+decision, the failure state, the pressure curve at minute 5 / hour 1 / hour 10,
+the scarce resource, and — the part that matters — **arithmetic showing the
+optimal play is not a constant.**
+
+This exists because Purr & Power Co. shipped a bidding slider as its only
+recurring decision, and the optimum turned out to be a fixed win probability of
+~55-67% for every lead in the game, independent of cash, crew load, season or
+pipeline state. "Drag to 60% and submit" was near-perfect play forever, and the
+UI displayed the number you were solving for. Compounding it, market price was
+derived from the player's *own* cost basis (which included their own payroll),
+so the player's wages set their own prices — which is why wage inflation could
+not bite and why nothing rewarded being a low-cost operator.
+
+Neither flaw was findable by playtesting or by code review. Both were visible in
+ten minutes to anyone who wrote the formulas down. Both were unfixable after the
+fact without invalidating every balance number in the game, so both shipped as
+documented defects. A review cannot rescue a solved core loop — only the design
+gate can.
+
+Run the `design-architect` agent for this. If it cannot prove the decision is
+non-constant, that is a stop, not a note.
+
+### 2. The balance harness ships with the game
+Any game with an economy or progression curve gets a headless simulation harness
+committed alongside it: extract the script, run it in Node against a minimal DOM
+stub, drive the real simulation with a competent autoplayer, and run N>=30 trials
+of several game-years.
+
+It must assert: no exceptions; all invariants in range (no NaN/Infinity money, no
+negative inventory, no stage index past the end); **the ledger reconciles to cash
+every single day**; competent play survives at a high rate; careless play dies at
+a meaningful rate; and multiple policy profiles produce a real spread (if a bad
+strategy scores the same as a good one, the central decision does not matter and
+that is a design defect).
+
+This exists because the same game had five separate bugs that each made it
+unwinnable, every one invisible in a code read and obvious after 40 runs: the
+starting roster lacked the one role required to complete a job, so no job could
+ever finish; job capacity was a constant unrelated to actual crews; capital
+purchases were left out of the expense total, so the P&L reported profit on
+months that emptied the bank; a reputation penalty applied per-item per-day with
+no decay, making reputation a one-way ratchet to zero; and morale had a constant
+negative drift with no equilibrium at any reachable value, so every company died
+at minimum morale with a perfect reputation and a full order book.
+
+Run the `balance-scientist` agent for this.
+
+### 3. Modular layout
+New builds and major overhauls use `index.html` + `js/sim.js` + `js/ui.js` +
+`js/content.js` + `js/fx.js` rather than one large single file. Everything else
+in this document still applies — self-contained, no CDN, no external runtime
+dependency; modular means local modules, not remote ones.
+
+This is not a style preference. A single-file game forces every change through
+one integrator, so a build squad becomes serial no matter how many agents are
+working. The Purr & Power overhaul ran five specialists in parallel and then
+bottlenecked on ~90 hand-applied edits by one integrator, purely because five
+agents cannot edit one 2,000-line file at once. Chop Shop Circuit and Marble
+Descent already have the right shape; copy them.
+
+## The standing squads
+
+Eleven agents in `~/.claude/agents/`, orchestrated by the `gamebuild` skill with
+four presets: `new`, `overhaul`, `polish`, `triage`.
+
+- **Squad 0 — Greenlight** (before code): `design-architect`, `producer`.
+  `producer` also returns the production cost estimate, so scale is a decision
+  rather than a surprise.
+- **Squad 1 — Build** (parallel, one file each): `systems-engineer`,
+  `interface-engineer`, `content-writer`, `art-and-feel`.
+- **Squad 2 — Harden** (parallel, read-only): `qa-adversary`,
+  `balance-scientist`, `perf-and-compat`, `onboarding-tester`.
+- **Squad 3 — Ship**: `release-manager`.
+
+Operating rules, learned the expensive way:
+1. **Reviewers are read-only; one integrator applies every change.**
+2. **Builders own exactly one file.** That is what makes the squad parallel.
+3. **A finding without a reproduction is an opinion.** Rank accordingly.
+4. **Convergence sets priority.** Four agents independently found the same
+   tutorial/code mismatch in Purr & Power; that redundancy is signal.
+5. **Never edit the game file while a browser-driving agent is running.**
+
+Measured cost of a five-agent review pass on a 2,000-line game: ~470K subagent
+tokens, of which `qa-adversary` was ~152K and returned 14 defects with
+reproductions — the best value per token in the roster by a wide margin.
+
 ## The quality bar
 Every game kept in this vault must **exceed** the best existing games here, not just match them. Before calling any game "done," compare it against the current flagship tier (Purr & Power Co., Freight Dominion) on: economic/mechanical depth, save/load robustness, visual polish, and absence of dead/vaporware features. If a new or revised game doesn't clear that bar, it stays `status-wip` and `data-hidden="1"` — it does not get promoted just because it runs without crashing.
 
