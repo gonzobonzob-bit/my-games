@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Purr &amp; Power Co.</title>
+<style>
+:root{
+  --sun:#F59E0B;--sun2:#FDE68A;--green:#22C55E;--orange:#F97316;
+  --red:#EF4444;--blue:#3B82F6;--sky:#38BDF8;--purple:#8B5CF6;
+  --bg:#0F172A;--bg2:#1E293B;--panel:#1A2744;--panel2:#243158;
+  --border:#334155;--text:#F1F5F9;--muted:#94A3B8;--card:#162035;
+  --sand:#C4A882;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;color:var(--text);}
+button{font-family:inherit;cursor:pointer;}
+.ff{font-family:'Trebuchet MS','Segoe UI',sans-serif;font-weight:800;letter-spacing:0.2px;}
+
+/* ══ MENU ══ */
+#menu{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:24px;text-align:center;
+  background:radial-gradient(ellipse 700px 500px at 50% 28%,rgba(245,158,11,0.12),transparent 65%),
+             linear-gradient(160deg,#0F172A,#1E293B 50%,#0F2040);}
+#menu.gone{display:none;}
+.m-sun{font-size:64px;filter:drop-shadow(0 0 26px rgba(245,158,11,0.65));animation:flt 2.6s ease-in-out infinite;}
+@keyframes flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.m-title{font-size:38px;color:var(--sun);line-height:1.05;margin:8px 0 2px;}
+.m-sub{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;}
+.m-tag{font-size:12px;color:var(--muted);line-height:1.7;max-width:320px;margin-bottom:20px;}
+.m-btns{display:flex;flex-direction:column;gap:9px;width:100%;max-width:250px;}
+.m-btn{border:none;border-radius:13px;padding:13px;font-size:16px;transition:transform .12s;}
+.m-btn:active{transform:scale(.96);}
+.m-btn.pri{background:linear-gradient(135deg,var(--sun),var(--orange));color:#0F172A;
+  box-shadow:0 7px 22px rgba(245,158,11,.35);}
+.m-btn.sec{background:var(--panel);color:var(--text);border:1px solid var(--border);}
+.m-btn:disabled{opacity:.4;cursor:default;transform:none;}
+.m-note{font-size:10px;color:var(--muted);margin-top:14px;line-height:1.6;max-width:300px;}
+
+/* ══ APP ══ */
+#app{display:none;flex-direction:column;width:100%;height:100%;}
+#app.show{display:flex;}
+
+#topbar{background:var(--bg);border-bottom:2px solid var(--border);padding:5px 8px;
+  display:flex;align-items:center;gap:6px;flex-shrink:0;z-index:100;}
+.tb-cash{font-size:16px;color:var(--green);line-height:1;}
+.tb-cash.neg{color:var(--red);}
+.tb-cash small{display:block;font-size:7px;color:var(--muted);letter-spacing:1.5px;font-weight:400;}
+.tb-mid{flex:1;display:flex;gap:5px;justify-content:center;}
+.tb-chip{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:2px 7px;text-align:center;min-width:46px;}
+.tb-chip .l{font-size:6px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
+.tb-chip .v{font-size:12px;}
+.tb-date{text-align:right;}
+.tb-date .d{font-size:12px;color:var(--sun);}
+.tb-date .y{font-size:7px;color:var(--muted);}
+.spd{display:flex;gap:2px;margin-top:2px;}
+.spd button{width:19px;height:17px;border:1px solid var(--border);background:var(--card);
+  color:var(--muted);border-radius:4px;font-size:9px;padding:0;line-height:1;}
+.spd button.on{background:var(--sun);color:#0F172A;border-color:var(--sun);font-weight:800;}
+
+#game-area{flex:1;overflow:hidden;position:relative;}
+.layer{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
+.layer.active{display:flex;}
+.scroll{flex:1;overflow-y:auto;padding:8px 8px 20px;-webkit-overflow-scrolling:touch;}
+
+/* generic panels */
+.sec{font-size:13px;color:var(--sun);margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:baseline;}
+.sec .hint{font-size:9px;color:var(--muted);font-weight:400;}
+.box{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:9px;margin-bottom:7px;}
+.row{display:flex;align-items:center;gap:8px;}
+.grow{flex:1;min-width:0;}
+.tiny{font-size:9px;color:var(--muted);}
+.mini{font-size:10px;color:var(--muted);line-height:1.5;}
+.btn{border:none;border-radius:9px;padding:7px 11px;font-size:12px;color:#fff;
+  background:var(--panel2);transition:transform .1s;white-space:nowrap;}
+.btn:active{transform:scale(.95);}
+.btn.g{background:linear-gradient(135deg,#15803D,#22C55E);}
+.btn.b{background:linear-gradient(135deg,#1E40AF,#3B82F6);}
+.btn.o{background:linear-gradient(135deg,#C2410C,#F97316);}
+.btn.r{background:linear-gradient(135deg,#991B1B,#EF4444);}
+.btn.p{background:linear-gradient(135deg,#5B21B6,#8B5CF6);}
+.btn:disabled{opacity:.38;transform:none;}
+.btn.sm{padding:4px 8px;font-size:10px;border-radius:7px;}
+.bar{height:7px;background:var(--card);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.bar>div{height:100%;border-radius:4px;transition:width .35s;}
+.pill{font-size:8px;padding:2px 6px;border-radius:6px;font-weight:700;white-space:nowrap;}
+.pill.ok{background:rgba(34,197,94,.18);color:var(--green);}
+.pill.warn{background:rgba(245,158,11,.18);color:var(--sun);}
+.pill.bad{background:rgba(239,68,68,.18);color:var(--red);}
+.pill.info{background:rgba(59,130,246,.18);color:#93C5FD;}
+.pill.mute{background:rgba(148,163,184,.15);color:var(--muted);}
+.empty{text-align:center;color:var(--muted);font-size:11px;padding:18px 10px;line-height:1.7;}
+
+/* office scene */
+.off-scene{height:132px;flex-shrink:0;position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#EDE8E0 0%,#E4DDD2 100%);border-bottom:2px solid var(--border);}
+.off-floor{position:absolute;bottom:0;left:0;right:0;height:9px;background:linear-gradient(180deg,#C0B0A0,#A89888);}
+.off-win{position:absolute;top:8px;width:38px;height:31px;border:2px solid #B8A898;border-radius:3px;
+  background:linear-gradient(160deg,#BAE6FD,#7DD3FC);overflow:hidden;}
+.off-win::after{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(255,255,255,.35);}
+.deskv{position:absolute;bottom:9px;width:34px;text-align:center;}
+.deskv .h{font-size:15px;line-height:1;}
+.deskv .d{width:32px;height:11px;background:#C49A6C;border:1px solid #8B6347;border-radius:2px;margin:0 auto;}
+.deskv .n{font-size:5px;color:#5B4636;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.catv{position:absolute;font-size:15px;cursor:pointer;transition:left 3.5s ease-in-out,bottom 3.5s ease-in-out;z-index:5;}
+.catv:active{transform:scale(1.25);}
+
+/* job site scene */
+.site-scene{flex:1;position:relative;overflow:hidden;min-height:150px;
+  background:linear-gradient(180deg,#1E3A8A 0%,#2563EB 30%,#60A5FA 52%,#93C5FD 62%,#D4C4A8 62%,#B8956A 100%);}
+.site-ground{position:absolute;bottom:0;left:0;right:0;height:38%;background:linear-gradient(180deg,#C4A882,#A8875A);}
+
+/* modals */
+/* Above #notes and .flt — toasts were landing on top of open modals and
+   covering the Submit/Pass buttons. */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;
+  padding:14px;z-index:800;}
+.ov.gone{display:none;}
+.mo{background:var(--panel);border:2px solid var(--sun);border-radius:16px;padding:15px;
+  width:100%;max-width:330px;max-height:88vh;overflow-y:auto;animation:pIn .25s ease;}
+@keyframes pIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.mo.red{border-color:var(--red);}
+.mo.blue{border-color:var(--blue);}
+.mo-t{font-size:17px;color:var(--sun);margin-bottom:3px;}
+.mo.red .mo-t{color:var(--red);}
+.mo.blue .mo-t{color:#93C5FD;}
+.mo-s{font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+.mo-btns{display:flex;gap:7px;margin-top:12px;}
+.mo-btns .btn{flex:1;justify-content:center;text-align:center;padding:9px;font-size:14px;}
+
+/* quote builder */
+.qline{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px dashed rgba(148,163,184,.18);}
+.qline.tot{border-bottom:none;border-top:1px solid var(--border);margin-top:3px;padding-top:6px;font-size:12px;}
+.qline .v{color:var(--text);font-weight:700;}
+input[type=range]{width:100%;accent-color:var(--sun);height:22px;}
+.winbar{height:12px;border-radius:6px;background:var(--card);overflow:hidden;border:1px solid var(--border);}
+.winbar>div{height:100%;transition:width .2s,background .2s;}
+
+/* nav */
+#nav{flex-shrink:0;background:var(--bg);border-top:2px solid var(--border);display:flex;
+  padding-bottom:env(safe-area-inset-bottom,0);}
+.nt{flex:1;padding:6px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:1px;
+  border:none;background:none;position:relative;}
+.nt.active{background:rgba(245,158,11,.09);}
+.nt .i{font-size:17px;}
+.nt .l{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
+.nt.active .l{color:var(--sun);}
+.nt .bdg{position:absolute;top:3px;right:calc(50% - 17px);min-width:13px;height:13px;padding:0 3px;
+  background:var(--red);border-radius:7px;font-size:8px;font-weight:800;color:#fff;display:none;
+  align-items:center;justify-content:center;line-height:1;}
+.nt .bdg.on{display:flex;}
+
+/* notifications */
+#notes{position:fixed;left:50%;transform:translateX(-50%);bottom:66px;z-index:600;
+  display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none;width:92%;max-width:340px;}
+.note{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:6px 12px;
+  font-size:11px;font-weight:700;animation:nIn .3s ease;text-align:center;line-height:1.4;}
+.note.good{border-color:rgba(34,197,94,.5);color:#86EFAC;}
+.note.bad{border-color:rgba(239,68,68,.5);color:#FCA5A5;}
+.note.warn{border-color:rgba(245,158,11,.5);color:var(--sun2);}
+@keyframes nIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.flt{position:fixed;z-index:650;font-size:14px;font-weight:800;pointer-events:none;
+  animation:fUp 1.1s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+@keyframes fUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-46px)}}
+
+table.pl{width:100%;border-collapse:collapse;font-size:11px;}
+table.pl td{padding:3px 2px;border-bottom:1px solid rgba(148,163,184,.12);}
+table.pl td.n{text-align:right;font-variant-numeric:tabular-nums;}
+table.pl tr.tot td{border-top:1px solid var(--border);border-bottom:none;font-weight:800;font-size:12px;padding-top:6px;}
+.pos{color:var(--green);}.negc{color:var(--red);}
+</style>
+</head>
+<body>
+
+<!-- ══ MAIN MENU ══ -->
+<div id="menu">
+  <div class="m-sun">☀️</div>
+  <div class="m-title ff">Purr &amp; Power Co.</div>
+  <div class="m-sub">Solar Contractor Tycoon · El Paso, TX</div>
+  <div class="m-tag">Bid the jobs. Make payroll. Keep the cats fed.<br>
+    Revenue comes only from installs you actually finish — and the utility pays last.</div>
+  <div class="m-btns">
+    <button class="m-btn pri ff" id="btn-continue" onclick="continueGame()">▶ Continue</button>
+    <button class="m-btn pri ff" onclick="newGame()">🏢 New Company</button>
+    <button class="m-btn sec" onclick="openHelp()">📖 How To Play</button>
+  </div>
+  <div class="m-note" id="menu-note"></div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div id="topbar">
+    <div>
+      <div class="tb-cash ff" id="tb-cash">$0</div>
+      <small style="font-size:7px;color:var(--muted);letter-spacing:1.5px;">CASH</small>
+    </div>
+    <div class="tb-mid">
+      <div class="tb-chip"><div class="l">Rep</div><div class="v ff" id="tb-rep">50</div></div>
+      <div class="tb-chip"><div class="l">Morale</div><div class="v ff" id="tb-mor">70</div></div>
+      <div class="tb-chip"><div class="l">Jobs</div><div class="v ff" id="tb-jobs">0</div></div>
+    </div>
+    <div class="tb-date">
+      <div class="d ff" id="tb-date">Day 1</div>
+      <div class="y" id="tb-year">Year 1 · Jan</div>
+      <div class="spd">
+        <button id="sp0" onclick="setSpeed(0)">❚❚</button>
+        <button id="sp1" onclick="setSpeed(1)">1</button>
+        <button id="sp2" onclick="setSpeed(2)">2</button>
+        <button id="sp3" onclick="setSpeed(3)">3</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="game-area">
+
+    <!-- OFFICE -->
+    <div class="layer active" id="layer-office">
+      <div class="off-scene" id="off-scene"><div class="off-floor"></div></div>
+      <div class="scroll" id="office-body"></div>
+    </div>
+
+    <!-- SALES -->
+    <div class="layer" id="layer-sales"><div class="scroll" id="sales-body"></div></div>
+
+    <!-- OPS -->
+    <div class="layer" id="layer-ops"><div class="scroll" id="ops-body"></div></div>
+
+    <!-- SITE -->
+    <div class="layer" id="layer-site">
+      <div class="site-scene" id="site-scene"><div class="site-ground"></div></div>
+      <div class="scroll" style="flex:0 0 auto;max-height:44%" id="site-body"></div>
+    </div>
+
+    <!-- FINANCE -->
+    <div class="layer" id="layer-finance"><div class="scroll" id="finance-body"></div></div>
+  </div>
+
+  <div id="nav">
+    <button class="nt active" id="nav-office" onclick="showTab('office')">
+      <span class="i">🏢</span><span class="l">Office</span><span class="bdg" id="bdg-office"></span></button>
+    <button class="nt" id="nav-sales" onclick="showTab('sales')">
+      <span class="i">🎯</span><span class="l">Sales</span><span class="bdg" id="bdg-sales"></span></button>
+    <button class="nt" id="nav-ops" onclick="showTab('ops')">
+      <span class="i">📋</span><span class="l">Ops</span><span class="bdg" id="bdg-ops"></span></button>
+    <button class="nt" id="nav-site" onclick="showTab('site')">
+      <span class="i">🏗️</span><span class="l">Site</span><span class="bdg" id="bdg-site"></span></button>
+    <button class="nt" id="nav-finance" onclick="showTab('finance')">
+      <span class="i">📊</span><span class="l">Finance</span><span class="bdg" id="bdg-finance"></span></button>
+  </div>
+</div>
+
+<div id="notes"></div>
+
+<!-- MODALS -->
+<div class="ov gone" id="ov-quote"><div class="mo" id="quote-card"></div></div>
+<div class="ov gone" id="ov-msg"><div class="mo" id="msg-card"></div></div>
+<div class="ov gone" id="ov-pause"><div class="mo blue">
+  <div class="mo-t ff">⏸ Paused</div>
+  <div class="mo-s">Purr &amp; Power Co.</div>
+  <div style="display:flex;flex-direction:column;gap:7px">
+    <button class="btn g" onclick="closePause()">▶ Resume</button>
+    <button class="btn b" onclick="save();note('💾 Game saved','good')">💾 Save Now</button>
+    <button class="btn" onclick="openHelp()">📖 How To Play</button>
+    <button class="btn r" onclick="quitToMenu()">⬅ Main Menu</button>
+  </div>
+</div></div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════
+   PURR & POWER CO. — solar contractor tycoon
+   Revenue comes only from installs that actually reach PTO.
+   Every stage of a job blocks on a finite, nameable resource.
+   ════════════════════════════════════════════════════════════ */
+
+const SK='pnp_tycoon_v1';
+const OLD_KEYS=['pnp_v5','pnp_v4','pnp_v3'];
+
+// ── static data ──────────────────────────────────────────────
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const ROLES={
+  rep      :{name:'Solar Rep',      icon:'☀️',dept:'Sales', wage:2900,desc:'Generates leads each day'},
+  consult  :{name:'Sales Consultant',icon:'📞',dept:'Sales', wage:3200,desc:'+4% win rate on every bid'},
+  setter   :{name:'Appt Setter',    icon:'📅',dept:'Sales', wage:2500,desc:'Extra leads, keeps them warm longer'},
+  designer :{name:'System Designer',icon:'📐',dept:'Tech',  wage:3900,desc:'Runs Site Survey + Design stages'},
+  permit   :{name:'Permit Coord',   icon:'📄',dept:'Ops',   wage:3100,desc:'Runs Permitting — halves AHJ wait'},
+  lead     :{name:'Install Lead',   icon:'🔨',dept:'Field', wage:3600,desc:'Heads one install crew'},
+  installer:{name:'Installer',      icon:'👷',dept:'Field', wage:2800,desc:'2 per crew. More = faster installs'},
+  electric :{name:'Electrician',    icon:'⚡',dept:'Field', wage:4400,desc:'Required for AC hookup on every job'},
+  coord    :{name:'Project Coord',  icon:'📋',dept:'Ops',   wage:3300,desc:'+2 concurrent jobs'},
+  service  :{name:'Service Tech',   icon:'🔧',dept:'Tech',  wage:3000,desc:'Clears warranty callbacks'},
+  officemgr:{name:'Office Manager', icon:'🗂️',dept:'Ops',   wage:3400,desc:'-12% overhead, slower morale drain'},
+  warehouse:{name:'Warehouse',      icon:'📦',dept:'Ops',   wage:2700,desc:'-10% material cost'},
+};
+const ROLE_ORDER=['rep','installer','lead','electric','designer','permit','consult','coord','setter','warehouse','service','officemgr'];
+
+// Job pipeline. Each stage names the resource it blocks on — that is the game.
+const STAGES=[
+  {key:'survey', name:'Site Survey',      days:2, res:'designer', icon:'📐'},
+  {key:'design', name:'Design & Engineering',days:3,res:'designer',icon:'✏️'},
+  {key:'permit', name:'City Permit (AHJ)', days:6, res:'permit',   icon:'📄'},
+  {key:'mats',   name:'Material Staging',  days:1, res:'stock',    icon:'📦'},
+  {key:'install',name:'Installation',      days:0, res:'crew',     icon:'🔨'},
+  {key:'elec',   name:'Electrical & Inverter',days:2,res:'electric',icon:'⚡'},
+  {key:'inspect',name:'AHJ Inspection',    days:3, res:null,       icon:'🔍'},
+  {key:'pto',    name:'Utility PTO',       days:7, res:null,       icon:'🔌'},
+];
+
+const MATS={panel:{n:'Solcrest Prime 400W',base:155},opt:{n:'GridWave Q400 Optimizer',base:60},
+            rail:{n:'IronRail FlexRail',base:42},inv:{n:'GridWave HD Inverter',base:1800}};
+
+const LEAD_POOL=[
+  {c:'Garcia Family',      t:'Residential',i:'🏠',min:10,max:18,com:false},
+  {c:'Kim Residence',      t:'Residential',i:'🏠',min:12,max:22,com:false},
+  {c:'Montoya Prop.',      t:'Residential',i:'🏠',min:10,max:16,com:false},
+  {c:'Casa Herrera — Mesa Hills',t:'Residential',i:'🏠',min:14,max:24,com:false},
+  {c:'Kern Place Res.',    t:'Residential',i:'🏠',min:12,max:20,com:false},
+  {c:'Del Norte Prop.',    t:'Residential',i:'🏠',min:10,max:20,com:false},
+  {c:'Barela Ranch — Fabens',t:'Ground Mount',i:'🌵',min:40,max:90,com:false},
+  {c:'Sunset Apartments',  t:'Multifamily', i:'🏢',min:60,max:130,com:true},
+  {c:'Desert Star Plaza',  t:'Commercial',  i:'🏢',min:45,max:95,com:true},
+  {c:'Desert Auto Group — Montana Ave',t:'Canopy',i:'🚗',min:50,max:110,com:true},
+  {c:'Mission Valley ISD — Ysleta',t:'School',i:'🏫',min:90,max:180,com:true},
+  {c:'BulkMart EP',        t:'Commercial',  i:'🏪',min:120,max:240,com:true},
+  {c:'Sun City Mall',      t:'Commercial',  i:'🏬',min:100,max:200,com:true},
+  {c:'Fort Bliss Housing', t:'Government',  i:'🪖',min:110,max:210,com:true},
+  {c:'EP Logistics Hub',   t:'Industrial',  i:'🏭',min:200,max:420,com:true},
+];
+
+const INVEST=[
+  {id:'truck',  n:'Another Truck',    i:'🚚',cost:32000, rep:0, desc:'+1 crew slot. Crews are capped by trucks.',repeat:true},
+  {id:'cad',    n:'Design Software',  i:'💻',cost:12000, rep:0, desc:'Design stage 1 day faster.'},
+  {id:'exped',  n:'Permit Expediter', i:'🤝',cost:18000, rep:0, desc:'Permit stage 35% faster.'},
+  {id:'wh',     n:'Warehouse Lease',  i:'🏬',cost:55000, rep:0, desc:'-10% material cost, stock cap 3x.'},
+  {id:'lic',    n:'Commercial License',i:'📜',cost:25000,rep:5, desc:'Commercial & institutional leads start arriving.'},
+  {id:'cert',   n:'PV Pro Certification',i:'🎓',cost:20000,rep:10,desc:'+10 reputation, +5% win rate.'},
+  {id:'batt',   n:'Battery Division',  i:'🔋',cost:60000,rep:5, desc:'+18% contract value on every bid.'},
+  {id:'branch', n:'Las Cruces Branch', i:'📍',cost:150000,rep:8,desc:'Bigger regional leads enter the pipeline.'},
+];
+
+const OFFICES=[
+  {n:'Strip-Mall Suite',cap:6, rent:2400,cats:3,cost:0},
+  {n:'Westside Office', cap:12,rent:5200,cats:5,cost:45000},
+  {n:'Franklin Tower',  cap:20,rent:9500,cats:8,cost:140000},
+];
+
+const EVENTS=[
+  {id:'monsoon',t:'Monsoon Season',i:'⛈️',d:'Afternoon storms roll over the Franklins. Roof work is slow and stop-start all month.',f:s=>{s.mod.install=1.5;}},
+  {id:'heat',   t:'Heat Advisory', i:'🌡️',d:'115°F on the roof deck. Crews are on mandatory shade breaks every hour.',f:s=>{s.mod.install=1.35;s.moraleDrift=-0.4;}},
+  {id:'tariff', t:'Panel Tariff',  i:'📈',d:'New import duty lands. Module pricing jumps and your supplier will not hold a quote.',f:s=>{s.priceMod.panel=1.3;}},
+  {id:'glut',   t:'Supplier Glut', i:'📉',d:'A cancelled utility project dumped inventory on the market. Modules are cheap this month.',f:s=>{s.priceMod.panel=0.78;}},
+  {id:'ahj',    t:'AHJ Backlog',   i:'🗂️',d:'The city plan-review desk lost two staff. Permits are crawling.',f:s=>{s.mod.permit=1.6;}},
+  {id:'epe',    t:'Utility Backlog',i:'🔌',d:'The utility interconnection queue is jammed. PTO is taking weeks longer.',f:s=>{s.mod.pto=1.7;}},
+  {id:'referral',t:'Referral Wave',i:'🗣️',d:'A finished array on Mesa Hills got the neighbours talking. Phone will not stop.',f:s=>{s.pendingLeads+=4;}},
+  {id:'undercut',t:'Price War',    i:'⚔️',d:'DayStar Solar is buying market share with suicide pricing. Bids are tighter this month.',f:s=>{s.mod.market=0.9;}},
+  {id:'boom',   t:'Rate Hike Panic',i:'💡',d:'The utility filed for a 14% rate increase. Everyone suddenly wants a quote.',f:s=>{s.pendingLeads+=3;s.mod.market=1.08;}},
+  {id:'cat',    t:'Office Cat Goes Viral',i:'🐱',d:'Somebody filmed Whiskers asleep in a module box. 400k views and counting.',f:s=>{s.rep=clamp(s.rep+8,0,100);}},
+];
+
+const CAT_NAMES=['Whiskers','Amperage','Tortilla','Bandit','Solar','Mija','Pepita','Chuy','Nacho','Luna'];
+const FIRST=['Alex','Jordan','Sam','Casey','Riley','Dana','Quinn','Marisol','Hector','Beto','Yesenia','Ruben','Tavo','Lupita','Cruz','Noemi'];
+const LAST=['R.','M.','T.','L.','N.','P.','S.','V.','G.','C.','A.','B.'];
+
+// ── state ────────────────────────────────────────────────────
+let S=null, tickHandle=null, autoHandle=null, acc=0, lastReal=0;
+let tab='office', quoteLead=null, sceneBuilt=false, catchingUp=false;
+// Every cat wander timer is tracked so rebuilding the office scene (or leaving
+// to the menu) cannot leave orphaned intervals running — see CLAUDE.md.
+let catTimers=[];
+
+const MS_PER_DAY=[0,3400,1700,850];
+
+function blankState(){
+  return {
+    v:1,
+    day:1,month:0,year:1,speed:1,
+    cash:75000, rep:50, morale:72,
+    staff:[], cats:[], jobs:[], leads:[], bids:[], done:[],
+    inv:{panel:0,opt:0,rail:0,inv:0},
+    invest:{}, trucks:1, office:0,
+    marketing:800, autoBuy:true,
+    loan:0, loanRate:0.11,
+    ledger:blankLedger(), history:[], cashHist:[],
+    mod:{}, priceMod:{}, pendingLeads:0, moraleDrift:0,
+    event:null, eventName:'',
+    nextId:1, jobsDone:0, jobsLate:0, callbacks:0,
+    totalRevenue:0, bankrupt:false, insolventMonths:0,
+    tutorial:true, lastTs:Date.now(),
+  };
+}
+function blankLedger(){
+  return {revenue:0,materials:0,payroll:0,rent:0,insurance:0,fleet:0,marketing:0,
+          catcare:0,interest:0,penalty:0,capex:0};
+}
+
+// ── helpers ──────────────────────────────────────────────────
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function money(n){
+  const s=n<0?'-':''; n=Math.abs(Math.round(n));
+  if(n>=1e6)return s+'$'+(n/1e6).toFixed(n>=1e7?1:2)+'M';
+  if(n>=10000)return s+'$'+(n/1000).toFixed(0)+'K';
+  return s+'$'+n.toLocaleString('en-US');
+}
+const money0=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
+const uid=()=>S.nextId++;
+const staffOf=r=>S.staff.filter(s=>s.role===r);
+const nStaff=r=>staffOf(r).length;
+const staffCap=()=>OFFICES[S.office].cap;
+const catCap=()=>OFFICES[S.office].cats;
+
+function note(msg,kind){
+  const box=document.getElementById('notes');
+  const el=document.createElement('div');
+  el.className='note '+(kind||'');
+  el.textContent=msg;
+  box.appendChild(el);
+  while(box.children.length>4)box.removeChild(box.firstChild);
+  setTimeout(()=>el.remove(),3600);
+}
+function flt(x,y,txt,col){
+  const el=document.createElement('div');
+  el.className='flt';el.style.left=x+'px';el.style.top=y+'px';el.style.color=col||'#22C55E';
+  el.textContent=txt;document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1150);
+}
+
+// ── derived capacity ─────────────────────────────────────────
+// A crew is 1 Install Lead + 2 Installers + 1 truck. Whichever runs out first
+// is the bottleneck, and the Ops tab says which one out loud.
+function crewCount(){
+  return Math.min(nStaff('lead'), Math.floor(nStaff('installer')/2), S.trucks);
+}
+function crewLimiter(){
+  const l=nStaff('lead'), i=Math.floor(nStaff('installer')/2), t=S.trucks;
+  const m=Math.min(l,i,t);
+  if(m===l&&l<=i&&l<=t)return 'Install Leads';
+  if(m===i&&i<=t)return 'Installers';
+  return 'Trucks';
+}
+// Capacity is derived from what you can actually staff, not a flat number.
+// A flat cap let the board fill with jobs no crew could ever reach, so every
+// one of them finished late and the reputation spiral was unrecoverable.
+function jobCap(){ return 3 + crewCount() + nStaff('coord')*2; }
+function resourceCap(res){
+  switch(res){
+    case 'designer': return nStaff('designer')+1;   // the owner covers one design desk
+    case 'permit'  : return nStaff('permit')+1;     // ...and files permits until you hire
+    case 'electric': return nStaff('electric');
+    case 'crew'    : return crewCount();
+    default: return 99;
+  }
+}
+function moraleFactor(){ return 0.7+ (S.morale/100)*0.5; }   // 0.7 .. 1.2
+
+// ── material costing ─────────────────────────────────────────
+function unitPrice(k){ return Math.round(MATS[k].base*(S.priceMod[k]||1)); }
+function matDiscount(){
+  let d=1;
+  if(S.invest.wh)d-=0.10;
+  if(nStaff('warehouse')>0)d-=0.10;
+  return Math.max(0.7,d);
+}
+function invertersFor(p){ return Math.max(1,Math.ceil(p/25)); }
+function materialCost(panels){
+  const inv=invertersFor(panels);
+  return Math.round((panels*(unitPrice('panel')+unitPrice('opt')+unitPrice('rail'))
+         + inv*unitPrice('inv'))*matDiscount());
+}
+// Modules a crew sets per day. At 6/day a single 200-module commercial job
+// pinned the only crew for 32 straight days and every other job on the board
+// aged into a late penalty behind it — throughput has to be in the same order
+// of magnitude as the job sizes the pipeline hands out.
+function installDays(panels){
+  const perDay=12+Math.max(0,nStaff('installer')-2)*1.2;
+  return Math.max(1,Math.ceil(panels/(perDay*moraleFactor())));
+}
+// What the company burns per day regardless of whether anyone is working.
+function dailyBurn(){
+  const ohCut=nStaff('officemgr')>0?0.88:1;
+  return (S.staff.reduce((a,s)=>a+s.wage,0)
+        + OFFICES[S.office].rent*ohCut
+        + (420+S.totalRevenue*0.004)*ohCut
+        + S.trucks*640 + S.marketing + S.cats.length*60)/30;
+}
+const cycleDays=panels=>24+installDays(panels);
+
+function costBasis(panels){
+  const mats=materialCost(panels);
+  const permit=600+panels*4;
+  const labor=installDays(panels)*800;
+  // A job holds one of your job slots for its entire cycle, so it has to carry
+  // that share of fixed cost. Allocating a flat per-module figure instead had
+  // the quote screen telling players a 16-module job cost $480 of overhead
+  // when it actually tied up ~$6,000 of payroll and rent — so every "profitable"
+  // bid was quietly below cost and the company bled out around year three.
+  const oh=Math.round(dailyBurn()*cycleDays(panels)/Math.max(1,jobCap()));
+  return {mats,permit,labor,oh,total:mats+permit+labor+oh};
+}
+function marketPrice(lead){
+  const cb=costBasis(lead.panels).total;
+  return Math.round(cb*lead.mkt*(S.mod.market||1)*(S.invest.batt?1.18:1));
+}
+function winChance(lead,price){
+  const mp=marketPrice(lead);
+  let w=0.55+((mp-price)/mp)*2.0;
+  w+=(S.rep-50)/250;
+  w+=nStaff('consult')*0.04;
+  if(S.invest.cert)w+=0.05;
+  w+= lead.quality==='hot'?0.10: lead.quality==='cold'?-0.10:0;
+  return clamp(w,0.03,0.97);
+}
+
+// ════════════════════════════════════════════════════════════
+// SIMULATION — one day
+// ════════════════════════════════════════════════════════════
+function advanceDay(){
+  if(S.bankrupt)return;
+  S.day++;
+  if(S.day>30){ S.day=1; closeMonth(); if(S.bankrupt)return; }
+
+  dailyCosts();
+  generateLeads();
+  tickBids();
+  tickJobs();
+  tickMorale();
+  save();
+
+  if(S.cash<-25000){ bankrupt(); return; }
+  if(!catchingUp)renderAll();
+}
+
+function dailyCosts(){
+  const L=S.ledger, D=30;
+  const ohCut=nStaff('officemgr')>0?0.88:1;
+  const pay=S.staff.reduce((a,s)=>a+s.wage,0)/D;
+  const rent=OFFICES[S.office].rent/D*ohCut;
+  const ins=(420+S.totalRevenue*0.004)/D*ohCut;
+  const fleet=(S.trucks*640)/D;
+  const mkt=S.marketing/D;
+  const cats=(S.cats.length*60)/D;
+  const int=S.loan*S.loanRate/365;
+
+  L.payroll+=pay; L.rent+=rent; L.insurance+=ins; L.fleet+=fleet;
+  L.marketing+=mkt; L.catcare+=cats; L.interest+=int;
+  S.cash-=(pay+rent+ins+fleet+mkt+cats+int);
+  S.loan+=int;
+}
+
+function generateLeads(){
+  let rate = 0.25 + nStaff('rep')*0.30 + nStaff('setter')*0.18 + S.marketing/9000 + (S.rep-50)/400;
+  rate*=moraleFactor();
+  let n=0;
+  while(rate>0){ if(Math.random()<Math.min(rate,1))n++; rate-=1; }
+  n+=S.pendingLeads; S.pendingLeads=0;
+  for(let i=0;i<n;i++)addLead();
+}
+function addLead(){
+  if(S.leads.length>=14)return;
+  const pool=LEAD_POOL.filter(p=>!p.com || S.invest.lic);
+  const p=pick(pool);
+  const q=Math.random(); const quality=q<0.25?'hot':q<0.7?'warm':'cold';
+  S.leads.push({
+    id:uid(), client:p.c, type:p.t, icon:p.i,
+    panels:ri(p.min,p.max), quality,
+    mkt:1.30+Math.random()*0.25,
+    days: quality==='hot'?ri(5,8): quality==='cold'?ri(10,16):ri(7,12),
+  });
+  bdg('sales');
+}
+
+function tickBids(){
+  // leads go stale if you never bid them
+  for(let i=S.leads.length-1;i>=0;i--){
+    const l=S.leads[i];
+    l.days-= (nStaff('setter')>0?0.7:1);
+    if(l.days<=0){ S.leads.splice(i,1); }
+  }
+  // submitted bids resolve
+  for(let i=S.bids.length-1;i>=0;i--){
+    const b=S.bids[i];
+    if(--b.wait>0)continue;
+    S.bids.splice(i,1);
+    if(Math.random()<b.chance){
+      startJob(b);
+      note('✅ Won the bid — '+b.client,'good');
+      bdg('ops');
+    } else {
+      note('❌ Lost '+b.client+' to a competitor','bad');
+      S.rep=clamp(S.rep-0.3,0,100);
+    }
+  }
+}
+
+function startJob(b){
+  const mats=materialCost(b.panels);
+  const deposit=Math.round(b.price*0.35);
+  S.cash+=deposit; S.ledger.revenue+=deposit; S.totalRevenue+=deposit;
+  S.jobs.push({
+    id:uid(), client:b.client, type:b.type, icon:b.icon, panels:b.panels,
+    value:b.price, deposit, matBudget:mats,
+    stage:0, left:STAGES[0].days, elapsed:0,
+    promised: 38 + Math.round(b.panels/10),
+    blocked:null, matsPaid:false, res:null,
+  });
+}
+
+function tickJobs(){
+  const used={designer:0,permit:0,electric:0,crew:0};
+  for(const j of S.jobs){
+    j.elapsed++;
+    const st=STAGES[j.stage];
+    j.blocked=null;
+
+    // resource-gated stages must claim a free unit each day
+    if(st.res==='stock'){
+      if(!j.matsPaid && !consumeMaterials(j)){ j.blocked='Out of stock'; continue; }
+    } else if(st.res){
+      const cap=resourceCap(st.res);
+      if(used[st.res]>=cap){
+        j.blocked = st.res==='crew' ? 'No free crew'
+                  : st.res==='electric' ? 'No electrician'
+                  : st.res==='designer' ? 'No designer'
+                  : 'No permit coordinator';
+        continue;
+      }
+      used[st.res]++;
+    }
+
+    j.left-=1;
+    if(j.left<=0)nextStage(j);
+  }
+}
+
+function stageDuration(j,idx){
+  const st=STAGES[idx];
+  let d=st.days;
+  if(st.key==='install') d=installDays(j.panels);
+  if(st.key==='design'&&S.invest.cad) d=Math.max(1,d-1);
+  if(st.key==='permit'){
+    if(nStaff('permit')>0)d=Math.round(d*0.55);
+    if(S.invest.exped)d=Math.round(d*0.65);
+  }
+  const m=S.mod[st.key]; if(m)d=Math.ceil(d*m);
+  return Math.max(1,d);
+}
+
+function nextStage(j){
+  j.stage++;
+  if(j.stage>=STAGES.length){ finishJob(j); return; }
+  j.left=stageDuration(j,j.stage);
+}
+
+function consumeMaterials(j){
+  const need={panel:j.panels,opt:j.panels,rail:j.panels,inv:invertersFor(j.panels)};
+  const short=Object.keys(need).some(k=>S.inv[k]<need[k]);
+  if(short){
+    if(!S.autoBuy)return false;
+    // rush order at a 25% premium — convenience, priced
+    let cost=0;
+    for(const k in need){
+      const gap=need[k]-S.inv[k];
+      if(gap>0){ cost+=gap*unitPrice(k)*1.18*matDiscount(); S.inv[k]+=gap; }
+    }
+    cost=Math.round(cost);
+    S.cash-=cost; S.ledger.materials+=cost;
+    note('🚚 Rush order for '+j.client+': '+money0(cost),'warn');
+  }
+  for(const k in need)S.inv[k]-=need[k];
+  j.matsPaid=true;
+  return true;
+}
+
+function finishJob(j){
+  const bal=j.value-j.deposit;
+  S.cash+=bal; S.ledger.revenue+=bal; S.totalRevenue+=bal;
+  S.jobsDone++;
+  const late=j.elapsed>j.promised;
+  if(late){
+    const pen=Math.round(j.value*0.03);
+    S.cash-=pen; S.ledger.penalty+=pen;
+    S.rep=clamp(S.rep-3,0,100); S.jobsLate++;
+    note('⚠️ '+j.client+' finished '+(j.elapsed-j.promised)+'d late — '+money0(pen)+' penalty','bad');
+  } else {
+    S.rep=clamp(S.rep+3,0,100);
+    note('🎉 PTO granted — '+j.client+' +'+money0(bal),'good');
+  }
+  S.done.unshift({client:j.client,value:j.value,late,day:S.day,month:S.month,year:S.year});
+  if(S.done.length>25)S.done.pop();
+  S.jobs=S.jobs.filter(x=>x!==j);
+  if(Math.random()<0.22)S.callbacks++;
+  bdg('finance');
+}
+
+// Morale seeks an equilibrium set by how you actually run the place, rather
+// than draining on a fixed timer. The old constant negative drift had no
+// counterbalance at any cat count the office could hold, so every company
+// eventually hit morale 5, bled staff, lost its last crew and died with a
+// perfect reputation and a full order book. Now it settles where you earn it.
+function moraleTarget(){
+  let t=52;
+  t+=S.cats.length*6;
+  t+=nStaff('officemgr')*8;
+  t+=S.cash>=0?10:-25;
+  t-=Math.max(0,S.jobs.length-jobCap())*10;
+  t+=(S.moraleDrift||0)*12;
+  if(S.morale<=5)t+=5;                      // never let 5 become an absorbing state
+  return clamp(t,10,100);
+}
+function tickMorale(){
+  S.morale=clamp(S.morale+(moraleTarget()-S.morale)*0.06,5,100);
+
+  // Callbacks drag on reputation, but the drag is bounded and they age out on
+  // their own. Unbounded per-callback drain made reputation a one-way ratchet:
+  // once the queue grew past a few, no amount of on-time work could out-earn it
+  // and every save eventually died at rep 0.
+  if(S.callbacks>0){
+    const cleared=Math.min(S.callbacks,nStaff('service'));
+    S.callbacks-=cleared;
+    if(cleared>0)S.rep=clamp(S.rep+cleared*0.8,0,100);
+    for(let i=S.callbacks;i>0;i--) if(Math.random()<0.06)S.callbacks--;   // you patch it yourself
+    S.callbacks=Math.min(S.callbacks,15);
+    if(S.callbacks>0)S.rep=clamp(S.rep-Math.min(S.callbacks,3)*0.1,0,100);
+  }
+  // people quit when it is bad enough
+  if(S.morale<22&&S.staff.length>0&&Math.random()<0.05){
+    const s=pick(S.staff);
+    S.staff=S.staff.filter(x=>x!==s);
+    note('😤 '+s.name+' ('+ROLES[s.role].name+') quit','bad');
+  }
+}
+
+// ── month close ──────────────────────────────────────────────
+function closeMonth(){
+  const L=S.ledger;
+  // capex is a real cash outflow, so it belongs in the total — leaving it out
+  // made the statement claim a profit on a month that drained the bank.
+  const exp=L.materials+L.payroll+L.rent+L.insurance+L.fleet+L.marketing
+           +L.catcare+L.interest+L.penalty+L.capex;
+  const net=L.revenue-exp;
+  S.history.unshift({label:MONTHS[S.month]+' Y'+S.year, rev:L.revenue, exp, net, cash:S.cash, capex:L.capex});
+  if(S.history.length>18)S.history.pop();
+  S.cashHist.push(Math.round(S.cash));
+  if(S.cashHist.length>24)S.cashHist.shift();
+
+  if(net<0)S.insolventMonths++; else S.insolventMonths=0;
+
+  S.ledger=blankLedger();
+  S.month++;
+  if(S.month>11){
+    S.month=0;S.year++;
+    // Annual wage inflation. Without it a company that stopped growing was
+    // permanently safe, and the back half of a run had no clock on it at all.
+    S.staff.forEach(s=>s.wage=Math.round(s.wage*1.05));
+    S.wageIndex=+( (S.wageIndex||1)*1.05 ).toFixed(3);
+    note('📈 Year '+S.year+': wages up 5% across the trade','warn');
+  }
+
+  // reset monthly modifiers, then roll a new event
+  S.mod={}; S.priceMod={}; S.moraleDrift=0;
+  rollEvent();
+
+  showReport(net,exp);
+}
+
+function rollEvent(){
+  if(Math.random()<0.42){
+    const e=pick(EVENTS);
+    S.event=e.id; S.eventName=e.t;
+    e.f(S);
+  } else { S.event=null; S.eventName=''; }
+}
+
+function showReport(net,exp){
+  if(catchingUp)return;              // offline fast-forward must not stack modals
+  const L=S.history[0];
+  const ev=S.event?EVENTS.find(x=>x.id===S.event):null;
+  html('msg-card',
+    '<div class="mo-t ff">📊 '+L.label+' Close</div>'+
+    '<div class="mo-s">Month-end statement for Purr &amp; Power Co.</div>'+
+    '<table class="pl">'+
+      tr('Revenue — installs',L.rev,1)+
+      tr('Operating expenses',-L.exp,0)+
+      '<tr class="tot"><td>Net '+(net>=0?'profit':'loss')+'</td>'+
+      '<td class="n '+(net>=0?'pos':'negc')+'">'+money0(net)+'</td></tr>'+
+    '</table>'+
+    '<div class="box" style="margin-top:10px"><div class="row">'+
+      '<div class="grow"><div class="tiny">CASH ON HAND</div>'+
+      '<div class="ff" style="font-size:17px;color:'+(S.cash<0?'var(--red)':'var(--green)')+'">'+money0(S.cash)+'</div></div>'+
+      '<div style="text-align:right"><div class="tiny">REPUTATION</div>'+
+      '<div class="ff" style="font-size:17px;color:var(--sun)">'+Math.round(S.rep)+'</div></div>'+
+    '</div></div>'+
+    (S.insolventMonths>=2?'<div class="box" style="border-color:var(--red)"><div class="mini" style="color:#FCA5A5">'+
+      '⚠️ '+S.insolventMonths+' straight losing months. Cut payroll, raise margins, or take a loan — '+
+      'below -$25,000 cash the company folds.</div></div>':'')+
+    (ev?'<div class="box" style="border-color:var(--sun)"><div class="ff" style="font-size:13px;color:var(--sun)">'+
+      ev.i+' '+ev.t+'</div><div class="mini" style="margin-top:3px">'+ev.d+'</div></div>':'')+
+    '<div class="mo-btns"><button class="btn g ff" onclick="closeMsg()">Carry On</button></div>');
+  openOv('ov-msg'); setSpeed(0);
+}
+function tr(label,v,pos){
+  return '<tr><td>'+label+'</td><td class="n '+(pos?'pos':'negc')+'">'+money0(v)+'</td></tr>';
+}
+
+function bankrupt(){
+  S.bankrupt=true; setSpeed(0);
+  html('msg-card',
+    '<div class="mo-t ff">🏚️ Insolvent</div>'+
+    '<div class="mo-s">Purr &amp; Power Co. has run out of money and credit.</div>'+
+    '<div class="box"><div class="mini">'+
+      'You closed <b>'+S.jobsDone+'</b> installs over '+
+      ((S.year-1)*12+S.month+1)+' months, booked '+money0(S.totalRevenue)+' in revenue, '+
+      'and finished '+S.jobsLate+' of them late.<br><br>'+
+      'The cats have been rehomed to a competitor. They are fine. They are always fine.'+
+    '</div></div>'+
+    '<div class="mo-btns"><button class="btn r ff" onclick="quitToMenu()">Main Menu</button></div>');
+  document.getElementById('msg-card').className='mo red';
+  openOv('ov-msg');
+  try{localStorage.removeItem(SK);}catch(e){}
+}
+
+// ════════════════════════════════════════════════════════════
+// PLAYER ACTIONS
+// ════════════════════════════════════════════════════════════
+const goingWage=role=>Math.round(ROLES[role].wage*(S.wageIndex||1));
+
+function hire(role){
+  const r=ROLES[role];
+  if(S.staff.length>=staffCap()){note('🏢 Office is full — upgrade to hire more','warn');return;}
+  const wage=goingWage(role);
+  const bonus=Math.round(wage*0.5);
+  if(S.cash<bonus){note('💸 Need '+money0(bonus)+' signing bonus','bad');return;}
+  S.cash-=bonus; S.ledger.payroll+=bonus;
+  S.staff.push({id:uid(),role,name:pick(FIRST)+' '+pick(LAST),wage});
+  note('👔 Hired '+r.name+' — '+money0(wage)+'/mo','good');
+  renderAll();
+}
+function fire(id){
+  const s=S.staff.find(x=>x.id===id); if(!s)return;
+  const sev=Math.round(s.wage*0.5);
+  S.cash-=sev; S.ledger.payroll+=sev;
+  S.staff=S.staff.filter(x=>x!==s);
+  S.morale=clamp(S.morale-6,5,100);
+  note('📉 Let '+s.name+' go — '+money0(sev)+' severance','warn');
+  renderAll();
+}
+function adoptCat(){
+  if(S.cats.length>=catCap()){note('🐱 No room for another cat in this office','warn');return;}
+  if(S.cash<250){note('💸 Adoption fee is $250','bad');return;}
+  S.cash-=250; S.ledger.catcare+=250;
+  const used=S.cats.map(c=>c.name);
+  const avail=CAT_NAMES.filter(n=>!used.includes(n));
+  S.cats.push({name:avail.length?pick(avail):'Cat '+(S.cats.length+1),x:Math.random(),y:Math.random()});
+  S.morale=clamp(S.morale+7,5,100);
+  note('🐱 Adopted a cat. Morale up. $60/mo upkeep.','good');
+  buildOfficeScene(); renderAll();
+}
+function petCat(i,ev){
+  S.morale=clamp(S.morale+1.2,5,100);
+  const r=ev.currentTarget.getBoundingClientRect();
+  flt(r.left,r.top-6,pick(['purr~','mrrow','😽','zzz']),'#F97316');
+  paintTop();
+}
+function upgradeOffice(){
+  if(S.office>=OFFICES.length-1)return;
+  const nx=OFFICES[S.office+1];
+  if(S.cash<nx.cost){note('💸 Need '+money0(nx.cost),'bad');return;}
+  S.cash-=nx.cost; S.ledger.capex+=nx.cost; S.office++;
+  note('🏢 Moved into '+nx.n,'good'); renderAll();
+}
+function buyInvest(id){
+  const it=INVEST.find(x=>x.id===id); if(!it)return;
+  if(!it.repeat&&S.invest[id]){note('Already owned','warn');return;}
+  let cost=it.cost;
+  if(id==='truck')cost=Math.round(it.cost*Math.pow(1.35,S.trucks-1));
+  if(S.cash<cost){note('💸 Need '+money0(cost),'bad');return;}
+  S.cash-=cost; S.ledger.capex+=cost;
+  if(id==='truck')S.trucks++; else S.invest[id]=true;
+  if(it.rep)S.rep=clamp(S.rep+it.rep,0,100);
+  note(it.i+' '+it.n+' acquired','good');
+  renderAll();
+}
+function setMarketing(v){ S.marketing=+v; paintMarketing(); }
+function paintMarketing(){
+  const el=document.getElementById('mkt-val');
+  if(el)el.textContent=money0(S.marketing)+'/mo';
+}
+function commitMarketing(){ renderFinance(); }
+function toggleAuto(){ S.autoBuy=!S.autoBuy; renderFinance(); }
+
+function buyStock(k,qty){
+  const cost=Math.round(qty*unitPrice(k)*matDiscount());
+  if(S.cash<cost){note('💸 Need '+money0(cost),'bad');return;}
+  const cap=stockCap();
+  if(S.inv[k]+qty>cap){note('📦 Storage full ('+cap+' units)','warn');return;}
+  S.cash-=cost; S.ledger.materials+=cost; S.inv[k]+=qty;
+  note('📦 Bought '+qty+' × '+MATS[k].n+' — '+money0(cost),'good');
+  renderFinance();
+}
+const stockCap=()=>S.invest.wh?1400:450;
+
+function borrow(amt){
+  const lim=creditLimit();
+  if(S.loan+amt>lim){note('🏦 Credit limit is '+money0(lim),'bad');return;}
+  S.loan+=amt; S.cash+=amt;
+  note('🏦 Drew '+money0(amt)+' at '+(S.loanRate*100).toFixed(0)+'% APR','warn');
+  renderFinance();
+}
+function repay(amt){
+  amt=Math.min(amt,S.loan,Math.max(0,S.cash));
+  if(amt<=0){note('Nothing to repay','warn');return;}
+  S.loan-=amt; S.cash-=amt;
+  note('🏦 Repaid '+money0(amt),'good'); renderFinance();
+}
+const creditLimit=()=>Math.round(40000*(S.office+1)+S.rep*400);
+
+// ── bidding ──────────────────────────────────────────────────
+function openQuote(id){
+  const l=S.leads.find(x=>x.id===id); if(!l)return;
+  quoteLead=l;
+  const cb=costBasis(l.panels);
+  l._margin=l._margin||30;
+  html('quote-card',
+    '<div class="mo-t ff">'+l.icon+' '+l.client+'</div>'+
+    '<div class="mo-s">'+l.type+' · '+l.panels+' modules · '+(l.panels*0.4).toFixed(1)+' kW · '+
+      '<span class="pill '+(l.quality==='hot'?'ok':l.quality==='cold'?'mute':'warn')+'">'+l.quality.toUpperCase()+'</span></div>'+
+    '<div class="box">'+
+      '<div class="qline"><span>Modules, optimizers, rail</span><span class="v">'+money0(cb.mats)+'</span></div>'+
+      '<div class="qline"><span>Permit &amp; plan review</span><span class="v">'+money0(cb.permit)+'</span></div>'+
+      '<div class="qline"><span>Crew labor ('+installDays(l.panels)+'d install)</span><span class="v">'+money0(cb.labor)+'</span></div>'+
+      '<div class="qline"><span>Overhead — '+cycleDays(l.panels)+'d in a slot</span><span class="v">'+money0(cb.oh)+'</span></div>'+
+      '<div class="qline tot"><span>Cost basis</span><span class="v">'+money0(cb.total)+'</span></div>'+
+    '</div>'+
+    '<div class="tiny" style="margin:8px 0 2px">MARGIN <span id="q-mpct" class="ff" style="color:var(--sun)"></span></div>'+
+    '<input type="range" min="0" max="90" value="'+l._margin+'" oninput="updQuote(this.value)">'+
+    '<div class="box" style="margin-top:4px">'+
+      '<div class="row" style="margin-bottom:6px">'+
+        '<div class="grow"><div class="tiny">YOUR BID</div><div class="ff" id="q-price" style="font-size:19px;color:var(--green)"></div></div>'+
+        '<div style="text-align:right"><div class="tiny">GROSS PROFIT</div><div class="ff" id="q-profit" style="font-size:15px"></div></div>'+
+      '</div>'+
+      '<div class="tiny" style="margin-bottom:3px">WIN CHANCE <span id="q-wpct" class="ff"></span></div>'+
+      '<div class="winbar"><div id="q-wbar"></div></div>'+
+      '<div class="mini" id="q-hint" style="margin-top:6px"></div>'+
+    '</div>'+
+    '<div class="box" id="q-cash"></div>'+
+    '<div class="mo-btns">'+
+      '<button class="btn g ff" onclick="submitBid()">Submit Bid</button>'+
+      '<button class="btn ff" onclick="closeQuote()">Pass</button>'+
+    '</div>');
+  updQuote(l._margin);
+  openOv('ov-quote');
+}
+function updQuote(m){
+  const l=quoteLead; if(!l)return;
+  l._margin=+m;
+  const cb=costBasis(l.panels).total;
+  const price=Math.round(cb*(1+ l._margin/100));
+  const w=winChance(l,price);
+  const profit=price-cb;
+  txt('q-mpct',l._margin+'%');
+  txt('q-price',money0(price));
+  const pf=document.getElementById('q-profit');
+  pf.textContent=money0(profit);
+  pf.style.color=profit>=0?'var(--green)':'var(--red)';
+  txt('q-wpct',Math.round(w*100)+'%');
+  const bar=document.getElementById('q-wbar');
+  bar.style.width=(w*100)+'%';
+  bar.style.background=w>0.6?'var(--green)':w>0.35?'var(--sun)':'var(--red)';
+  const mp=marketPrice(l);
+  txt('q-hint', price<mp*0.95 ? '📉 You are under the going rate — likely win, thin profit.'
+             : price>mp*1.15 ? '📈 Well above market. Only your reputation can carry this.'
+             : '⚖️ Priced near what the market expects for this job.');
+
+  // Working-capital preview. A big commercial job can demand six figures of
+  // material around day 12 — the player has to be able to see that coming
+  // BEFORE bidding, not discover it when the bank account empties.
+  const need={panel:l.panels,opt:l.panels,rail:l.panels,inv:invertersFor(l.panels)};
+  let rush=0, haveAll=true;
+  for(const k in need){
+    const gap=need[k]-S.inv[k];
+    if(gap>0){ haveAll=false; rush+=gap*unitPrice(k)*1.18*matDiscount(); }
+  }
+  rush=Math.round(rush);
+  const deposit=Math.round(price*0.35);
+  const after=S.cash+deposit-rush;
+  const el=document.getElementById('q-cash');
+  if(el){
+    el.style.borderColor = after<0 ? 'var(--red)' : after<15000 ? 'var(--sun)' : 'var(--border)';
+    el.innerHTML=
+      '<div class="qline"><span>Deposit on signing (35%)</span><span class="v pos">+'+money0(deposit)+'</span></div>'+
+      '<div class="qline"><span>Materials due ~day 12'+(haveAll?' (in stock)':'')+'</span>'+
+        '<span class="v '+(rush?'negc':'pos')+'">'+(rush?'-'+money0(rush):'covered')+'</span></div>'+
+      '<div class="qline tot"><span>Cash after materials</span>'+
+        '<span class="v" style="color:'+(after<0?'var(--red)':'var(--green)')+'">'+money0(after)+'</span></div>'+
+      (after<0?'<div class="mini" style="color:#FCA5A5;margin-top:5px">⚠️ This job buys more material than you can '+
+        'fund. Stock up on the Finance tab or draw on the credit line first.</div>':'');
+  }
+}
+function submitBid(){
+  const l=quoteLead; if(!l)return;
+  const cb=costBasis(l.panels).total;
+  const price=Math.round(cb*(1+l._margin/100));
+  // Bids already out count against capacity — otherwise you could paper the
+  // city with bids, win them all at once, and drown in simultaneous material buys.
+  if(S.jobs.length+S.bids.length>=jobCap()){
+    note('📋 At capacity ('+jobCap()+' jobs + open bids). Hire a Project Coordinator.','warn');
+    return;
+  }
+  S.bids.push({leadId:l.id,client:l.client,type:l.type,icon:l.icon,panels:l.panels,
+               price,chance:winChance(l,price),wait:ri(2,5)});
+  S.leads=S.leads.filter(x=>x!==l);
+  closeQuote();
+  note('📨 Bid submitted — '+money0(price),'good');
+  renderAll();
+}
+function closeQuote(){ quoteLead=null; closeOv('ov-quote'); }
+
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+const html=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
+const txt=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+function openOv(id){document.getElementById(id).classList.remove('gone');}
+function closeOv(id){document.getElementById(id).classList.add('gone');}
+function closeMsg(){closeOv('ov-msg'); if(!S.bankrupt&&S.speed===0)setSpeed(1);}
+function bdg(t,n){
+  const e=document.getElementById('bdg-'+t); if(!e)return;
+  e.classList.add('on'); e.textContent=n||'!';
+}
+function clearBdg(t){const e=document.getElementById('bdg-'+t);if(e)e.classList.remove('on');}
+
+function showTab(t){
+  tab=t;
+  document.querySelectorAll('.layer').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
+  document.getElementById('layer-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  clearBdg(t);
+  renderAll();
+}
+
+function renderAll(){
+  if(!S)return;
+  paintTop();
+  if(tab==='office')renderOffice();
+  else if(tab==='sales')renderSales();
+  else if(tab==='ops')renderOps();
+  else if(tab==='site')renderSite();
+  else if(tab==='finance')renderFinance();
+}
+
+function paintTop(){
+  const c=document.getElementById('tb-cash');
+  c.textContent=money(S.cash);
+  c.className='tb-cash ff'+(S.cash<0?' neg':'');
+  txt('tb-rep',Math.round(S.rep));
+  txt('tb-mor',Math.round(S.morale));
+  txt('tb-jobs',S.jobs.length);
+  txt('tb-date','Day '+S.day);
+  txt('tb-year','Year '+S.year+' · '+MONTHS[S.month]);
+  for(let i=0;i<4;i++){
+    const b=document.getElementById('sp'+i);
+    if(b)b.className=(S.speed===i?'on':'');
+  }
+}
+
+/* ── OFFICE ── */
+function clearCatTimers(){ catTimers.forEach(clearInterval); catTimers=[]; }
+
+function buildOfficeScene(){
+  const sc=document.getElementById('off-scene');
+  clearCatTimers();
+  sc.innerHTML='<div class="off-floor"></div>';
+  const w=sc.offsetWidth||340;
+  for(let i=0;i<4;i++){
+    const win=document.createElement('div');
+    win.className='off-win'; win.style.left=(14+i*(w-40)/4)+'px';
+    sc.appendChild(win);
+  }
+  const people=[{role:'owner',name:'You'}].concat(S.staff);
+  const n=Math.min(people.length,9);
+  for(let i=0;i<n;i++){
+    const p=people[i];
+    const r=p.role==='owner'?{icon:'🧑‍💼',name:'Owner'}:ROLES[p.role];
+    const d=document.createElement('div');
+    d.className='deskv';
+    d.style.left=(8+i*Math.max(34,(w-24)/n))+'px';
+    d.innerHTML='<div class="h">'+r.icon+'</div><div class="d"></div><div class="n">'+
+      (p.role==='owner'?'Owner':r.name.split(' ')[0])+'</div>';
+    sc.appendChild(d);
+  }
+  S.cats.forEach((c,i)=>{
+    const el=document.createElement('div');
+    el.className='catv'; el.textContent='🐱'; el.title=c.name;
+    el.style.left=(10+Math.random()*(w-40))+'px';
+    el.style.bottom=(12+Math.random()*54)+'px';
+    el.onclick=(e)=>petCat(i,e);
+    sc.appendChild(el);
+    catTimers.push(setInterval(()=>{
+      if(!el.parentNode)return;
+      el.style.left=(10+Math.random()*(sc.offsetWidth-40))+'px';
+      el.style.bottom=(12+Math.random()*54)+'px';
+    },4000+Math.random()*3000));
+  });
+  sceneBuilt=true;
+}
+
+function renderOffice(){
+  if(!sceneBuilt)buildOfficeScene();
+  const off=OFFICES[S.office], nx=OFFICES[S.office+1];
+  const payroll=S.staff.reduce((a,s)=>a+s.wage,0);
+
+  let h='<div class="box"><div class="row">'+
+    '<div class="grow"><div class="ff" style="font-size:13px">'+off.n+'</div>'+
+    '<div class="tiny">'+S.staff.length+'/'+off.cap+' desks · '+S.cats.length+'/'+off.cats+' cats · '+
+    money0(off.rent)+'/mo rent</div></div>'+
+    (nx?'<button class="btn p sm" onclick="upgradeOffice()">Move to '+nx.n+'<br>'+money0(nx.cost)+'</button>':
+        '<span class="pill ok">TOP TIER</span>')+
+    '</div></div>';
+
+  h+='<div class="box"><div class="row" style="margin-bottom:5px">'+
+     '<div class="grow tiny">TEAM MORALE</div><div class="ff" style="color:var(--sun)">'+Math.round(S.morale)+'%</div></div>'+
+     '<div class="bar"><div style="width:'+S.morale+'%;background:linear-gradient(90deg,var(--orange),var(--green))"></div></div>'+
+     '<div class="mini" style="margin-top:5px">Settling toward <b style="color:var(--sun)">'+
+     Math.round(moraleTarget())+'%</b> — '+
+     [S.cats.length+' cats +'+(S.cats.length*6),
+      nStaff('officemgr')?'office mgr +'+(nStaff('officemgr')*8):null,
+      S.cash>=0?'payroll met +10':'cash negative −25',
+      Math.max(0,S.jobs.length-jobCap())?'overloaded −'+(Math.max(0,S.jobs.length-jobCap())*10):null
+     ].filter(Boolean).join(', ')+
+     '. Morale scales install speed and lead flow.</div>'+
+     '<div class="row" style="margin-top:7px">'+
+     '<button class="btn o sm" onclick="adoptCat()">🐱 Adopt a cat — $250 (+$60/mo)</button></div></div>';
+
+  h+='<div class="sec ff">Payroll <span class="hint">'+money0(payroll)+'/mo</span></div>';
+  if(!S.staff.length){
+    h+='<div class="empty">No employees yet.<br>You cover design and permitting yourself — but you cannot pull a permit and run a crew at the same time forever.</div>';
+  }
+  h+=S.staff.map(s=>{
+    const r=ROLES[s.role];
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+r.icon+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+s.name+'</div>'+
+      '<div class="tiny">'+r.name+' · '+r.dept+' · '+money0(s.wage)+'/mo</div></div>'+
+      '<button class="btn r sm" onclick="fire('+s.id+')">Let go</button></div></div>';
+  }).join('');
+
+  h+='<div class="sec ff">Hire <span class="hint">signing bonus = ½ month</span></div>';
+  h+=ROLE_ORDER.map(k=>{
+    const r=ROLES[k], have=nStaff(k);
+    const wage=goingWage(k);
+    const bonus=Math.round(wage*0.5);
+    const can=S.cash>=bonus&&S.staff.length<off.cap;
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+r.icon+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+r.name+
+        (have?' <span class="pill info">×'+have+'</span>':'')+'</div>'+
+      '<div class="tiny">'+r.desc+'</div></div>'+
+      '<button class="btn '+(can?'g':'')+' sm" '+(can?'':'disabled')+' onclick="hire(\''+k+'\')">'+
+        money0(wage)+'/mo<br><span style="font-size:8px">hire '+money0(bonus)+'</span></button>'+
+      '</div></div>';
+  }).join('');
+
+  html('office-body',h);
+}
+
+/* ── SALES ── */
+function renderSales(){
+  let h='';
+  h+='<div class="box"><div class="row">'+
+     '<div class="grow"><div class="tiny">MARKETING SPEND</div>'+
+     '<div class="ff" style="font-size:15px;color:var(--sun)" id="mkt-val2">'+money0(S.marketing)+'/mo</div></div>'+
+     '<div style="text-align:right"><div class="tiny">LEAD FLOW</div>'+
+     '<div class="ff" style="font-size:15px">'+leadRate().toFixed(1)+'/day</div></div></div>'+
+     '<div class="mini" style="margin-top:5px">Set the budget on the Finance tab. Reps and Appointment Setters '+
+     'multiply it; reputation ('+Math.round(S.rep)+') tilts both flow and win rate.</div></div>';
+
+  if(S.bids.length){
+    h+='<div class="sec ff">Bids Out <span class="hint">'+S.bids.length+' awaiting decision</span></div>';
+    h+=S.bids.map(b=>'<div class="box"><div class="row">'+
+      '<div style="font-size:17px">'+b.icon+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+b.client+'</div>'+
+      '<div class="tiny">'+money0(b.price)+' · '+Math.round(b.chance*100)+'% · decision in '+b.wait+'d</div></div>'+
+      '<span class="pill info">PENDING</span></div></div>').join('');
+  }
+
+  h+='<div class="sec ff">Open Leads <span class="hint">'+S.leads.length+' on the board</span></div>';
+  if(!S.leads.length){
+    h+='<div class="empty">No leads right now.<br>Hire a Solar Rep and raise the marketing budget to fill the funnel.</div>';
+  }
+  h+=S.leads.map(l=>{
+    const mp=marketPrice(l);
+    const q=l.quality==='hot'?'ok':l.quality==='cold'?'mute':'warn';
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+l.icon+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+l.client+' '+
+        '<span class="pill '+q+'">'+l.quality+'</span></div>'+
+      '<div class="tiny">'+l.type+' · '+l.panels+' modules · ~'+money(mp)+' market · '+
+        'cools in '+Math.ceil(l.days)+'d</div></div>'+
+      '<button class="btn b sm" onclick="openQuote('+l.id+')">Quote</button></div></div>';
+  }).join('');
+  html('sales-body',h);
+}
+function leadRate(){
+  return (0.25+nStaff('rep')*0.30+nStaff('setter')*0.18+S.marketing/9000+(S.rep-50)/400)*moraleFactor();
+}
+
+/* ── OPS ── */
+function renderOps(){
+  const cc=crewCount();
+  let h='<div class="box"><div class="row">'+
+    '<div class="grow"><div class="tiny">CREWS</div><div class="ff" style="font-size:16px">'+cc+'</div>'+
+    '<div class="tiny">1 lead + 2 installers + 1 truck each</div></div>'+
+    '<div style="text-align:right"><div class="tiny">LIMITED BY</div>'+
+    '<div class="ff" style="font-size:12px;color:'+(cc?'var(--sun)':'var(--red)')+'">'+crewLimiter()+'</div></div>'+
+    '</div></div>';
+
+  h+='<div class="box"><div class="row">'+
+    ['designer','permit','electric'].map(r=>{
+      const cap=resourceCap(r);
+      const nm=r==='designer'?'Designers':r==='permit'?'Permit':'Electricians';
+      return '<div class="grow" style="text-align:center"><div class="tiny">'+nm+'</div>'+
+        '<div class="ff" style="font-size:15px;color:'+(cap>0?'var(--text)':'var(--red)')+'">'+cap+'</div></div>';
+    }).join('')+
+    '<div class="grow" style="text-align:center"><div class="tiny">Job Cap</div>'+
+    '<div class="ff" style="font-size:15px">'+S.jobs.length+'/'+jobCap()+'</div></div>'+
+    '</div></div>';
+
+  if(S.callbacks>0){
+    h+='<div class="box" style="border-color:var(--red)"><div class="row">'+
+      '<div class="grow"><div class="ff" style="font-size:12px;color:#FCA5A5">🔧 '+S.callbacks+' open warranty callback'+(S.callbacks>1?'s':'')+'</div>'+
+      '<div class="tiny">Bleeding reputation every day until a Service Tech clears them.</div></div></div></div>';
+  }
+
+  h+='<div class="sec ff">Active Jobs <span class="hint">'+S.jobs.length+' in the pipeline</span></div>';
+  if(!S.jobs.length){
+    h+='<div class="empty">Nothing in production.<br>Win a bid on the Sales tab to start a job.</div>';
+  }
+  h+=S.jobs.map(j=>{
+    const st=STAGES[j.stage];
+    const pct=Math.round((j.stage/STAGES.length)*100);
+    const lateRisk=j.elapsed>j.promised*0.8;
+    return '<div class="box">'+
+      '<div class="row" style="margin-bottom:5px">'+
+        '<div style="font-size:17px">'+j.icon+'</div>'+
+        '<div class="grow"><div class="ff" style="font-size:12px">'+j.client+'</div>'+
+        '<div class="tiny">'+j.panels+' modules · '+money(j.value)+' · day '+j.elapsed+'/'+j.promised+'</div></div>'+
+        (j.blocked?'<span class="pill bad">'+j.blocked+'</span>'
+                  :'<span class="pill ok">'+j.left+'d left</span>')+
+      '</div>'+
+      '<div class="bar"><div style="width:'+pct+'%;background:linear-gradient(90deg,var(--blue),var(--sky))"></div></div>'+
+      '<div class="row" style="margin-top:4px">'+
+        '<div class="grow tiny">'+st.icon+' '+st.name+'</div>'+
+        (lateRisk?'<span class="pill warn">deadline risk</span>':'')+
+      '</div></div>';
+  }).join('');
+
+  if(S.done.length){
+    h+='<div class="sec ff">Recently Completed</div>';
+    h+=S.done.slice(0,6).map(d=>'<div class="box"><div class="row">'+
+      '<div class="grow"><div style="font-size:11px">'+d.client+'</div>'+
+      '<div class="tiny">'+MONTHS[d.month]+' Y'+d.year+' · '+money(d.value)+'</div></div>'+
+      '<span class="pill '+(d.late?'bad':'ok')+'">'+(d.late?'LATE':'ON TIME')+'</span></div></div>').join('');
+  }
+  html('ops-body',h);
+}
+
+/* ── SITE ── */
+function renderSite(){
+  const j=S.jobs.filter(x=>x.stage>=3).sort((a,b)=>b.stage-a.stage)[0]
+        || S.jobs[0] || null;
+  drawSite(j);
+  let h='';
+  if(!j){
+    h='<div class="empty">No job on site.<br>Win a bid and push it past permitting to see a crew out there.</div>';
+  } else {
+    const st=STAGES[j.stage];
+    h='<div class="box"><div class="row" style="margin-bottom:5px">'+
+      '<div class="grow"><div class="ff" style="font-size:13px;color:var(--sun)">'+st.icon+' '+st.name+'</div>'+
+      '<div class="tiny">'+j.client+' · '+j.panels+' modules · '+(j.panels*0.4).toFixed(1)+' kW</div></div>'+
+      (j.blocked?'<span class="pill bad">'+j.blocked+'</span>':'<span class="pill ok">'+j.left+'d</span>')+
+      '</div>'+
+      '<div style="display:flex;gap:2px;overflow-x:auto;padding-bottom:2px">'+
+      STAGES.map((s,i)=>'<div class="pill '+(i<j.stage?'ok':i===j.stage?'warn':'mute')+'" '+
+        'style="flex-shrink:0">'+s.icon+'</div>').join('')+
+      '</div>'+
+      '<div class="mini" style="margin-top:6px">Balance due on PTO: <b style="color:var(--green)">'+
+        money0(j.value-j.deposit)+'</b> · deposit of '+money0(j.deposit)+' already collected.</div>'+
+      '</div>';
+  }
+  html('site-body',h);
+}
+
+function drawSite(j){
+  const sc=document.getElementById('site-scene');
+  const w=sc.offsetWidth||340, h=sc.offsetHeight||190;
+  const installed = j ? (j.stage>4 ? j.panels : j.stage===4 ?
+      Math.round(j.panels*(1-j.left/Math.max(1,installDays(j.panels)))) : 0) : 0;
+  const cols=Math.min(8,Math.max(4,Math.ceil(Math.sqrt(j?j.panels:8))));
+  const shown=Math.min(24,Math.round((installed/Math.max(1,j?j.panels:1))*24));
+
+  let s='<div class="site-ground"></div>';
+  s+='<div style="position:absolute;top:6px;right:12px;font-size:26px">☀️</div>';
+  s+='<svg style="position:absolute;top:'+(h*0.30)+'px;left:0;width:100%;height:'+(h*0.32)+'px" '+
+     'viewBox="0 0 400 50" preserveAspectRatio="none">'+
+     '<polygon points="0,50 50,16 90,29 130,7 170,21 210,3 250,17 290,9 330,25 370,13 400,19 400,50" '+
+     'fill="#6B7B94" opacity="0.45"/></svg>';
+  s+='<div style="position:absolute;bottom:6%;left:6px;font-size:17px">🌵</div>'+
+     '<div style="position:absolute;bottom:9%;right:8px;font-size:13px">🌵</div>';
+
+  if(j){
+    const hw=Math.min(190,w*0.56), hx=(w-hw)/2-8, hy=h*0.50, rh=44;
+    // roof
+    s+='<svg style="position:absolute;left:'+(hx-9)+'px;top:'+(hy-rh)+'px" width="'+(hw+18)+'" height="'+rh+'">'+
+       '<polygon points="'+((hw+18)/2)+',0 '+(hw+18)+','+rh+' 0,'+rh+'" fill="#B45309" stroke="#92400E" stroke-width="1.5"/></svg>';
+    // walls
+    s+='<div style="position:absolute;left:'+hx+'px;top:'+hy+'px;width:'+hw+'px;height:'+(h*0.26)+'px;'+
+       'background:#D4956A;border:2px solid #B45309"></div>';
+    // rails
+    if(j.stage>=4){
+      [0.40,0.72].forEach(r=>{
+        const rw=hw*0.68, rx=hx+(hw-rw)/2;
+        s+='<div style="position:absolute;left:'+rx+'px;top:'+(hy-rh+rh*r)+'px;width:'+rw+'px;'+
+           'height:3px;background:#1a1a1a;border-radius:2px;z-index:6"></div>';
+      });
+    }
+    // Modules, seated inside the roof pitch. Laying them out across the full
+    // wall width made the top rows overhang the triangle and float in the sky.
+    if(shown>0){
+      const arrW=hw*0.62, arrX=hx+(hw-arrW)/2, mw=(arrW-(cols-1)*1.5)/cols;
+      s+='<div style="position:absolute;left:'+arrX+'px;top:'+(hy-rh+rh*0.34)+'px;width:'+arrW+'px;'+
+         'display:flex;flex-wrap:wrap;gap:1.5px;z-index:8">';
+      for(let i=0;i<shown;i++){
+        s+='<div style="width:'+mw.toFixed(1)+'px;height:9px;background:#0A0A0A;'+
+           'border:1px solid #1F2937;border-radius:1px"></div>';
+      }
+      s+='</div>';
+    }
+    // inverter once electrical starts
+    if(j.stage>=5){
+      s+='<div style="position:absolute;left:'+(hx+hw+2)+'px;top:'+(hy+16)+'px;width:30px;background:#F8FAFC;'+
+         'border:1px solid #94A3B8;border-radius:3px;padding:2px;z-index:9;text-align:center">'+
+         '<div style="font-size:4px;font-weight:800;color:#1E40AF">GridWave</div>'+
+         '<div style="height:7px;background:#0F172A;border-radius:1px;margin:1px 0;display:flex;'+
+         'align-items:center;justify-content:center"><div style="width:3px;height:3px;border-radius:50%;'+
+         'background:#22C55E;box-shadow:0 0 3px #22C55E"></div></div></div>';
+    }
+    // crew on the roof only while installing and not blocked
+    if(j.stage===4&&!j.blocked){
+      for(let i=0;i<3;i++){
+        s+='<div style="position:absolute;left:'+(hx+18+i*(hw-46)/2)+'px;top:'+(hy-rh-4)+'px;'+
+           'font-size:14px;z-index:11">👷</div>';
+      }
+      s+='<div style="position:absolute;left:'+(hx-24)+'px;bottom:12%;font-size:19px;z-index:10">🚚</div>';
+    }
+    if(j.stage===5){
+      s+='<div style="position:absolute;left:'+(hx+hw+4)+'px;top:'+(hy+h*0.14)+'px;font-size:15px;z-index:11">👨‍🔧</div>';
+    }
+    if(j.blocked){
+      s+='<div style="position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(15,23,42,.9);'+
+         'border:1px solid var(--red);border-radius:8px;padding:3px 9px;font-size:10px;color:#FCA5A5;'+
+         'font-weight:700;z-index:20">⛔ '+j.blocked+'</div>';
+    }
+  }
+  sc.innerHTML=s;
+}
+
+/* ── FINANCE ── */
+function renderFinance(){
+  const L=S.ledger;
+  const exp=L.materials+L.payroll+L.rent+L.insurance+L.fleet+L.marketing
+           +L.catcare+L.interest+L.penalty+L.capex;
+  const net=L.revenue-exp;
+  const burn=(S.staff.reduce((a,s)=>a+s.wage,0)+OFFICES[S.office].rent+S.trucks*640+S.marketing+S.cats.length*60);
+
+  let h='<div class="box"><div class="row">'+
+    '<div class="grow"><div class="tiny">CASH</div><div class="ff" style="font-size:20px;color:'+
+      (S.cash<0?'var(--red)':'var(--green)')+'">'+money0(S.cash)+'</div></div>'+
+    '<div style="text-align:right"><div class="tiny">FIXED BURN</div>'+
+    '<div class="ff" style="font-size:15px;color:var(--orange)">'+money0(burn)+'/mo</div></div></div>'+
+    '<div class="mini" style="margin-top:5px">Runway at this burn with no new revenue: <b>'+
+      (burn>0?Math.max(0,Math.floor(S.cash/(burn/30))):'∞')+' days</b>.</div></div>';
+
+  if(S.eventName){
+    const ev=EVENTS.find(x=>x.id===S.event);
+    h+='<div class="box" style="border-color:var(--sun)"><div class="ff" style="font-size:12px;color:var(--sun)">'+
+      ev.i+' '+ev.t+'</div><div class="mini" style="margin-top:2px">'+ev.d+'</div></div>';
+  }
+
+  h+='<div class="sec ff">'+MONTHS[S.month]+' Year '+S.year+' <span class="hint">month to date</span></div>';
+  h+='<div class="box"><table class="pl">'+
+    tr('Install revenue',L.revenue,1)+
+    tr('Materials',-L.materials,0)+
+    tr('Payroll',-L.payroll,0)+
+    tr('Rent',-L.rent,0)+
+    tr('Insurance',-L.insurance,0)+
+    tr('Fleet &amp; fuel',-L.fleet,0)+
+    tr('Marketing',-L.marketing,0)+
+    tr('Cat care',-L.catcare,0)+
+    (L.interest>0.5?tr('Loan interest',-L.interest,0):'')+
+    (L.penalty>0.5?tr('Late penalties',-L.penalty,0):'')+
+    (L.capex>0.5?tr('Capital purchases',-L.capex,0):'')+
+    '<tr class="tot"><td>Net</td><td class="n '+(net>=0?'pos':'negc')+'">'+money0(net)+'</td></tr>'+
+    '</table></div>';
+
+  if(S.cashHist.length>1)h+=cashChart();
+
+  h+='<div class="sec ff">Marketing</div>'+
+     '<div class="box"><div class="row"><div class="grow tiny">MONTHLY BUDGET</div>'+
+     '<div class="ff" id="mkt-val" style="color:var(--sun)">'+money0(S.marketing)+'/mo</div></div>'+
+     '<input type="range" min="0" max="12000" step="200" value="'+S.marketing+'" '+
+     'oninput="setMarketing(this.value)" onchange="commitMarketing()">'+
+     '<div class="mini">Higher spend fills the lead board faster. It is a fixed cost — it bills whether you win or not.</div></div>';
+
+  h+='<div class="sec ff">Inventory <span class="hint">cap '+stockCap()+'/item</span></div>';
+  h+='<div class="box">'+Object.keys(MATS).map(k=>
+    '<div class="row" style="margin-bottom:5px">'+
+    '<div class="grow"><div style="font-size:11px">'+MATS[k].n+'</div>'+
+    '<div class="tiny">'+money0(unitPrice(k)*matDiscount())+' ea · in stock: <b>'+S.inv[k]+'</b></div></div>'+
+    '<button class="btn b sm" onclick="buyStock(\''+k+'\','+(k==='inv'?5:50)+')">+'+(k==='inv'?5:50)+'</button>'+
+    '</div>').join('')+
+    '<div class="row" style="margin-top:6px"><div class="grow mini">Rush-order missing stock automatically at +18%</div>'+
+    '<button class="btn '+(S.autoBuy?'g':'')+' sm" onclick="toggleAuto()">'+(S.autoBuy?'ON':'OFF')+'</button></div>'+
+    '</div>';
+
+  h+='<div class="sec ff">Credit Line <span class="hint">'+(S.loanRate*100).toFixed(0)+'% APR</span></div>'+
+     '<div class="box"><div class="row" style="margin-bottom:6px">'+
+     '<div class="grow"><div class="tiny">OUTSTANDING</div><div class="ff" style="font-size:15px;color:var(--orange)">'+
+       money0(S.loan)+'</div></div>'+
+     '<div style="text-align:right"><div class="tiny">LIMIT</div><div class="ff" style="font-size:15px">'+
+       money0(creditLimit())+'</div></div></div>'+
+     '<div class="row"><button class="btn o sm grow" onclick="borrow(25000)">Draw $25K</button>'+
+     '<button class="btn g sm grow" onclick="repay(25000)">Repay $25K</button></div></div>';
+
+  h+='<div class="sec ff">Investments</div>';
+  h+=INVEST.map(it=>{
+    const owned=!it.repeat&&S.invest[it.id];
+    let cost=it.cost;
+    if(it.id==='truck')cost=Math.round(it.cost*Math.pow(1.35,S.trucks-1));
+    const can=!owned&&S.cash>=cost;
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+it.i+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+it.n+
+        (it.id==='truck'?' <span class="pill info">×'+S.trucks+'</span>':'')+'</div>'+
+      '<div class="tiny">'+it.desc+'</div></div>'+
+      (owned?'<span class="pill ok">OWNED</span>'
+            :'<button class="btn '+(can?'p':'')+' sm" '+(can?'':'disabled')+
+              ' onclick="buyInvest(\''+it.id+'\')">'+money(cost)+'</button>')+
+      '</div></div>';
+  }).join('');
+
+  if(S.history.length){
+    h+='<div class="sec ff">Closed Months</div>';
+    h+='<div class="box"><table class="pl">'+S.history.slice(0,8).map(m=>
+      '<tr><td>'+m.label+'</td><td class="n">'+money(m.rev)+'</td>'+
+      '<td class="n '+(m.net>=0?'pos':'negc')+'">'+money0(m.net)+'</td></tr>').join('')+'</table></div>';
+  }
+  html('finance-body',h);
+  paintMarketing();
+}
+
+function cashChart(){
+  const d=S.cashHist.slice(-16);
+  const mx=Math.max(...d,1000), mn=Math.min(...d,0);
+  const rng=Math.max(1,mx-mn);
+  const W=300,H=54;
+  const pts=d.map((v,i)=>{
+    const x=(i/(d.length-1||1))*W;
+    const y=H-((v-mn)/rng)*H;
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+  const zeroY=H-((0-mn)/rng)*H;
+  return '<div class="box"><div class="tiny" style="margin-bottom:4px">CASH BY MONTH</div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:54px" preserveAspectRatio="none">'+
+    (mn<0?'<line x1="0" y1="'+zeroY+'" x2="'+W+'" y2="'+zeroY+'" stroke="#EF4444" stroke-width="1" stroke-dasharray="3 3"/>':'')+
+    '<polyline points="'+pts+'" fill="none" stroke="#22C55E" stroke-width="2" '+
+    'stroke-linejoin="round" stroke-linecap="round"/></svg></div>';
+}
+
+// ════════════════════════════════════════════════════════════
+// HELP
+// ════════════════════════════════════════════════════════════
+function openHelp(){
+  html('msg-card',
+    '<div class="mo-t ff">📖 How To Play</div>'+
+    '<div class="mo-s">You run a solar contractor. Nothing earns passively.</div>'+
+    '<div class="box"><div class="mini">'+
+    '<b style="color:var(--sun)">1 · Bid work.</b> Leads land on the Sales tab. Quoting shows your cost basis; '+
+    'the margin slider trades profit against win probability. Bid high and you starve; bid low and you work for free.<br><br>'+
+    '<b style="color:var(--sun)">2 · Every stage blocks on somebody.</b> Survey and design need a Designer, permitting a '+
+    'Permit Coordinator, install a whole Crew (1 lead + 2 installers + 1 truck), AC hookup an Electrician. '+
+    'Miss one and the job sits there — the deadline clock keeps running.<br><br>'+
+    '<b style="color:var(--sun)">3 · The utility pays last.</b> You collect 30% on signing, buy the materials '+
+    'immediately, carry payroll for a month, and get the other 70% only when the utility grants PTO. '+
+    'That gap is the whole game.<br><br>'+
+    '<b style="color:var(--sun)">4 · Cats are real overhead.</b> $60/mo each, and they are the cheapest morale '+
+    'you will ever buy. Morale drives install speed and lead flow.<br><br>'+
+    '<b style="color:var(--red)">Lose condition:</b> cash below -$25,000.'+
+    '</div></div>'+
+    '<div class="mo-btns"><button class="btn g ff" onclick="closeMsg()">Got it</button></div>');
+  document.getElementById('msg-card').className='mo';
+  openOv('ov-msg');
+}
+
+// ════════════════════════════════════════════════════════════
+// CLOCK
+// ════════════════════════════════════════════════════════════
+function setSpeed(n){
+  if(!S)return;
+  S.speed=n; acc=0; lastReal=Date.now();
+  paintTop();
+}
+function loop(){
+  if(!S||S.bankrupt)return;
+  const now=Date.now();
+  const dt=Math.min(now-lastReal,1000);
+  lastReal=now;
+  if(S.speed>0){
+    acc+=dt;
+    const per=MS_PER_DAY[S.speed];
+    let guard=0;
+    while(acc>=per&&guard<8){ acc-=per; advanceDay(); guard++; if(S.bankrupt)break; }
+  }
+}
+function startClock(){
+  stopClock();
+  lastReal=Date.now(); acc=0;
+  tickHandle=setInterval(loop,100);
+  autoHandle=setInterval(save,30000);
+}
+function stopClock(){
+  if(tickHandle){clearInterval(tickHandle);tickHandle=null;}
+  if(autoHandle){clearInterval(autoHandle);autoHandle=null;}
+  clearCatTimers();
+}
+
+function openPause(){ if(!S||S.bankrupt)return; setSpeed(0); openOv('ov-pause'); }
+function closePause(){ closeOv('ov-pause'); if(S.speed===0)setSpeed(1); }
+function quitToMenu(){
+  save(); stopClock();
+  closeOv('ov-pause'); closeOv('ov-msg'); closeOv('ov-quote');
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('menu').classList.remove('gone');
+  S=null; sceneBuilt=false;
+  refreshMenu();
+}
+
+// ════════════════════════════════════════════════════════════
+// SAVE / LOAD
+// ════════════════════════════════════════════════════════════
+function save(){
+  if(!S||S.bankrupt)return;
+  try{ S.lastTs=Date.now(); localStorage.setItem(SK,JSON.stringify(S)); }catch(e){}
+}
+function loadRaw(){
+  try{ const r=localStorage.getItem(SK); return r?JSON.parse(r):null; }catch(e){ return null; }
+}
+function hasOldSave(){
+  try{ return OLD_KEYS.some(k=>localStorage.getItem(k)); }catch(e){ return false; }
+}
+function refreshMenu(){
+  const d=loadRaw();
+  const btn=document.getElementById('btn-continue');
+  const noteEl=document.getElementById('menu-note');
+  if(d){
+    btn.disabled=false;
+    btn.textContent='▶ Continue — Year '+d.year+' '+MONTHS[d.month]+', '+money(d.cash);
+    noteEl.textContent='';
+  } else {
+    btn.disabled=true; btn.textContent='▶ Continue';
+    noteEl.textContent = hasOldSave()
+      ? 'An older Purr & Power save was found. This build rebuilt the simulation from the ground up, so it starts a fresh company.'
+      : '';
+  }
+}
+function continueGame(){
+  const d=loadRaw(); if(!d)return;
+  S=Object.assign(blankState(),d);
+  S.ledger=Object.assign(blankLedger(),d.ledger||{});
+  S.mod=d.mod||{}; S.priceMod=d.priceMod||{};
+  begin(true);
+}
+function newGame(){
+  S=blankState();
+  // Starting company: one full crew plus the licensed electrician every job
+  // legally needs. Without the electrician a job can never clear AC hookup, so
+  // the opening roster has to include one — the scarcity has to come from
+  // scaling past one, not from being unable to finish a single install.
+  // You cover design, permitting and sales yourself until you can hire.
+  S.staff.push({id:uid(),role:'lead',     name:pick(FIRST)+' '+pick(LAST),wage:ROLES.lead.wage});
+  S.staff.push({id:uid(),role:'installer',name:pick(FIRST)+' '+pick(LAST),wage:ROLES.installer.wage});
+  S.staff.push({id:uid(),role:'installer',name:pick(FIRST)+' '+pick(LAST),wage:ROLES.installer.wage});
+  S.staff.push({id:uid(),role:'electric', name:pick(FIRST)+' '+pick(LAST),wage:ROLES.electric.wage});
+  S.cats.push({name:'Whiskers'},{name:'Amperage'});
+  S.inv={panel:60,opt:60,rail:60,inv:3};
+  for(let i=0;i<3;i++)addLead();
+  begin(false);
+  setTimeout(openHelp,400);
+}
+function begin(resumed){
+  document.getElementById('menu').classList.add('gone');
+  document.getElementById('app').classList.add('show');
+  sceneBuilt=false;
+  showTab('office');
+  buildOfficeScene();
+  startClock();
+  setSpeed(1);
+  if(resumed){
+    // offline time advances the SIMULATION rather than minting cash:
+    // jobs progress, payroll accrues, and you may come back to a mess.
+    const gone=Date.now()-(S.lastTs||Date.now());
+    const days=Math.min(Math.floor(gone/45000),45);
+    if(days>0){
+      const c0=S.cash;
+      catchingUp=true;
+      for(let i=0;i<days&&!S.bankrupt;i++)advanceDay();
+      catchingUp=false;
+      const delta=S.cash-c0;
+      note('💤 '+days+' day'+(days>1?'s':'')+' passed while you were away ('+
+           (delta>=0?'+':'')+money0(delta)+')', delta>=0?'good':'warn');
+    } else note('☀️ Welcome back','good');
+  }
+  renderAll();
+}
+
+// ════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(!S)return;
+  if(e.key==='Escape'){
+    if(!document.getElementById('ov-quote').classList.contains('gone')){closeQuote();return;}
+    if(!document.getElementById('ov-msg').classList.contains('gone'))return;
+    const p=document.getElementById('ov-pause');
+    if(p.classList.contains('gone'))openPause(); else closePause();
+  }
+  if(e.key===' '){e.preventDefault();setSpeed(S.speed===0?1:0);}
+  if(e.key>='1'&&e.key<='3')setSpeed(+e.key);
+});
+window.addEventListener('resize',()=>{ if(S){ sceneBuilt=false; renderAll(); if(tab==='office')buildOfficeScene(); }});
+document.addEventListener('visibilitychange',()=>{ if(document.hidden)save(); });
+window.addEventListener('pagehide',save);
+
+refreshMenu();
+</script>
+</body>
+</html>
