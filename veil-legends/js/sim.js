@@ -79,18 +79,75 @@
     MAX_VEIL_FLOOR: 90,       // hard cap; keeps breach from re-triggering instantly
     WRAITH_SPEED_MULT: 1.05,  // x player BASE speed
     WRAITH_BASE_HP: 220,
-    PAR_OVERRUN_VEIL: 1.5,    // Veil per second past par; MUST stay under
-                              // VEIL_DECAY or the overrun spiral is terminal
+    PAR_OVERRUN_VEIL: 3.5,    // Veil per second past par. DESIGN Part 1 says 4;
+                              // this stays a hair UNDER VEIL_DECAY so a player
+                              // who stops casting past par can still crawl back
+                              // (0.5 V/s net) instead of being locked out of
+                              // recovery — the invariant test/smoke.mjs
+                              // protects. It was softened all the way to 1.5
+                              // when decay was ALSO disabled past par; decay now
+                              // runs past par (see step()), so the softening is
+                              // no longer needed and at 1.5 the clock was
+                              // ignorable: "never overdraw" measured no worse
+                              // than the threshold policy. At 3.5 missing par
+                              // costs real Veil, which is the attrition
+                              // mechanism of DESIGN Part 2.3.
     PAR_OVERRUN_FLOOR: 0.1,   // permanent run floor per second past par
     HP_RESTORE_BETWEEN: 0.25, // +25% of hpMax
     MOTE_LIFE: 6,
     TICK_INTERVAL: 0.25,      // seconds between pulses of a `ticks` ability
     DAMAGE_PER_FOCUS: 12,     // k
-    ENEMY_ATTACK_PERIOD: 1.5, // per-enemy contact cadence (no global i-frame).
+    ENEMY_ATTACK_PERIOD: 1.9, // per-enemy contact cadence (no global i-frame).
                               // 1.0 put wave 5 at 48% of max HP against a 25%
                               // between-wave restore — the squeeze landed on
                               // DESIGN Part 4's onboarding runway.
-    ENEMY_ATK_GROWTH: 0.10,   // per wave, linear
+                              // Raised 1.5 -> 1.9 when the wave ramp was
+                              // compressed (see WAVE_* below): the ramp moves
+                              // the DPS demand of old wave 14 down to wave 7,
+                              // and contact damage had to come off by the same
+                              // ratio or the HP squeeze would have landed on
+                              // wave 4 instead of DESIGN Part 4's wave 8-12.
+    ENEMY_ATTACK_PRIME: 0.5,  // how much of a period an enemy may bank while
+                              // OUT of contact (see updateEnemy). 1.0 = every
+                              // arrival hits on its first touching frame.
+    ENEMY_ATK_GROWTH: 0.07,   // per wave, linear. 0.10 was tuned against the
+                              // OLD (2x longer) ramp; on the compressed one it
+                              // compounded twice as fast per unit of difficulty.
+
+    /* ---- Wave ramp (DESIGN Part 7, COMPRESSED 2026-08-01) ----------------
+       DESIGN Part 7 shipped  N=6+2w, avgHP=100(1+0.15w), T_par=20+0.8w.
+       Measured defect: waves 1-13 were flat (owner: "gets exciting at 14+"),
+       and the balance harness independently found the par clock NEVER forces
+       an overdraw (par-form burn pinned at zero on 5812/10810 steps at w10+)
+       while "never overdraw" was the single strongest policy (spread 1.00x).
+       Both are the same bug: required DPS  H(w)/T_par(w)  crossed the player's
+       regen-limited 216 DPS so late that the central decision never had to be
+       made inside a reachable run.
+
+       The fix is a straight time compression of the DESIGN curve by ~2.2x on
+       the DPS-demand axis, i.e. difficulty age o(w) = 2.2w - 1.2:
+         avgHP(w) = 100(1 + 0.15*o(w)) = 100*(0.82 + 0.33w)
+         T_par(w) = 18 + 1.0w                (grows slower than the pool)
+       Body count is deliberately NOT compressed by the same factor —
+       count is what drives contact damage, and compressing it 2.2x too would
+       have dragged the HP squeeze down onto the onboarding runway. It goes
+       6+2w -> 6+3w, which is the visible "more bodies" half of the ramp.
+
+         w   N    avgHP   pool    par   reqDPS      (old curve, same wave)
+         1   9     115    1035   19.0      54       (44)
+         3  15     181    2715   21.0     129       (78)
+         5  21     247    5187   23.0     225      (117)
+         7  27     313    8451   25.0     338      (160)   <- old wave 14
+        10  36     412   14832   28.0     530      (232)   <- old wave 20
+       Player baseline is P0 = k*rho = 216 DPS single-target, ~240-250 with
+       AoE overlap, so par starts demanding a burn at w5-w6 and never stops. */
+    WAVE_COUNT_BASE: 6,
+    WAVE_COUNT_LIN: 3,        // N(w) = 6 + 3w
+    WAVE_HP_BASE: 100,
+    WAVE_HP_C0: 0.82,         // avgHP(w) = 100 * (0.82 + 0.33w)
+    WAVE_HP_LIN: 0.33,
+    PAR_BASE: 18,             // T_par(w) = 18 + 1.0w
+    PAR_LIN: 1.0,
     PLAYER_R: 16,
     PICKUP_R: 26,
     MAX_ENEMIES: 90,
@@ -280,6 +337,10 @@
     veilTier: 0,
     focus: 0,
     focusMax: 100,
+    /* ui.js owns this setting (it is NOT persisted by the sim). When on, the
+       sim casts ONE ready, already-affordable ability per tick. It can never
+       overdraw: see autoFireStep(). */
+    autoFire: false,
     motes: 0,
     hp: 0,
     hpMax: 1,
@@ -463,14 +524,18 @@
    * 6. Wave construction
    * ------------------------------------------------------------------ */
 
+  /* The three curves live in T (see the WAVE_* block) so the balance harness
+     can sweep them in memory instead of every caller re-deriving them from a
+     literal — the old shape was duplicated by hand in two test files and drifted
+     the moment it was retuned. Sim.waveCurve(w) below is the single read model. */
   function waveCount(w) {
-    return Math.max(1, Math.round(6 + 2 * w) + amods.enemyCountAdd);
+    return Math.max(1, Math.round(T.WAVE_COUNT_BASE + T.WAVE_COUNT_LIN * w) + amods.enemyCountAdd);
   }
   function waveAvgHp(w) {
-    return 100 * (1 + 0.15 * w) * amods.enemyHpMult;
+    return T.WAVE_HP_BASE * (T.WAVE_HP_C0 + T.WAVE_HP_LIN * w) * amods.enemyHpMult;
   }
   function waveParTime(w) {
-    return Math.max(5, (20 + 0.8 * w) * amods.parMult + mods.parAdd);
+    return Math.max(5, (T.PAR_BASE + T.PAR_LIN * w) * amods.parMult + mods.parAdd);
   }
 
   /** Weighted archetype roster for wave w. Consumes CONTENT.waveTable(w). */
@@ -1055,6 +1120,153 @@
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * 9b. The ONE cast path
+   * ------------------------------------------------------------------ *
+   * Sim.useAbility (a button press) and auto-fire both funnel through
+   * castAbility(). There is deliberately no second place that spends Focus,
+   * charges Veil or resolves ability damage — a parallel auto-attack path is
+   * how the old game ended up with two damage models to keep in sync.
+   * Throws are the CALLER's problem: useAbility wraps this in try/catch and
+   * auto-fire runs inside step(), which tick() already wraps. */
+  function castAbility(i) {
+    if (state.phase !== 'combat' || !run) return false;
+    i = Math.floor(num(i, -1, -1, 3));
+    if (i < 0 || i > 3) return false;
+    var a = state.abilities[i];
+    if (!a || a.empty) return false;
+    if (a.cd > 0) return false;
+
+    var cost = num(a.focusCost, 0, 0, 1e4);
+    if (cost > state.focus) {
+      /* OVERDRAW: allowed. Deficit is charged to Veil at q, Focus -> 0. */
+      var deficit = cost - state.focus;
+      state.focus = 0;
+      addVeil(deficit * T.OVERDRAW_Q * mods.overdrawRateMult);
+      emit({ type: 'overdraw', deficit: deficit });
+      /* Only BORROWING holds the Veil open. Resetting the settle window on
+         every cast gave Veil no reachable equilibrium: decay needs 1.5s of
+         silence and the fastest cooldown is 0.42s, so a player who was
+         fighting at all shed ~31% of what they gained and a full 85->25
+         reset cost 16.5s of not casting against a 26s par. DESIGN Part 1
+         is explicit that casting PAST your Focus is what feeds the Veil —
+         so spending inside your own regen now settles normally. */
+      run.sinceCast = 0;
+    } else {
+      state.focus -= cost;
+    }
+    a.cd = a.maxCd;
+
+    var dmg = abilityDamage(a);
+    var tgt = nearestEnemy();
+    /* Telegraph timing for fx.js. `delay` is the fuse before a delayed AoE
+       detonates and is ALWAYS a number (0 = instant), so fx can use it
+       directly rather than a fixed 0.5s guess; note `ev.delay || 0.5`
+       would mis-telegraph instant AoEs, test `typeof ev.delay==='number'`.
+       A `ticks` ability instead lands in N pulses `tickInterval` apart.
+       Both are clamped here with the same validation as the cast itself,
+       so a mis-typed content number cannot produce a NaN telegraph. */
+    var castTicks = Math.floor(num(a.ticks, 0, 0, 20));
+    emit({
+      type: 'cast', kind: a.kind, x: state.player.x, y: state.player.y,
+      targetX: tgt ? tgt.x : state.player.x, targetY: tgt ? tgt.y : state.player.y,
+      abilityId: a.id, range: abilityRange(a) * (a.kind === 'aoe' ? mods.aoeRadiusMult : 1),
+      delay: isNum(a.delay) ? clamp(a.delay, 0, 10) : 0,
+      ticks: castTicks,
+      tickInterval: castTicks > 0 ? T.TICK_INTERVAL : 0
+    });
+
+    switch (a.kind) {
+      case 'melee': castMelee(a, dmg); break;
+      case 'projectile': castProjectile(a, dmg); break;
+      case 'dash': castDash(a, dmg); break;
+      case 'execute': castExecute(a, dmg); break;
+      case 'aoe': default: castAoe(a, dmg); break;
+    }
+    checkBreach();
+    return true;
+  }
+
+  function enemiesWithin(x, y, r) {
+    var n = 0;
+    for (var i = 0; i < state.enemies.length; i++) {
+      var e = state.enemies[i];
+      if (!e || e.dead) continue;
+      if (hyp(e.x - x, e.y - y) <= r) n++;
+    }
+    return n;
+  }
+
+  /** Which ability auto-fire should press this tick, or -1 for none.
+   *
+   *  THE RULE, and it is not negotiable: auto-fire may only cast when
+   *  `focusCost <= state.focus`. DESIGN Part 1 makes overdrawing the game's
+   *  one recurring decision — every point of Veil debt has to be a thing the
+   *  player chose. Automating the debt would delete the game. Automate the
+   *  tedium (holding the primary button down), never the decision.
+   *
+   *  Beyond that it picks by expected value rather than by index: an AoE is
+   *  scored by how many bodies are actually inside its radius, single-target
+   *  buttons must actually reach the nearest enemy, and a long-cooldown nuke
+   *  is held back for a crowd, a boss, or an execute window instead of being
+   *  dumped on the first husk that wanders past. */
+  function autoFirePick() {
+    var p = state.player;
+    var near = nearestEnemy();
+    var nd = near ? hyp(near.x - p.x, near.y - p.y) : Infinity;
+    var best = -1, bestScore = 0;
+    var execThresh = clamp(T.EXECUTE_BASE + pctToFrac(mods.executeThresholdAdd), 0, 0.9);
+
+    for (var i = 0; i < state.abilities.length; i++) {
+      var a = state.abilities[i];
+      if (!a || a.empty || a.cd > 0) continue;
+      var cost = num(a.focusCost, 0, 0, 1e4);
+      if (cost > state.focus) continue;              // <- the no-overdraw rule
+      var reach = abilityRange(a);
+      var ticks = Math.max(1, Math.floor(num(a.ticks, 0, 0, 20)));
+      var hits = 0, score = 0;
+
+      if (a.kind === 'aoe') {
+        hits = enemiesWithin(p.x, p.y, reach * mods.aoeRadiusMult);
+      } else if (a.kind === 'dash') {
+        /* castDash sweeps toward the nearest enemy; anything roughly on that
+           line is a hit. Cheap approximation: bodies within the dash length. */
+        hits = near && nd <= Math.min(reach, 260) + 40
+          ? enemiesWithin(p.x, p.y, Math.min(reach, 260) + 40) : 0;
+      } else if (a.kind === 'execute') {
+        hits = (near && nd <= reach + 60) ? 1 : 0;
+      } else {
+        hits = (near && nd <= reach + (a.lunge ? 80 : 0)) ? 1 : 0;
+      }
+      if (hits > 0) score = abilityDamage(a) * ticks * hits;
+
+      /* Utility (heal / shield / buff) is worth pressing even with nothing in
+         range — that is exactly the tedium this feature exists to remove. */
+      if (isNum(a.heal) && a.heal > 0) score += Math.min(a.heal, Math.max(0, state.hpMax - state.hp)) * 1.5;
+      if (a.shield && typeof a.shield === 'object' && state.hp < state.hpMax * 0.9) {
+        score += num(a.shield.amount, 0, 0, 1e5) * 0.6;
+      }
+      if (a.buff && typeof a.buff === 'object' && near) score += 120;
+
+      if (score <= 0) continue;
+
+      /* Hold the big cooldowns for something worth them. */
+      if (a.maxCd >= 8 && score < 400) {
+        var worthIt = (hits >= 3) || (near && near.isBoss) ||
+          (a.kind === 'execute' && near && near.maxHp > 0 && near.hp / near.maxHp <= execThresh);
+        if (!worthIt) continue;
+      }
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    return best;
+  }
+
+  function autoFireStep() {
+    if (!state.autoFire) return;
+    var i = autoFirePick();
+    if (i >= 0) castAbility(i);
+  }
+
   function movePlayerTo(x, y) {
     var R = T.PLAYER_R;
     state.player.x = clamp(isNum(x) ? x : state.player.x, R, Math.max(R + 1, state.arena.w - R));
@@ -1247,7 +1459,17 @@
         hurtPlayer(e.atk * (1 + state.veil / 50), e);
       }
     } else {
-      e.atkTimer = Math.min(e.atkTimer + dt, T.ENEMY_ATTACK_PERIOD);
+      /* An enemy that is NOT touching you may bank at most ENEMY_ATTACK_PRIME
+         of a period. Banking a whole one (the old Math.min(..., PERIOD)) meant
+         every arrival landed a free hit on its first frame of contact, so a
+         converging wave of N bodies dealt N instant hits and raising
+         ENEMY_ATTACK_PERIOD from 1.5s to 2.8s moved wave-7 HP loss by 4 points:
+         almost nothing the player lost was actually paced by the cadence. It
+         also put 80% of all deaths inside the first 8 seconds of a wave, which
+         is spawn convergence, not a decision. Keeping a partial bank preserves
+         "being surrounded kills" (no global i-frame, DESIGN Part 6) while
+         leaving a dodge window that skill can use. */
+      e.atkTimer = Math.min(e.atkTimer + dt, T.ENEMY_ATTACK_PERIOD * T.ENEMY_ATTACK_PRIME);
     }
 
     /* Keep enemies from drifting off into infinity. */
@@ -1608,6 +1830,13 @@
     updateUnlocks();
     runSnapshot = null;
     run = null;
+    /* Drop the dead run's Pact and rift modifiers. Nothing in combat reads
+       them without a run, but Sim.waveCurve() does, and a harness that asked
+       for the curve between runs was being handed the last run's parAdd and
+       enemyCountAdd. Modifiers are always rebuilt from scratch, never
+       incremental, so this is just the empty case of that rule. */
+    recomputeMods();
+    recomputeAmods();
     state.draftOffer = null;
     state.phase = dead ? 'dead' : 'menu';
     saveInternal();
@@ -1650,6 +1879,16 @@
         run.delayed.splice(i, 1);
         fn();
       }
+    }
+
+    /* --- auto-fire ---------------------------------------------------- */
+    /* Placed here, after cooldowns tick and BEFORE Focus regen, so an
+       automatic press sees exactly the Focus a human press would have seen
+       between two frames. A cast can end the wave (or the run, via a bomber's
+       death blast), so re-check before anything else dereferences run. */
+    if (state.autoFire) {
+      autoFireStep();
+      if (state.phase !== 'combat' || !run) return;
     }
 
     /* --- Focus & Veil ------------------------------------------------ */
@@ -2055,65 +2294,18 @@
 
     useAbility: function (i) {
       try {
-        if (state.phase !== 'combat' || !run) return false;
-        i = Math.floor(num(i, -1, -1, 3));
-        if (i < 0 || i > 3) return false;
-        var a = state.abilities[i];
-        if (!a || a.empty) return false;
-        if (a.cd > 0) return false;
-
-        var cost = num(a.focusCost, 0, 0, 1e4);
-        if (cost > state.focus) {
-          /* OVERDRAW: allowed. Deficit is charged to Veil at q, Focus -> 0. */
-          var deficit = cost - state.focus;
-          state.focus = 0;
-          addVeil(deficit * T.OVERDRAW_Q * mods.overdrawRateMult);
-          emit({ type: 'overdraw', deficit: deficit });
-          /* Only BORROWING holds the Veil open. Resetting the settle window on
-             every cast gave Veil no reachable equilibrium: decay needs 1.5s of
-             silence and the fastest cooldown is 0.42s, so a player who was
-             fighting at all shed ~31% of what they gained and a full 85->25
-             reset cost 16.5s of not casting against a 26s par. DESIGN Part 1
-             is explicit that casting PAST your Focus is what feeds the Veil —
-             so spending inside your own regen now settles normally. */
-          run.sinceCast = 0;
-        } else {
-          state.focus -= cost;
-        }
-        a.cd = a.maxCd;
-
-        var dmg = abilityDamage(a);
-        var tgt = nearestEnemy();
-        /* Telegraph timing for fx.js. `delay` is the fuse before a delayed AoE
-           detonates and is ALWAYS a number (0 = instant), so fx can use it
-           directly rather than a fixed 0.5s guess; note `ev.delay || 0.5`
-           would mis-telegraph instant AoEs, test `typeof ev.delay==='number'`.
-           A `ticks` ability instead lands in N pulses `tickInterval` apart.
-           Both are clamped here with the same validation as the cast itself,
-           so a mis-typed content number cannot produce a NaN telegraph. */
-        var castTicks = Math.floor(num(a.ticks, 0, 0, 20));
-        emit({
-          type: 'cast', kind: a.kind, x: state.player.x, y: state.player.y,
-          targetX: tgt ? tgt.x : state.player.x, targetY: tgt ? tgt.y : state.player.y,
-          abilityId: a.id, range: abilityRange(a) * (a.kind === 'aoe' ? mods.aoeRadiusMult : 1),
-          delay: isNum(a.delay) ? clamp(a.delay, 0, 10) : 0,
-          ticks: castTicks,
-          tickInterval: castTicks > 0 ? T.TICK_INTERVAL : 0
-        });
-
-        switch (a.kind) {
-          case 'melee': castMelee(a, dmg); break;
-          case 'projectile': castProjectile(a, dmg); break;
-          case 'dash': castDash(a, dmg); break;
-          case 'execute': castExecute(a, dmg); break;
-          case 'aoe': default: castAoe(a, dmg); break;
-        }
-        checkBreach();
-        return true;
+        return castAbility(i);
       } catch (err) {
         fail(err);
         return false;
       }
+    },
+
+    /** Auto-fire toggle. ui.js owns the setting and its persistence; the sim
+     *  only holds the live flag. Returns the value actually set. */
+    setAutoFire: function (on) {
+      state.autoFire = !!on;
+      return state.autoFire;
     },
 
     setMove: function (mx, my) {
@@ -2234,6 +2426,21 @@
     _clearSave: function () { storeDel(SAVE_KEY); runSnapshot = null; },
     _echoesFor: echoesFor,
     _leadAim: leadAim,
+
+    /** The wave ramp, as the sim will actually build it right now (ascension,
+     *  rift and Pact modifiers included). Exposed so tests and the balance
+     *  harness read ONE definition instead of copying the literals — the old
+     *  N(w)/avgHP(w)/T_par(w) shape was duplicated in two harness files and in
+     *  six smoke assertions, all of which silently measured the old curve the
+     *  moment it was retuned. */
+    waveCurve: function (w) {
+      var n = Math.max(1, Math.floor(num(w, 1, 1, 100000)));
+      var count = waveCount(n), avgHp = waveAvgHp(n), par = waveParTime(n);
+      return {
+        wave: n, count: count, avgHp: avgHp,
+        pool: count * avgHp, par: par, reqDps: (count * avgHp) / (par || 1)
+      };
+    },
 
     /** Compact read model for autoplayers/harness policies. Allocates one
      *  small object; never leaks internal enemy references. */

@@ -119,13 +119,18 @@
 <div id="game-ui" hidden>
   <header id="hud-top">
     <div class="hud-row hud-row-meta">
-      <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">&#10073;&#10073;</button>
+      <!-- .key-cap is decorative: the keyboard hint is already in aria-label,
+           and the cap itself is hidden on touch-only pointers (see style.css). -->
+      <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause (Esc)">&#10073;&#10073;<span class="key-cap" aria-hidden="true">ESC</span></button>
       <div class="wave-block">
         <span class="wave-num">WAVE <b id="hud-wave">1</b></span>
         <span class="par-clock" id="hud-par">PAR 0:20</span>
       </div>
       <span class="wraith-tag" id="hud-wraiths" hidden>WRAITHS 0</span>
       <div class="motes" title="Motes">&#10022;<b id="hud-motes">0</b></div>
+      <!-- Auto-fire without opening a menu. Never overdraws - see settings copy. -->
+      <button id="btn-auto" class="icon-btn auto-btn" type="button" role="switch" aria-checked="false"
+              aria-label="Auto-fire (F)"><span class="auto-word">AUTO</span><span class="key-cap" aria-hidden="true">F</span></button>
     </div>
 
     <div class="hud-row">
@@ -178,6 +183,10 @@
     </div>
   </div>
 
+  <!-- .key-cap = the keyboard digit that fires this slot. Absolutely
+       positioned, so it adds no height and cannot shrink the 44px target,
+       and display:none unless the device reports a fine, hovering pointer.
+       .ab-auto lights when auto-fire is on. -->
   <footer id="hud-bottom">
     <button class="ability-btn" type="button" data-ab="0">
       <span class="cd-sweep" aria-hidden="true"></span>
@@ -185,6 +194,8 @@
       <span class="ab-name">&mdash;</span>
       <span class="ab-cost">&mdash;</span>
       <span class="ab-cd" aria-hidden="true"></span>
+      <span class="key-cap" aria-hidden="true">1</span>
+      <span class="ab-auto" aria-hidden="true">AUTO</span>
     </button>
     <button class="ability-btn" type="button" data-ab="1">
       <span class="cd-sweep" aria-hidden="true"></span>
@@ -192,6 +203,8 @@
       <span class="ab-name">&mdash;</span>
       <span class="ab-cost">&mdash;</span>
       <span class="ab-cd" aria-hidden="true"></span>
+      <span class="key-cap" aria-hidden="true">2</span>
+      <span class="ab-auto" aria-hidden="true">AUTO</span>
     </button>
     <button class="ability-btn" type="button" data-ab="2">
       <span class="cd-sweep" aria-hidden="true"></span>
@@ -199,6 +212,8 @@
       <span class="ab-name">&mdash;</span>
       <span class="ab-cost">&mdash;</span>
       <span class="ab-cd" aria-hidden="true"></span>
+      <span class="key-cap" aria-hidden="true">3</span>
+      <span class="ab-auto" aria-hidden="true">AUTO</span>
     </button>
     <button class="ability-btn" type="button" data-ab="3">
       <span class="cd-sweep" aria-hidden="true"></span>
@@ -206,6 +221,8 @@
       <span class="ab-name">&mdash;</span>
       <span class="ab-cost">&mdash;</span>
       <span class="ab-cd" aria-hidden="true"></span>
+      <span class="key-cap" aria-hidden="true">4</span>
+      <span class="ab-auto" aria-hidden="true">AUTO</span>
     </button>
   </footer>
 </div>
@@ -298,6 +315,18 @@
       <button id="set-close" class="icon-btn" type="button" aria-label="Close settings">&#10005;</button>
     </header>
     <div class="scroll">
+      <h3 class="sec-label">Combat</h3>
+      <!-- The copy is load-bearing: auto-fire never overdraws, because
+           overdrawing is the decision the whole game is made of. -->
+      <button id="set-autofire" class="toggle" type="button" role="switch" aria-checked="false">
+        <span class="t-txt">
+          <span>Auto-fire</span>
+          <span class="t-sub">Fires a ready ability whenever you already have the Focus for it.
+            It never overdraws &mdash; going into the Veil stays your call.</span>
+        </span><span class="sw" aria-hidden="true"></span>
+      </button>
+
+      <h3 class="sec-label">Sound &amp; effects</h3>
       <div class="field">
         <label class="field-label" for="set-volume">Volume <b id="set-volume-val">70%</b></label>
         <input id="set-volume" class="slider" type="range" min="0" max="100" step="5" value="70">

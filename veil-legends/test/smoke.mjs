@@ -451,9 +451,34 @@ section('wave formulas');
   Sim._setSeed(3);
   Sim.newRun('warden', null);
   const S = Sim.state;
-  ok(S.enemies.length === 8, 'wave 1 spawns N(1)=8 enemies (saw ' + S.enemies.length + ')');
-  ok(Math.abs(S.waveHpTotal - 8 * 115) < 1, 'wave 1 HP pool = 8*115 (saw ' + S.waveHpTotal.toFixed(0) + ')');
-  ok(Math.abs(S.parTotal - 20.8) < 1e-6, 'T_par(1) = 20.8s (saw ' + S.parTotal + ')');
+  /* The ramp was compressed on 2026-08-01 (sim.js TUNING.WAVE_* / PAR_*), so
+     these assert against Sim.waveCurve() — the sim's single definition of the
+     curve — rather than against a hand-copy of the literals. This file used to
+     carry three separate copies and every one of them had to be edited by hand
+     when the curve moved. The SHAPE is still asserted (see 'ramp shape' below). */
+  const c1 = Sim.waveCurve(1);
+  ok(S.enemies.length === c1.count, 'wave 1 spawns N(1)=' + c1.count + ' enemies (saw ' + S.enemies.length + ')');
+  ok(Math.abs(S.waveHpTotal - c1.pool) < 1,
+    'wave 1 HP pool = N(1)*avgHP(1) = ' + c1.pool.toFixed(0) + ' (saw ' + S.waveHpTotal.toFixed(0) + ')');
+  ok(Math.abs(S.parTotal - c1.par) < 1e-6, 'T_par(1) = ' + c1.par + 's (saw ' + S.parTotal + ')');
+
+  /* ramp shape — the properties the design depends on, which a bad retune
+     would break even though the numbers above would keep agreeing with
+     themselves. Required DPS must rise monotonically and must cross the
+     regen-limited baseline P0 = k*rho in the wave 4-8 band, or the central
+     Overdraw decision is either never forced (the 2026-08-01 defect: par
+     never demanded a burn at all) or forced before the player has met it. */
+  const P0 = Sim.TUNING.DAMAGE_PER_FOCUS * Sim.TUNING.FOCUS_REGEN;
+  let mono = true, cross = null;
+  for (let w = 1; w <= 20; w++) {
+    const c = Sim.waveCurve(w);
+    if (w > 1 && c.reqDps <= Sim.waveCurve(w - 1).reqDps) mono = false;
+    if (cross == null && c.reqDps > P0) cross = w;
+  }
+  ok(mono, 'required DPS H(w)/T_par(w) is strictly increasing in w');
+  ok(cross != null && cross >= 4 && cross <= 8,
+    'par first demands more than the ' + P0 + ' DPS a non-overdrawing player can sustain at wave ' +
+    cross + ' (want 4-8)');
   // and the design's worked wave 10
   S.enemies.length = 0;
   Sim.tick(STEP);           // clears the wave -> draft
@@ -479,10 +504,12 @@ section('DESIGN 5.2 worked wave 10 (restored from a crafted save)');
   ok(Sim.continueRun() === true, 'wave-10 snapshot restored');
   const S = Sim.state;
   ok(S.wave === 10, 'restored at wave 10');
-  ok(S.enemies.filter(e => !e.isWraith).length === 26, 'N(10) = 26 enemies (saw ' +
+  const c10 = Sim.waveCurve(10);
+  ok(S.enemies.filter(e => !e.isWraith).length === c10.count, 'N(10) = ' + c10.count + ' enemies (saw ' +
     S.enemies.length + ')');
-  ok(Math.abs(S.waveHpTotal - 6500) < 1, 'wave 10 HP pool = 6500 (saw ' + S.waveHpTotal.toFixed(0) + ')');
-  ok(Math.abs(S.parTotal - 28) < 1e-6, 'T_par(10) = 28s (saw ' + S.parTotal + ')');
+  ok(Math.abs(S.waveHpTotal - c10.pool) < 1,
+    'wave 10 HP pool = ' + c10.pool.toFixed(0) + ' (saw ' + S.waveHpTotal.toFixed(0) + ')');
+  ok(Math.abs(S.parTotal - c10.par) < 1e-6, 'T_par(10) = ' + c10.par + 's (saw ' + S.parTotal + ')');
   ok(S.enemies.some(e => e.isBoss), 'wave 10 contains a boss');
   ok(S.hpMax === 1000 + 150, 'hpMax recomputed from base + restored pact ops (saw ' + S.hpMax + ')');
   ok(S.veilFloor >= 6, 'restored veil floor kept');
@@ -716,7 +743,7 @@ section('covenant + ascension');
   ok(Sim.state.veil >= 10, 'Veil starts at the floor');
   Sim.setAscension(7);
   Sim.newRun('warden', null);
-  ok(Math.abs(Sim.state.parTotal - 20.8 * 0.8) < 1e-6, 'A7 multiplies par by 0.8 (saw ' +
+  ok(Math.abs(Sim.state.parTotal - (Sim.TUNING.PAR_BASE + Sim.TUNING.PAR_LIN) * 0.8) < 1e-6, 'A7 multiplies par by 0.8 (saw ' +
     Sim.state.parTotal.toFixed(3) + ')');
   Sim.setAscension(0);
 }
@@ -972,9 +999,10 @@ if (!REAL) {
       ok(bosses.length === 1 && bosses[0].archetypeId === REAL.bossForWave(w),
         'wave ' + w + ' boss is CONTENT.bossForWave(' + w + ') = ' + REAL.bossForWave(w) +
         ' (got ' + (bosses[0] && bosses[0].archetypeId) + ')');
-      ok(Math.abs(Sim.state.enemies.filter(e => !e.isWraith).length - (6 + 2 * w)) <= 0,
-        'wave ' + w + ' spawns N(w)=' + (6 + 2 * w) + ' enemies');
-      ok(Math.abs(Sim.state.waveHpTotal - (6 + 2 * w) * 100 * (1 + 0.15 * w)) < 1,
+      const cw = Sim.waveCurve(w);
+      ok(Math.abs(Sim.state.enemies.filter(e => !e.isWraith).length - cw.count) <= 0,
+        'wave ' + w + ' spawns N(w)=' + cw.count + ' enemies');
+      ok(Math.abs(Sim.state.waveHpTotal - cw.pool) < 1,
         'wave ' + w + ' HP pool matches N(w)*avgHP(w)');
     }
   }
@@ -1187,6 +1215,70 @@ if (!REAL) {
     ok(refund > 0 && refund <= spent, 'respec refund ' + refund + ' <= spent ' + spent);
     ok(Sim.state.meta.covenantOwned.length === 0, 'respec cleared the tree');
   }
+
+  section('real content.js — auto-fire never overdraws');
+  {
+    /* The whole point of the feature and the one thing that must never regress:
+       auto-fire automates the tedium (holding the primary button down) and
+       never the decision (DESIGN Part 1 — going into Veil debt is the game's
+       one recurring choice and has to be a thing the player chose). */
+    ok(typeof Sim.setAutoFire === 'function', 'Sim.setAutoFire exists');
+    Sim._setStorage(makeStorage());
+    Sim._setSeed(31337);
+    Sim.setArena(390, 700);
+    Sim.setAutoFire(false);
+    Sim.newRun(REAL.HEROES[0].id, null);
+    ok(Sim.state.autoFire === false, 'Sim.state.autoFire defaults to false');
+
+    /* off: the sim must not cast for you */
+    let castsOff = 0;
+    for (let i = 0; i < 600; i++) { Sim.tick(STEP); for (const ev of Sim.drainEvents()) if (ev.type === 'cast') castsOff++; }
+    ok(castsOff === 0, 'auto-fire OFF casts nothing (saw ' + castsOff + ')');
+
+    ok(Sim.setAutoFire(true) === true, 'setAutoFire(true) returns the value set');
+    ok(Sim.state.autoFire === true, 'state.autoFire follows the setter');
+
+    let casts = 0, overdraws = 0, negFocus = 0, worstVeil = 0;
+    for (let hero of REAL.HEROES) {
+      Sim._setStorage(makeStorage());
+      Sim._setSeed(900 + hero.id.length);
+      Sim.setAutoFire(true);
+      Sim.newRun(hero.id, null);
+      const S = Sim.state;
+      for (let i = 0; i < 60 * 120; i++) {
+        const v = Sim.policyView();
+        Sim.setMove(v.threatX, v.threatY);
+        Sim.tick(STEP);
+        for (const ev of Sim.drainEvents()) {
+          if (ev.type === 'cast') casts++;
+          if (ev.type === 'overdraw') overdraws++;
+        }
+        if (S.focus < -1e-9) negFocus++;
+        /* Only sampled while INSIDE par: past par the clock itself adds
+           PAR_OVERRUN_VEIL, which is not auto-fire's doing. */
+        if (S.parRemaining >= 0 && S.veil - S.veilFloor > worstVeil) worstVeil = S.veil - S.veilFloor;
+        if (S.phase === 'pactDraft') Sim.choosePact(null);
+        if (S.phase === 'dead') break;
+      }
+    }
+    ok(casts > 200, 'auto-fire actually fires (' + casts + ' casts across the roster)');
+    ok(overdraws === 0, 'auto-fire NEVER overdraws (saw ' + overdraws + ' overdraw events)');
+    ok(negFocus === 0, 'auto-fire never drives Focus negative');
+    ok(worstVeil < 1e-6, 'auto-fire alone never raises Veil above the floor inside par (peak +' +
+      worstVeil.toFixed(2) + ')');
+
+    /* cooldowns are respected: the shared cast path is the only cast path */
+    Sim._setStorage(makeStorage());
+    Sim._setSeed(4);
+    Sim.setAutoFire(true);
+    Sim.newRun(REAL.HEROES[0].id, null);
+    for (const a of Sim.state.abilities) a.cd = 99;
+    let castsOnCd = 0;
+    for (let i = 0; i < 30; i++) { Sim.tick(STEP); for (const ev of Sim.drainEvents()) if (ev.type === 'cast') castsOnCd++; }
+    ok(castsOnCd === 0, 'auto-fire respects cooldowns (saw ' + castsOnCd + ')');
+    Sim.setAutoFire(false);
+  }
+
   useContent(FIXTURE);
 }
 

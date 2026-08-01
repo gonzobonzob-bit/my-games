@@ -46,8 +46,19 @@ Exact mechanics:
   **no auto-attack** — every point of damage is a button press.
 - **Overdraw**: casting with `F < cost` is permitted. Deficit `d = cost − F` is
   charged to Veil at `q = 0.8` Veil per Focus. `F → 0`.
-- **Veil (V)**, 0–100. Decays at 4/s, but only after 1.5s with no cast (a
-  "settle" window). Effects:
+- **Veil (V)**, 0–100. Decays at 4/s, but only after 1.5s **with no overdraw**
+  (a "settle" window). Effects:
+
+  > **AMENDED 2026-08-01.** This originally read "1.5s with no cast", and the
+  > sim implemented exactly that — which left Veil with no reachable
+  > equilibrium, because the fastest ability cooldown is 0.42s, so any player
+  > who was fighting at all could never settle. Measured: a fighting player
+  > shed only ~31% of the Veil they gained, and a full 85→25 reset cost 16.5s
+  > of not casting against a 26s par clock. That, not the wave-5 boss, was
+  > what made every run die around wave 5. Only **borrowing** now holds the
+  > Veil open; spending inside your own Focus settles normally. This is
+  > closer to what Part 1 always claimed the game was about — casting *past*
+  > your Focus is the thing the Veil charges you for.
   - enemy contact damage ×`(1 + V/50)`
   - enemy speed ×`(1 + V/60)` — at V ≈ 100 minions are faster than you
   - mote yield per kill × tier step: V<25 →×1, 25–50 →×2, 50–75 →×4,
@@ -55,8 +66,15 @@ Exact mechanics:
 - **Brink**: V ≥ 100 breaches. A **Veilwraith** spawns (speed 1.05× the
   player's base — unkiteable, must be killed), V resets to 60, wraiths persist
   across waves and stack.
-- **Par clock**: each wave has `T_par(w)`. Every second past par adds +4 Veil
-  and +0.1 to the **permanent run Veil floor**.
+- **Par clock**: each wave has `T_par(w)`. Every second past par adds **+1.5
+  Veil** and +0.1 to the **permanent run Veil floor**.
+
+  > **AMENDED 2026-08-01.** Was +4 Veil/s — exactly equal to `VEIL_DECAY`, so
+  > once a player fell behind par their Veil rose no matter what they did and
+  > the overrun spiral was terminal by construction rather than by play. The
+  > rate must stay strictly under the decay rate; the attrition pressure of
+  > DESIGN Part 2.3 comes from the **permanent floor** ratchet, which nothing
+  > ever lowers, not from the transient Veil term.
 
 Second axis, same resource: **target priority.** Brutes are ~70% of the wave HP
 pool (they move the par clock); Stalkers are ~70% of incoming damage rate (they

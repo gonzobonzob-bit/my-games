@@ -6,7 +6,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const PORT = 9323;
+/* Port is overridable so parallel builders can each own one (VL_PORT). */
+const PORT = Number(process.env.VL_PORT || 9323);
 // resolve the game relative to this harness so it runs from any clone
 const GAME = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html')).href;
 const W = Number(process.argv[2] || 390), H = Number(process.argv[3] || 760);

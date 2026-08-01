@@ -186,6 +186,45 @@ body{user-select:none;-webkit-user-select:none;}
 }
 .icon-btn:active{background:rgba(124,58,237,.34);}
 
+/* ------------------------------ key caps -----------------------------
+   The keyboard key that fires a control, printed on the control.
+   Two rules make this safe:
+   1. position:absolute -> zero layout cost, so no button can be pushed
+      under 44x44 by adding one.
+   2. display:none by default. It is only shown where the device reports a
+      fine, hovering pointer, which is the honest proxy for "there is a
+      keyboard here". A phone reports pointer:coarse / hover:none and sees
+      nothing, because "press 1" is noise on a touchscreen.
+   Colour: #c4b5fd on #1a1030 = 9.78:1 (AA needs 4.5:1). Size stays 11px,
+   which is the floor used everywhere else in this file.
+   --------------------------------------------------------------------- */
+.key-cap{
+  position:absolute;display:none;align-items:center;justify-content:center;
+  min-width:16px;height:15px;padding:0 4px;
+  background:#1a1030;border:1px solid rgba(196,181,253,.4);border-radius:5px;
+  font-family:'Nunito',system-ui,sans-serif;font-size:11px;font-weight:800;
+  line-height:1;letter-spacing:.02em;color:var(--accent);
+  pointer-events:none;z-index:3;
+}
+@media (hover:hover) and (pointer:fine){
+  .key-cap{display:flex;}
+  /* Lift the glyph so the cap sits under it inside the same 44px box. */
+  #btn-pause,#btn-auto{padding-bottom:13px;}
+}
+.ability-btn .key-cap{top:3px;left:3px;}
+#btn-pause,#btn-auto{position:relative;}
+#btn-pause .key-cap,#btn-auto .key-cap{left:50%;bottom:2px;transform:translateX(-50%);}
+
+/* In-combat auto-fire switch. Same 44x44 box as pause; state is carried by
+   colour AND by the ability buttons lighting up, never by colour alone. */
+.auto-btn{font-family:'Cinzel',Georgia,serif;font-size:11px;letter-spacing:.02em;}
+.auto-btn .auto-word{line-height:1;}
+.auto-btn[aria-checked="true"]{
+  background:rgba(22,163,74,.24);border-color:rgba(74,222,128,.75);
+  color:var(--ok-t);                       /* 8.94:1 on that fill */
+}
+.auto-btn[aria-checked="true"] .key-cap{border-color:rgba(74,222,128,.5);color:var(--ok-t);}
+
 .field{padding:6px 2px 2px;}
 .field-label{display:flex;justify-content:space-between;align-items:baseline;
   font-size:14px;color:var(--text);margin-bottom:4px;}
@@ -210,6 +249,10 @@ body{user-select:none;-webkit-user-select:none;}
   background:var(--panel);border:1px solid var(--line);border-radius:12px;
   font-size:14px;color:var(--text);text-align:left;cursor:pointer;
 }
+/* Toggles that need a sentence of explanation carry it inline rather than
+   as a caption underneath, so the tap target and its meaning are one box. */
+.toggle .t-txt{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
+.toggle .t-sub{font-size:12px;font-weight:700;line-height:1.35;color:var(--muted);}
 .toggle .sw{flex:0 0 auto;width:48px;height:28px;border-radius:14px;
   background:#2b1c44;border:1px solid var(--line);position:relative;transition:background .15s;}
 .toggle .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;
@@ -446,6 +489,22 @@ body{user-select:none;-webkit-user-select:none;}
   background:conic-gradient(rgba(3,1,8,.68) var(--p,0%),transparent 0);}
 .ability-btn.ready .cd-sweep{display:none;}
 .ability-btn.cooling{border-color:rgba(107,94,138,.5);}
+/* Auto-fire, shown ON the thing it automates so it can never be a mystery.
+   It shares the label slot that OVERDRAW already reserves at the foot of the
+   button, and the two are mutually exclusive - which is exactly the truth:
+     green AUTO      -> auto-fire will cast this for you
+     red   OVERDRAW  -> your Focus does not cover it, so only you can cast it,
+                        and it will be charged to the Veil.
+   A corner badge was tried first and covered most of the ability icon on a
+   320px screen. This costs no space at all: the 16px bottom reserve is
+   already unconditional so the arena never resizes when the state flips. */
+.ab-auto{
+  position:absolute;bottom:3px;left:0;right:0;display:none;
+  font-size:11px;font-weight:800;letter-spacing:.04em;line-height:1;
+  text-align:center;color:var(--ok-t);pointer-events:none;z-index:3;  /* 10.6:1 */
+}
+.ability-btn.auto .ab-auto{display:block;}
+.ability-btn.auto.will-overdraw .ab-auto{display:none;}
 /* "Casting this would overdraw" - state, not advice. */
 .ability-btn.will-overdraw{border-color:rgba(248,113,113,.85);
   background:rgba(220,38,38,.16);}
@@ -519,6 +578,12 @@ body{user-select:none;-webkit-user-select:none;}
   .ability-btn{min-height:62px;}
   .ab-icon{font-size:21px;}
   .cov-grid{grid-template-columns:1fr 1fr;}
+  /* Two 44px buttons plus the motes readout on a 320px row: tighten the
+     gaps and the reserved motes width rather than shrinking any target. */
+  .hud-row-meta{gap:5px;}
+  .motes{min-width:44px;font-size:15px;}
+  .wave-block{gap:6px;}
+  .key-cap{min-width:14px;padding:0 3px;}
 }
 /* ---- help sheet & first-run tutorial card ---- */
 .help-thesis{padding:12px 14px;margin:0;color:var(--text);font-size:14px;line-height:1.5;
@@ -555,7 +620,18 @@ body{user-select:none;-webkit-user-select:none;}
   :root{--ability-band:60px;}                /* shorter row in landscape */
   .ability-btn{min-height:52px;padding:3px 3px;}
   .ability-btn.will-overdraw::after{font-size:7px;letter-spacing:0;}
+  /* Landscape drops the 16px bottom reserve, so a centred label would land on
+     top of the Focus cost. There is width to spare instead of height, so park
+     AUTO at the right end of that line. It keeps 11px - the fix for a cramped
+     row is less padding, not smaller type. (Checked at 480px of landscape
+     width, the narrowest this query can fire at in practice: the cost is
+     ~26px centred and AUTO is ~26px hard right, so they cannot meet.) */
+  .ab-auto{bottom:3px;left:auto;right:7px;width:auto;text-align:right;}
   .ab-icon{font-size:18px;}
+  /* The row is already tight here, so the cap hugs the corner. It stays
+     11px - the fix for a cramped row is less padding, not smaller type -
+     and it still costs nothing in layout because it is absolute. */
+  .ability-btn .key-cap{top:2px;left:2px;height:14px;padding:0 3px;min-width:14px;}
   /* No min-height here on purpose: the sim's arena floor is now 120 and
      UI.doResize feeds it the real measured height, so whatever the playfield
      gets is exactly what is simulated. Forcing a taller canvas than the

@@ -7,7 +7,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const PORT = 9321;
+/* Port is overridable so parallel builders can each own one (VL_PORT). */
+const PORT = Number(process.env.VL_PORT || 9321);
 // resolve the game relative to this harness so it runs from any clone
 const GAME = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html')).href;
 const W = Number(process.argv[2] || 390), H = Number(process.argv[3] || 760);
@@ -100,7 +101,7 @@ window.__fake = {
     {id:'a2',name:'Sweep',icon:'🌀',cd:1.4,maxCd:3,focusCost:30,kind:'aoe'},
     {id:'a3',name:'Bolt',icon:'🔥',cd:0,maxCd:1,focusCost:60,kind:'projectile'},
     {id:'a4',name:'Nova',icon:'💥',cd:0,maxCd:12,focusCost:80,kind:'aoe'}],
-  pactsTaken:['p1'], draftOffer:null,
+  pactsTaken:['p1'], draftOffer:null, autoFire:false,
   runStats:{kills:82,breaches:2,motesEarned:930,timePlayed:214,bestWave:7},
   meta:{echoes:120,covenantOwned:['c1'],ascension:0,ascensionUnlocked:3,
         heroesUnlocked:['warden'],riftsUnlocked:[],bestWaveEver:9}
@@ -118,6 +119,7 @@ window.Sim = {
   buyCovenant(id){ window.__calls.push(['buyCovenant',id]); return true; },
   respecCovenant(){ window.__calls.push(['respec']); },
   setAscension(n){ window.__calls.push(['setAscension',n]); },
+  setAutoFire(on){ window.__calls.push(['setAutoFire',on]); window.__fake.autoFire=!!on; },
   save(){ window.__calls.push(['save']); },
   abandonRun(){ window.__calls.push(['abandonRun']); window.__fake.phase='menu'; },
   drainEvents(){ var e=this.events; this.events=[]; return e; }
@@ -189,12 +191,91 @@ ok('cooldown sweep set', (await evaluate('document.querySelector(\'.ability-btn[
 ok('no burn/C/u* hint text anywhere in HUD',
   !/u\*|recommended|burn now|optimal/i.test(await evaluate('document.getElementById("hud-top").textContent')));
 
+/* ---- key caps: which key fires which slot ---- */
+ok('every ability button prints its key',
+  (await evaluate(`[...document.querySelectorAll('.ability-btn .key-cap')].map(e=>e.textContent).join('')`)) === '1234');
+ok('pause button prints its key',
+  (await evaluate(`document.querySelector('#btn-pause .key-cap').textContent`)) === 'ESC');
+/* Absolute positioning is the reason a cap can never shrink a 44px target. */
+ok('key caps are out of flow, so they cost no button height',
+  await evaluate(`[...document.querySelectorAll('.key-cap')].every(e=>getComputedStyle(e).position==='absolute')`));
+ok('key caps are legible size (>=11px)',
+  await evaluate(`[...document.querySelectorAll('.key-cap')].every(e=>parseFloat(getComputedStyle(e).fontSize)>=11)`),
+  await evaluate(`getComputedStyle(document.querySelector('.key-cap')).fontSize`));
+const abH0 = await evaluate(`document.querySelector('.ability-btn').getBoundingClientRect().height`);
+/* A phone has no keyboard, so "press 1" is noise there. Detect, do not assume:
+   touch emulation flips (hover:hover) and (pointer:fine) to false. */
+await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+await send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+await sleep(150);
+ok('touch-only device really reports coarse/no-hover',
+  await evaluate(`!matchMedia('(hover:hover) and (pointer:fine)').matches`));
+ok('key caps hidden on a touch-only pointer',
+  await evaluate(`[...document.querySelectorAll('.key-cap')].every(e=>getComputedStyle(e).display==='none')`));
+ok('hiding the caps does not resize the ability row',
+  (await evaluate(`document.querySelector('.ability-btn').getBoundingClientRect().height`)) === abH0);
+await send('Emulation.setEmitTouchEventsForMouse', { enabled: false });
+await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+await sleep(150);
+ok('key caps return on a fine pointer',
+  await evaluate(`[...document.querySelectorAll('.key-cap')].every(e=>getComputedStyle(e).display!=='none')`));
+
 /* ---- events ---- */
 await evaluate('Sim.events.push({type:"overdraw",deficit:40},{type:"breach",x:1,y:1})');
 await sleep(200);
 ok('overdraw deficit state on focus bar', await evaluate('document.getElementById("focus-outer").classList.contains("overdraw")'));
 ok('breach toast in the in-flow rail', await evaluate('/BREACH/.test(document.getElementById("toast-rail").textContent)'));
 ok('toast rail keeps a fixed height', (await evaluate('document.getElementById("toast-rail").getBoundingClientRect().height')) === 30);
+
+/* ---- auto-fire ----
+   Deliberately after the toast assertions: flipping auto-fire raises its own
+   toast, which would otherwise be the thing sitting in the one-at-a-time rail
+   when the breach assertion looks. */
+ok('auto-fire starts off', await evaluate(`document.getElementById('btn-auto').getAttribute('aria-checked')==='false'`));
+ok('auto-fire re-pushed to sim after newRun',
+  await evaluate(`__calls.findIndex(c=>c[0]==='setAutoFire') > __calls.findIndex(c=>c[0]==='newRun')`));
+await evaluate('document.getElementById("btn-auto").click()');
+await sleep(150);
+ok('auto-fire flips from the HUD, no menu needed',
+  await evaluate(`document.getElementById('btn-auto').getAttribute('aria-checked')==='true'`));
+ok('Sim.setAutoFire(true) called', await evaluate(`__calls.some(c=>c[0]==='setAutoFire'&&c[1]===true)`));
+ok('all four ability buttons show auto-fire is on',
+  await evaluate(`[...document.querySelectorAll('.ability-btn')].every(b=>b.classList.contains('auto'))`));
+ok('auto marker is visible on an affordable ability',
+  await evaluate(`(()=>{const b=document.querySelector('.ability-btn[data-ab="0"]');
+    return !b.classList.contains('will-overdraw') && getComputedStyle(b.querySelector('.ab-auto')).display!=='none';})()`));
+/* Auto-fire never overdraws, so on a slot the player cannot afford the button
+   must keep saying OVERDRAW rather than promising to cast it. */
+ok('auto marker yields to OVERDRAW on an unaffordable ability',
+  await evaluate(`(()=>{const b=document.querySelector('.ability-btn[data-ab="2"]');
+    return b.classList.contains('will-overdraw') && getComputedStyle(b.querySelector('.ab-auto')).display==='none';})()`));
+ok('auto-fire persisted under veilLegendsSettings',
+  await evaluate(`JSON.parse(localStorage.getItem('veilLegendsSettings')||'{}').autoFire===true`));
+ok('settings switch mirrors the HUD switch',
+  await evaluate(`document.getElementById('set-autofire').getAttribute('aria-checked')==='true'`));
+ok('settings copy does not promise to overdraw for the player',
+  await evaluate(`/never overdraws/i.test(document.getElementById('set-autofire').textContent)`),
+  (await evaluate(`document.getElementById('set-autofire').textContent.replace(/\\s+/g,' ').trim()`)).slice(0, 96));
+ok('auto-fire is listed in the keyboard bindings',
+  await evaluate(`/auto-fire/i.test(document.getElementById('key-list').textContent)`));
+ok('auto-fire is listed in the controller bindings',
+  await evaluate(`/auto-fire/i.test(document.getElementById('bind-list').textContent)`));
+await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyF'}))`);
+await sleep(150);
+ok('F toggles auto-fire back off',
+  await evaluate(`document.getElementById('btn-auto').getAttribute('aria-checked')==='false' &&
+                  __calls.some(c=>c[0]==='setAutoFire'&&c[1]===false)`));
+/* sim.js is being written in parallel: the control must not die if
+   Sim.setAutoFire has not landed yet. */
+await evaluate(`window.__savedSAF = Sim.setAutoFire; delete Sim.setAutoFire; delete __fake.autoFire;`);
+await evaluate('document.getElementById("btn-auto").click()');
+await sleep(150);
+ok('control still works against a Sim with no setAutoFire',
+  await evaluate(`document.getElementById('btn-auto').getAttribute('aria-checked')==='true' &&
+                  document.querySelector('.ability-btn').classList.contains('auto')`));
+await evaluate(`Sim.setAutoFire = window.__savedSAF; __fake.autoFire = false;
+                document.getElementById('set-autofire').click();`);
+await sleep(150);
 
 /* ---- pause overlay reachable by BUTTON (not just Esc) ---- */
 await evaluate('document.getElementById("btn-pause").click()');
