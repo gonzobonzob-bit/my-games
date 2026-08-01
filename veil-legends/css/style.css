@@ -1,0 +1,582 @@
+/* ===================================================================
+   VEIL LEGENDS - stylesheet (interface-engineer owns this file)
+   Mobile-first, 390x760 portrait target; checked at 360x640 and 320px.
+   Contrast: every text colour below is measured against its own
+   background (see the token block). Nothing text-bearing is under 11px.
+   =================================================================== */
+
+@font-face{
+  font-family:'Cinzel';
+  src:url('../fonts/cinzel-latin.woff2') format('woff2');
+  font-weight:700 900;
+  font-display:swap;
+}
+@font-face{
+  font-family:'Nunito';
+  src:url('../fonts/nunito-latin.woff2') format('woff2');
+  font-weight:700 800;
+  font-display:swap;
+}
+
+/* ------------------------------- tokens ------------------------------ */
+:root{
+  --bg:#05030f;              /* L 0.0013 */
+  --panel:#120a22;
+  --panel-2:#1a1030;
+  --line:#2f1f4d;
+  --border:#1a0f2a;
+
+  /* Fills (never used for small text) */
+  --purple:#7c3aed;          /* 3.59:1 on --bg -> fills/borders only */
+  --gold:#d97706;
+  --red:#dc2626;             /* 4.24:1 -> fill only */
+  --blue:#2563eb;
+  --green:#16a34a;
+
+  /* Text colours, measured on --bg */
+  --text:#e2d9f3;            /* 15.06:1 */
+  --muted:#8b7cae;           /*  5.45:1  (replaces #6b5e8a @ 3.50:1 - FAILED AA) */
+  --muted-deep:#6b5e8a;      /* decorative only: rules, dividers, band ticks */
+  --accent:#c4b5fd;          /* 11.09:1 */
+  --gold-t:#fbbf24;          /* 12.28:1 */
+  --danger-t:#f87171;        /*  7.40:1 */
+  --ok-t:#4ade80;            /* 11.75:1 */
+  --focus-ring:#c4b5fd;      /* 11.09:1 -> passes 3:1 non-text minimum easily */
+
+  --tap:44px;                /* minimum touch target */
+  --sat:env(safe-area-inset-top,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --ability-band:88px;       /* height the ability row occupies; overlay action
+                                bars clear it so a mid-combat tap cannot hit them */
+  --sal:env(safe-area-inset-left,0px);
+  --sar:env(safe-area-inset-right,0px);
+
+  /* Explicit stacking layers - no two overlays share one. */
+  --z-game:1;
+  --z-menu:100;
+  --z-select:110;
+  --z-covenant:200;
+  --z-draft:300;
+  --z-death:400;
+  --z-pause:500;
+  --z-settings:600;
+  --z-confirm:700;
+  --z-toast:800;
+}
+
+/* -------------------------------- reset ------------------------------ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Nunito',system-ui,-apple-system,sans-serif;color:var(--text);
+  font-size:16px;line-height:1.35;font-weight:700;
+  -webkit-text-size-adjust:100%;}
+body{overscroll-behavior:none;}
+[hidden]{display:none !important;}
+button,input{font:inherit;color:inherit;}
+b,strong{font-weight:800;}
+h1,h2,h3{font-family:'Cinzel',Georgia,serif;font-weight:900;letter-spacing:.06em;}
+
+/* Selection/dragging is never wanted in-game. */
+body{user-select:none;-webkit-user-select:none;}
+
+/* --------------------------- focus visibility ------------------------ */
+/* Controller and keyboard navigation both rely on this being obvious.
+   .nav-focus is applied by ui.js because programmatic focus does not
+   always trigger :focus-visible. */
+:focus{outline:none;}
+:focus-visible,
+.nav-focus{
+  outline:3px solid var(--focus-ring);
+  outline-offset:2px;
+  border-radius:12px;
+}
+.nav-focus{box-shadow:0 0 0 6px rgba(196,181,253,.16);}
+
+/* ------------------------- layout primitives ------------------------- */
+.screen{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  background:radial-gradient(ellipse at 50% 32%,#150a2c,#040109 72%);
+  padding:var(--sat) var(--sar) var(--sab) var(--sal);
+}
+#menu{z-index:var(--z-menu);}
+#select{z-index:var(--z-select);}
+#covenant{z-index:var(--z-covenant);}
+
+.overlay{
+  position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(3,1,8,.86);
+  padding:calc(var(--sat) + 8px) calc(var(--sar) + 8px) calc(var(--sab) + 8px) calc(var(--sal) + 8px);
+}
+#pact-draft{z-index:var(--z-draft);}
+#death{z-index:var(--z-death);}
+#pause{z-index:var(--z-pause);}
+#settings{z-index:var(--z-settings);}
+#confirm{z-index:var(--z-confirm);align-items:center;}
+
+.sheet{
+  width:100%;max-width:460px;max-height:100%;
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,#160c2a,#0b0618);
+  border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 -12px 48px rgba(0,0,0,.7);
+  overflow:hidden;
+}
+.sheet-narrow{max-width:340px;}
+.sheet-title{font-size:20px;color:var(--accent);text-align:center;padding:16px 14px 4px;}
+.sheet-sub{font-size:13px;color:var(--muted);text-align:center;padding:0 16px 10px;}
+
+/* Scroll regions: action bars are OUTSIDE them and sticky, so buttons
+   never scroll away in landscape. */
+.scroll{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding:10px 12px 14px;
+}
+.bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:rgba(9,5,18,.94);
+}
+.bar-top{border-bottom:1px solid var(--line);min-height:52px;}
+.bar-bottom{border-top:1px solid var(--line);
+  padding-bottom:calc(8px + var(--sab));flex-wrap:wrap;}
+/* The pact draft and the death screen open directly over the ability row, and
+   their bottom action sat exactly on it — so the thumb that was attacking
+   auto-declined every draft and skipped every death screen. Lift these two
+   clear of that band; the in-flight lockout in ui.js covers the rest. */
+#pact-draft .bar-bottom,
+#death .bar-bottom{padding-bottom:calc(8px + var(--sab) + var(--ability-band));}
+.bar-stack{flex-direction:column;align-items:stretch;gap:8px;}
+.bar-title{flex:1;font-size:15px;color:var(--accent);text-align:center;}
+.bar-side{font-size:14px;color:var(--muted);min-width:56px;text-align:right;}
+.bar-strong{color:var(--gold-t);font-family:'Cinzel',serif;font-size:16px;}
+
+.sec-label{font-size:12px;letter-spacing:.14em;color:var(--muted);
+  text-transform:uppercase;margin:14px 2px 7px;}
+.sec-label:first-child{margin-top:2px;}
+.sec-danger{color:var(--danger-t);}
+.tip-line{font-size:13px;line-height:1.45;color:var(--muted);margin:6px 2px 2px;}
+
+/* --------------------------- buttons / inputs ------------------------ */
+.btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;width:100%;min-height:52px;padding:10px 16px;
+  background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.55);
+  border-radius:14px;color:var(--accent);
+  font-family:'Cinzel',Georgia,serif;font-size:16px;letter-spacing:.06em;
+  cursor:pointer;transition:transform .12s ease,background .15s ease;
+}
+.btn:active{transform:scale(.97);background:rgba(124,58,237,.32);}
+.btn[disabled]{opacity:.42;cursor:default;}
+.btn[disabled]:active{transform:none;}
+.btn-label{font-size:16px;}
+.btn-sub{font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:0;color:var(--muted);text-align:center;}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);
+  border-color:#a855f7;color:#fff;box-shadow:0 6px 22px rgba(124,58,237,.42);}
+.btn-primary .btn-sub{color:#ede9fe;}
+.btn-gold{background:rgba(217,119,6,.18);border-color:rgba(251,191,36,.6);color:var(--gold-t);}
+.btn-ghost{background:transparent;border-color:rgba(139,124,174,.6);color:var(--muted);}
+.btn-danger{background:rgba(220,38,38,.18);border-color:rgba(248,113,113,.7);color:var(--danger-t);}
+
+.icon-btn{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  width:var(--tap);height:var(--tap);
+  background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.5);
+  border-radius:12px;color:var(--accent);font-size:17px;line-height:1;cursor:pointer;
+}
+.icon-btn:active{background:rgba(124,58,237,.34);}
+
+.field{padding:6px 2px 2px;}
+.field-label{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:14px;color:var(--text);margin-bottom:4px;}
+.field-label b{color:var(--accent);font-family:'Cinzel',serif;font-size:15px;}
+/* Slider: 44px of vertical hit area even though the track is 6px. */
+.slider{
+  -webkit-appearance:none;appearance:none;width:100%;height:var(--tap);
+  background:transparent;cursor:pointer;
+}
+.slider::-webkit-slider-runnable-track{height:6px;border-radius:3px;
+  background:linear-gradient(90deg,#7c3aed,#a855f7);}
+.slider::-moz-range-track{height:6px;border-radius:3px;background:#7c3aed;}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:28px;height:28px;margin-top:-11px;border-radius:50%;
+  background:#ede9fe;border:2px solid #7c3aed;}
+.slider::-moz-range-thumb{width:28px;height:28px;border-radius:50%;
+  background:#ede9fe;border:2px solid #7c3aed;}
+
+.toggle{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;min-height:var(--tap);padding:10px 12px;margin-top:8px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  font-size:14px;color:var(--text);text-align:left;cursor:pointer;
+}
+.toggle .sw{flex:0 0 auto;width:48px;height:28px;border-radius:14px;
+  background:#2b1c44;border:1px solid var(--line);position:relative;transition:background .15s;}
+.toggle .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;
+  border-radius:50%;background:var(--muted);transition:transform .15s,background .15s;}
+.toggle[aria-checked="true"] .sw{background:rgba(124,58,237,.65);}
+.toggle[aria-checked="true"] .sw::after{transform:translateX(20px);background:#ede9fe;}
+
+.bind-list{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;
+  padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;}
+.bind-list dt{font-family:'Cinzel',serif;font-size:13px;color:var(--accent);}
+.bind-list dd{font-size:13px;color:var(--muted);}
+
+/* ------------------------------- menu -------------------------------- */
+.menu-body{display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:18px 14px 24px;text-align:center;min-height:100%;justify-content:center;}
+.sp-icon{font-size:64px;line-height:1;filter:drop-shadow(0 0 26px rgba(124,58,237,.75));
+  animation:heroFloat 2.6s ease-in-out infinite;}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.sp-title{font-size:34px;color:var(--accent);letter-spacing:.12em;
+  text-shadow:0 0 28px rgba(124,58,237,.7);}
+.sp-sub{font-size:12px;letter-spacing:.34em;color:var(--muted);margin-bottom:6px;}
+.menu-actions{display:flex;flex-direction:column;gap:10px;width:100%;max-width:330px;margin-top:6px;}
+.menu-foot{font-size:13px;color:var(--muted);margin-top:12px;}
+
+/* ------------------------------ select ------------------------------- */
+.card-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.card{
+  flex:0 0 auto;scroll-snap-align:start;
+  min-width:92px;min-height:var(--tap);padding:10px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  color:var(--text);cursor:pointer;text-align:center;
+  transition:background .15s,border-color .15s;
+}
+.card[aria-pressed="true"],.card.selected{
+  background:rgba(124,58,237,.3);border-color:#a855f7;
+  box-shadow:0 0 16px rgba(124,58,237,.4);}
+.card[disabled]{opacity:.45;cursor:default;}
+.card-icon{font-size:26px;line-height:1.1;}
+.card-name{font-size:12px;font-weight:800;color:var(--accent);
+  text-transform:uppercase;letter-spacing:.04em;}
+.card-stat{font-size:11px;color:var(--muted);}
+.card-lock{font-size:11px;color:var(--danger-t);}
+.rift-card{min-width:120px;align-items:flex-start;text-align:left;}
+
+.tip-panel{display:flex;flex-direction:column;gap:8px;
+  background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.3);
+  border-radius:14px;padding:10px 12px;}
+.tip-item{display:flex;gap:9px;align-items:flex-start;}
+.tip-icon{font-size:18px;flex:0 0 auto;line-height:1.2;}
+.tip-body{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.tip-name{font-size:12px;font-weight:800;color:var(--accent);
+  text-transform:uppercase;letter-spacing:.05em;}
+.tip-meta{font-size:11px;color:var(--gold-t);}
+.tip-text{font-size:12px;line-height:1.4;color:var(--muted);}
+
+.stepper{display:flex;align-items:center;gap:12px;justify-content:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;}
+.stepper-val{flex:1;text-align:center;font-family:'Cinzel',serif;font-size:20px;color:var(--gold-t);}
+.stepper-name{display:block;font-family:'Nunito',sans-serif;font-size:12px;
+  font-weight:700;color:var(--muted);}
+
+/* ----------------------------- covenant ------------------------------ */
+.cov-summary{flex:0 0 auto;display:flex;justify-content:space-around;gap:8px;
+  padding:8px 10px;font-size:13px;color:var(--muted);
+  background:rgba(9,5,18,.9);border-bottom:1px solid var(--line);}
+.cov-summary b{color:var(--accent);font-family:'Cinzel',serif;font-size:15px;}
+.cov-tier{margin-bottom:12px;}
+.cov-tier-label{font-size:12px;letter-spacing:.14em;color:var(--muted);
+  text-transform:uppercase;margin:0 2px 6px;display:flex;align-items:center;gap:8px;}
+.cov-tier-label::after{content:'';flex:1;height:1px;background:var(--line);}
+.cov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.cov-node{
+  display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;
+  min-height:76px;padding:9px 10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  color:var(--text);cursor:pointer;position:relative;
+}
+.cov-node .n-name{font-size:13px;font-weight:800;color:var(--accent);}
+.cov-node .n-cost{font-size:12px;color:var(--gold-t);font-family:'Cinzel',serif;}
+.cov-node .n-req{font-size:11px;color:var(--muted);}
+.cov-node.owned{background:rgba(22,163,74,.16);border-color:rgba(74,222,128,.6);}
+.cov-node.owned .n-name{color:var(--ok-t);}
+.cov-node.locked{opacity:.62;}
+.cov-node.locked .n-name{color:var(--muted);}
+.cov-node.affordable{border-color:#a855f7;}
+.cov-node.req-hi{border-color:var(--gold-t);box-shadow:0 0 0 2px rgba(251,191,36,.35);}
+.cov-node.dep-hi{border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.3);}
+.badge{display:inline-block;padding:1px 6px;border-radius:999px;
+  font-size:11px;font-weight:800;letter-spacing:.03em;}
+.badge-clean{background:rgba(37,99,235,.28);color:#93c5fd;}
+.badge-upkeep{background:rgba(220,38,38,.22);color:var(--danger-t);}
+.badge-tier{background:rgba(124,58,237,.28);color:var(--accent);}
+.cov-detail{flex:1 1 100%;font-size:12px;line-height:1.4;color:var(--muted);
+  margin-bottom:6px;min-height:2.6em;}
+#cov-respec{width:100%;}
+
+/* ------------------------------- HUD --------------------------------- */
+#game-ui{position:fixed;inset:0;z-index:var(--z-game);display:flex;flex-direction:column;
+  padding:var(--sat) var(--sar) var(--sab) var(--sal);}
+#hud-top{flex:0 0 auto;display:flex;flex-direction:column;gap:2px;
+  padding:3px 10px 4px;background:rgba(5,3,15,.96);border-bottom:1px solid var(--line);}
+.hud-row{display:flex;align-items:center;gap:7px;}
+.hud-row-meta{gap:8px;min-height:var(--tap);}
+.wave-block{flex:1;display:flex;align-items:baseline;justify-content:center;gap:10px;}
+.wave-num{font-family:'Cinzel',serif;font-size:16px;color:var(--gold-t);letter-spacing:.05em;}
+.wave-num b{font-size:19px;}
+.par-clock{font-family:'Cinzel',serif;font-size:17px;color:var(--text);
+  font-variant-numeric:tabular-nums;}
+.par-clock.warn{color:var(--gold-t);}
+.par-clock.crit{color:var(--danger-t);animation:pulse 1s ease-in-out infinite;}
+.motes{font-family:'Cinzel',serif;font-size:16px;color:var(--gold-t);
+  min-width:58px;text-align:right;}
+
+.bar-tag{flex:0 0 42px;font-size:11px;letter-spacing:.08em;color:var(--muted);}
+/* NB: .meter (HUD gauges) is deliberately a different class from .bar
+   (screen header/action bars) - one shared name would collide. */
+.meter{flex:1;position:relative;height:10px;border-radius:5px;overflow:hidden;
+  background:rgba(255,255,255,.09);}
+.bar-fill{height:100%;border-radius:5px;transition:width .18s linear;}
+.bar-val{flex:0 0 auto;min-width:60px;text-align:right;font-size:13px;
+  color:var(--text);font-variant-numeric:tabular-nums;}
+
+.meter-hp{height:13px;border-radius:7px;}
+.hp-fill{background:linear-gradient(90deg,#16a34a,#4ade80);}
+.meter-hp.warn .hp-fill{background:linear-gradient(90deg,#d97706,#fbbf24);}
+.meter-hp.crit .hp-fill{background:linear-gradient(90deg,#dc2626,#f87171);}
+.meter-hp.crit{animation:pulse 1s ease-in-out infinite;}
+#hp-val.warn{color:var(--gold-t);}
+#hp-val.crit{color:var(--danger-t);}
+
+.meter-focus{height:9px;}
+.focus-fill{background:linear-gradient(90deg,#2563eb,#60a5fa);}
+.deficit-fill{position:absolute;top:0;left:0;height:100%;width:0;
+  background:repeating-linear-gradient(135deg,#f87171 0 6px,#7f1d1d 6px 12px);
+  opacity:0;transition:opacity .12s;}
+.meter-focus.overdraw .deficit-fill{opacity:1;}
+.meter-focus.overdraw{box-shadow:0 0 0 2px rgba(248,113,113,.8);animation:odFlash .45s ease-out 2;}
+#focus-val.overdraw{color:var(--danger-t);}
+@keyframes odFlash{0%{filter:brightness(2.1)}100%{filter:none}}
+
+/* Veil meter: five tier bands, current tier highlighted, floor marker,
+   brink marker at 85. No burn hint anywhere (DESIGN 5.4). */
+.hud-row-veil{gap:7px;}
+/* --veil-accent is set by ui.js from FX.veilPalette() on each tier step. */
+.veil-meter{flex:1;position:relative;height:18px;border-radius:6px;overflow:hidden;
+  background:#1b0f2e;border:1px solid var(--veil-accent,var(--line));}
+.veil-bands{position:absolute;inset:0;display:flex;}
+.veil-band{position:relative;height:100%;border-right:1px solid rgba(107,94,138,.55);
+  background:rgba(124,58,237,.05);transition:background .2s;}
+.veil-band:last-child{border-right:0;}
+.veil-band.on{background:rgba(196,181,253,.16);
+  box-shadow:inset 0 0 0 1px var(--veil-accent,rgba(196,181,253,.5));}
+.veil-fill{position:absolute;top:0;left:0;height:100%;width:0;
+  background:linear-gradient(90deg,#7c3aed,#c026d3 62%,#dc2626);
+  transition:width .18s linear;opacity:.88;}
+.veil-floor{position:absolute;top:0;left:0;height:100%;width:0;
+  background:repeating-linear-gradient(135deg,rgba(139,124,174,.5) 0 4px,rgba(139,124,174,.16) 4px 8px);
+  border-right:2px solid var(--muted);}
+.veil-brink{position:absolute;top:0;left:85%;width:2px;height:100%;background:var(--danger-t);opacity:.85;}
+.veil-val{font-family:'Cinzel',serif;font-size:16px;min-width:60px;}
+.veil-meter.hot{box-shadow:0 0 10px rgba(217,119,6,.6);}
+.veil-meter.crit{box-shadow:0 0 14px rgba(220,38,38,.85);animation:pulse .8s ease-in-out infinite;}
+#veil-val.hot{color:var(--gold-t);}
+#veil-val.crit{color:var(--danger-t);}
+.veil-legend{display:flex;padding-left:49px;padding-right:67px;line-height:1;}
+.veil-legend span{flex:1;font-size:11px;color:var(--muted-deep);text-align:center;}
+.veil-legend span.on{color:var(--gold-t);font-weight:800;}
+
+.meter-wave{height:8px;}
+.wave-fill{background:linear-gradient(90deg,#a855f7,#e9d5ff);}
+.hud-row-wavehp .bar-val{font-size:12px;}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* ---------------------------- toast rail ----------------------------- */
+/* Fixed height: the arena never resizes when a toast arrives, and toasts
+   never cover the playfield. Overflow is queued, with a live count. */
+#toast-rail{flex:0 0 auto;height:30px;display:flex;align-items:center;gap:6px;
+  padding:0 10px;background:rgba(9,5,18,.9);border-bottom:1px solid var(--border);
+  overflow:hidden;}
+#toast-float{position:fixed;left:50%;top:calc(var(--sat) + 10px);transform:translateX(-50%);
+  z-index:var(--z-toast);pointer-events:none;display:flex;flex-direction:column;gap:6px;
+  max-width:92vw;}
+.toast{display:flex;align-items:center;gap:7px;min-height:24px;padding:3px 10px;
+  border-radius:999px;border:1px solid var(--line);background:rgba(26,16,48,.96);
+  font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;animation:toastIn .18s ease-out;}
+#toast-rail .toast{flex:1;min-width:0;}
+.toast .t-ic{flex:0 0 auto;font-size:14px;}
+.toast.t-good{border-color:rgba(74,222,128,.65);background:rgba(22,163,74,.2);}
+.toast.t-bad{border-color:rgba(248,113,113,.75);background:rgba(220,38,38,.24);color:var(--danger-t);}
+.toast.t-warn{border-color:rgba(251,191,36,.7);background:rgba(217,119,6,.2);color:var(--gold-t);}
+.toast.t-info{border-color:rgba(124,58,237,.7);background:rgba(124,58,237,.22);color:var(--accent);}
+.toast-more{flex:0 0 auto;font-size:11px;font-weight:800;color:var(--bg);
+  background:var(--gold-t);border-radius:999px;padding:2px 7px;}
+@keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* ------------------------- arena / joystick -------------------------- */
+#canvas-wrap{flex:1 1 auto;position:relative;overflow:hidden;min-height:0;touch-action:none;}
+#game-canvas{display:block;width:100%;height:100%;touch-action:none;}
+#fx-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.joystick-zone{position:absolute;left:14px;bottom:14px;width:104px;height:104px;
+  border-radius:50%;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.28);
+  touch-action:none;}
+.joystick-zone.active{background:rgba(124,58,237,.2);border-color:rgba(168,85,247,.6);}
+.joystick-knob{position:absolute;top:50%;left:50%;width:46px;height:46px;border-radius:50%;
+  background:rgba(124,58,237,.62);border:2px solid #a78bfa;
+  transform:translate(-50%,-50%);pointer-events:none;}
+
+/* --------------------------- ability bar ----------------------------- */
+#hud-bottom{flex:0 0 auto;display:flex;gap:6px;align-items:stretch;
+  padding:7px 8px calc(7px + var(--sab));
+  background:rgba(5,3,15,.96);border-top:1px solid var(--line);}
+/* The bottom padding is reserved unconditionally: the OVERDRAW label must not
+   change the button's height, or the arena would resize mid-fight. */
+.ability-btn{
+  flex:1 1 0;min-width:0;min-height:74px;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:5px 3px 16px;background:rgba(124,58,237,.16);
+  border:1px solid rgba(124,58,237,.45);border-radius:14px;cursor:pointer;
+  transition:transform .1s ease;
+}
+.ability-btn:active{transform:scale(.94);}
+.ab-icon{font-size:23px;line-height:1.05;}
+.ab-name{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;
+  letter-spacing:.02em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ab-cost{font-size:12px;font-weight:800;color:#93c5fd;font-variant-numeric:tabular-nums;}
+.ab-cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;font-size:19px;color:#fff;text-shadow:0 2px 6px #000;
+  pointer-events:none;}
+.cd-sweep{position:absolute;inset:0;pointer-events:none;
+  background:conic-gradient(rgba(3,1,8,.68) var(--p,0%),transparent 0);}
+.ability-btn.ready .cd-sweep{display:none;}
+.ability-btn.cooling{border-color:rgba(107,94,138,.5);}
+/* "Casting this would overdraw" - state, not advice. */
+.ability-btn.will-overdraw{border-color:rgba(248,113,113,.85);
+  background:rgba(220,38,38,.16);}
+.ability-btn.will-overdraw .ab-cost{color:var(--danger-t);}
+.ability-btn.will-overdraw::after{content:'OVERDRAW';position:absolute;bottom:3px;left:0;right:0;
+  font-size:11px;font-weight:800;color:var(--danger-t);letter-spacing:.04em;}
+
+/* --------------------------- pact draft ------------------------------ */
+.draft-floor{flex:0 0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:7px 12px;background:rgba(9,5,18,.9);border-bottom:1px solid var(--line);
+  font-size:13px;color:var(--muted);}
+.draft-floor b{color:var(--accent);font-family:'Cinzel',serif;font-size:16px;}
+.draft-hint{flex:1 0 100%;font-size:11px;color:var(--muted-deep);}
+.pact-card{
+  display:flex;flex-direction:column;gap:6px;align-items:stretch;text-align:left;
+  width:100%;padding:11px 12px;margin-bottom:10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  color:var(--text);cursor:pointer;
+}
+.pact-card:active{background:var(--panel-2);}
+.pact-card[disabled]{opacity:.5;cursor:default;}
+.pact-head{display:flex;align-items:center;gap:9px;}
+.pact-icon{font-size:26px;line-height:1;}
+.pact-name{flex:1;font-family:'Cinzel',serif;font-size:16px;color:var(--accent);}
+/* Upkeep is THE decision - biggest thing on the card. */
+.pact-upkeep{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;}
+.pact-upkeep .u-num{font-family:'Cinzel',serif;font-size:24px;color:var(--danger-t);}
+.pact-upkeep .u-lab{font-size:11px;letter-spacing:.06em;color:var(--muted);}
+.pact-upkeep.clean .u-num{font-size:18px;color:#93c5fd;}
+.pact-flavor{font-size:12px;line-height:1.45;color:var(--muted);font-style:italic;}
+.pact-ops{display:flex;flex-wrap:wrap;gap:5px;}
+.op{font-size:12px;padding:2px 8px;border-radius:999px;
+  background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.4);color:var(--text);}
+.op.op-good{border-color:rgba(74,222,128,.55);color:var(--ok-t);background:rgba(22,163,74,.14);}
+.op.op-bad{border-color:rgba(248,113,113,.55);color:var(--danger-t);background:rgba(220,38,38,.14);}
+.pact-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding-top:5px;border-top:1px solid var(--border);font-size:13px;}
+.pact-cost{font-family:'Cinzel',serif;font-size:15px;color:var(--gold-t);}
+.pact-cost.short{color:var(--danger-t);}
+.pact-after{font-size:12px;color:var(--muted);}
+#btn-decline{width:100%;}
+
+/* ------------------------------ death -------------------------------- */
+.death-title{font-size:24px;color:var(--danger-t);text-align:center;margin:8px 0 6px;}
+.death-cause{font-size:14px;line-height:1.5;color:var(--text);text-align:center;
+  padding:0 4px 12px;font-style:italic;}
+.echo-bank{display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:12px;margin-bottom:12px;
+  background:rgba(217,119,6,.14);border:1px solid rgba(251,191,36,.5);border-radius:14px;}
+.echo-label{font-size:11px;letter-spacing:.16em;color:var(--muted);}
+.echo-num{font-family:'Cinzel',serif;font-size:34px;color:var(--gold-t);line-height:1.1;}
+.echo-total{font-size:12px;color:var(--muted);}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.stat{display:flex;flex-direction:column;gap:1px;padding:8px 10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;}
+.stat .s-lab{font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;}
+.stat .s-val{font-family:'Cinzel',serif;font-size:19px;color:var(--accent);}
+
+/* ------------------------------ pause -------------------------------- */
+.pact-list{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;justify-content:center;
+  max-height:34vh;overflow-y:auto;}
+.pact-chip{font-size:12px;padding:3px 9px;border-radius:999px;
+  background:rgba(124,58,237,.18);border:1px solid rgba(124,58,237,.45);color:var(--accent);}
+
+/* --------------------------- responsive ------------------------------ */
+@media (max-width:360px){
+  .sp-title{font-size:29px;}
+  .bar-tag{flex-basis:36px;}
+  .veil-legend{padding-left:43px;padding-right:61px;}
+  .bar-val{min-width:54px;font-size:12px;}
+  .ability-btn{min-height:62px;}
+  .ab-icon{font-size:21px;}
+  .cov-grid{grid-template-columns:1fr 1fr;}
+}
+/* ---- help sheet & first-run tutorial card ---- */
+.help-thesis{padding:12px 14px;margin:0;color:var(--text);font-size:14px;line-height:1.5;
+  border-bottom:1px solid var(--line);}
+.help-sec{padding:10px 14px;border-bottom:1px solid var(--line);}
+.help-h{margin:0 0 4px;font-size:12px;letter-spacing:.08em;color:var(--accent);
+  font-family:'Cinzel',serif;}
+.help-p{margin:0;font-size:13px;line-height:1.5;color:var(--muted);}
+.sheet-card{max-width:420px;align-self:center;}
+.tut-title{margin:18px 16px 6px;font-size:18px;letter-spacing:.06em;color:var(--gold-t);
+  font-family:'Cinzel',serif;text-align:center;}
+.tut-body{margin:0 16px 16px;font-size:14px;line-height:1.55;color:var(--text);text-align:center;}
+.wraith-tag{font-size:11px;letter-spacing:.06em;color:var(--danger-t);
+  border:1px solid var(--danger-t);border-radius:4px;padding:2px 6px;white-space:nowrap;}
+
+@media (max-width:340px){
+  .cov-grid{grid-template-columns:1fr;}
+  .ab-name{font-size:11px;letter-spacing:-.01em;}
+  .joystick-zone{width:92px;height:92px;}
+  .joystick-knob{width:44px;height:44px;}
+}
+/* Landscape: shrink the HUD, keep every control reachable, action bars
+   stay outside the scroll containers so they cannot scroll away. */
+@media (orientation:landscape) and (max-height:520px){
+  #hud-top{gap:1px;padding:2px 10px 3px;}
+  .hud-row-meta{min-height:var(--tap);}
+  /* The tier ladder and the OVERDRAW word are the ONLY labels the central
+     mechanic has. Hiding them in landscape left a first-time player with a
+     bare number and a red border, so shrink them rather than dropping them. */
+  .veil-legend{font-size:8px;letter-spacing:0;gap:2px;}
+  .hud-row-wavehp .bar-tag{flex-basis:36px;}
+  #toast-rail{height:22px;}
+  #hud-bottom{padding:4px 8px calc(4px + var(--sab));}
+  :root{--ability-band:60px;}                /* shorter row in landscape */
+  .ability-btn{min-height:52px;padding:3px 3px;}
+  .ability-btn.will-overdraw::after{font-size:7px;letter-spacing:0;}
+  .ab-icon{font-size:18px;}
+  /* No min-height here on purpose: the sim's arena floor is now 120 and
+     UI.doResize feeds it the real measured height, so whatever the playfield
+     gets is exactly what is simulated. Forcing a taller canvas than the
+     viewport can give would just reintroduce the mismatch from the other end. */
+  .joystick-zone{width:88px;height:88px;left:10px;bottom:10px;}
+  .joystick-knob{width:42px;height:42px;}
+  .overlay{align-items:stretch;}
+  .sheet{max-width:640px;}
+  .menu-body{justify-content:flex-start;}
+  .sp-icon{font-size:40px;}
+  .sp-title{font-size:26px;}
+  .bar-stack{flex-direction:row;flex-wrap:wrap;}
+  .bar-stack .btn{flex:1 1 140px;width:auto;}
+  .stat-grid{grid-template-columns:repeat(4,1fr);}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;}
+}
+/* "Reduced effects" setting mirrors the media query for decorative motion. */
+html.reduced-fx .sp-icon{animation:none;}
+html.reduced-fx .par-clock.crit,
+html.reduced-fx .meter-hp.crit,
+html.reduced-fx .veil-meter.crit{animation:none;}
