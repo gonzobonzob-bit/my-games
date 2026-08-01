@@ -64,7 +64,8 @@ listeners are bound ONCE at boot (`UI.bindInput()`), never per-run.
 ## Sim public API (systems-engineer implements exactly this surface)
 
 ```js
-Sim.newRun(heroId, riftId)        // fresh run, applies covenant+ascension
+Sim.newRun(heroId, riftId, petId) // fresh run, applies covenant+ascension;
+                                  // petId optional, null = no familiar
 Sim.continueRun() -> bool         // restore saved run; false if none/invalid
 Sim.tick(dt)                      // advance dt seconds; no-op unless phase 'combat'
 Sim.useAbility(i)                 // 0..3; handles Focus/Overdraw internally
@@ -144,6 +145,18 @@ delivered 36 of a declared 330. Per-tick is the reading every tooltip already
 used ("Two hits of 130") and the only one that satisfies DESIGN 5.1's k = 12
 damage per Focus, which the whole pressure curve is derived from.
 `ticks` applies to `melee` and `aoe` kinds.
+
+**Familiar (pet)** — `CONTENT.PETS` entries are
+`{id, name, icon, shape, color, unlockAt, collectR:px, dps, spd:px_s, followDist:px, text, flavor}`.
+The sim exposes the live one as `Sim.state.pet` (null when the run has none),
+carrying `{id, name, icon, shape, color, x, y, vx, vy, collectR, dps, bob}` for
+fx.js to draw. A familiar collects motes within `collectR` of ITSELF, which is
+the whole point of it: motes expire 6s after they drop and a correctly-kiting
+player is running away from their own drops, so 36% of all motes dropped were
+expiring uncollected. `dps` is chip damage and must stay small — DESIGN 5.1
+derives the entire pressure curve from the player's own 12-damage-per-Focus, so
+a familiar that meaningfully fought would invalidate it. Emits `pet_attack`;
+`mote_pickup` gains `byPet`/`petX`/`petY`.
 
 **Pact ops** — a Pact is `{id, name, icon, tier:1|2|3, cost:motes,
 upkeep:veilFloorAdd, text, ops:{...}}`. Allowed op keys (sim implements every
@@ -260,7 +273,7 @@ with a resume-on-first-gesture guard (UI calls `FX.sfx('ui')` on first tap).
 { saveVersion: 2,
   meta: { echoes, covenantOwned, ascension, ascensionUnlocked,
           heroesUnlocked, bestWaveEver, riftsUnlocked },
-  run: null | { heroId, riftId, wave, motes, hp, hpMax, focus, veil, veilFloor,
+  run: null | { heroId, riftId, petId, wave, motes, hp, hpMax, focus, veil, veilFloor,
                 pactsTaken, runStats, waveHpRemaining }  // saved BETWEEN waves only
 }
 ```

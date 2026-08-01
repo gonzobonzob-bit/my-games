@@ -93,6 +93,7 @@
   function CT() { return g.CONTENT || {}; }
   function heroes() { var h = CT().HEROES; return (h && h.length) ? h : FALLBACK_HEROES; }
   function rifts() { var r = CT().RIFTS; return (r && r.length) ? r : FALLBACK_RIFTS; }
+  function pets() { var p = CT().PETS; return (p && p.length) ? p : []; }
   function ascensions() { var a = CT().ASCENSIONS; return (a && a.length) ? a : []; }
   function tiers() { var t = CT().VEIL_TIERS; return (t && t.length) ? t : FALLBACK_TIERS; }
   function pacts() { return CT().PACTS || []; }
@@ -513,7 +514,7 @@
   }
 
   /* ----------------------- SELECT (hero/rift/asc) --------------------- */
-  var selHero = null, selRift = null, selAsc = 0;
+  var selHero = null, selRift = null, selPet = null, selAsc = 0;
 
   function heroUnlocked(h, m) {
     if (!h.unlockAt) return true;
@@ -522,6 +523,14 @@
   function riftUnlocked(r, m) {
     if (!r.unlockAt) return true;
     return (m.riftsUnlocked || []).indexOf(r.id) >= 0;
+  }
+  /* Familiars gate straight off bestWaveEver rather than a meta list, so they
+     needed no save-schema change and no migration for existing players. */
+  function petUnlocked(p, m) {
+    if (!p.unlockAt) return true;
+    var w = +p.unlockAt.wave;
+    if (isFinite(w)) return num(m.bestWaveEver) >= w;
+    return false;
   }
   /* A bare "Wave 12" badge reads as a label, not a lock — players tapped these
      cards, got no response and assumed the game was broken. Say the verb. */
@@ -581,6 +590,35 @@
 
     var rift = byId(R, selRift);
     setText($('rift-text'), (rift && (rift.text || rift.desc)) || 'Standard rift.');
+
+    /* Familiars. "None" is a real, selectable option — the familiar is a
+       convenience, not a requirement, and hiding that would be a lie. */
+    var P = pets(), pr = $('pet-row');
+    if (pr) {
+      pr.innerHTML = '';
+      var none = el('button', 'card rift-card' + (selPet ? '' : ' selected'));
+      none.type = 'button';
+      none.setAttribute('aria-pressed', selPet ? 'false' : 'true');
+      none.innerHTML = '<span class="card-icon">✕</span><span class="card-name">None</span>';
+      none.onclick = function () { selPet = null; refreshSelect(); tapSfx(); };
+      pr.appendChild(none);
+      P.forEach(function (p) {
+        var ok = petUnlocked(p, m);
+        var b = el('button', 'card' + (p.id === selPet ? ' selected' : ''));
+        b.type = 'button'; b.disabled = !ok;
+        b.setAttribute('aria-pressed', p.id === selPet ? 'true' : 'false');
+        b.innerHTML = '<span class="card-icon">' + esc(p.icon || '✦') + '</span>' +
+          '<span class="card-name">' + esc(p.name || p.id) + '</span>' +
+          '<span class="card-stat">' + (num(p.collectR) | 0) + 'px reach · ' + r1(p.dps) + ' dps</span>' +
+          (ok ? '' : '<span class="card-lock">' + esc(unlockText(p.unlockAt)) + '</span>');
+        b.onclick = function () { selPet = p.id; refreshSelect(); tapSfx(); };
+        pr.appendChild(b);
+      });
+    }
+    var pet = byId(P, selPet);
+    setText($('pet-text'), (pet && pet.text) ||
+      'No familiar. Every mote you want, you walk over yourself.');
+
     renderHeroAbilities(byId(H, selHero));
 
     var A = ascensions(), a = null;
@@ -1296,7 +1334,7 @@
     on($('sel-back'), 'click', function () { tapSfx(); routeTo('menu'); });
     on($('asc-down'), 'click', function () { selAsc = Math.max(0, selAsc - 1); refreshSelect(); tapSfx(); });
     on($('asc-up'), 'click', function () { selAsc = Math.min(num(meta().ascensionUnlocked), selAsc + 1); refreshSelect(); tapSfx(); });
-    on($('btn-enter'), 'click', function () { tapSfx(); startRun(selHero, selRift); });
+    on($('btn-enter'), 'click', function () { tapSfx(); startRun(selHero, selRift, selPet); });
 
     /* covenant */
     on($('cov-back'), 'click', function () { tapSfx(); goBackFromScreen(); });
@@ -1348,7 +1386,7 @@
     /* death */
     on($('death-retry'), 'click', function () {
       tapSfx(); closeOverlay('death');
-      startRun(lastRun.heroId || selHero, lastRun.riftId || selRift);
+      startRun(lastRun.heroId || selHero, lastRun.riftId || selRift, lastRun.petId || selPet);
     });
     on($('death-cov'), 'click', function () { tapSfx(); covReturn = 'death'; closeOverlay('death'); routeTo('covenant'); });
     on($('death-menu'), 'click', function () { tapSfx(); quitToMenu(); });
@@ -1396,10 +1434,10 @@
   }
 
   /* ---------------------------- run control --------------------------- */
-  var lastRun = { heroId: null, riftId: null };
+  var lastRun = { heroId: null, riftId: null, petId: null };
 
-  function startRun(heroId, riftId) {
-    lastRun.heroId = heroId; lastRun.riftId = riftId;
+  function startRun(heroId, riftId, petId) {
+    lastRun.heroId = heroId; lastRun.riftId = riftId; lastRun.petId = petId || null;
     closeAllOverlays();
     UI.paused = false;
     lastPhase = null; last = {}; abilitySig = '';
@@ -1407,7 +1445,7 @@
     doResize();                                  // arena size before the first tick
     call(g.Sim, 'setAscension', selAsc);
     echoesAtStart = num(meta().echoes);
-    call(g.Sim, 'newRun', heroId, riftId);
+    call(g.Sim, 'newRun', heroId, riftId, petId || null);
     clearToasts();
     startLoop();
   }

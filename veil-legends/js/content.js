@@ -657,6 +657,39 @@
   ];
 
   /* ==========================================================================
+     FAMILIARS  (pets)
+
+     A familiar exists mostly to SOLVE A MEASURED PROBLEM: motes expire 6s after
+     they drop and must be walked over, and a player who is correctly kiting is
+     running away from their own drops. 36% of all motes dropped were expiring
+     uncollected. The familiar walks the ground you cannot afford to walk.
+
+     Its damage is deliberately small. DESIGN 5.1 derives the whole pressure
+     curve from the player's own 12-damage-per-Focus, and a pet that meaningfully
+     fought would break that arithmetic — so `dps` here is flavour and chip
+     damage, never a build. Keep it under ~8% of a hero's sustained output.
+     ========================================================================== */
+  var PETS = [
+    { id: 'pet_moth', name: 'Cinder Moth', icon: '🦋', shape: 'moth',
+      color: '#fbbf24', unlockAt: null,
+      collectR: 78, dps: 6, spd: 300, followDist: 46,
+      text: 'Drifts wide and gathers what you had to leave behind. Collects motes from 78px.',
+      flavor: 'It was drawn to the light of the Veil once, and never learned better.' },
+
+    { id: 'pet_hound', name: 'Ashen Hound', icon: '🐺', shape: 'hound',
+      color: '#f87171', unlockAt: { wave: 6 },
+      collectR: 48, dps: 16, spd: 360, followDist: 38,
+      text: 'Gathers from a tighter 48px, but bites what comes close.',
+      flavor: 'Kept at the door of the old chapter house. It remembers the job.' },
+
+    { id: 'pet_lantern', name: 'Pale Lantern', icon: '🏮', shape: 'lantern',
+      color: '#38bdf8', unlockAt: { wave: 12 },
+      collectR: 104, dps: 2, spd: 265, followDist: 54,
+      text: 'Barely fights at all, and sweeps motes from a full 104px.',
+      flavor: 'Somebody carried this ahead of the column, so the column could watch the dark instead of the ground.' }
+  ];
+
+  /* ==========================================================================
      STRINGS — all player-facing copy
      ------------------------------------------------------------------------
      VOICE GUIDE (four rules, enough to write in):
@@ -1232,6 +1265,7 @@
     PACTS: PACTS,
     ENEMY_TYPES: ENEMY_TYPES,
     RIFTS: RIFTS,
+    PETS: PETS,
     COVENANT: COVENANT,
     ASCENSIONS: ASCENSIONS,
     VEIL_TIERS: VEIL_TIERS,

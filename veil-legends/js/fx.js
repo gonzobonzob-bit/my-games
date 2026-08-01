@@ -1599,6 +1599,92 @@ function drawProjectiles(list) {
   }
 }
 
+/* ---------------------------------------------------------------- *
+ * Familiar. Drawn under the player so it never hides the thing you
+ * are actually steering, and animated off its own `bob` clock so it
+ * reads as alive while hovering.
+ * ---------------------------------------------------------------- */
+function drawPet(pet, pal) {
+  if (!pet || !isFinite(pet.x) || !isFinite(pet.y)) return;
+  var c = ctx, px = pet.x, py = pet.y;
+  var col = pet.color || '#fbbf24';
+  var bob = Math.sin((pet.bob || 0) * 3.4) * 3;
+  var facing = (pet.vx || 0) < -6 ? -1 : 1;
+  var moving = Math.abs(pet.vx || 0) + Math.abs(pet.vy || 0) > 20;
+
+  /* collect radius: faint, and only while there is something to collect */
+  if (pet.collectR > 0) {
+    c.beginPath(); c.arc(px, py, pet.collectR, 0, 6.2832);
+    c.strokeStyle = rgba(col, 0.10 + 0.05 * Math.sin((pet.bob || 0) * 2));
+    c.lineWidth = 1;
+    c.setLineDash([4, 7]);
+    c.stroke();
+    c.setLineDash([]);
+  }
+
+  c.fillStyle = 'rgba(0,0,0,0.32)';
+  c.beginPath(); c.ellipse(px, py + 13, 8, 3, 0, 0, 6.2832); c.fill();
+  drawGlowAdd(col, px, py + bob, 26, 0.42);
+
+  c.save();
+  c.translate(px, py + bob);
+  c.scale(facing, 1);
+
+  if (pet.shape === 'hound') {
+    /* low four-legged body, head forward, tail up */
+    var gait = moving ? Math.sin((pet.bob || 0) * 14) : 0;
+    c.strokeStyle = col; c.lineWidth = 2; c.lineCap = 'round';
+    c.beginPath();                                   // legs
+    c.moveTo(-4, 3); c.lineTo(-6 + gait * 2, 9);
+    c.moveTo(3, 3); c.lineTo(5 - gait * 2, 9);
+    c.stroke();
+    c.fillStyle = col;
+    c.beginPath(); c.ellipse(0, 0, 9, 5, 0, 0, 6.2832); c.fill();   // body
+    c.beginPath(); c.ellipse(8, -3, 4.5, 3.5, 0, 0, 6.2832); c.fill(); // head
+    c.beginPath();                                   // ears + tail
+    c.moveTo(7, -6); c.lineTo(9, -10); c.lineTo(10.5, -6); c.closePath(); c.fill();
+    c.strokeStyle = col; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-8, -1); c.quadraticCurveTo(-13, -4 + gait * 2, -12, -8); c.stroke();
+    c.fillStyle = '#1a0030';                          // eye
+    c.beginPath(); c.arc(9.5, -3.5, 1.1, 0, 6.2832); c.fill();
+
+  } else if (pet.shape === 'lantern') {
+    /* hanging lamp with a slow swing and a live flame */
+    var sway = Math.sin((pet.bob || 0) * 2.2) * 0.22;
+    c.rotate(sway);
+    c.strokeStyle = rgba(col, 0.8); c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(0, -14); c.lineTo(0, -8); c.stroke();
+    c.beginPath(); c.arc(0, -15, 3, 0.9, 2.3); c.stroke();          // hook
+    c.fillStyle = rgba(col, 0.30);
+    c.beginPath();                                                  // glass body
+    c.moveTo(-6, -8); c.lineTo(6, -8); c.lineTo(7, 6); c.lineTo(-7, 6); c.closePath();
+    c.fill();
+    c.strokeStyle = col; c.lineWidth = 1.6; c.stroke();
+    var fl = 3 + Math.sin((pet.bob || 0) * 11) * 1.1;               // flame
+    c.fillStyle = lighten(col, 70);
+    c.beginPath(); c.ellipse(0, 1, 2.2, fl, 0, 0, 6.2832); c.fill();
+
+  } else {
+    /* moth: two wing pairs beating, furred body */
+    var beat = Math.sin((pet.bob || 0) * (moving ? 19 : 9));
+    var span = 8 + beat * 4;
+    c.fillStyle = rgba(col, 0.85);
+    c.beginPath(); c.ellipse(-span * 0.7, -2, span, 5.5, -0.5, 0, 6.2832); c.fill();
+    c.beginPath(); c.ellipse(span * 0.7, -2, span, 5.5, 0.5, 0, 6.2832); c.fill();
+    c.fillStyle = rgba(col, 0.55);
+    c.beginPath(); c.ellipse(-span * 0.55, 3, span * 0.7, 3.5, -0.3, 0, 6.2832); c.fill();
+    c.beginPath(); c.ellipse(span * 0.55, 3, span * 0.7, 3.5, 0.3, 0, 6.2832); c.fill();
+    c.fillStyle = lighten(col, 40);
+    c.beginPath(); c.ellipse(0, 0, 2.6, 6, 0, 0, 6.2832); c.fill();  // body
+    c.strokeStyle = col; c.lineWidth = 1;
+    c.beginPath();                                                   // antennae
+    c.moveTo(-1, -5); c.lineTo(-3.5, -9);
+    c.moveTo(1, -5); c.lineTo(3.5, -9);
+    c.stroke();
+  }
+  c.restore();
+}
+
 function drawPlayer(pl, pal) {
   if (!pl || !isFinite(pl.x) || !isFinite(pl.y)) return;
   var c = ctx, px = pl.x, py = pl.y, i;
@@ -1843,6 +1929,7 @@ function render(state, events) {
 
   drawParticles();
   drawProjectiles(projectiles);
+  try { drawPet(st.pet, pal); } catch (err) { }
   drawPlayer(st.player, pal);
   drawFloats();
 

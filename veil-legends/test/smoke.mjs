@@ -566,8 +566,8 @@ section('save / load round-trip');
   ok(parsed.run == null || typeof parsed.run.wave === 'number', 'run snapshot has a wave');
   if (parsed.run) {
     const keys = Object.keys(parsed.run).sort().join(',');
-    ok(keys === ['heroId', 'riftId', 'wave', 'motes', 'hp', 'hpMax', 'focus', 'veil', 'veilFloor',
-      'pactsTaken', 'runStats', 'waveHpRemaining'].sort().join(','),
+    ok(keys === ['heroId', 'riftId', 'petId', 'wave', 'motes', 'hp', 'hpMax', 'focus', 'veil',
+      'veilFloor', 'pactsTaken', 'runStats', 'waveHpRemaining'].sort().join(','),
       'run snapshot has exactly the contract fields (no buffs/shields): ' + keys);
     const before = { wave: parsed.run.wave, motes: parsed.run.motes, pacts: parsed.run.pactsTaken.length };
     const restored = Sim.continueRun();

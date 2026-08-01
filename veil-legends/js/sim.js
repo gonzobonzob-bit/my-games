@@ -291,6 +291,9 @@
       x: 195, y: 350, vx: 0, vy: 0, spd: 375, heroId: null,
       color: '#7c3aed', icon: '@', invuln: 0, shield: 0
     },
+    /* Familiar. null when the run has none. Purely additive: nothing in the
+       Focus/Veil/par arithmetic depends on it. */
+    pet: null,
     enemies: [],
     projectiles: [],
     motesOnGround: [],
@@ -299,6 +302,7 @@
     draftOffer: null,
     heroId: null,
     riftId: null,
+    petId: null,
     lastRunEchoes: 0,
     error: null,
     runStats: { kills: 0, breaches: 0, motesEarned: 0, timePlayed: 0, bestWave: 0 },
@@ -812,7 +816,7 @@
     var value = Math.max(1, Math.round(e.moteValue * tierMultFor(state.veil)));
     var life = Math.max(0.5, (T.MOTE_LIFE + mods.moteLifeAdd) * amods.moteLifeMult);
     state.motesOnGround.push({ x: e.x, y: e.y, value: value, tier: tier, life: life });
-    emit({ type: 'mote_drop', x: e.x, y: e.y, tier: tier });
+    emit({ type: 'mote_drop', x: e.x, y: e.y, tier: tier, value: value });
   }
 
   function healPlayer(amount) {
@@ -1353,8 +1357,85 @@
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * 11b. Familiar
+   * ------------------------------------------------------------------ */
+
+  function makePet(def) {
+    if (!def) return null;
+    var p = state.player;
+    return {
+      id: String(def.id),
+      name: String(def.name || def.id),
+      icon: String(def.icon || '✦'),
+      shape: String(def.shape || 'moth'),
+      color: String(def.color || '#fbbf24'),
+      collectR: num(def.collectR, 60, 0, 400),
+      dps: num(def.dps, 0, 0, 200),
+      spd: num(def.spd, 300, 40, 1200),
+      followDist: num(def.followDist, 46, 0, 300),
+      x: p.x + 30, y: p.y + 30, vx: 0, vy: 0,
+      atkTimer: 0, bob: 0
+    };
+  }
+
+  var PET_ATTACK_PERIOD = 1.2;
+
+  function updatePet(dt) {
+    var pet = state.pet;
+    if (!pet) return;
+    var p = state.player;
+
+    /* Trail the player rather than sit on them, so the collect radius sweeps
+       ground the player has already left — which is exactly where the motes a
+       kiting player abandoned are lying. */
+    var dx = p.x - pet.x, dy = p.y - pet.y;
+    var d = hyp(dx, dy);
+    if (d > pet.followDist) {
+      var want = Math.min(pet.spd, (d - pet.followDist) * 4.5);
+      pet.vx = (dx / (d || 1)) * want;
+      pet.vy = (dy / (d || 1)) * want;
+    } else {
+      pet.vx *= 0.86; pet.vy *= 0.86;
+    }
+    /* A mote inside reach outranks following. */
+    var best = null, bd = pet.collectR + 40;
+    for (var i = 0; i < state.motesOnGround.length; i++) {
+      var m = state.motesOnGround[i];
+      var md = hyp(m.x - pet.x, m.y - pet.y);
+      if (md < bd) { bd = md; best = m; }
+    }
+    if (best && hyp(best.x - p.x, best.y - p.y) < pet.collectR + pet.followDist + 60) {
+      pet.vx = ((best.x - pet.x) / (bd || 1)) * pet.spd;
+      pet.vy = ((best.y - pet.y) / (bd || 1)) * pet.spd;
+    }
+    pet.x = clamp(pet.x + pet.vx * dt, 0, state.arena.w);
+    pet.y = clamp(pet.y + pet.vy * dt, 0, state.arena.h);
+    pet.bob += dt;
+
+    /* Chip damage only — see the note on PETS in content.js. */
+    if (pet.dps > 0) {
+      pet.atkTimer -= dt;
+      if (pet.atkTimer <= 0) {
+        var tgt = null, td = 190;
+        for (i = 0; i < state.enemies.length; i++) {
+          var e = state.enemies[i];
+          if (!e || e.dead) continue;
+          var ed = hyp(e.x - pet.x, e.y - pet.y);
+          if (ed < td) { td = ed; tgt = e; }
+        }
+        if (tgt) {
+          pet.atkTimer = PET_ATTACK_PERIOD;
+          emit({ type: 'pet_attack', x: pet.x, y: pet.y, tx: tgt.x, ty: tgt.y, color: pet.color });
+          dealDamage(tgt, pet.dps * PET_ATTACK_PERIOD, null);
+        }
+      }
+    }
+  }
+
   function updateMotes(dt) {
     var pickR = T.PICKUP_R + mods.moteMagnetRadius;
+    var pet = state.pet;
     for (var i = state.motesOnGround.length - 1; i >= 0; i--) {
       var m = state.motesOnGround[i];
       m.life -= dt;
@@ -1364,10 +1445,15 @@
         state.motesOnGround.splice(i, 1);
         continue;
       }
-      if (hyp(m.x - state.player.x, m.y - state.player.y) <= pickR) {
+      var byPlayer = hyp(m.x - state.player.x, m.y - state.player.y) <= pickR;
+      var byPet = !byPlayer && pet && hyp(m.x - pet.x, m.y - pet.y) <= pet.collectR;
+      if (byPlayer || byPet) {
         state.motes += m.value;
         state.runStats.motesEarned += m.value;
-        emit({ type: 'mote_pickup', x: m.x, y: m.y, value: m.value, tier: m.tier });
+        emit({
+          type: 'mote_pickup', x: m.x, y: m.y, value: m.value, tier: m.tier,
+          byPet: !!byPet, petX: byPet ? pet.x : 0, petY: byPet ? pet.y : 0
+        });
         state.motesOnGround.splice(i, 1);
       }
     }
@@ -1603,6 +1689,8 @@
 
     updateProjectiles(dt);
     if (state.phase !== 'combat') return;
+    updatePet(dt);
+    if (state.phase !== 'combat') return;   // pet chip damage can end a wave
     updateMotes(dt);
 
     /* --- housekeeping at a fixed sim-time cadence (never frame-based) - */
@@ -1686,6 +1774,9 @@
       heroId: raw.heroId,
       riftId: (typeof raw.riftId === 'string' && (!list('RIFTS').length || findById('RIFTS', raw.riftId)))
         ? raw.riftId : null,
+      /* An unknown or malformed petId simply means no familiar — never a throw,
+         and never a pet the content does not define. */
+      petId: (typeof raw.petId === 'string' && findById('PETS', raw.petId)) ? raw.petId : null,
       wave: Math.floor(fieldNum(raw, 'wave', 1, 1, 100000)),
       motes: Math.floor(fieldNum(raw, 'motes', 0, 0, 1e12)),
       hpMax: fieldNum(raw, 'hpMax', 100, 1, 1e7),
@@ -1745,6 +1836,7 @@
     runSnapshot = {
       heroId: state.heroId,
       riftId: state.riftId,
+      petId: state.petId || null,
       wave: Math.floor(clamp(num(waveNum, state.wave, 1, 100000), 1, 100000)),
       motes: Math.floor(state.motes),
       hp: state.hp,
@@ -1809,9 +1901,11 @@
     return out;
   }
 
-  function resetRunState(hero, rift) {
+  function resetRunState(hero, rift, pet) {
     state.heroId = hero.id;
     state.riftId = rift ? rift.id : null;
+    state.petId = pet ? pet.id : null;
+    state.pet = null;                      // built after the player is placed
     state.wave = 0;
     state.motes = 0;
     state.time = 0;
@@ -1881,11 +1975,13 @@
     events: events,
     TUNING: T,
 
-    newRun: function (heroId, riftId) {
+    newRun: function (heroId, riftId, petId) {
       try {
         var hero = getHero(heroId);
         var rift = riftId ? findById('RIFTS', riftId) : null;
-        resetRunState(hero, rift);
+        var pet = petId ? findById('PETS', petId) : null;
+        resetRunState(hero, rift, pet);
+        state.pet = makePet(pet);
         recomputeAmods();
         recomputeMods();
         state.veilFloor = startingVeilFloor();
@@ -1909,7 +2005,9 @@
         var hero = findById('HEROES', data.run.heroId) || (list('HEROES').length ? null : FALLBACK_HERO);
         if (!hero) return false;
         var rift = data.run.riftId ? findById('RIFTS', data.run.riftId) : null;
-        resetRunState(hero, rift);
+        var pet = data.run.petId ? findById('PETS', data.run.petId) : null;
+        resetRunState(hero, rift, pet);
+        state.pet = makePet(pet);
         recomputeAmods();
 
         state.motes = data.run.motes;
