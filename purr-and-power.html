@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Purr &amp; Power Co.</title>
+<style>
+:root{
+  --sun:#F59E0B;--sun2:#FDE68A;--green:#22C55E;--orange:#F97316;
+  --red:#EF4444;--blue:#3B82F6;--sky:#38BDF8;--purple:#8B5CF6;
+  --bg:#0F172A;--bg2:#1E293B;--panel:#1A2744;--panel2:#243158;
+  --border:#334155;--text:#F1F5F9;--muted:#94A3B8;--card:#162035;
+  --sand:#C4A882;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;color:var(--text);}
+button{font-family:inherit;cursor:pointer;}
+.ff{font-family:'Trebuchet MS','Segoe UI',sans-serif;font-weight:800;letter-spacing:0.2px;}
+
+/* ══ MENU ══ */
+#menu{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;
+  justify-content:safe center;overflow-y:auto;padding:24px;text-align:center;
+  background:radial-gradient(ellipse 700px 500px at 50% 28%,rgba(245,158,11,0.12),transparent 65%),
+             linear-gradient(160deg,#0F172A,#1E293B 50%,#0F2040);}
+#menu.gone{display:none;}
+.m-sun{font-size:64px;filter:drop-shadow(0 0 26px rgba(245,158,11,0.65));animation:flt 2.6s ease-in-out infinite;}
+@keyframes flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.m-title{font-size:38px;color:var(--sun);line-height:1.05;margin:8px 0 2px;}
+.m-sub{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;}
+.m-tag{font-size:12px;color:var(--muted);line-height:1.7;max-width:320px;margin-bottom:20px;}
+.m-btns{display:flex;flex-direction:column;gap:9px;width:100%;max-width:250px;}
+.m-btn{border:none;border-radius:13px;padding:13px;font-size:16px;transition:transform .12s;}
+.m-btn:active{transform:scale(.96);}
+.m-btn.pri{background:linear-gradient(135deg,var(--sun),var(--orange));color:#0F172A;
+  box-shadow:0 7px 22px rgba(245,158,11,.35);}
+.m-btn.sec{background:var(--panel);color:var(--text);border:1px solid var(--border);}
+.m-btn:disabled{opacity:.4;cursor:default;transform:none;}
+.m-note{font-size:10px;color:var(--muted);margin-top:14px;line-height:1.6;max-width:300px;}
+
+/* ══ APP ══ */
+#app{display:none;flex-direction:column;width:100%;height:100%;}
+#app.show{display:flex;}
+
+#topbar{background:var(--bg);padding:6px 8px 4px;
+  display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:100;}
+.tb-cash{font-size:22px;color:var(--green);line-height:1.05;}
+.tb-cash.warn{color:var(--sun);}
+.tb-cash.neg{color:var(--red);animation:cashPulse 1.1s ease-in-out infinite;}
+@keyframes cashPulse{0%,100%{opacity:1}50%{opacity:.45}}
+#tb-runway{font-size:10px;color:var(--muted);letter-spacing:.5px;line-height:1.3;}
+#topbar.danger{box-shadow:inset 0 -3px 0 var(--red);}
+.tb-date{text-align:right;line-height:1.15;}
+.tb-date .d{font-size:14px;color:var(--sun);}
+.tb-date .y{font-size:10px;color:var(--muted);}
+.tb-menu{width:42px;height:42px;flex-shrink:0;border:1px solid var(--border);border-radius:11px;
+  background:var(--card);color:var(--text);font-size:18px;line-height:1;}
+/* Second row: speed + vitals. The old 19x17px speed buttons were the ONLY
+   speed control on a phone (the 1/2/3 keys do not exist there) at ~40% of the
+   44px minimum, four of them 2px apart. */
+#timebar{display:flex;gap:4px;align-items:stretch;padding:0 8px 6px;background:var(--bg);
+  border-bottom:2px solid var(--border);flex-shrink:0;z-index:100;}
+#timebar .sp{flex:1;min-width:0;height:40px;border:1px solid var(--border);border-radius:9px;
+  background:var(--card);color:var(--muted);font-size:12px;padding:0;}
+#timebar .sp.on{background:var(--sun);color:#0F172A;border-color:var(--sun);font-weight:800;}
+.tb-chip{flex:1;min-width:0;background:var(--panel);border:1px solid var(--border);
+  border-radius:9px;padding:3px 4px;text-align:center;}
+.tb-chip .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.tb-chip .v{font-size:13px;}
+
+#game-area{flex:1;overflow:hidden;position:relative;}
+.layer{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
+.layer.active{display:flex;}
+.scroll{flex:1;overflow-y:auto;padding:8px 8px 20px;-webkit-overflow-scrolling:touch;}
+
+/* generic panels */
+.sec{font-size:13px;color:var(--sun);margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:baseline;}
+.sec .hint{font-size:11px;color:var(--muted);font-weight:400;}
+.box{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:9px;margin-bottom:7px;}
+.row{display:flex;align-items:center;gap:8px;}
+.grow{flex:1;min-width:0;}
+.tiny{font-size:11px;color:var(--muted);}
+.mini{font-size:11.5px;color:var(--muted);line-height:1.55;}
+.btn{border:none;border-radius:9px;padding:11px 14px;font-size:13px;color:#fff;min-height:44px;
+  background:var(--panel2);transition:transform .1s;white-space:nowrap;}
+.btn:active{transform:scale(.95);}
+.btn.g{background:linear-gradient(135deg,#15803D,#22C55E);}
+.btn.b{background:linear-gradient(135deg,#1E40AF,#3B82F6);}
+.btn.o{background:linear-gradient(135deg,#C2410C,#F97316);}
+.btn.r{background:linear-gradient(135deg,#991B1B,#EF4444);}
+.btn.p{background:linear-gradient(135deg,#5B21B6,#8B5CF6);}
+.btn:disabled{opacity:.38;transform:none;}
+.btn.sm{padding:9px 12px;font-size:12px;border-radius:8px;min-height:38px;position:relative;}
+/* Dense list rows (12 hire cards, 8 investments) would gain ~200px of scroll
+   from a full 44px button, so extend the hit area instead of the box. */
+.btn.sm::after{content:'';position:absolute;left:-6px;right:-6px;top:50%;height:44px;transform:translateY(-50%);}
+.bar{height:7px;background:var(--card);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.bar>div{height:100%;border-radius:4px;transition:width .35s;}
+.pill{font-size:10px;padding:3px 7px;border-radius:6px;font-weight:700;white-space:nowrap;}
+.pill.ok{background:rgba(34,197,94,.18);color:var(--green);}
+.pill.warn{background:rgba(245,158,11,.18);color:var(--sun);}
+.pill.bad{background:rgba(239,68,68,.18);color:var(--red);}
+.pill.info{background:rgba(59,130,246,.18);color:#93C5FD;}
+.pill.mute{background:rgba(148,163,184,.15);color:#B6C2D4;}
+.empty{text-align:center;color:var(--muted);font-size:12px;padding:18px 10px;line-height:1.7;}
+.box.blk{border-color:var(--red);
+  background:linear-gradient(90deg,rgba(239,68,68,.15),var(--panel) 45%);
+  box-shadow:inset 3px 0 0 var(--red);}
+
+/* office scene */
+.off-scene{height:132px;flex-shrink:0;position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#EDE8E0 0%,#E4DDD2 100%);border-bottom:2px solid var(--border);}
+.off-floor{position:absolute;bottom:0;left:0;right:0;height:9px;background:linear-gradient(180deg,#C0B0A0,#A89888);}
+.off-win{position:absolute;top:8px;width:38px;height:31px;border:2px solid #B8A898;border-radius:3px;
+  background:linear-gradient(160deg,#BAE6FD,#7DD3FC);overflow:hidden;}
+.off-win::after{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(255,255,255,.35);}
+.deskv{position:absolute;bottom:9px;width:34px;text-align:center;}
+.deskv .h{font-size:15px;line-height:1;}
+.deskv .d{width:32px;height:11px;background:#C49A6C;border:1px solid #8B6347;border-radius:2px;margin:0 auto;}
+.deskv .n{font-size:5px;color:#5B4636;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.catv{position:absolute;font-size:20px;padding:6px;cursor:pointer;transition:left 3.5s ease-in-out,bottom 3.5s ease-in-out;z-index:5;}
+.catv:active{transform:scale(1.25);}
+
+/* job site scene */
+.site-scene{flex:1;position:relative;overflow:hidden;min-height:150px;
+  background:linear-gradient(180deg,#1E3A8A 0%,#2563EB 30%,#60A5FA 52%,#93C5FD 62%,#D4C4A8 62%,#B8956A 100%);}
+.site-ground{position:absolute;bottom:0;left:0;right:0;height:38%;background:linear-gradient(180deg,#C4A882,#A8875A);}
+
+/* modals */
+/* Above #notes and .flt — toasts were landing on top of open modals and
+   covering the Submit/Pass buttons. Each overlay gets its OWN layer: when all
+   three shared z-index 800, DOM order decided the winner, so Help opened from
+   the pause sheet rendered invisibly behind it and then survived Resume as a
+   full-screen click trap. #menu is 9000, so ov-msg has to clear that too or
+   the menu's How-To-Play button does nothing at all. */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;
+  padding:14px;z-index:800;}
+#ov-quote{z-index:8800;}
+#ov-pause{z-index:9200;}
+#ov-msg  {z-index:9600;}
+.ov.gone{display:none;}
+.mo{background:var(--panel);border:2px solid var(--sun);border-radius:16px;padding:15px;
+  width:100%;max-width:330px;max-height:88vh;overflow-y:auto;animation:pIn .25s ease;}
+@keyframes pIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.mo.red{border-color:var(--red);}
+.mo.blue{border-color:var(--blue);}
+.mo-t{font-size:17px;color:var(--sun);margin-bottom:3px;}
+.mo.red .mo-t{color:var(--red);}
+.mo.blue .mo-t{color:#93C5FD;}
+.mo-s{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+.mo-btns{display:flex;gap:7px;margin-top:12px;}
+.mo-btns{position:sticky;bottom:-15px;margin:14px -15px -15px;padding:11px 15px 15px;
+  background:var(--panel);box-shadow:0 -10px 14px -8px rgba(0,0,0,.6);z-index:2;}
+.mo-btns .btn{flex:1;text-align:center;padding:13px;font-size:15px;min-height:48px;}
+
+/* quote builder */
+.qline{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed rgba(148,163,184,.18);}
+.qline.tot{border-bottom:none;border-top:1px solid var(--border);margin-top:3px;padding-top:6px;font-size:14px;}
+.qline .v{color:var(--text);font-weight:700;}
+input[type=range]{width:100%;accent-color:var(--sun);height:44px;}
+.winbar{height:12px;border-radius:6px;background:var(--card);overflow:hidden;border:1px solid var(--border);}
+.winbar>div{height:100%;transition:width .2s,background .2s;}
+
+/* nav */
+#nav{flex-shrink:0;background:var(--bg);border-top:2px solid var(--border);display:flex;
+  padding-bottom:env(safe-area-inset-bottom,0);}
+.nt{flex:1;padding:8px 2px 10px;display:flex;flex-direction:column;align-items:center;gap:1px;
+  border:none;background:none;position:relative;}
+.nt.active{background:rgba(245,158,11,.09);}
+.nt .i{font-size:17px;}
+.nt .l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
+.nt.active .l{color:var(--sun);}
+.nt .bdg{position:absolute;top:3px;right:calc(50% - 17px);min-width:13px;height:13px;padding:0 3px;
+  background:var(--red);border-radius:7px;font-size:8px;font-weight:800;color:#fff;display:none;
+  align-items:center;justify-content:center;line-height:1;}
+.nt .bdg.on{display:flex;}
+
+/* notifications */
+#notes{flex-shrink:0;display:flex;flex-direction:column;gap:3px;align-items:stretch;
+  padding:0 8px 4px;background:var(--bg);pointer-events:none;max-height:76px;overflow:hidden;}
+#notes:empty{display:none;padding:0;}
+.note{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:7px 12px;
+  font-size:12px;font-weight:700;animation:nIn .3s ease;text-align:center;line-height:1.35;}
+.note.good{border-color:rgba(34,197,94,.5);color:#86EFAC;}
+.note.bad{border-color:rgba(239,68,68,.5);color:#FCA5A5;}
+.note.warn{border-color:rgba(245,158,11,.5);color:var(--sun2);}
+@keyframes nIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.flt{position:fixed;z-index:650;font-size:14px;font-weight:800;pointer-events:none;
+  animation:fUp 1.1s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+@keyframes fUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-46px)}}
+
+table.pl{width:100%;border-collapse:collapse;font-size:12px;}
+@media (orientation:landscape) and (max-height:470px){
+  .m-sun{font-size:34px;} .m-title{font-size:26px;} .m-tag{display:none;}
+  .off-scene{height:84px;} .site-scene{min-height:100px;}
+}
+table.pl td{padding:3px 2px;border-bottom:1px solid rgba(148,163,184,.12);}
+table.pl td.n{text-align:right;font-variant-numeric:tabular-nums;}
+table.pl tr.tot td{border-top:1px solid var(--border);border-bottom:none;font-weight:800;font-size:12px;padding-top:6px;}
+.pos{color:var(--green);}.negc{color:var(--red);}
+</style>
+</head>
+<body>
+
+<!-- ══ MAIN MENU ══ -->
+<div id="menu">
+  <div class="m-sun">☀️</div>
+  <div class="m-title ff">Purr &amp; Power Co.</div>
+  <div class="m-sub">Solar Contractor Tycoon · El Paso, TX</div>
+  <div class="m-tag">Bid the jobs. Make payroll. Keep the cats fed.<br>
+    Nothing pays until the utility says yes.</div>
+  <div class="m-btns">
+    <button class="m-btn pri ff" id="btn-continue" onclick="continueGame()">▶ Continue</button>
+    <button class="m-btn pri ff" onclick="newGame()">🏢 New Company</button>
+    <button class="m-btn sec" onclick="openHelp()">📖 How To Play</button>
+  </div>
+  <div class="m-note" id="menu-note"></div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div id="topbar">
+    <div class="grow">
+      <div class="tb-cash ff" id="tb-cash">$0</div>
+      <div id="tb-runway">CASH</div>
+    </div>
+    <div class="tb-date">
+      <div class="d ff" id="tb-date">Day 1</div>
+      <div class="y" id="tb-year">Year 1 · Jan</div>
+    </div>
+    <button class="tb-menu" onclick="openPause()" aria-label="Menu">☰</button>
+  </div>
+  <div id="timebar">
+    <button class="sp" id="sp0" onclick="setSpeed(0)" aria-label="Pause">❚❚</button>
+    <button class="sp" id="sp1" onclick="setSpeed(1)" aria-label="Normal speed">▶</button>
+    <button class="sp" id="sp2" onclick="setSpeed(2)" aria-label="Fast">▶▶</button>
+    <button class="sp" id="sp3" onclick="setSpeed(3)" aria-label="Fastest">▶▶▶</button>
+    <div class="tb-chip"><div class="l">Rep</div><div class="v ff" id="tb-rep">50</div></div>
+    <div class="tb-chip"><div class="l">Morale</div><div class="v ff" id="tb-mor">70</div></div>
+    <div class="tb-chip"><div class="l">Jobs</div><div class="v ff" id="tb-jobs">0</div></div>
+  </div>
+
+  <div id="game-area">
+
+    <!-- OFFICE -->
+    <div class="layer active" id="layer-office">
+      <div class="off-scene" id="off-scene"><div class="off-floor"></div></div>
+      <div class="scroll" id="office-body"></div>
+    </div>
+
+    <!-- SALES -->
+    <div class="layer" id="layer-sales"><div class="scroll" id="sales-body"></div></div>
+
+    <!-- OPS -->
+    <div class="layer" id="layer-ops"><div class="scroll" id="ops-body"></div></div>
+
+    <!-- SITE -->
+    <div class="layer" id="layer-site">
+      <div class="site-scene" id="site-scene"><div class="site-ground"></div></div>
+      <div class="scroll" style="flex:0 0 auto;max-height:44%" id="site-body"></div>
+    </div>
+
+    <!-- FINANCE -->
+    <div class="layer" id="layer-finance"><div class="scroll" id="finance-body"></div></div>
+  </div>
+
+  <div id="notes"></div>
+
+  <div id="nav">
+    <button class="nt active" id="nav-office" onclick="showTab('office')">
+      <span class="i">🏢</span><span class="l">Office</span><span class="bdg" id="bdg-office"></span></button>
+    <button class="nt" id="nav-sales" onclick="showTab('sales')">
+      <span class="i">🎯</span><span class="l">Sales</span><span class="bdg" id="bdg-sales"></span></button>
+    <button class="nt" id="nav-ops" onclick="showTab('ops')">
+      <span class="i">📋</span><span class="l">Ops</span><span class="bdg" id="bdg-ops"></span></button>
+    <button class="nt" id="nav-site" onclick="showTab('site')">
+      <span class="i">🏗️</span><span class="l">Site</span><span class="bdg" id="bdg-site"></span></button>
+    <button class="nt" id="nav-finance" onclick="showTab('finance')">
+      <span class="i">📊</span><span class="l">Finance</span><span class="bdg" id="bdg-finance"></span></button>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="ov gone" id="ov-quote"><div class="mo" id="quote-card"></div></div>
+<div class="ov gone" id="ov-msg"><div class="mo" id="msg-card"></div></div>
+<div class="ov gone" id="ov-pause"><div class="mo blue">
+  <div class="mo-t ff">⏸ Paused</div>
+  <div class="mo-s">Purr &amp; Power Co.</div>
+  <div style="display:flex;flex-direction:column;gap:7px">
+    <button class="btn g" onclick="closePause()">▶ Resume</button>
+    <button class="btn b" onclick="save();note('💾 Books closed and filed','good')">💾 Save Now</button>
+    <button class="btn" onclick="openHelp()">📖 How To Play</button>
+    <button class="btn r" onclick="quitToMenu()">⬅ Main Menu</button>
+  </div>
+</div></div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════
+   PURR & POWER CO. — solar contractor tycoon
+   Revenue comes only from installs that actually reach PTO.
+   Every stage of a job blocks on a finite, nameable resource.
+   ════════════════════════════════════════════════════════════ */
+
+const SK='pnp_tycoon_v1';
+const SAVE_V=1;                 // bump when the state shape changes incompatibly
+const OLD_KEYS=['pnp_v5','pnp_v4','pnp_v3'];
+
+// Every state-derived string that reaches innerHTML goes through this. There is
+// no text input in the game today, so the only route in is a crafted save — but
+// localStorage is per-origin and the whole vault ships from one origin, so any
+// other page there could plant one. Escaping at the render boundary means a
+// future save import/export or a company-name field cannot reopen the hole.
+const esc=s=>String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+// ── static data ──────────────────────────────────────────────
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const ROLES={
+  rep      :{name:'Solar Rep',      icon:'☀️',dept:'Sales', wage:2900,desc:'Generates leads each day'},
+  consult  :{name:'Sales Consultant',icon:'📞',dept:'Sales', wage:3200,desc:'+4% win rate on every bid'},
+  setter   :{name:'Appt Setter',    icon:'📅',dept:'Sales', wage:2500,desc:'Extra leads, keeps them warm longer'},
+  designer :{name:'System Designer',icon:'📐',dept:'Tech',  wage:3900,desc:'Runs Site Survey + Design stages'},
+  permit   :{name:'Permit Coord',   icon:'📄',dept:'Ops',   wage:3100,desc:'Runs Permitting — halves AHJ wait'},
+  lead     :{name:'Install Lead',   icon:'🔨',dept:'Field', wage:3600,desc:'Heads one install crew'},
+  installer:{name:'Installer',      icon:'👷',dept:'Field', wage:2800,desc:'Two per crew. Every one past two speeds up every install.'},
+  electric :{name:'Electrician',    icon:'⚡',dept:'Field', wage:4400,desc:'No electrician, no AC hookup, no PTO. Ever.'},
+  coord    :{name:'Project Coord',  icon:'📋',dept:'Ops',   wage:3300,desc:'+2 concurrent jobs'},
+  service  :{name:'Service Tech',   icon:'🔧',dept:'Tech',  wage:3000,desc:'Clears warranty callbacks before they eat your reputation.'},
+  officemgr:{name:'Office Manager', icon:'🗂️',dept:'Ops',   wage:3400,desc:'-12% overhead, slower morale drain'},
+  warehouse:{name:'Warehouse',      icon:'📦',dept:'Ops',   wage:2700,desc:'-10% material cost'},
+};
+const ROLE_ORDER=['rep','installer','lead','electric','designer','permit','consult','coord','setter','warehouse','service','officemgr'];
+
+// Job pipeline. Each stage names the resource it blocks on — that is the game.
+const STAGES=[
+  {key:'survey', name:'Site Survey',      days:2, res:'designer', icon:'📐'},
+  {key:'design', name:'Design & Engineering',days:3,res:'designer',icon:'✏️'},
+  {key:'permit', name:'City Permit (AHJ)', days:6, res:'permit',   icon:'📄'},
+  {key:'mats',   name:'Material Staging',  days:1, res:'stock',    icon:'📦'},
+  {key:'install',name:'Installation',      days:0, res:'crew',     icon:'🔨'},
+  {key:'elec',   name:'Electrical & Inverter',days:2,res:'electric',icon:'⚡'},
+  {key:'inspect',name:'AHJ Inspection',    days:3, res:null,       icon:'🔍'},
+  {key:'pto',    name:'Utility PTO',       days:7, res:null,       icon:'🔌'},
+];
+
+const MATS={panel:{n:'Solcrest Prime 400W',base:155},opt:{n:'GridWave Q400 Optimizer',base:60},
+            rail:{n:'IronRail FlexRail',base:42},inv:{n:'GridWave HD Inverter',base:1800}};
+
+const LEAD_POOL=[
+  {c:'Garcia Family',      t:'Residential',i:'🏠',min:10,max:18,com:false},
+  {c:'Kim Residence',      t:'Residential',i:'🏠',min:12,max:22,com:false},
+  {c:'Montoya Prop.',      t:'Residential',i:'🏠',min:10,max:16,com:false},
+  {c:'Casa Herrera — Mesa Hills',t:'Residential',i:'🏠',min:14,max:24,com:false},
+  {c:'Kern Place Res.',    t:'Residential',i:'🏠',min:12,max:20,com:false},
+  {c:'Del Norte Prop.',    t:'Residential',i:'🏠',min:10,max:20,com:false},
+  {c:'Barela Ranch — Fabens',t:'Ground Mount',i:'🌵',min:40,max:90,com:false},
+  {c:'Sunset Apartments',  t:'Multifamily', i:'🏢',min:60,max:130,com:true},
+  {c:'Desert Star Plaza',  t:'Commercial',  i:'🏢',min:45,max:95,com:true},
+  {c:'Desert Auto Group — Montana Ave',t:'Canopy',i:'🚗',min:50,max:110,com:true},
+  {c:'Mission Valley ISD — Ysleta',t:'School',i:'🏫',min:90,max:180,com:true},
+  {c:'BulkMart EP',        t:'Commercial',  i:'🏪',min:120,max:240,com:true},
+  {c:'Sun City Mall',      t:'Commercial',  i:'🏬',min:100,max:200,com:true},
+  {c:'Fort Bliss Housing', t:'Government',  i:'🪖',min:110,max:210,com:true},
+  {c:'Zaragoza Port Logistics',t:'Industrial',i:'🏭',min:200,max:420,com:true},
+  // Regional work — only in the pipeline once the Las Cruces branch is open.
+  {c:'Mesilla Valley Ag Co-op', t:'Agricultural',i:'🌱',min:70,max:150,com:true,nm:true},
+  {c:'Desert Mesa University',  t:'University', i:'🎓',min:150,max:300,com:true,nm:true},
+  {c:'White Sands Distribution',t:'Industrial', i:'🏭',min:220,max:430,com:true,nm:true},
+];
+
+const INVEST=[
+  {id:'truck',  n:'Another Truck',    i:'🚚',cost:32000, rep:0, desc:'+1 crew slot. Crews are capped by trucks.',repeat:true},
+  {id:'cad',    n:'Design Software',  i:'💻',cost:12000, rep:0, desc:'Design stage 1 day faster.'},
+  {id:'exped',  n:'Permit Expediter', i:'🤝',cost:18000, rep:0, desc:'Permit stage 35% faster.'},
+  {id:'wh',     n:'Warehouse Lease',  i:'🏬',cost:55000, rep:0, desc:'-10% material cost, stock cap 3x.'},
+  {id:'lic',    n:'Commercial License',i:'📜',cost:25000,rep:5, desc:'Commercial & institutional leads start arriving.'},
+  {id:'cert',   n:'PV Pro Certification',i:'🎓',cost:20000,rep:10,desc:'+10 reputation, +5% win rate.'},
+  {id:'batt',   n:'Battery Division',  i:'🔋',cost:60000,rep:5, desc:'+18% contract value, but the packs cost real money and add a day on site.'},
+  {id:'branch', n:'Las Cruces Branch', i:'📍',cost:150000,rep:8,desc:'Opens three big regional accounts up the valley. Every stage on those jobs takes a day longer — it is a long drive.'},
+];
+
+const OFFICES=[
+  {n:'Strip-Mall Suite',cap:6, rent:2400,cats:3,cost:0},
+  {n:'Westside Office', cap:12,rent:5200,cats:5,cost:45000},
+  {n:'Franklin Tower',  cap:20,rent:9500,cats:8,cost:140000},
+];
+
+const EVENTS=[
+  {id:'monsoon',t:'Monsoon Season',i:'⛈️',d:'Afternoon storms roll over the Franklins. Roof work is slow and stop-start all month.',f:s=>{s.mod.install=1.5;}},
+  {id:'heat',   t:'Heat Advisory', i:'🌡️',d:'115 on the deck by ten. Mandatory shade breaks every hour and nobody is setting rail after two.',f:s=>{s.mod.install=1.35;s.moraleDrift=-0.4;}},
+  {id:'tariff', t:'Panel Tariff',  i:'📈',d:'New import duty lands. Module pricing jumps and your supplier will not hold a quote.',f:s=>{s.priceMod.panel=1.3;}},
+  {id:'glut',   t:'Supplier Glut', i:'📉',d:'A canceled utility farm out past Fabens dumped its whole module order on the open market. Your distributor called you first for once.',f:s=>{s.priceMod.panel=0.78;}},
+  {id:'ahj',    t:'AHJ Backlog',   i:'🗂️',d:'The city plan-review desk lost two staff. Permits are crawling.',f:s=>{s.mod.permit=1.6;}},
+  {id:'epe',    t:'Utility Backlog',i:'🔌',d:'The interconnection queue is nine hundred applications deep. Nobody at the utility will put a PTO date in writing.',f:s=>{s.mod.pto=1.7;}},
+  {id:'referral',t:'Referral Wave',i:'🗣️',d:'A Mesa Hills array went in clean and the whole block noticed. Three of the neighbors already have your number.',f:s=>{s.pendingLeads+=4;}},
+  {id:'undercut',t:'Price War',    i:'⚔️',d:'DayStar Solar is bidding under cost on the east side to buy market share. They will run out of money eventually. Not this month.',f:s=>{s.mod.market=0.9;}},
+  {id:'boom',   t:'Rate Hike Panic',i:'💡',d:'The utility filed for a 14% increase and it made the front page. Phones started before the office opened.',f:s=>{s.pendingLeads+=3;s.mod.market=1.08;}},
+  {id:'copper', t:'Copper Thieves', i:'🔦',d:'Somebody stripped the wire off a staged job on Alameda overnight. The insurance call alone takes a week.',f:s=>{s.mod.elec=1.5;s.moraleDrift=-0.3;}},
+  {id:'derate', t:'New Inspector',  i:'📕',d:'The city hired somebody who actually reads the rapid-shutdown labeling section. Everything gets a second visit.',f:s=>{s.mod.inspect=1.8;}},
+  {id:'dust',   t:'Dust Storm',     i:'🌪️',d:'Sixty-mile gusts off the desert. Nothing goes on a roof, and every array in the valley needs a wash.',f:s=>{s.mod.install=1.4;s.callbacks+=2;}},
+  {id:'cat',    t:'Office Cat Goes Viral',i:'🐱',d:'Somebody filmed one of the cats asleep in a module box. 400k views and counting.',f:s=>{s.rep=clamp(s.rep+8,0,100);}},
+];
+
+const RIVALS=['DayStar Solar','Rio Bravo Renewables','Two Suns Electric',
+              'some guy with a ladder and a Facebook page'];
+const MILESTONES={
+  1:'🥇 First system to PTO. Frame the permit.',
+  10:'🔟 Ten arrays live. People on the west side recognize the truck now.',
+  25:'📍 Twenty-five installs. DayStar has started mentioning you by name.',
+  50:'🏆 Fifty systems in the valley. You are the second call in this town, and closing.',
+  100:'🌄 One hundred installs. Somebody should have taken photos.'};
+const SEASON=[
+ 'Cold mornings. Nobody wants to touch rail before nine.',
+ 'Short month, decent weather. Get ahead while you can.',
+ 'Wind season. Anything not strapped down is in New Mexico by noon.',
+ 'Dust on everything, including glass you cleaned yesterday.',
+ 'The heat is starting. Crews go up early and come down by two.',
+ 'Full summer. Water in every truck, no exceptions.',
+ 'Monsoon watch. The afternoon belongs to the sky now.',
+ 'Storms and 100 degrees. The worst month of the year to promise a date.',
+ 'Cooling off, and the phones know it.',
+ 'The best working month there is. Do not spend it sitting in permitting.',
+ 'Tax-credit season. Everyone wants it energized before December 31.',
+ 'Year-end scramble. Every PTO you miss slips into next year.'];
+const QUIRKS=['Brings their own torque wrench.','Will not go above twenty feet, and said so up front.',
+ 'Used to wire warehouses out in Santa Teresa.','Allergic to the cats. Coming in anyway.',
+ 'Better Spanish than yours — will be on every Ysleta job.','Ex-Fort Bliss. Shows up eleven minutes early.',
+ 'Owns four hats, all of them for the sun.'];
+const CAT_NAMES=['Whiskers','Amperage','Tortilla','Bandit','Solar','Mija','Pepita','Chuy','Nacho','Luna'];
+const FIRST=['Alex','Jordan','Sam','Casey','Riley','Dana','Quinn','Marisol','Hector','Beto','Yesenia','Ruben','Tavo','Lupita','Cruz','Noemi'];
+const LAST=['R.','M.','T.','L.','N.','P.','S.','V.','G.','C.','A.','B.'];
+
+// ── state ────────────────────────────────────────────────────
+let S=null, tickHandle=null, autoHandle=null, acc=0, lastReal=0;
+let tab='office', quoteLead=null, sceneBuilt=false, catchingUp=false, helpTimer=null;
+// Every cat wander timer is tracked so rebuilding the office scene (or leaving
+// to the menu) cannot leave orphaned intervals running — see CLAUDE.md.
+let catTimers=[];
+
+const MS_PER_DAY=[0,3400,1700,850];
+
+function blankState(){
+  return {
+    v:SAVE_V,
+    day:1,month:0,year:1,speed:1,
+    cash:75000, rep:50, morale:72,
+    staff:[], cats:[], jobs:[], leads:[], bids:[], done:[],
+    inv:{panel:0,opt:0,rail:0,inv:0},
+    invest:{}, trucks:1, office:0,
+    marketing:800, autoBuy:true,
+    loan:0, loanRate:0.11,
+    ledger:blankLedger(), history:[], cashHist:[],
+    mod:{}, priceMod:{}, pendingLeads:0, moraleDrift:0,
+    event:null, eventName:'', petsToday:0,
+    nextId:1, jobsDone:0, jobsLate:0, callbacks:0,
+    totalRevenue:0, bankrupt:false, insolventMonths:0,
+    tutorial:true, lastTs:Date.now(),
+  };
+}
+function blankLedger(){
+  return {revenue:0,materials:0,payroll:0,rent:0,insurance:0,fleet:0,marketing:0,
+          catcare:0,interest:0,penalty:0,capex:0};
+}
+
+// ── helpers ──────────────────────────────────────────────────
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function money(n){
+  const r=Math.round(n); const s=r<0?'-':''; n=Math.abs(r);
+  if(n>=1e6)return s+'$'+(n/1e6).toFixed(n>=1e7?1:2)+'M';
+  if(n>=10000)return s+'$'+(n/1000).toFixed(0)+'K';
+  return s+'$'+n.toLocaleString('en-US');
+}
+const money0=n=>{const r=Math.round(n);return (r<0?'-':'')+'$'+Math.abs(r).toLocaleString('en-US');};
+const uid=()=>S.nextId++;
+const staffOf=r=>S.staff.filter(s=>s.role===r);
+const nStaff=r=>staffOf(r).length;
+const staffCap=()=>OFFICES[S.office].cap;
+const catCap=()=>OFFICES[S.office].cats;
+
+function note(msg,kind){
+  const box=document.getElementById('notes');
+  const el=document.createElement('div');
+  el.className='note '+(kind||'');
+  el.textContent=msg;
+  box.appendChild(el);
+  while(box.children.length>2)box.removeChild(box.firstChild);
+  setTimeout(()=>el.remove(),3600);
+}
+function flt(x,y,txt,col){
+  const el=document.createElement('div');
+  el.className='flt';el.style.left=x+'px';el.style.top=y+'px';el.style.color=col||'#22C55E';
+  el.textContent=txt;document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1150);
+}
+
+// ── derived capacity ─────────────────────────────────────────
+// A crew is 1 Install Lead + 2 Installers + 1 truck. Whichever runs out first
+// is the bottleneck, and the Ops tab says which one out loud.
+function crewCount(){
+  return Math.min(nStaff('lead'), Math.floor(nStaff('installer')/2), S.trucks);
+}
+function crewLimiter(){
+  const l=nStaff('lead'), i=Math.floor(nStaff('installer')/2), t=S.trucks;
+  const m=Math.min(l,i,t);
+  if(m===l&&l<=i&&l<=t)return 'Install Leads';
+  if(m===i&&i<=t)return 'Installers';
+  return 'Trucks';
+}
+
+// The real bottleneck, measured in resource-days of demand against supply
+// across everything in the pipeline. The Ops tab used to report only the crew
+// constraint, which sent new players out to buy trucks when a 16-module job
+// actually demands 5 designer-days against 2 crew-days — and the design desk
+// starts at a capacity of one (you). This flips to the crew on big commercial
+// work, which is exactly the thing the old readout could never show.
+function realBottleneck(){
+  if(!S.jobs.length)return null;
+  const need={designer:0,permit:0,crew:0,electric:0};
+  for(const j of S.jobs){
+    need.designer += STAGES[0].days + stageDuration(j,1);
+    need.permit   += stageDuration(j,2);
+    need.crew     += installDays(j.panels);
+    need.electric += STAGES[5].days;
+  }
+  const label={designer:'System Designer',permit:'Permit Coordinator',
+               crew:'Install crew',electric:'Electrician'};
+  let worst=null;
+  for(const k in need){
+    const cap=Math.max(0.001,resourceCap(k));
+    const load=need[k]/cap;
+    if(!worst||load>worst.load)worst={res:k,load,cap,name:label[k]};
+  }
+  return worst;
+}
+// Capacity is derived from what you can actually staff, not a flat number.
+// A flat cap let the board fill with jobs no crew could ever reach, so every
+// one of them finished late and the reputation spiral was unrecoverable.
+function jobCap(){ return 3 + crewCount() + nStaff('coord')*2; }
+function resourceCap(res){
+  switch(res){
+    case 'designer': return nStaff('designer')+1;   // the owner covers one design desk
+    case 'permit'  : return nStaff('permit')+1;     // ...and files permits until you hire
+    case 'electric': return nStaff('electric');
+    case 'crew'    : return crewCount();
+    default: return 99;
+  }
+}
+function moraleFactor(){ return 0.7+ (S.morale/100)*0.5; }   // 0.7 .. 1.2
+
+// ── material costing ─────────────────────────────────────────
+function unitPrice(k){ return Math.round(MATS[k].base*(S.priceMod[k]||1)); }
+function matDiscount(){
+  let d=1;
+  if(S.invest.wh)d-=0.10;
+  if(nStaff('warehouse')>0)d-=0.10;
+  return Math.max(0.7,d);
+}
+function invertersFor(p){ return Math.max(1,Math.ceil(p/25)); }
+function materialCost(panels){
+  const inv=invertersFor(panels);
+  let c=panels*(unitPrice('panel')+unitPrice('opt')+unitPrice('rail')) + inv*unitPrice('inv');
+  if(S.invest.batt)c+=inv*2400;        // the packs you are marking up 18% for
+  return Math.round(c*matDiscount());
+}
+// Modules a crew sets per day. At 6/day a single 200-module commercial job
+// pinned the only crew for 32 straight days and every other job on the board
+// aged into a late penalty behind it — throughput has to be in the same order
+// of magnitude as the job sizes the pipeline hands out.
+function installDays(panels){
+  const perDay=12+Math.max(0,nStaff('installer')-2)*1.2;
+  return Math.max(1,Math.ceil(panels/(perDay*moraleFactor()))) + (S.invest.batt?1:0);
+}
+// What the company burns per day regardless of whether anyone is working.
+function dailyBurn(){
+  const ohCut=nStaff('officemgr')>0?0.88:1;
+  return (S.staff.reduce((a,s)=>a+s.wage,0)
+        + OFFICES[S.office].rent*ohCut
+        + (420+S.totalRevenue*0.004)*ohCut
+        + S.trucks*640 + S.marketing + S.cats.length*60)/30;
+}
+const cycleDays=panels=>24+installDays(panels);
+
+function costBasis(panels){
+  const mats=materialCost(panels);
+  const permit=600+panels*4;
+  const labor=installDays(panels)*800;
+  // A job holds one of your job slots for its entire cycle, so it has to carry
+  // that share of fixed cost. Allocating a flat per-module figure instead had
+  // the quote screen telling players a 16-module job cost $480 of overhead
+  // when it actually tied up ~$6,000 of payroll and rent — so every "profitable"
+  // bid was quietly below cost and the company bled out around year three.
+  const oh=Math.round(dailyBurn()*cycleDays(panels)/Math.max(1,jobCap()));
+  return {mats,permit,labor,oh,total:mats+permit+labor+oh};
+}
+function marketPrice(lead){
+  const cb=costBasis(lead.panels).total;
+  return Math.round(cb*lead.mkt*(S.mod.market||1)*(S.invest.batt?1.18:1));
+}
+function winChance(lead,price){
+  const mp=marketPrice(lead);
+  let w=0.55+((mp-price)/mp)*2.0;
+  w+=(S.rep-50)/250;
+  w+=nStaff('consult')*0.04;
+  if(S.invest.cert)w+=0.05;
+  w+= lead.quality==='hot'?0.10: lead.quality==='cold'?-0.10:0;
+  return clamp(w,0.03,0.97);
+}
+
+// ════════════════════════════════════════════════════════════
+// SIMULATION — one day
+// ════════════════════════════════════════════════════════════
+function advanceDay(){
+  if(S.bankrupt)return;
+  S.day++; S.petsToday=0;
+  if(S.day>30){ S.day=1; closeMonth(); if(S.bankrupt)return; }
+
+  dailyCosts();
+  generateLeads();
+  tickBids();
+  tickJobs();
+  tickMorale();
+  if(!catchingUp && (S.day===1 || S.day%5===0)) save();
+
+  if(S.cash<-25000){ bankrupt(); return; }
+  if(!catchingUp)renderAll();
+}
+
+function dailyCosts(){
+  const L=S.ledger, D=30;
+  const ohCut=nStaff('officemgr')>0?0.88:1;
+  const pay=S.staff.reduce((a,s)=>a+s.wage,0)/D;
+  const rent=OFFICES[S.office].rent/D*ohCut;
+  const ins=(420+S.totalRevenue*0.004)/D*ohCut;
+  const fleet=(S.trucks*640)/D;
+  const mkt=S.marketing/D;
+  const cats=(S.cats.length*60)/D;
+  const int=S.loan*S.loanRate/365;
+
+  L.payroll+=pay; L.rent+=rent; L.insurance+=ins; L.fleet+=fleet;
+  L.marketing+=mkt; L.catcare+=cats; L.interest+=int;
+  // Interest is SERVICED out of cash, not capitalised. Doing both charged the
+  // player twice — ~2x the advertised APR — and grew the principal no matter
+  // what they repaid, until the balance passed creditLimit() on its own and
+  // borrowing was permanently refused with a message that made no sense.
+  S.cash-=(pay+rent+ins+fleet+mkt+cats+int);
+}
+
+function generateLeads(){
+  let rate = 0.25 + nStaff('rep')*0.30 + nStaff('setter')*0.18 + S.marketing/9000 + (S.rep-50)/400;
+  rate*=moraleFactor();
+  let n=0;
+  while(rate>0){ if(Math.random()<Math.min(rate,1))n++; rate-=1; }
+  n+=S.pendingLeads; S.pendingLeads=0;
+  for(let i=0;i<n;i++)addLead();
+}
+function addLead(){
+  if(S.leads.length>=14)return;
+  const pool=LEAD_POOL.filter(p=>(!p.com||S.invest.lic) && (!p.nm||S.invest.branch));
+  const p=pick(pool);
+  const q=Math.random(); const quality=q<0.25?'hot':q<0.7?'warm':'cold';
+  S.leads.push({
+    id:uid(), client:p.c, type:p.t, icon:p.i, nm:!!p.nm,
+    panels:ri(p.min,p.max), quality,
+    mkt:1.30+Math.random()*0.25,
+    days: quality==='hot'?ri(5,8): quality==='cold'?ri(10,16):ri(7,12),
+  });
+  bdg('sales');
+}
+
+function tickBids(){
+  // leads go stale if you never bid them
+  for(let i=S.leads.length-1;i>=0;i--){
+    const l=S.leads[i];
+    l.days-= (nStaff('setter')>0?0.7:1);
+    if(l.days<=0){ S.leads.splice(i,1); }
+  }
+  // submitted bids resolve
+  for(let i=S.bids.length-1;i>=0;i--){
+    const b=S.bids[i];
+    if(--b.wait>0)continue;
+    S.bids.splice(i,1);
+    if(Math.random()<b.chance){
+      startJob(b);
+      note('✅ Signed — '+b.client+'. Deposit clears today.','good');
+      bdg('ops');
+    } else {
+      note('❌ Lost '+b.client+' — '+pick(RIVALS)+' came in under you','bad');
+      S.rep=clamp(S.rep-0.3,0,100);
+    }
+  }
+}
+
+function startJob(b){
+  const mats=materialCost(b.panels);
+  const deposit=Math.round(b.price*0.35);
+  S.cash+=deposit; S.ledger.revenue+=deposit; S.totalRevenue+=deposit;
+  S.jobs.push({
+    id:uid(), client:b.client, type:b.type, icon:b.icon, panels:b.panels, nm:!!b.nm,
+    value:b.price, deposit, matBudget:mats,
+    stage:0, left:STAGES[0].days, elapsed:0,
+    promised: 38 + Math.round(b.panels/10),
+    blocked:null, matsPaid:false, res:null,
+  });
+}
+
+function tickJobs(){
+  const used={designer:0,permit:0,electric:0,crew:0};
+  for(const j of S.jobs){
+    j.elapsed++;
+    const st=STAGES[j.stage];
+    j.blocked=null;
+
+    // resource-gated stages must claim a free unit each day
+    if(st.res==='stock'){
+      if(!j.matsPaid && !consumeMaterials(j)){ j.blocked='Out of stock'; continue; }
+    } else if(st.res){
+      const cap=resourceCap(st.res);
+      if(used[st.res]>=cap){
+        j.blocked = st.res==='crew' ? 'No free crew'
+                  : st.res==='electric' ? 'No electrician'
+                  : st.res==='designer' ? 'No designer'
+                  : 'No permit coordinator';
+        continue;
+      }
+      used[st.res]++;
+    }
+
+    j.left-=1;
+    if(j.left<=0)nextStage(j);
+  }
+}
+
+function stageDuration(j,idx){
+  const st=STAGES[idx];
+  let d=st.days;
+  if(st.key==='install') d=installDays(j.panels);
+  if(st.key==='design'&&S.invest.cad) d=Math.max(1,d-1);
+  if(st.key==='permit'){
+    if(nStaff('permit')>0)d=Math.round(d*0.55);
+    if(S.invest.exped)d=Math.round(d*0.65);
+  }
+  const m=S.mod[st.key]; if(m)d=Math.ceil(d*m);
+  if(j.nm)d+=1;                       // 50 miles each way to the Mesilla Valley
+  return Math.max(1,d);
+}
+
+function nextStage(j){
+  j.stage++;
+  if(j.stage>=STAGES.length){ finishJob(j); return; }
+  j.left=stageDuration(j,j.stage);
+  // Freeze the duration the install actually began with — the site art derives
+  // progress from it, and a live recompute made modules disappear off the roof
+  // the moment you reinforced the crew.
+  if(STAGES[j.stage].key==='install')j.installTotal=j.left;
+}
+
+function consumeMaterials(j){
+  const need={panel:j.panels,opt:j.panels,rail:j.panels,inv:invertersFor(j.panels)};
+  const short=Object.keys(need).some(k=>S.inv[k]<need[k]);
+  if(short){
+    if(!S.autoBuy)return false;
+    // rush order at a 25% premium — convenience, priced
+    let cost=0;
+    for(const k in need){
+      const gap=need[k]-S.inv[k];
+      if(gap>0){ cost+=gap*unitPrice(k)*1.18*matDiscount(); S.inv[k]+=gap; }
+    }
+    cost=Math.round(cost);
+    S.cash-=cost; S.ledger.materials+=cost;
+    note('🚚 Rush order to keep '+j.client+' moving — '+money0(cost)+' at panic pricing','warn');
+  }
+  for(const k in need)S.inv[k]-=need[k];
+  j.matsPaid=true;
+  return true;
+}
+
+function finishJob(j){
+  const bal=j.value-j.deposit;
+  S.cash+=bal; S.ledger.revenue+=bal; S.totalRevenue+=bal;
+  S.jobsDone++;
+  const late=j.elapsed>j.promised;
+  if(late){
+    const pen=Math.round(j.value*0.03);
+    S.cash-=pen; S.ledger.penalty+=pen;
+    S.rep=clamp(S.rep-3,0,100); S.jobsLate++;
+    note('⚠️ '+j.client+' closed '+(j.elapsed-j.promised)+'d past the promise date. '+money0(pen)+' back to the customer.','bad');
+  } else {
+    S.rep=clamp(S.rep+3,0,100);
+    note('🔌 PTO granted — '+j.client+'. Balance in: '+money0(bal),'good');
+  }
+  S.done.unshift({client:j.client,value:j.value,late,day:S.day,month:S.month,year:S.year});
+  if(S.done.length>25)S.done.pop();
+  S.jobs=S.jobs.filter(x=>x!==j);
+  if(MILESTONES[S.jobsDone])note(MILESTONES[S.jobsDone],'good');
+  if(Math.random()<0.22)S.callbacks++;
+  bdg('finance');
+}
+
+// Morale seeks an equilibrium set by how you actually run the place, rather
+// than draining on a fixed timer. The old constant negative drift had no
+// counterbalance at any cat count the office could hold, so every company
+// eventually hit morale 5, bled staff, lost its last crew and died with a
+// perfect reputation and a full order book. Now it settles where you earn it.
+function moraleTarget(){
+  let t=52;
+  t+=S.cats.length*6;
+  t+=nStaff('officemgr')*8;
+  t+=S.cash>=0?10:-25;
+  t-=Math.max(0,S.jobs.length-jobCap())*10;
+  t+=(S.moraleDrift||0)*12;
+  if(S.morale<=5)t+=5;                      // never let 5 become an absorbing state
+  return clamp(t,10,100);
+}
+function tickMorale(){
+  S.morale=clamp(S.morale+(moraleTarget()-S.morale)*0.06,5,100);
+
+  // Callbacks drag on reputation, but the drag is bounded and they age out on
+  // their own. Unbounded per-callback drain made reputation a one-way ratchet:
+  // once the queue grew past a few, no amount of on-time work could out-earn it
+  // and every save eventually died at rep 0.
+  if(S.callbacks>0){
+    const cleared=Math.min(S.callbacks,nStaff('service'));
+    S.callbacks-=cleared;
+    if(cleared>0)S.rep=clamp(S.rep+cleared*0.8,0,100);
+    for(let i=S.callbacks;i>0;i--) if(Math.random()<0.06)S.callbacks--;   // you patch it yourself
+    S.callbacks=Math.min(S.callbacks,15);
+    if(S.callbacks>0)S.rep=clamp(S.rep-Math.min(S.callbacks,3)*0.1,0,100);
+  }
+  // people quit when it is bad enough
+  if(S.morale<22&&S.staff.length>0&&Math.random()<0.05){
+    const s=pick(S.staff);
+    S.staff=S.staff.filter(x=>x!==s);
+    note('😤 '+s.name+' quit — took a spot with '+pick(RIVALS),'bad');
+  }
+}
+
+// ── month close ──────────────────────────────────────────────
+function closeMonth(){
+  const L=S.ledger;
+  // capex is a real cash outflow, so it belongs in the total — leaving it out
+  // made the statement claim a profit on a month that drained the bank.
+  const exp=L.materials+L.payroll+L.rent+L.insurance+L.fleet+L.marketing
+           +L.catcare+L.interest+L.penalty+L.capex;
+  const net=L.revenue-exp;
+  S.history.unshift({label:MONTHS[S.month]+' Y'+S.year, rev:L.revenue, exp, net, cash:S.cash, capex:L.capex});
+  if(S.history.length>18)S.history.pop();
+  S.cashHist.push(Math.round(S.cash));
+  if(S.cashHist.length>24)S.cashHist.shift();
+
+  if(net<0)S.insolventMonths++; else S.insolventMonths=0;
+
+  S.ledger=blankLedger();
+  S.month++;
+  if(S.month>11){
+    S.month=0;S.year++;
+    // Annual wage inflation. Without it a company that stopped growing was
+    // permanently safe, and the back half of a run had no clock on it at all.
+    S.staff.forEach(s=>s.wage=Math.round(s.wage*1.05));
+    S.wageIndex=+( (S.wageIndex||1)*1.05 ).toFixed(3);
+    note('📈 Year '+S.year+' — every crew in the county wants 5% more','warn');
+  }
+
+  // reset monthly modifiers, then roll a new event
+  S.mod={}; S.priceMod={}; S.moraleDrift=0;
+  rollEvent();
+  note('📅 '+MONTHS[S.month]+' — '+SEASON[S.month]);
+
+  showReport(net,exp);
+}
+
+function rollEvent(){
+  if(Math.random()<0.42){
+    const e=pick(EVENTS);
+    S.event=e.id; S.eventName=e.t;
+    e.f(S);
+  } else { S.event=null; S.eventName=''; }
+}
+
+function showReport(net,exp){
+  if(catchingUp)return;              // offline fast-forward must not stack modals
+  const L=S.history[0];
+  const ev=S.event?EVENTS.find(x=>x.id===S.event):null;
+  html('msg-card',
+    '<div class="mo-t ff">📊 '+L.label+' Close</div>'+
+    '<div class="mo-s">What the month actually did.</div>'+
+    '<table class="pl">'+
+      tr('Revenue — installs',L.rev,1)+
+      tr('Operating expenses',-L.exp,0)+
+      '<tr class="tot"><td>Net '+(net>=0?'profit':'loss')+'</td>'+
+      '<td class="n '+(net>=0?'pos':'negc')+'">'+money0(net)+'</td></tr>'+
+    '</table>'+
+    '<div class="box" style="margin-top:10px"><div class="row">'+
+      '<div class="grow"><div class="tiny">CASH ON HAND</div>'+
+      '<div class="ff" style="font-size:17px;color:'+(S.cash<0?'var(--red)':'var(--green)')+'">'+money0(S.cash)+'</div></div>'+
+      '<div style="text-align:right"><div class="tiny">REPUTATION</div>'+
+      '<div class="ff" style="font-size:17px;color:var(--sun)">'+Math.round(S.rep)+'</div></div>'+
+    '</div></div>'+
+    (S.insolventMonths>=2?'<div class="box" style="border-color:var(--red)"><div class="mini" style="color:#FCA5A5">'+
+      '⚠️ '+S.insolventMonths+' straight losing months. Cut payroll, raise margins, or take a loan — '+
+      'below -$25,000 cash the company folds.</div></div>':'')+
+    (ev?'<div class="box" style="border-color:var(--sun)"><div class="ff" style="font-size:13px;color:var(--sun)">'+
+      ev.i+' '+ev.t+'</div><div class="mini" style="margin-top:3px">'+ev.d+'</div></div>':'')+
+    '<div class="mo-btns"><button class="btn g ff" onclick="closeMsg()">Carry On</button></div>');
+  document.getElementById('msg-card').className='mo';
+  openOv('ov-msg'); holdSpeed();
+}
+function tr(label,v,pos){
+  return '<tr><td>'+label+'</td><td class="n '+(pos?'pos':'negc')+'">'+money0(v)+'</td></tr>';
+}
+
+function bankrupt(){
+  S.bankrupt=true; setSpeed(0); stopClock();
+  html('msg-card',
+    '<div class="mo-t ff">🏚️ Insolvent</div>'+
+    '<div class="mo-s">Purr &amp; Power Co. is out of money and out of credit.</div>'+
+    '<div class="box"><div class="mini">'+
+      'You put <b>'+S.jobsDone+'</b> systems on roofs across '+
+      ((S.year-1)*12+S.month+1)+' months and booked '+money0(S.totalRevenue)+' doing it. '+
+      S.jobsLate+' of them landed late, which is how the reputation went, which is how the pricing went.<br><br>'+
+      'The trucks go back to the lender. The permits transfer. Somebody at DayStar Solar will call your '+
+      'customers by Friday and be very warm about it.<br><br>'+
+      'The cats have been rehomed to a competitor. They are fine. They are always fine.'+
+    '</div></div>'+
+    '<div class="mo-btns"><button class="btn r ff" onclick="quitToMenu()">Close the doors</button></div>');
+  document.getElementById('msg-card').className='mo red';
+  openOv('ov-msg');
+  try{localStorage.removeItem(SK);}catch(e){}
+}
+
+// ════════════════════════════════════════════════════════════
+// PLAYER ACTIONS
+// ════════════════════════════════════════════════════════════
+const goingWage=role=>Math.round(ROLES[role].wage*(S.wageIndex||1));
+
+function hire(role){
+  const r=ROLES[role];
+  if(S.staff.length>=staffCap()){note('🏢 Office is full — upgrade to hire more','warn');return;}
+  const wage=goingWage(role);
+  const bonus=Math.round(wage*0.5);
+  if(S.cash<bonus){note('💸 Need '+money0(bonus)+' signing bonus','bad');return;}
+  S.cash-=bonus; S.ledger.payroll+=bonus;
+  S.staff.push({id:uid(),role,name:pick(FIRST)+' '+pick(LAST),wage});
+  note('👔 '+S.staff[S.staff.length-1].name+' starts Monday, '+money0(wage)+'/mo. '+pick(QUIRKS),'good');
+  renderAll();
+}
+function fire(id){
+  const s=S.staff.find(x=>x.id===id); if(!s)return;
+  const sev=Math.round(s.wage*0.5);
+  S.cash-=sev; S.ledger.payroll+=sev;
+  S.staff=S.staff.filter(x=>x!==s);
+  S.morale=clamp(S.morale-6,5,100);
+  note('📉 Let '+s.name+' go. '+money0(sev)+' severance, and the crew noticed.','warn');
+  renderAll();
+}
+function adoptCat(){
+  if(S.cats.length>=catCap()){note('🐱 '+catCap()+' cats is all this place holds. Fire code, allegedly.','warn');return;}
+  if(S.cash<250){note('💸 Adoption fee is $250','bad');return;}
+  S.cash-=250; S.ledger.catcare+=250;
+  const used=S.cats.map(c=>c.name);
+  const avail=CAT_NAMES.filter(n=>!used.includes(n));
+  S.cats.push({name:avail.length?pick(avail):'Cat '+(S.cats.length+1),x:Math.random(),y:Math.random()});
+  S.morale=clamp(S.morale+7,5,100);
+  note('🐱 '+S.cats[S.cats.length-1].name+' moved in. $60/mo, and the office is louder now.','good');
+  buildOfficeScene(); renderAll();
+}
+// Petting is a flourish, not a lever. Unmetered it was an infinite free morale
+// button — ~70 taps took morale from 20 to 100 against an equilibrium of 39,
+// which is worth +39% install speed and +65% lead flow and cancels both of the
+// negative feedback terms in moraleTarget(). It can now only nudge morale a
+// little way ABOVE its earned equilibrium, and only a few times a day.
+function petCat(i,ev){
+  const r=ev.currentTarget.getBoundingClientRect();
+  const ceiling=Math.min(100,moraleTarget()+8);
+  if(S.petsToday>=3||S.morale>=ceiling){
+    flt(r.left,r.top-6,pick(['purr~','😽','zzz','*ignores you*']),'#94A3B8');
+    return;
+  }
+  S.petsToday++;
+  S.morale=clamp(S.morale+1.2,5,ceiling);
+  flt(r.left,r.top-6,pick(['purr~','mrrow','😽','zzz']),'#F97316');
+  paintTop();
+}
+function upgradeOffice(){
+  if(S.office>=OFFICES.length-1)return;
+  const nx=OFFICES[S.office+1];
+  if(S.cash<nx.cost){note('💸 Need '+money0(nx.cost),'bad');return;}
+  S.cash-=nx.cost; S.ledger.capex+=nx.cost; S.office++;
+  note('🏢 Keys to '+nx.n+'. The cats found the sunny corner in under an hour.','good'); renderAll();
+}
+function buyInvest(id){
+  const it=INVEST.find(x=>x.id===id); if(!it)return;
+  if(!it.repeat&&S.invest[id]){note('Already owned','warn');return;}
+  let cost=it.cost;
+  if(id==='truck')cost=Math.round(it.cost*Math.pow(1.35,S.trucks-1));
+  if(S.cash<cost){note('💸 Need '+money0(cost),'bad');return;}
+  S.cash-=cost; S.ledger.capex+=cost;
+  if(id==='truck')S.trucks++; else S.invest[id]=true;
+  if(it.rep)S.rep=clamp(S.rep+it.rep,0,100);
+  note(it.i+' '+it.n+' acquired','good');
+  renderAll();
+}
+function setMarketing(v){ S.marketing=+v; paintMarketing(); }
+function paintMarketing(){
+  const el=document.getElementById('mkt-val');
+  if(el)el.textContent=money0(S.marketing)+'/mo';
+}
+function commitMarketing(){ renderFinance(); }
+function toggleAuto(){ S.autoBuy=!S.autoBuy; renderFinance(); }
+
+function buyStock(k,qty){
+  const cost=Math.round(qty*unitPrice(k)*matDiscount());
+  if(S.cash<cost){note('💸 Need '+money0(cost),'bad');return;}
+  const cap=stockCap();
+  if(S.inv[k]+qty>cap){note('📦 Storage full ('+cap+' units)','warn');return;}
+  S.cash-=cost; S.ledger.materials+=cost; S.inv[k]+=qty;
+  note('📦 Bought '+qty+' × '+MATS[k].n+' — '+money0(cost),'good');
+  renderFinance();
+}
+const stockCap=()=>S.invest.wh?1400:450;
+
+function borrow(amt){
+  const lim=creditLimit();
+  if(S.loan+amt>lim){note('🏦 Credit limit is '+money0(lim),'bad');return;}
+  S.loan+=amt; S.cash+=amt;
+  note('🏦 Drew '+money0(amt)+' at '+(S.loanRate*100).toFixed(0)+'%. Serviced daily out of cash.','warn');
+  renderFinance();
+}
+function repay(amt){
+  amt=Math.min(amt,S.loan,Math.max(0,S.cash));
+  if(amt<=0){note('Nothing to repay','warn');return;}
+  S.loan-=amt; S.cash-=amt;
+  note('🏦 Repaid '+money0(amt),'good'); renderFinance();
+}
+const creditLimit=()=>Math.round(40000*(S.office+1)+S.rep*400);
+
+// ── bidding ──────────────────────────────────────────────────
+function openQuote(id){
+  const l=S.leads.find(x=>x.id===id); if(!l)return;
+  quoteLead=l;
+  // The sim used to keep running behind this modal: leads cooled and were
+  // spliced out of S.leads while you dragged, and every number on screen
+  // (cost, cash, stock) went stale under you.
+  holdSpeed();
+  const cb=costBasis(l.panels);
+  l._margin=(typeof l._margin==='number')?l._margin:30;   // a deliberate 0% must survive
+  html('quote-card',
+    '<div class="mo-t ff">'+esc(l.icon)+' '+esc(l.client)+'</div>'+
+    '<div class="mo-s">'+esc(l.type)+' · '+l.panels+' modules · '+(l.panels*0.4).toFixed(1)+' kW · '+
+      '<span class="pill '+(l.quality==='hot'?'ok':l.quality==='cold'?'mute':'warn')+'">'+l.quality.toUpperCase()+'</span></div>'+
+    '<div class="box">'+
+      '<div class="qline"><span>Modules, optimizers, rail</span><span class="v">'+money0(cb.mats)+'</span></div>'+
+      '<div class="qline"><span>Permit &amp; plan review</span><span class="v">'+money0(cb.permit)+'</span></div>'+
+      '<div class="qline"><span>Crew labor ('+installDays(l.panels)+'d install)</span><span class="v">'+money0(cb.labor)+'</span></div>'+
+      '<div class="qline"><span>Overhead — '+cycleDays(l.panels)+'d in a slot</span><span class="v">'+money0(cb.oh)+'</span></div>'+
+      '<div class="qline tot"><span>Cost basis</span><span class="v">'+money0(cb.total)+'</span></div>'+
+    '</div>'+
+    '<div class="tiny" style="margin:8px 0 2px">MARGIN <span id="q-mpct" class="ff" style="color:var(--sun)"></span></div>'+
+    '<input type="range" min="0" max="90" value="'+l._margin+'" oninput="updQuote(this.value)">'+
+    '<div class="box" style="margin-top:4px">'+
+      '<div class="row" style="margin-bottom:6px">'+
+        '<div class="grow"><div class="tiny">YOUR BID</div><div class="ff" id="q-price" style="font-size:19px;color:var(--green)"></div></div>'+
+        '<div style="text-align:right"><div class="tiny">GROSS PROFIT</div><div class="ff" id="q-profit" style="font-size:15px"></div></div>'+
+      '</div>'+
+      '<div class="tiny" style="margin-bottom:3px">WIN CHANCE <span id="q-wpct" class="ff"></span></div>'+
+      '<div class="winbar"><div id="q-wbar"></div></div>'+
+      '<div class="mini" id="q-hint" style="margin-top:6px"></div>'+
+    '</div>'+
+    '<div class="box" id="q-cash"></div>'+
+    '<div class="mo-btns">'+
+      '<button class="btn g ff" onclick="submitBid()">Submit Bid</button>'+
+      '<button class="btn ff" onclick="closeQuote()">Pass</button>'+
+    '</div>');
+  updQuote(l._margin);
+  openOv('ov-quote');
+}
+function updQuote(m){
+  const l=quoteLead; if(!l)return;
+  l._margin=+m;
+  const cb=costBasis(l.panels).total;
+  const price=Math.round(cb*(1+ l._margin/100));
+  const w=winChance(l,price);
+  const profit=price-cb;
+  txt('q-mpct',l._margin+'%');
+  txt('q-price',money0(price));
+  const pf=document.getElementById('q-profit');
+  pf.textContent=money0(profit);
+  pf.style.color=profit>=0?'var(--green)':'var(--red)';
+  txt('q-wpct',Math.round(w*100)+'%');
+  const bar=document.getElementById('q-wbar');
+  bar.style.width=(w*100)+'%';
+  bar.style.background=w>0.6?'var(--green)':w>0.35?'var(--sun)':'var(--red)';
+  const mp=marketPrice(l);
+  txt('q-hint', price<mp*0.95 ? '📉 You are under the going rate — likely win, thin profit.'
+             : price>mp*1.15 ? '📈 Well above market. Only your reputation can carry this.'
+             : '⚖️ Priced near what the market expects for this job.');
+
+  // Working-capital preview. A big commercial job can demand six figures of
+  // material around day 12 — the player has to be able to see that coming
+  // BEFORE bidding, not discover it when the bank account empties.
+  const need={panel:l.panels,opt:l.panels,rail:l.panels,inv:invertersFor(l.panels)};
+  let rush=0, haveAll=true;
+  for(const k in need){
+    const gap=need[k]-S.inv[k];
+    if(gap>0){ haveAll=false; rush+=gap*unitPrice(k)*1.18*matDiscount(); }
+  }
+  rush=Math.round(rush);
+  const deposit=Math.round(price*0.35);
+  const after=S.cash+deposit-rush;
+  const el=document.getElementById('q-cash');
+  if(el){
+    el.style.borderColor = after<0 ? 'var(--red)' : after<15000 ? 'var(--sun)' : 'var(--border)';
+    el.innerHTML=
+      '<div class="qline"><span>Deposit on signing (35%)</span><span class="v pos">+'+money0(deposit)+'</span></div>'+
+      '<div class="qline"><span>Materials due ~day 12'+(haveAll?' (in stock)':'')+'</span>'+
+        '<span class="v '+(rush?'negc':'pos')+'">'+(rush?'-'+money0(rush):'covered')+'</span></div>'+
+      '<div class="qline tot"><span>Cash after materials</span>'+
+        '<span class="v" style="color:'+(after<0?'var(--red)':'var(--green)')+'">'+money0(after)+'</span></div>'+
+      (after<0?'<div class="mini" style="color:#FCA5A5;margin-top:5px">⚠️ This job buys more material than you can '+
+        'fund. Stock up on the Finance tab or draw on the credit line first.</div>':'');
+  }
+}
+function submitBid(){
+  const l=quoteLead; if(!l)return;
+  // Belt and braces alongside the pause: never bid a lead the sim has culled.
+  if(!S.leads.includes(l)){ note('❄️ That lead went cold while you were pricing it','warn'); closeQuote(); renderAll(); return; }
+  const cb=costBasis(l.panels).total;
+  const price=Math.round(cb*(1+l._margin/100));
+  // Bids already out count against capacity — otherwise you could paper the
+  // city with bids, win them all at once, and drown in simultaneous material buys.
+  if(S.jobs.length+S.bids.length>=jobCap()){
+    note('📋 At capacity ('+jobCap()+' jobs + open bids). Hire a Project Coordinator.','warn');
+    return;
+  }
+  S.bids.push({leadId:l.id,client:l.client,type:l.type,icon:l.icon,panels:l.panels,nm:!!l.nm,
+               price,chance:winChance(l,price),wait:ri(2,5)});
+  S.leads=S.leads.filter(x=>x!==l);
+  closeQuote();
+  note('📨 Bid in at '+money0(price)+'. They will sit on it a few days.','good');
+  renderAll();
+}
+function closeQuote(){ quoteLead=null; closeOv('ov-quote'); releaseSpeed(); }
+
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+const html=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
+const txt=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+function openOv(id){document.getElementById(id).classList.remove('gone');}
+function closeOv(id){document.getElementById(id).classList.add('gone');}
+// Reachable from the main menu (S===null) and from on top of the pause sheet,
+// so it must not touch S and must not restart a clock the player paused.
+function closeMsg(){
+  closeOv('ov-msg');
+  if(!S||S.bankrupt)return;
+  if(!document.getElementById('ov-pause').classList.contains('gone'))return;
+  if(S.speed===0)setSpeed(S._prevSpeed||1);
+}
+function bdg(t,n){
+  const e=document.getElementById('bdg-'+t); if(!e)return;
+  e.classList.add('on'); e.textContent=n||'!';
+}
+function clearBdg(t){const e=document.getElementById('bdg-'+t);if(e)e.classList.remove('on');}
+
+function showTab(t){
+  tab=t;
+  document.querySelectorAll('.layer').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
+  document.getElementById('layer-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  if(t!=='ops'||!S.jobs.some(j=>j.blocked))clearBdg(t);
+  renderAll();
+}
+
+function renderAll(){
+  if(!S)return;
+  paintTop();
+  if(tab==='office')renderOffice();
+  else if(tab==='sales')renderSales();
+  else if(tab==='ops')renderOps();
+  else if(tab==='site')renderSite();
+  else if(tab==='finance')renderFinance();
+}
+
+function paintTop(){
+  const c=document.getElementById('tb-cash');
+  c.textContent=money(S.cash);
+  // Runway is THE decision-relevant number in a cash-flow game; it used to be
+  // 10px muted prose buried on the Finance tab, and the only non-textual
+  // warning arrived at cash<0 — already most of the way to the -$25,000 wall.
+  const burn=dailyBurn(), rw=burn>0?Math.floor(S.cash/burn):999;
+  c.className='tb-cash ff'+(S.cash<0?' neg':rw<45?' warn':'');
+  txt('tb-runway', S.cash<0?'CASH · INSOLVENT':'CASH · '+Math.max(0,rw)+'d runway');
+  document.getElementById('topbar').classList.toggle('danger',S.cash>=0&&rw<20);
+  txt('tb-rep',Math.round(S.rep));
+  txt('tb-mor',Math.round(S.morale));
+  txt('tb-jobs',S.jobs.length);
+  const nb=S.jobs.filter(j=>j.blocked).length;
+  if(nb)bdg('ops',nb); else if(tab!=='ops')clearBdg('ops');
+  txt('tb-date','Day '+S.day);
+  txt('tb-year','Year '+S.year+' · '+MONTHS[S.month]);
+  for(let i=0;i<4;i++){
+    const b=document.getElementById('sp'+i);
+    if(b)b.className='sp'+(S.speed===i?' on':'');
+  }
+}
+
+/* ── OFFICE ── */
+function clearCatTimers(){ catTimers.forEach(clearInterval); catTimers=[]; }
+
+function buildOfficeScene(){
+  const sc=document.getElementById('off-scene');
+  clearCatTimers();
+  sc.innerHTML='<div class="off-floor"></div>';
+  const w=sc.offsetWidth||340;
+  for(let i=0;i<4;i++){
+    const win=document.createElement('div');
+    win.className='off-win'; win.style.left=(14+i*(w-40)/4)+'px';
+    sc.appendChild(win);
+  }
+  const people=[{role:'owner',name:'You'}].concat(S.staff);
+  const n=Math.min(people.length,9);
+  for(let i=0;i<n;i++){
+    const p=people[i];
+    const r=p.role==='owner'?{icon:'🧑‍💼',name:'Owner'}:ROLES[p.role];
+    const d=document.createElement('div');
+    d.className='deskv';
+    d.style.left=(8+i*Math.max(34,(w-24)/n))+'px';
+    d.innerHTML='<div class="h">'+r.icon+'</div><div class="d"></div><div class="n">'+
+      (p.role==='owner'?'Owner':r.name.split(' ')[0])+'</div>';
+    sc.appendChild(d);
+  }
+  S.cats.forEach((c,i)=>{
+    const el=document.createElement('div');
+    el.className='catv'; el.textContent='🐱'; el.title=c.name;
+    el.style.left=(10+Math.random()*(w-40))+'px';
+    el.style.bottom=(12+Math.random()*54)+'px';
+    el.onclick=(e)=>petCat(i,e);
+    sc.appendChild(el);
+    catTimers.push(setInterval(()=>{
+      if(!el.parentNode)return;
+      el.style.left=(10+Math.random()*(sc.offsetWidth-40))+'px';
+      el.style.bottom=(12+Math.random()*54)+'px';
+    },4000+Math.random()*3000));
+  });
+  sceneBuilt=true;
+}
+
+function renderOffice(){
+  if(!sceneBuilt)buildOfficeScene();
+  const off=OFFICES[S.office], nx=OFFICES[S.office+1];
+  const payroll=S.staff.reduce((a,s)=>a+s.wage,0);
+
+  let h='<div class="box"><div class="row">'+
+    '<div class="grow"><div class="ff" style="font-size:13px">'+off.n+'</div>'+
+    '<div class="tiny">'+S.staff.length+'/'+off.cap+' desks · '+S.cats.length+'/'+off.cats+' cats · '+
+    money0(off.rent)+'/mo rent</div></div>'+
+    (nx?'<button class="btn p sm" onclick="upgradeOffice()">Move to '+nx.n+'<br>'+money0(nx.cost)+'</button>':
+        '<span class="pill ok">TOP TIER</span>')+
+    '</div></div>';
+
+  h+='<div class="box"><div class="row" style="margin-bottom:5px">'+
+     '<div class="grow tiny">TEAM MORALE</div><div class="ff" style="color:var(--sun)">'+Math.round(S.morale)+'%</div></div>'+
+     '<div class="bar"><div style="width:'+S.morale+'%;background:linear-gradient(90deg,var(--orange),var(--green))"></div></div>'+
+     '<div class="mini" style="margin-top:5px">Settling toward <b style="color:var(--sun)">'+
+     Math.round(moraleTarget())+'%</b> — '+
+     [S.cats.length+' cats +'+(S.cats.length*6),
+      nStaff('officemgr')?'office mgr +'+(nStaff('officemgr')*8):null,
+      S.cash>=0?'payroll met +10':'cash negative −25',
+      Math.max(0,S.jobs.length-jobCap())?'overloaded −'+(Math.max(0,S.jobs.length-jobCap())*10):null
+     ].filter(Boolean).join(', ')+
+     '. Morale scales install speed and lead flow.</div>'+
+     '<div class="row" style="margin-top:7px">'+
+     '<button class="btn o sm" onclick="adoptCat()">🐱 Adopt a cat — $250 (+$60/mo)</button></div></div>';
+
+  h+='<div class="sec ff">Payroll <span class="hint">'+money0(payroll)+'/mo</span></div>';
+  if(!S.staff.length){
+    h+='<div class="empty">No employees yet.<br>You cover design and permitting yourself — but you cannot pull a permit and run a crew at the same time forever.</div>';
+  }
+  h+=S.staff.map(s=>{
+    const r=ROLES[s.role];
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+r.icon+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+esc(s.name)+'</div>'+
+      '<div class="tiny">'+r.name+' · '+r.dept+' · '+money0(s.wage)+'/mo</div></div>'+
+      '<button class="btn r sm" onclick="fire('+s.id+')">Let go</button></div></div>';
+  }).join('');
+
+  h+='<div class="sec ff">Hire <span class="hint">signing bonus = ½ month</span></div>';
+  h+=ROLE_ORDER.map(k=>{
+    const r=ROLES[k], have=nStaff(k);
+    const wage=goingWage(k);
+    const bonus=Math.round(wage*0.5);
+    const can=S.cash>=bonus&&S.staff.length<off.cap;
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+r.icon+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+r.name+
+        (have?' <span class="pill info">×'+have+'</span>':'')+'</div>'+
+      '<div class="tiny">'+r.desc+'</div></div>'+
+      '<button class="btn '+(can?'g':'')+' sm" '+(can?'':'disabled')+' onclick="hire(\''+k+'\')">'+
+        money0(wage)+'/mo<br><span style="font-size:8px">hire '+money0(bonus)+'</span></button>'+
+      '</div></div>';
+  }).join('');
+
+  html('office-body',h);
+}
+
+/* ── SALES ── */
+function renderSales(){
+  let h='';
+  h+='<div class="box"><div class="row">'+
+     '<div class="grow"><div class="tiny">MARKETING SPEND</div>'+
+     '<div class="ff" style="font-size:15px;color:var(--sun)" id="mkt-val2">'+money0(S.marketing)+'/mo</div></div>'+
+     '<div style="text-align:right"><div class="tiny">LEAD FLOW</div>'+
+     '<div class="ff" style="font-size:15px">'+leadRate().toFixed(1)+'/day</div></div></div>'+
+     '<div class="mini" style="margin-top:5px">Set the budget on the Finance tab. Reps and Appointment Setters '+
+     'multiply it; reputation ('+Math.round(S.rep)+') tilts both flow and win rate.</div></div>';
+
+  if(S.bids.length){
+    h+='<div class="sec ff">Bids Out <span class="hint">'+S.bids.length+' awaiting decision</span></div>';
+    h+=S.bids.map(b=>'<div class="box"><div class="row">'+
+      '<div style="font-size:17px">'+esc(b.icon)+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+esc(b.client)+'</div>'+
+      '<div class="tiny">'+money0(b.price)+' · '+Math.round(b.chance*100)+'% · decision in '+b.wait+'d</div></div>'+
+      '<span class="pill info">PENDING</span></div></div>').join('');
+  }
+
+  const full=S.jobs.length+S.bids.length>=jobCap();
+  h+='<div class="sec ff">Open Leads <span class="hint">'+(full
+     ? '⚠️ at capacity — '+(S.jobs.length+S.bids.length)+'/'+jobCap()
+     : S.leads.length+' on the board')+'</span></div>';
+  if(!S.leads.length){
+    h+='<div class="empty">The board is empty.<br>Nobody calls a contractor they have never heard of — put a Solar Rep on the phones or money into marketing.</div>';
+  }
+  h+=S.leads.map(l=>{
+    const mp=marketPrice(l);
+    const q=l.quality==='hot'?'ok':l.quality==='cold'?'mute':'warn';
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+esc(l.icon)+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+esc(l.client)+' '+
+        '<span class="pill '+q+'">'+l.quality+'</span></div>'+
+      '<div class="tiny">'+esc(l.type)+' · '+l.panels+' modules · cools in '+Math.ceil(l.days)+'d</div></div>'+
+      '<div style="text-align:right;margin-right:6px"><div class="tiny">MARKET</div>'+
+        '<div class="ff" style="font-size:14px;color:var(--sun)">'+money(mp)+'</div></div>'+
+      (full?'<span class="pill warn">NO SLOT</span>'
+           :'<button class="btn b sm" onclick="openQuote('+l.id+')">Quote</button>')+
+      '</div></div>';
+  }).join('');
+  html('sales-body',h);
+}
+function leadRate(){
+  return (0.25+nStaff('rep')*0.30+nStaff('setter')*0.18+S.marketing/9000+(S.rep-50)/400)*moraleFactor();
+}
+
+/* ── OPS ── */
+function renderOps(){
+  const cc=crewCount();
+  const bn=realBottleneck();
+  let h='<div class="box"><div class="row">'+
+    '<div class="grow"><div class="tiny">CREWS</div><div class="ff" style="font-size:16px">'+cc+'</div>'+
+    '<div class="tiny">1 lead + 2 installers + 1 truck each · capped by '+crewLimiter()+'</div></div>'+
+    '<div style="text-align:right"><div class="tiny">TIGHTEST RESOURCE</div>'+
+    '<div class="ff" style="font-size:13px;color:'+(bn&&bn.load>6?'var(--red)':'var(--sun)')+'">'+
+      (bn?bn.name:'—')+'</div>'+
+    (bn?'<div class="tiny">'+bn.load.toFixed(0)+' days queued per head</div>':'')+
+    '</div></div></div>';
+
+  const blk=S.jobs.filter(j=>j.blocked);
+  if(blk.length){
+    const by={}; blk.forEach(j=>by[j.blocked]=(by[j.blocked]||0)+1);
+    h+='<div class="box blk"><div class="ff" style="font-size:15px;color:#FCA5A5">⛔ '+blk.length+
+       ' job'+(blk.length>1?'s':'')+' stopped — '+money0(blk.reduce((a,j)=>a+j.value,0))+' held up</div>'+
+       '<div style="font-size:12px;color:#FCA5A5;margin-top:3px">'+
+       Object.keys(by).map(k=>by[k]+' × '+k).join(' · ')+'</div></div>';
+  }
+
+  h+='<div class="box"><div class="row">'+
+    ['designer','permit','electric'].map(r=>{
+      const cap=resourceCap(r);
+      const nm=r==='designer'?'Designers':r==='permit'?'Permit':'Electricians';
+      return '<div class="grow" style="text-align:center"><div class="tiny">'+nm+'</div>'+
+        '<div class="ff" style="font-size:15px;color:'+(cap>0?'var(--text)':'var(--red)')+'">'+cap+'</div></div>';
+    }).join('')+
+    '<div class="grow" style="text-align:center"><div class="tiny">Job Cap</div>'+
+    '<div class="ff" style="font-size:15px">'+S.jobs.length+'/'+jobCap()+'</div></div>'+
+    '</div></div>';
+
+  if(S.callbacks>0){
+    h+='<div class="box" style="border-color:var(--red)"><div class="row">'+
+      '<div class="grow"><div class="ff" style="font-size:12px;color:#FCA5A5">🔧 '+S.callbacks+' open warranty callback'+(S.callbacks>1?'s':'')+'</div>'+
+      '<div class="tiny">Bleeding reputation every day until a Service Tech clears them.</div></div></div></div>';
+  }
+
+  h+='<div class="sec ff">Active Jobs <span class="hint">'+S.jobs.length+' in the pipeline</span></div>';
+  if(!S.jobs.length){
+    h+='<div class="empty">Nothing in production.<br>Win a bid on the Sales tab to start a job.</div>';
+  }
+  h+=S.jobs.slice().sort((a,b)=>(b.blocked?1:0)-(a.blocked?1:0)).map(j=>{
+    const st=STAGES[j.stage];
+    const pct=Math.round((j.stage/STAGES.length)*100);
+    const lateRisk=j.elapsed>j.promised*0.8;
+    return '<div class="box'+(j.blocked?' blk':'')+'">'+
+      '<div class="row" style="margin-bottom:5px">'+
+        '<div style="font-size:17px">'+esc(j.icon)+'</div>'+
+        '<div class="grow"><div class="ff" style="font-size:12px">'+esc(j.client)+'</div>'+
+        '<div class="tiny">'+j.panels+' modules · '+money(j.value)+' · day '+j.elapsed+'/'+j.promised+'</div></div>'+
+        (j.blocked?'<span class="pill bad">'+j.blocked+'</span>'
+                  :'<span class="pill ok">'+j.left+'d left</span>')+
+      '</div>'+
+      '<div class="bar"><div style="width:'+pct+'%;background:linear-gradient(90deg,var(--blue),var(--sky))"></div></div>'+
+      '<div class="bar" style="height:4px;margin-top:3px"><div style="width:'+
+        Math.min(100,(j.elapsed/j.promised)*100)+'%;background:'+
+        (j.elapsed>j.promised?'var(--red)':lateRisk?'var(--sun)':'var(--green)')+'"></div></div>'+
+      '<div class="row" style="margin-top:4px">'+
+        '<div class="grow tiny">'+st.icon+' '+st.name+'</div>'+
+        (lateRisk?'<span class="pill warn">deadline risk</span>':'')+
+      '</div></div>';
+  }).join('');
+
+  if(S.done.length){
+    h+='<div class="sec ff">Recently Completed</div>';
+    h+=S.done.slice(0,6).map(d=>'<div class="box"><div class="row">'+
+      '<div class="grow"><div style="font-size:11px">'+esc(d.client)+'</div>'+
+      '<div class="tiny">'+MONTHS[d.month]+' Y'+d.year+' · '+money(d.value)+'</div></div>'+
+      '<span class="pill '+(d.late?'bad':'ok')+'">'+(d.late?'LATE':'ON TIME')+'</span></div></div>').join('');
+  }
+  html('ops-body',h);
+}
+
+/* ── SITE ── */
+function renderSite(){
+  const j=S.jobs.filter(x=>x.stage>=3).sort((a,b)=>b.stage-a.stage)[0]
+        || S.jobs[0] || null;
+  drawSite(j);
+  let h='';
+  if(!j){
+    h='<div class="empty">No job on site.<br>Win a bid and push it past permitting to see a crew out there.</div>';
+  } else {
+    const st=STAGES[j.stage];
+    h='<div class="box"><div class="row" style="margin-bottom:5px">'+
+      '<div class="grow"><div class="ff" style="font-size:13px;color:var(--sun)">'+st.icon+' '+st.name+'</div>'+
+      '<div class="tiny">'+esc(j.client)+' · '+j.panels+' modules · '+(j.panels*0.4).toFixed(1)+' kW</div></div>'+
+      (j.blocked?'<span class="pill bad">'+j.blocked+'</span>':'<span class="pill ok">'+j.left+'d</span>')+
+      '</div>'+
+      '<div style="display:flex;gap:2px;overflow-x:auto;padding-bottom:2px">'+
+      STAGES.map((s,i)=>'<div class="pill '+(i<j.stage?'ok':i===j.stage?'warn':'mute')+'" '+
+        'style="flex-shrink:0">'+s.icon+'</div>').join('')+
+      '</div>'+
+      '<div class="mini" style="margin-top:6px">Balance due on PTO: <b style="color:var(--green)">'+
+        money0(j.value-j.deposit)+'</b> · deposit of '+money0(j.deposit)+' already collected.</div>'+
+      '</div>';
+  }
+  html('site-body',h);
+}
+
+function drawSite(j){
+  const sc=document.getElementById('site-scene');
+  const w=sc.offsetWidth||340, h=sc.offsetHeight||190;
+  const total = (j && j.installTotal) ? j.installTotal : (j?installDays(j.panels):1);
+  const installed = j ? (j.stage>4 ? j.panels : j.stage===4 ?
+      Math.max(0,Math.round(j.panels*(1-j.left/Math.max(1,total)))) : 0) : 0;
+  const cols=Math.min(8,Math.max(4,Math.ceil(Math.sqrt(j?j.panels:8))));
+  const shown=Math.min(24,Math.round((installed/Math.max(1,j?j.panels:1))*24));
+
+  let s='<div class="site-ground"></div>';
+  s+='<div style="position:absolute;top:6px;right:12px;font-size:26px">☀️</div>';
+  s+='<svg style="position:absolute;top:'+(h*0.30)+'px;left:0;width:100%;height:'+(h*0.32)+'px" '+
+     'viewBox="0 0 400 50" preserveAspectRatio="none">'+
+     '<polygon points="0,50 50,16 90,29 130,7 170,21 210,3 250,17 290,9 330,25 370,13 400,19 400,50" '+
+     'fill="#6B7B94" opacity="0.45"/></svg>';
+  s+='<div style="position:absolute;bottom:6%;left:6px;font-size:17px">🌵</div>'+
+     '<div style="position:absolute;bottom:9%;right:8px;font-size:13px">🌵</div>';
+
+  if(j){
+    const hw=Math.min(190,w*0.56), hx=(w-hw)/2-8, hy=h*0.50, rh=44;
+    // roof
+    s+='<svg style="position:absolute;left:'+(hx-9)+'px;top:'+(hy-rh)+'px" width="'+(hw+18)+'" height="'+rh+'">'+
+       '<polygon points="'+((hw+18)/2)+',0 '+(hw+18)+','+rh+' 0,'+rh+'" fill="#B45309" stroke="#92400E" stroke-width="1.5"/></svg>';
+    // walls
+    s+='<div style="position:absolute;left:'+hx+'px;top:'+hy+'px;width:'+hw+'px;height:'+(h*0.26)+'px;'+
+       'background:#D4956A;border:2px solid #B45309"></div>';
+    // rails
+    if(j.stage>=4){
+      [0.40,0.72].forEach(r=>{
+        const rw=hw*0.68, rx=hx+(hw-rw)/2;
+        s+='<div style="position:absolute;left:'+rx+'px;top:'+(hy-rh+rh*r)+'px;width:'+rw+'px;'+
+           'height:3px;background:#1a1a1a;border-radius:2px;z-index:6"></div>';
+      });
+    }
+    // Modules, seated inside the roof pitch. Laying them out across the full
+    // wall width made the top rows overhang the triangle and float in the sky.
+    if(shown>0){
+      const arrW=hw*0.62, arrX=hx+(hw-arrW)/2, mw=(arrW-(cols-1)*1.5)/cols;
+      s+='<div style="position:absolute;left:'+arrX+'px;top:'+(hy-rh+rh*0.34)+'px;width:'+arrW+'px;'+
+         'display:flex;flex-wrap:wrap;gap:1.5px;z-index:8">';
+      for(let i=0;i<shown;i++){
+        s+='<div style="width:'+mw.toFixed(1)+'px;height:9px;background:#0A0A0A;'+
+           'border:1px solid #1F2937;border-radius:1px"></div>';
+      }
+      s+='</div>';
+    }
+    // inverter once electrical starts
+    if(j.stage>=5){
+      s+='<div style="position:absolute;left:'+(hx+hw+2)+'px;top:'+(hy+16)+'px;width:30px;background:#F8FAFC;'+
+         'border:1px solid #94A3B8;border-radius:3px;padding:2px;z-index:9;text-align:center">'+
+         '<div style="font-size:4px;font-weight:800;color:#1E40AF">GridWave</div>'+
+         '<div style="height:7px;background:#0F172A;border-radius:1px;margin:1px 0;display:flex;'+
+         'align-items:center;justify-content:center"><div style="width:3px;height:3px;border-radius:50%;'+
+         'background:#22C55E;box-shadow:0 0 3px #22C55E"></div></div></div>';
+    }
+    // crew on the roof only while installing and not blocked
+    if(j.stage===4&&!j.blocked){
+      for(let i=0;i<3;i++){
+        s+='<div style="position:absolute;left:'+(hx+18+i*(hw-46)/2)+'px;top:'+(hy-rh-4)+'px;'+
+           'font-size:14px;z-index:11">👷</div>';
+      }
+      s+='<div style="position:absolute;left:'+(hx-24)+'px;bottom:12%;font-size:19px;z-index:10">🚚</div>';
+    }
+    if(j.stage===5){
+      s+='<div style="position:absolute;left:'+(hx+hw+4)+'px;top:'+(hy+h*0.14)+'px;font-size:15px;z-index:11">👨‍🔧</div>';
+    }
+    if(j.blocked){
+      s+='<div style="position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(15,23,42,.9);'+
+         'border:1px solid var(--red);border-radius:8px;padding:3px 9px;font-size:10px;color:#FCA5A5;'+
+         'font-weight:700;z-index:20">⛔ '+j.blocked+'</div>';
+    }
+  }
+  sc.innerHTML=s;
+}
+
+/* ── FINANCE ── */
+function renderFinance(){
+  const L=S.ledger;
+  const exp=L.materials+L.payroll+L.rent+L.insurance+L.fleet+L.marketing
+           +L.catcare+L.interest+L.penalty+L.capex;
+  const net=L.revenue-exp;
+  const burn=(S.staff.reduce((a,s)=>a+s.wage,0)+OFFICES[S.office].rent+S.trucks*640+S.marketing+S.cats.length*60);
+
+  let h='<div class="box"><div class="row">'+
+    '<div class="grow"><div class="tiny">CASH</div><div class="ff" style="font-size:20px;color:'+
+      (S.cash<0?'var(--red)':'var(--green)')+'">'+money0(S.cash)+'</div></div>'+
+    '<div style="text-align:right"><div class="tiny">FIXED BURN</div>'+
+    '<div class="ff" style="font-size:15px;color:var(--orange)">'+money0(burn)+'/mo</div></div></div>'+
+    '<div class="mini" style="margin-top:5px">Runway at this burn with no new revenue: <b>'+
+      (burn>0?Math.max(0,Math.floor(S.cash/(burn/30))):'∞')+' days</b>.</div></div>';
+
+  const evF=EVENTS.find(x=>x.id===S.event);
+  if(evF){
+    const ev=evF;
+    h+='<div class="box" style="border-color:var(--sun)"><div class="ff" style="font-size:12px;color:var(--sun)">'+
+      ev.i+' '+ev.t+'</div><div class="mini" style="margin-top:2px">'+ev.d+'</div></div>';
+  }
+
+  h+='<div class="sec ff">'+MONTHS[S.month]+' Year '+S.year+' <span class="hint">month to date</span></div>';
+  h+='<div class="box"><table class="pl">'+
+    tr('Install revenue',L.revenue,1)+
+    tr('Materials',-L.materials,0)+
+    tr('Payroll',-L.payroll,0)+
+    tr('Rent',-L.rent,0)+
+    tr('Insurance',-L.insurance,0)+
+    tr('Fleet &amp; fuel',-L.fleet,0)+
+    tr('Marketing',-L.marketing,0)+
+    tr('Cat care',-L.catcare,0)+
+    (L.interest>0.5?tr('Loan interest',-L.interest,0):'')+
+    (L.penalty>0.5?tr('Late penalties',-L.penalty,0):'')+
+    (L.capex>0.5?tr('Capital purchases',-L.capex,0):'')+
+    '<tr class="tot"><td>Net</td><td class="n '+(net>=0?'pos':'negc')+'">'+money0(net)+'</td></tr>'+
+    '</table></div>';
+
+  if(S.cashHist.length>1)h+=cashChart();
+
+  h+='<div class="sec ff">Marketing</div>'+
+     '<div class="box"><div class="row"><div class="grow tiny">MONTHLY BUDGET</div>'+
+     '<div class="ff" id="mkt-val" style="color:var(--sun)">'+money0(S.marketing)+'/mo</div></div>'+
+     '<input type="range" min="0" max="12000" step="200" value="'+S.marketing+'" '+
+     'oninput="setMarketing(this.value)" onchange="commitMarketing()">'+
+     '<div class="mini">Higher spend fills the lead board faster. It is a fixed cost — it bills whether you win or not.</div></div>';
+
+  h+='<div class="sec ff">Inventory <span class="hint">cap '+stockCap()+'/item</span></div>';
+  h+='<div class="box">'+Object.keys(MATS).map(k=>
+    '<div class="row" style="margin-bottom:5px">'+
+    '<div class="grow"><div style="font-size:11px">'+MATS[k].n+'</div>'+
+    '<div class="tiny">'+money0(unitPrice(k)*matDiscount())+' ea · in stock: <b>'+S.inv[k]+'</b></div></div>'+
+    '<button class="btn b sm" onclick="buyStock(\''+k+'\','+(k==='inv'?5:50)+')">+'+(k==='inv'?5:50)+'</button>'+
+    '</div>').join('')+
+    '<div class="row" style="margin-top:6px"><div class="grow mini">Rush-order missing stock automatically at +18%</div>'+
+    '<button class="btn '+(S.autoBuy?'g':'')+' sm" onclick="toggleAuto()">'+(S.autoBuy?'ON':'OFF')+'</button></div>'+
+    '</div>';
+
+  h+='<div class="sec ff">Credit Line <span class="hint">'+(S.loanRate*100).toFixed(0)+'% APR</span></div>'+
+     '<div class="box"><div class="row" style="margin-bottom:6px">'+
+     '<div class="grow"><div class="tiny">OUTSTANDING</div><div class="ff" style="font-size:15px;color:var(--orange)">'+
+       money0(S.loan)+'</div></div>'+
+     '<div style="text-align:right"><div class="tiny">LIMIT</div><div class="ff" style="font-size:15px">'+
+       money0(creditLimit())+'</div></div></div>'+
+     '<div class="row"><button class="btn o sm grow" onclick="borrow(25000)">Draw $25K</button>'+
+     '<button class="btn g sm grow" onclick="repay(25000)">Repay $25K</button></div></div>';
+
+  h+='<div class="sec ff">Investments</div>';
+  h+=INVEST.map(it=>{
+    const owned=!it.repeat&&S.invest[it.id];
+    let cost=it.cost;
+    if(it.id==='truck')cost=Math.round(it.cost*Math.pow(1.35,S.trucks-1));
+    const can=!owned&&S.cash>=cost;
+    return '<div class="box"><div class="row">'+
+      '<div style="font-size:19px">'+it.i+'</div>'+
+      '<div class="grow"><div class="ff" style="font-size:12px">'+it.n+
+        (it.id==='truck'?' <span class="pill info">×'+S.trucks+'</span>':'')+'</div>'+
+      '<div class="tiny">'+it.desc+'</div></div>'+
+      (owned?'<span class="pill ok">OWNED</span>'
+            :'<button class="btn '+(can?'p':'')+' sm" '+(can?'':'disabled')+
+              ' onclick="buyInvest(\''+it.id+'\')">'+money(cost)+'</button>')+
+      '</div></div>';
+  }).join('');
+
+  if(S.history.length){
+    h+='<div class="sec ff">Closed Months</div>';
+    h+='<div class="box"><table class="pl">'+S.history.slice(0,8).map(m=>
+      '<tr><td>'+esc(m.label)+'</td><td class="n">'+money(m.rev)+'</td>'+
+      '<td class="n '+(m.net>=0?'pos':'negc')+'">'+money0(m.net)+'</td></tr>').join('')+'</table></div>';
+  }
+  html('finance-body',h);
+  paintMarketing();
+}
+
+function cashChart(){
+  const d=S.cashHist.slice(-16).filter(Number.isFinite);
+  if(d.length<2)return '';
+  const mx=Math.max(...d,1000), mn=Math.min(...d,0);
+  const rng=Math.max(1,mx-mn);
+  const W=300,H=54;
+  const pts=d.map((v,i)=>{
+    const x=(i/(d.length-1||1))*W;
+    const y=H-((v-mn)/rng)*H;
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+  const zeroY=H-((0-mn)/rng)*H;
+  return '<div class="box"><div class="tiny" style="margin-bottom:4px">CASH BY MONTH</div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:54px" preserveAspectRatio="none">'+
+    (mn<0?'<line x1="0" y1="'+zeroY+'" x2="'+W+'" y2="'+zeroY+'" stroke="#EF4444" stroke-width="1" stroke-dasharray="3 3"/>':'')+
+    '<polyline points="'+pts+'" fill="none" stroke="#22C55E" stroke-width="2" '+
+    'stroke-linejoin="round" stroke-linecap="round"/></svg></div>';
+}
+
+// ════════════════════════════════════════════════════════════
+// HELP
+// ════════════════════════════════════════════════════════════
+function openHelp(){
+  html('msg-card',
+    '<div class="mo-t ff">📖 How To Play</div>'+
+    '<div class="mo-s">A solar contractor in El Paso. Nothing here earns while you sleep.</div>'+
+    '<div class="box"><div class="mini">'+
+    '<b style="color:var(--sun)">1 · Bid work.</b> Leads land on the Sales tab. The quote screen shows what the job '+
+    'actually costs you; the margin slider trades profit against the odds of winning it. Bid high and you starve. '+
+    'Bid low and you work for free with extra steps.<br><br>'+
+    '<b style="color:var(--sun)">2 · Every stage blocks on one person.</b> Survey and design need a Designer, '+
+    'permitting a Permit Coordinator, install a whole crew (1 lead + 2 installers + 1 truck), AC hookup an '+
+    'Electrician. Miss one and the job just sits there. The deadline clock does not sit with it.<br><br>'+
+    '<b style="color:var(--sun)">3 · The utility pays last.</b> 35% on signing. Then you buy every module up front, '+
+    'carry payroll for a month, wait on a city inspector and a utility queue &mdash; and collect the other 65% the day '+
+    'PTO is granted. Companies here do not die of bad margins. They die of good margins arriving six weeks late.<br><br>'+
+    '<b style="color:var(--sun)">4 · Cats are real overhead.</b> $60/mo each, and the cheapest morale you will ever '+
+    'buy. Morale sets install speed and lead flow, so the cats are a production input. Explain that to your accountant.<br><br>'+
+    '<b style="color:var(--red)">You are done at:</b> cash below -$25,000. Two straight losing months is your warning.'+
+    '</div></div>'+
+    '<div class="mo-btns"><button class="btn g ff" onclick="closeMsg()">Got it</button></div>');
+  document.getElementById('msg-card').className='mo';
+  openOv('ov-msg');
+}
+
+// ════════════════════════════════════════════════════════════
+// CLOCK
+// ════════════════════════════════════════════════════════════
+function setSpeed(n){
+  if(!S)return;
+  S.speed=n; acc=0; lastReal=Date.now();
+  paintTop();
+}
+// Anything that pauses on the player's behalf remembers what they had chosen,
+// so a month-end report no longer silently demotes a 3x run to 1x every 30 days.
+function holdSpeed(){ if(S&&S.speed>0)S._prevSpeed=S.speed; setSpeed(0); }
+function releaseSpeed(){ if(S&&S.speed===0)setSpeed(S._prevSpeed||1); }
+function loop(){
+  if(!S||S.bankrupt)return;
+  const now=Date.now();
+  const dt=Math.min(now-lastReal,1000);
+  lastReal=now;
+  if(S.speed>0){
+    acc+=dt;
+    const per=MS_PER_DAY[S.speed];
+    let guard=0;
+    try{
+      while(acc>=per&&guard<8){ acc-=per; advanceDay(); guard++; if(S.bankrupt)break; }
+    }catch(err){
+      setSpeed(0); stopClock();
+      html('msg-card','<div class="mo-t ff">Simulation error</div>'+
+        '<div class="mo-s">The game has been paused to protect your save.</div>'+
+        '<div class="box"><div class="mini">'+esc(err&&err.message||String(err))+'</div></div>'+
+        '<div class="mo-btns"><button class="btn ff" onclick="quitToMenu()">Main Menu</button></div>');
+      document.getElementById('msg-card').className='mo red';
+      openOv('ov-msg');
+    }
+  }
+}
+function startClock(){
+  stopClock();
+  lastReal=Date.now(); acc=0;
+  tickHandle=setInterval(loop,100);
+  autoHandle=setInterval(save,30000);
+}
+function stopClock(){
+  if(tickHandle){clearInterval(tickHandle);tickHandle=null;}
+  if(autoHandle){clearInterval(autoHandle);autoHandle=null;}
+  clearCatTimers();
+}
+
+function openPause(){ if(!S||S.bankrupt)return; holdSpeed(); openOv('ov-pause'); }
+function closePause(){ closeOv('ov-pause'); if(!S)return; releaseSpeed(); }
+function quitToMenu(){
+  save(); stopClock();
+  if(helpTimer){clearTimeout(helpTimer);helpTimer=null;}
+  closeOv('ov-pause'); closeOv('ov-msg'); closeOv('ov-quote');
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('menu').classList.remove('gone');
+  S=null; sceneBuilt=false;
+  refreshMenu();
+}
+
+// ════════════════════════════════════════════════════════════
+// SAVE / LOAD
+// ════════════════════════════════════════════════════════════
+function save(){
+  if(!S||S.bankrupt)return;
+  try{ S.lastTs=Date.now(); localStorage.setItem(SK,JSON.stringify(S)); }catch(e){}
+}
+function loadRaw(){
+  try{
+    const r=localStorage.getItem(SK); if(!r)return null;
+    const p=JSON.parse(r);
+    // `{}`, `[]` and `42` all parse fine and used to light up the Continue
+    // button with "Year undefined undefined, $NaN", then silently hand the
+    // player a brand-new company dressed up as their old one.
+    if(!p||typeof p!=='object'||Array.isArray(p))return null;
+    if(p.v!==SAVE_V)return null;
+    return p;
+  }catch(e){ return null; }
+}
+
+// ── save sanitising ──────────────────────────────────────────
+// Saves are untrusted input: hand-edited, schema-drifted, or planted by any
+// other page on the same origin (the whole vault ships from one GitHub Pages
+// origin). Every field is validated individually and NEVER Object.assign'd —
+// a JSON-parsed own `__proto__` passes through [[Set]] and reparents S, which
+// is enough to make every hire free. Well-typed but out-of-range numbers are
+// just as dangerous: marketing:-500000 turns the marketing line into income.
+const num=(v,d,lo,hi)=>{
+  const n=typeof v==='number'&&Number.isFinite(v)?v:d;
+  return Math.min(hi===undefined?Infinity:hi, Math.max(lo===undefined?-Infinity:lo, n));
+};
+const arr=v=>Array.isArray(v)?v:[];
+function numMap(src,keys,lo,hi){
+  const o={}; for(const k of keys) o[k]=num(src&&src[k],0,lo,hi); return o;
+}
+function sanitize(d){
+  const S2=blankState();
+  let seq=1; const sid=()=>seq++;   // uid() reads S, which is null in here
+  S2.day  =num(d.day,1,1,30);
+  S2.month=num(d.month,0,0,11)|0;
+  S2.year =num(d.year,1,1,999)|0;
+  S2.speed=num(d.speed,1,0,3)|0;
+  S2.cash =num(d.cash,0,-1e12,1e12);
+  S2.rep  =num(d.rep,50,0,100);
+  S2.morale=num(d.morale,70,5,100);
+  S2.trucks=num(d.trucks,1,0,50)|0;
+  S2.office=num(d.office,0,0,OFFICES.length-1)|0;
+  S2.marketing=num(d.marketing,800,0,12000);
+  S2.loan =num(d.loan,0,0,1e9);
+  S2.loanRate=num(d.loanRate,0.11,0,1);
+  S2.wageIndex=num(d.wageIndex,1,0.1,100);
+  S2.nextId=num(d.nextId,1,1,1e9)|0;
+  S2.jobsDone=num(d.jobsDone,0,0,1e6)|0;
+  S2.jobsLate=num(d.jobsLate,0,0,1e6)|0;
+  S2.callbacks=num(d.callbacks,0,0,15)|0;
+  S2.totalRevenue=num(d.totalRevenue,0,0,1e12);
+  S2.insolventMonths=num(d.insolventMonths,0,0,999)|0;
+  S2.pendingLeads=num(d.pendingLeads,0,0,50)|0;
+  S2.moraleDrift=num(d.moraleDrift,0,-5,5);
+  S2.autoBuy=d.autoBuy!==false;
+  S2.bankrupt=false;
+
+  S2.inv=numMap(d.inv,['panel','opt','rail','inv'],0,1e6);
+  S2.ledger=numMap(d.ledger,Object.keys(blankLedger()),-1e12,1e12);
+
+  S2.invest={};
+  for(const it of INVEST) if(d.invest&&d.invest[it.id]===true)S2.invest[it.id]=true;
+
+  S2.mod={}; for(const k of ['survey','design','permit','mats','install','elec','inspect','pto','market'])
+    if(d.mod&&typeof d.mod[k]==='number'&&Number.isFinite(d.mod[k]))S2.mod[k]=num(d.mod[k],1,0.1,5);
+  S2.priceMod={}; for(const k of Object.keys(MATS))
+    if(d.priceMod&&typeof d.priceMod[k]==='number'&&Number.isFinite(d.priceMod[k]))S2.priceMod[k]=num(d.priceMod[k],1,0.1,10);
+
+  S2.event = EVENTS.some(e=>e.id===d.event) ? d.event : null;
+  S2.eventName = S2.event ? (EVENTS.find(e=>e.id===S2.event).t) : '';
+
+  S2.staff=arr(d.staff).filter(s=>s&&ROLES[s.role]).slice(0,40).map(s=>({
+    id:num(s.id,sid(),1,1e9)|0, role:s.role,
+    name:String(s.name==null?'Crew':s.name).slice(0,40),
+    wage:num(s.wage,ROLES[s.role].wage,0,1e6),
+  }));
+  S2.cats=arr(d.cats).slice(0,12).map(c=>({name:String(c&&c.name!=null?c.name:'Cat').slice(0,24)}));
+  S2.jobs=arr(d.jobs).filter(j=>j&&Number.isFinite(j.panels)).slice(0,60).map(j=>({
+    id:num(j.id,sid(),1,1e9)|0,
+    client:String(j.client==null?'Client':j.client).slice(0,60),
+    type:String(j.type==null?'Residential':j.type).slice(0,30),
+    icon:String(j.icon==null?'🏠':j.icon).slice(0,4),
+    panels:num(j.panels,10,1,5000)|0,
+    value:num(j.value,0,0,1e9), deposit:num(j.deposit,0,0,1e9),
+    matBudget:num(j.matBudget,0,0,1e9),
+    stage:num(j.stage,0,0,STAGES.length-1)|0,
+    left:num(j.left,1,0,999), elapsed:num(j.elapsed,0,0,9999),
+    promised:num(j.promised,40,1,9999),
+    installTotal:num(j.installTotal,0,0,999),
+    blocked:null, matsPaid:!!j.matsPaid,
+  }));
+  S2.bids=arr(d.bids).filter(b=>b&&Number.isFinite(b.panels)).slice(0,30).map(b=>({
+    leadId:num(b.leadId,0,0,1e9)|0,
+    client:String(b.client==null?'Client':b.client).slice(0,60),
+    type:String(b.type==null?'Residential':b.type).slice(0,30),
+    icon:String(b.icon==null?'🏠':b.icon).slice(0,4),
+    panels:num(b.panels,10,1,5000)|0, price:num(b.price,0,0,1e9),
+    chance:num(b.chance,0.5,0,1), wait:num(b.wait,1,0,60)|0,
+  }));
+  S2.leads=arr(d.leads).filter(l=>l&&Number.isFinite(l.panels)).slice(0,20).map(l=>({
+    id:num(l.id,sid(),1,1e9)|0,
+    client:String(l.client==null?'Client':l.client).slice(0,60),
+    type:String(l.type==null?'Residential':l.type).slice(0,30),
+    icon:String(l.icon==null?'🏠':l.icon).slice(0,4),
+    panels:num(l.panels,10,1,5000)|0,
+    quality:['hot','warm','cold'].includes(l.quality)?l.quality:'warm',
+    mkt:num(l.mkt,1.4,1,3), days:num(l.days,8,0,60),
+  }));
+  S2.done=arr(d.done).filter(x=>x&&typeof x==='object').slice(0,25).map(x=>({
+    client:String(x.client==null?'Client':x.client).slice(0,60),
+    value:num(x.value,0,0,1e9), late:!!x.late,
+    day:num(x.day,1,1,30)|0, month:num(x.month,0,0,11)|0, year:num(x.year,1,1,999)|0,
+  }));
+  S2.history=arr(d.history).filter(x=>x&&typeof x==='object').slice(0,18).map(x=>({
+    label:String(x.label==null?'—':x.label).slice(0,20),
+    rev:num(x.rev,0,-1e12,1e12), exp:num(x.exp,0,-1e12,1e12),
+    net:num(x.net,0,-1e12,1e12), cash:num(x.cash,0,-1e12,1e12),
+    capex:num(x.capex,0,-1e12,1e12),
+  }));
+  S2.cashHist=arr(d.cashHist).map(v=>num(v,0,-1e12,1e12)).slice(-24);
+  S2.lastTs=num(d.lastTs,Date.now(),0,Date.now()+1);
+  // ids must not collide with anything restored above
+  S2.nextId=Math.max(S2.nextId,1+Math.max(0,...S2.staff.map(x=>x.id),
+    ...S2.jobs.map(x=>x.id),...S2.leads.map(x=>x.id)));
+  return S2;
+}
+function hasOldSave(){
+  try{ return OLD_KEYS.some(k=>localStorage.getItem(k)); }catch(e){ return false; }
+}
+function refreshMenu(){
+  const d=loadRaw();
+  const btn=document.getElementById('btn-continue');
+  const noteEl=document.getElementById('menu-note');
+  if(d){
+    const y=Number.isFinite(d.year)?d.year:1;
+    const m=MONTHS[Number.isFinite(d.month)?Math.min(11,Math.max(0,d.month|0)):0];
+    const c=Number.isFinite(d.cash)?d.cash:0;
+    btn.disabled=false;
+    btn.textContent='▶ Continue — Year '+y+' '+m+', '+money(c);
+    noteEl.textContent='';
+  } else {
+    btn.disabled=true; btn.textContent='▶ Continue';
+    noteEl.textContent = hasOldSave()
+      ? 'An older Purr & Power save was found. This build rebuilt the simulation from the ground up, so it starts a fresh company.'
+      : '';
+  }
+}
+function continueGame(){
+  const d=loadRaw(); if(!d){refreshMenu();return;}
+  try{ S=sanitize(d); }
+  catch(e){ S=null; note('⚠️ That save could not be read','bad'); refreshMenu(); return; }
+  begin(true);
+}
+
+// Overwriting a multi-year company is not something to do on a mis-tap, and
+// the two menu buttons sit adjacent and identically styled on a touch layout.
+function newGame(){
+  if(loadRaw()){
+    html('msg-card',
+      '<div class="mo-t ff">Start over?</div>'+
+      '<div class="mo-s">You have a company in progress. Starting a new one replaces it permanently.</div>'+
+      '<div class="mo-btns">'+
+        '<button class="btn r ff" onclick="closeOv(\'ov-msg\');reallyNewGame()">Replace it</button>'+
+        '<button class="btn ff" onclick="closeOv(\'ov-msg\')">Keep it</button>'+
+      '</div>');
+    document.getElementById('msg-card').className='mo red';
+    openOv('ov-msg');
+    return;
+  }
+  reallyNewGame();
+}
+function reallyNewGame(){
+  S=blankState();
+  // Starting company: one full crew plus the licensed electrician every job
+  // legally needs. Without the electrician a job can never clear AC hookup, so
+  // the opening roster has to include one — the scarcity has to come from
+  // scaling past one, not from being unable to finish a single install.
+  // You cover design, permitting and sales yourself until you can hire.
+  S.staff.push({id:uid(),role:'lead',     name:pick(FIRST)+' '+pick(LAST),wage:ROLES.lead.wage});
+  S.staff.push({id:uid(),role:'installer',name:pick(FIRST)+' '+pick(LAST),wage:ROLES.installer.wage});
+  S.staff.push({id:uid(),role:'installer',name:pick(FIRST)+' '+pick(LAST),wage:ROLES.installer.wage});
+  S.staff.push({id:uid(),role:'electric', name:pick(FIRST)+' '+pick(LAST),wage:ROLES.electric.wage});
+  S.cats.push({name:'Whiskers'},{name:'Amperage'});
+  S.inv={panel:60,opt:60,rail:60,inv:3};
+  for(let i=0;i<3;i++)addLead();
+  begin(false);
+  helpTimer=setTimeout(openHelp,400);
+}
+function begin(resumed){
+  document.getElementById('menu').classList.add('gone');
+  document.getElementById('app').classList.add('show');
+  closeOv('ov-msg'); closeOv('ov-quote'); closeOv('ov-pause');
+  sceneBuilt=false;
+  // startClock() calls stopClock(), which clears catTimers — so it has to run
+  // BEFORE the scene is built or the cats' wander timers are killed
+  // microseconds after creation and they never move again.
+  startClock();
+  setSpeed(1);
+  showTab('office');            // renderOffice() builds the scene itself
+  if(resumed){
+    // offline time advances the SIMULATION rather than minting cash:
+    // jobs progress, payroll accrues, and you may come back to a mess.
+    const gone=Date.now()-(S.lastTs||Date.now());
+    const days=Math.min(Math.floor(gone/45000),45);
+    if(days>0){
+      const c0=S.cash;
+      catchingUp=true;
+      try{ for(let i=0;i<days&&!S.bankrupt;i++)advanceDay(); }
+      finally{ catchingUp=false; save(); }
+      const delta=S.cash-c0;
+      note('💤 '+days+' day'+(days>1?'s':'')+' passed while you were away ('+
+           (delta>=0?'+':'')+money0(delta)+')', delta>=0?'good':'warn');
+    } else note('☀️ Trucks are loaded. Nothing broke while you were out.','good');
+  }
+  renderAll();
+}
+
+// ════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(!S)return;
+  if(e.key==='Escape'){
+    if(!document.getElementById('ov-quote').classList.contains('gone')){closeQuote();return;}
+    if(!document.getElementById('ov-msg').classList.contains('gone'))return;
+    const p=document.getElementById('ov-pause');
+    if(p.classList.contains('gone'))openPause(); else closePause();
+  }
+  // Ctrl+1/Cmd+2 are browser tab switches, and Space behind an open report
+  // used to restart the sim underneath it.
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const modalUp=['ov-quote','ov-msg','ov-pause'].some(i=>!document.getElementById(i).classList.contains('gone'));
+  if(modalUp)return;
+  if(e.key===' '){e.preventDefault();setSpeed(S.speed===0?(S._prevSpeed||1):0);}
+  if(e.key>='1'&&e.key<='3')setSpeed(+e.key);
+});
+window.addEventListener('resize',()=>{ if(S){ sceneBuilt=false; renderAll(); if(tab==='office')buildOfficeScene(); }});
+document.addEventListener('visibilitychange',()=>{ if(document.hidden)save(); });
+window.addEventListener('pagehide',save);
+
+refreshMenu();
+</script>
+</body>
+</html>
