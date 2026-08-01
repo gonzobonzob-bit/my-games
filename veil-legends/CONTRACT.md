@@ -133,6 +133,18 @@ ticks:int, delay:sec, buff:{stat,amount,duration}, heal:num,
 shield:{amount,duration}, speed:px_s, range:px, focusCost, maxCd, damage`
 (`buff.stat` ∈ `atk|spd|focusRegen`.)
 
+**`damage` is PER TICK, and `ticks` composes with `delay`.** An ability with
+`{damage:130, ticks:2}` deals 130 twice, for 260 — not 65 twice. Pulses land
+`TUNING.TICK_INTERVAL` (0.25s) apart, and if `delay` is also present the first
+pulse is `delay` seconds out rather than immediate. This was ambiguous until
+2026-08-01 and sim.js had implemented the other reading: `damage` was split
+across ticks, and `delay` and `ticks` were exclusive branches so an ability
+carrying both fired exactly one pulse of `damage/ticks`. Toll the Hollow
+delivered 36 of a declared 330. Per-tick is the reading every tooltip already
+used ("Two hits of 130") and the only one that satisfies DESIGN 5.1's k = 12
+damage per Focus, which the whole pressure curve is derived from.
+`ticks` applies to `melee` and `aoe` kinds.
+
 **Pact ops** — a Pact is `{id, name, icon, tier:1|2|3, cost:motes,
 upkeep:veilFloorAdd, text, ops:{...}}`. Allowed op keys (sim implements every
 one; numbers are additive deltas unless suffixed `Mult`):

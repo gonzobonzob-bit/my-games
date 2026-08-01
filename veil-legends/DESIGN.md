@@ -156,6 +156,34 @@ not enough to trivialise it.
 3. **Policy spread.** Timid (never overdraw) dies ~w12–15; Reckless (max burn)
    dies ~w9–11; Adaptive (threshold policy from 5.1) reaches w20+.
 
+   **AMENDED 2026-08-01 — the absolute wave numbers above are not testable.**
+   The balance harness measured its own ceiling: with Veil pinned at the floor,
+   HP fully restored every wave and Focus never empty, its autoplayer still
+   only reaches a median wave of 10 (mean 11.1). Every figure at or above
+   wave 10 is therefore saturated by autoplayer skill rather than by the
+   economy, and "adaptive reaches w20+" cannot be confirmed or refuted by any
+   policy of this class. Keeping it as a binding assertion would mean keeping
+   one that always fails for a reason unrelated to the design.
+
+   The **intent** is unchanged — both extremes of the policy space must be
+   fatal and the middle must be meaningfully better. What is binding is now the
+   pair of checks that are policy-robust and can actually fail honestly:
+
+   3a. **Relative spread.** Adaptive must outlast BOTH extremes, and the best
+       policy must beat the worst by a real margin (target ≥1.5×; measured
+       1.20× on 2026-08-01, which is a fail — at that ratio skill does not
+       matter). Ranking, not absolute waves.
+   3b. **Attrition curve.** Isolated per-wave HP cost as a share of max HP,
+       against the +25% between-wave restore. The first wave whose cost exceeds
+       the restore must fall in the wave 8–12 band that Part 4 describes.
+       (Measured 2026-08-01: wave 5 — the squeeze arrives during what Part 4
+       calls the onboarding runway, which is the real defect the w20+ target
+       was standing in for.)
+
+   Reaching wave 20 stays the design's ambition and the thing to confirm in a
+   human playtest before this game is called complete. It is no longer a gate a
+   headless harness is expected to prove.
+
 ## Part 6 — Keep verbatim from the old file
 
 1. `render()` — hex grid, radial gradient, vignette, per-enemy procedural
