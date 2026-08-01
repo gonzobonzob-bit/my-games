@@ -96,6 +96,14 @@ Measured cost of a five-agent review pass on a 2,000-line game: ~470K subagent
 tokens, of which `qa-adversary` was ~152K and returned 14 defects with
 reproductions — the best value per token in the roster by a wide margin.
 
+**Squad work proceeds by % checkpoints** (defined in the `gamebuild` skill):
+25% Greenlight (Squad 0, no code) → 50% Stage (integrator: blocker fixes,
+modular split, DESIGN.md + CONTRACT.md on a pushed branch) → 75% Build
+(Squad 1 against the contract; balance still unverified) → 100% Harden & ship
+(Squad 2 + harness, then release-manager merges to `main`). Each checkpoint
+ends with a stop-and-report and a user decision; never run ahead of it. The
+merge to `main` is always the owner's explicit call.
+
 ## The quality bar
 Every game kept in this vault must **exceed** the best existing games here, not just match them. Before calling any game "done," compare it against the current flagship tier (Purr & Power Co., Freight Dominion) on: economic/mechanical depth, save/load robustness, visual polish, and absence of dead/vaporware features. If a new or revised game doesn't clear that bar, it stays `status-wip` and `data-hidden="1"` — it does not get promoted just because it runs without crashing.
 
