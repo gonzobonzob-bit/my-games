@@ -365,56 +365,56 @@
   var ENEMY_TYPES = [
     /* --- minions --- */
     { id: 'husk', name: 'Husk', shape: 'husk', color: '#94a3b8', role: 'minion',
-      size: 15, hp: 70, atk: 6, spd: 100, moteValue: 1, boss: false, telegraph: 0,
+      size: 15, hp: 70, atk: 6, spd: 100, moteValue: 8, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }],
       text: 'Walks at you. Nothing else. Most of the wave, most of the time.' },
 
     { id: 'wisp', name: 'Emberwisp', shape: 'wisp', color: '#fbbf24', role: 'minion',
-      size: 11, hp: 40, atk: 5, spd: 142, moteValue: 1, boss: false, telegraph: 0,
+      size: 11, hp: 40, atk: 5, spd: 142, moteValue: 8, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }],
       text: 'Forty HP at 142 speed. Harmless alone, and never alone.' },
 
     /* --- brutes: ~70% of wave HP, low threat --- */
     { id: 'cairnbound', name: 'Cairnbound', shape: 'block', color: '#78716c', role: 'brute',
-      size: 34, hp: 420, atk: 9, spd: 60, moteValue: 4, boss: false, telegraph: 0,
+      size: 34, hp: 420, atk: 9, spd: 60, moteValue: 32, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }],
       text: '420 HP at speed 60. It cannot catch you and it does not need to — it is the par clock walking.' },
 
     { id: 'slagbrute', name: 'Slagbrute', shape: 'hex', color: '#ea580c', role: 'brute',
-      size: 29, hp: 340, atk: 8, spd: 72, moteValue: 4, boss: false, telegraph: 0.5,
+      size: 29, hp: 340, atk: 8, spd: 72, moteValue: 32, boss: false, telegraph: 0.5,
       behaviors: [{ type: 'chaser' }, { type: 'bomber', radius: 95, damage: 34 }],
       text: 'Bursts for 34 across 95px when it dies. Killing it in a crowd kills the crowd. Killing it next to you kills you.' },
 
     { id: 'motherglass', name: 'Motherglass', shape: 'diamond', color: '#2dd4bf', role: 'brute',
-      size: 26, hp: 200, atk: 8, spd: 84, moteValue: 3, boss: false, telegraph: 0,
+      size: 26, hp: 200, atk: 8, spd: 84, moteValue: 24, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }, { type: 'splitter', into: 'wisp', count: 3 }],
       text: 'Breaks into three Emberwisps. The HP pool does not go down when it dies — it spreads out.' },
 
     /* --- stalkers: ~70% of incoming damage rate --- */
     { id: 'nettle', name: 'Nettle', shape: 'shard', color: '#f43f5e', role: 'stalker',
-      size: 13, hp: 90, atk: 30, spd: 132, moteValue: 2, boss: false, telegraph: 0.25,
+      size: 13, hp: 90, atk: 30, spd: 132, moteValue: 16, boss: false, telegraph: 0.25,
       behaviors: [{ type: 'orbiter', radius: 120, strikeCd: 1.6 }],
       text: 'Circles at 120px and darts in every 1.6s for 30. Ninety HP. Kill it first; it will not be there later.' },
 
     { id: 'lancer', name: 'Lancer', shape: 'spike', color: '#fb7185', role: 'stalker',
-      size: 18, hp: 130, atk: 38, spd: 88, moteValue: 3, boss: false, telegraph: 0.7,
+      size: 18, hp: 130, atk: 38, spd: 88, moteValue: 24, boss: false, telegraph: 0.7,
       behaviors: [{ type: 'charger', windup: 0.7, dashSpeed: 470, dashCd: 3.2 }],
       text: '0.7s of windup, then 470 speed and 38 damage. The windup is the whole fight — step sideways, not back.' },
 
     { id: 'ashcaster', name: 'Ashcaster', shape: 'star', color: '#c084fc', role: 'stalker',
-      size: 16, hp: 100, atk: 26, spd: 76, moteValue: 3, boss: false, telegraph: 0.4,
+      size: 16, hp: 100, atk: 26, spd: 76, moteValue: 24, boss: false, telegraph: 0.4,
       behaviors: [{ type: 'ranged', range: 270, attackCd: 2.0, projSpeed: 250 }],
       text: 'Holds 270px and lobs for 26 every 2s. It never closes, so it never stops.' },
 
     /* --- support --- */
     { id: 'warden', name: 'Hollow Warden', shape: 'ring', color: '#38bdf8', role: 'support',
-      size: 22, hp: 240, atk: 6, spd: 66, moteValue: 6, boss: false, telegraph: 0,
+      size: 22, hp: 240, atk: 6, spd: 66, moteValue: 48, boss: false, telegraph: 0,
       behaviors: [{ type: 'shielder', radius: 150, reduction: 0.35 }],
-      text: 'Everything within 150px takes 35% less. It is worth six motes and it is worth killing for free.' },
+      text: 'Everything within 150px takes 35% less. It pays the best of any minion and it is worth killing for free.' },
 
     /* --- bosses: wave 5 / 10 / 15 rotation --- */
     { id: 'toll_collector', name: 'The Toll Collector', shape: 'crown', color: '#fbbf24',
-      role: 'boss', size: 50, hp: 2600, atk: 34, spd: 80, moteValue: 45,
+      role: 'boss', size: 50, hp: 2600, atk: 34, spd: 80, moteValue: 90,
       boss: true, telegraph: 1.0,
       behaviors: [
         { type: 'charger', windup: 1.0, dashSpeed: 520, dashCd: 4.5 },
@@ -423,7 +423,7 @@
       text: 'Charges on a 4.5s cycle and sets down three Husks every 7s. The Husks are the toll. It is only collecting.' },
 
     { id: 'lamplighter', name: 'The Lamplighter', shape: 'orb', color: '#38bdf8',
-      role: 'boss', size: 56, hp: 4200, atk: 40, spd: 62, moteValue: 70,
+      role: 'boss', size: 56, hp: 4200, atk: 40, spd: 62, moteValue: 140,
       boss: true, telegraph: 0.8,
       behaviors: [
         { type: 'ranged', range: 320, attackCd: 1.6, projSpeed: 300 },
@@ -432,7 +432,7 @@
       text: 'Shields itself and everything within 210px by 45%, then shoots you from 320. Break the ring or leave the arena.' },
 
     { id: 'reckoner', name: 'The Reckoner', shape: 'core', color: '#f43f5e',
-      role: 'boss', size: 46, hp: 6800, atk: 52, spd: 108, moteValue: 100,
+      role: 'boss', size: 46, hp: 6800, atk: 52, spd: 108, moteValue: 200,
       boss: true, telegraph: 0.6,
       behaviors: [
         { type: 'orbiter', radius: 150, strikeCd: 1.2 },
