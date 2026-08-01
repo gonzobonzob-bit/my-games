@@ -2,26 +2,309 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<!-- No user-scalable=no / maximum-scale: pinch-zoom is the only accessibility
+     escape hatch, and the canvas already sets touch-action:none where it matters. -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05030f">
+<meta name="description" content="Veil Legends - how deep do you go into the Veil?">
 <title>Veil Legends</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<!-- SCAFFOLD — interface-engineer owns this file. Containers per CONTRACT.md. -->
-<div id="menu"></div>
+
+<!-- ==================================================================
+     LAYERS (explicit z-index per layer in style.css - never shared)
+       game-ui        1
+       menu / select  100 / 110
+       covenant       200
+       pact-draft     300
+       death          400
+       pause          500
+       settings       600
+       confirm        700
+       toast (float)  800  (pointer-events:none)
+     ================================================================== -->
+
+<!-- ============================ MAIN MENU ============================ -->
+<section id="menu" class="screen" aria-label="Main menu">
+  <div class="scroll">
+    <div class="menu-body">
+      <div class="sp-icon" aria-hidden="true">&#9876;&#65039;</div>
+      <h1 class="sp-title">VEIL LEGENDS</h1>
+      <p class="sp-sub">ENTER THE VEIL</p>
+      <div class="menu-actions">
+        <button id="btn-new" class="btn btn-primary" type="button">
+          <span class="btn-label">NEW RUN</span>
+        </button>
+        <button id="btn-continue" class="btn btn-gold" type="button">
+          <span class="btn-label">CONTINUE</span>
+          <span class="btn-sub" id="continue-summary">No saved run</span>
+        </button>
+        <button id="btn-covenant" class="btn" type="button">
+          <span class="btn-label">COVENANT</span>
+          <span class="btn-sub" id="menu-echoes">0 echoes banked</span>
+        </button>
+        <button id="btn-settings" class="btn" type="button">
+          <span class="btn-label">SETTINGS</span>
+        </button>
+      </div>
+      <p class="menu-foot" id="menu-best">Best wave &mdash;</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================== HERO / RIFT / ASCENSION SELECT ================== -->
+<section id="select" class="screen" aria-label="Choose champion, rift and ascension" hidden>
+  <header class="bar bar-top">
+    <button id="sel-back" class="icon-btn" type="button" aria-label="Back to main menu">&#8592;</button>
+    <h2 class="bar-title">CHOOSE YOUR CHAMPION</h2>
+    <span class="bar-side" id="sel-echoes">&#10022;0</span>
+  </header>
+  <div class="scroll">
+    <h3 class="sec-label">Champion</h3>
+    <div class="card-row" id="hero-row"></div>
+
+    <!-- Always-visible ability tip panel (ported from the old splash) -->
+    <div class="tip-panel" id="hero-abilities" aria-live="polite"></div>
+
+    <h3 class="sec-label">Rift</h3>
+    <div class="card-row" id="rift-row"></div>
+    <p class="tip-line" id="rift-text">&nbsp;</p>
+
+    <h3 class="sec-label">Ascension</h3>
+    <div class="stepper">
+      <button id="asc-down" class="icon-btn" type="button" aria-label="Lower ascension">&#8722;</button>
+      <div class="stepper-val">
+        <span id="asc-num">A0</span>
+        <span id="asc-name" class="stepper-name">Baseline</span>
+      </div>
+      <button id="asc-up" class="icon-btn" type="button" aria-label="Raise ascension">+</button>
+    </div>
+    <p class="tip-line" id="asc-text">Standard rules.</p>
+  </div>
+  <div class="bar bar-bottom">
+    <button id="btn-enter" class="btn btn-primary" type="button">ENTER THE VEIL</button>
+  </div>
+</section>
+
+<!-- ============================ COVENANT ============================ -->
+<section id="covenant" class="screen" aria-label="Covenant tree" hidden>
+  <header class="bar bar-top">
+    <button id="cov-back" class="icon-btn" type="button" aria-label="Back">&#8592;</button>
+    <h2 class="bar-title">COVENANT</h2>
+    <span class="bar-side bar-strong" id="cov-echoes">&#10022;0</span>
+  </header>
+  <div class="cov-summary">
+    <span>Start floor <b id="cov-floor">0</b></span>
+    <span>Headroom <b id="cov-headroom">85</b></span>
+    <span><b id="cov-owned">0</b>/18 nodes</span>
+  </div>
+  <div class="scroll" id="cov-scroll"></div>
+  <div class="bar bar-bottom">
+    <p class="cov-detail" id="cov-detail">Select a node to see its cost.</p>
+    <button id="cov-respec" class="btn btn-ghost" type="button">RESPEC</button>
+  </div>
+</section>
+
+<!-- ============================= GAME UI ============================= -->
 <div id="game-ui" hidden>
-  <div id="hud-top"></div>
+  <header id="hud-top">
+    <div class="hud-row hud-row-meta">
+      <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">&#10073;&#10073;</button>
+      <div class="wave-block">
+        <span class="wave-num">WAVE <b id="hud-wave">1</b></span>
+        <span class="par-clock" id="hud-par">0:20</span>
+      </div>
+      <div class="motes" title="Motes">&#10022;<b id="hud-motes">0</b></div>
+    </div>
+
+    <div class="hud-row">
+      <span class="bar-tag">HP</span>
+      <div class="meter meter-hp">
+        <div class="bar-fill hp-fill" id="hp-fill"></div>
+      </div>
+      <span class="bar-val" id="hp-val">0/0</span>
+    </div>
+
+    <div class="hud-row">
+      <span class="bar-tag">FOCUS</span>
+      <div class="meter meter-focus" id="focus-outer">
+        <div class="bar-fill focus-fill" id="focus-fill"></div>
+        <div class="deficit-fill" id="focus-deficit"></div>
+      </div>
+      <span class="bar-val" id="focus-val">0/0</span>
+    </div>
+
+    <div class="hud-row hud-row-veil">
+      <span class="bar-tag">VEIL</span>
+      <div class="veil-meter" id="veil-meter">
+        <div class="veil-bands" id="veil-bands"></div>
+        <div class="veil-fill" id="veil-fill"></div>
+        <div class="veil-floor" id="veil-floor-mark" title="Veil floor"></div>
+        <div class="veil-brink" title="Brink"></div>
+      </div>
+      <span class="bar-val veil-val" id="veil-val">0</span>
+    </div>
+    <div class="veil-legend" id="veil-legend" aria-hidden="true"></div>
+
+    <div class="hud-row hud-row-wavehp">
+      <span class="bar-tag">WAVE</span>
+      <div class="meter meter-wave">
+        <div class="bar-fill wave-fill" id="wave-fill"></div>
+      </div>
+      <span class="bar-val" id="wave-hp-val">0%</span>
+    </div>
+  </header>
+
+  <!-- In-flow toast rail: fixed height, so the arena never resizes and
+       nothing is ever painted on top of the playfield. -->
+  <div id="toast-rail" aria-live="polite"></div>
+
   <div id="canvas-wrap">
     <canvas id="game-canvas"></canvas>
-    <div id="fx-layer"></div>
+    <div id="fx-layer" aria-hidden="true"></div>
+    <div id="joystick" class="joystick-zone" aria-hidden="true">
+      <div class="joystick-knob" id="joystick-knob"></div>
+    </div>
   </div>
-  <div id="hud-bottom"></div>
+
+  <footer id="hud-bottom">
+    <button class="ability-btn" type="button" data-ab="0">
+      <span class="cd-sweep" aria-hidden="true"></span>
+      <span class="ab-icon">&#183;</span>
+      <span class="ab-name">&mdash;</span>
+      <span class="ab-cost">&mdash;</span>
+      <span class="ab-cd" aria-hidden="true"></span>
+    </button>
+    <button class="ability-btn" type="button" data-ab="1">
+      <span class="cd-sweep" aria-hidden="true"></span>
+      <span class="ab-icon">&#183;</span>
+      <span class="ab-name">&mdash;</span>
+      <span class="ab-cost">&mdash;</span>
+      <span class="ab-cd" aria-hidden="true"></span>
+    </button>
+    <button class="ability-btn" type="button" data-ab="2">
+      <span class="cd-sweep" aria-hidden="true"></span>
+      <span class="ab-icon">&#183;</span>
+      <span class="ab-name">&mdash;</span>
+      <span class="ab-cost">&mdash;</span>
+      <span class="ab-cd" aria-hidden="true"></span>
+    </button>
+    <button class="ability-btn" type="button" data-ab="3">
+      <span class="cd-sweep" aria-hidden="true"></span>
+      <span class="ab-icon">&#183;</span>
+      <span class="ab-name">&mdash;</span>
+      <span class="ab-cost">&mdash;</span>
+      <span class="ab-cd" aria-hidden="true"></span>
+    </button>
+  </footer>
 </div>
-<div id="pact-draft" hidden></div>
-<div id="covenant" hidden></div>
-<div id="pause" hidden></div>
-<div id="death" hidden></div>
-<div id="settings" hidden></div>
+
+<!-- =========================== PACT DRAFT =========================== -->
+<div id="pact-draft" class="overlay" role="dialog" aria-modal="true" aria-label="Pact draft" hidden>
+  <div class="sheet">
+    <header class="bar bar-top">
+      <h2 class="bar-title">PACT DRAFT</h2>
+      <span class="bar-side bar-strong" id="draft-motes">&#10022;0</span>
+    </header>
+    <div class="draft-floor">
+      <span>Veil floor <b id="draft-floor">0</b></span>
+      <span>Headroom <b id="draft-headroom">85</b></span>
+      <span class="draft-hint">Upkeep is permanent for the run</span>
+    </div>
+    <div class="scroll" id="draft-cards"></div>
+    <div class="bar bar-bottom">
+      <button id="btn-decline" class="btn btn-ghost" type="button">DECLINE &mdash; add no upkeep</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= DEATH ============================= -->
+<div id="death" class="overlay" role="dialog" aria-modal="true" aria-label="Run over" hidden>
+  <div class="sheet">
+    <div class="scroll">
+      <h2 class="death-title" id="death-title">THE VEIL TAKES YOU</h2>
+      <p class="death-cause" id="death-cause">&nbsp;</p>
+      <div class="echo-bank">
+        <span class="echo-label">ECHOES BANKED</span>
+        <span class="echo-num" id="death-echoes">+0</span>
+        <span class="echo-total" id="death-echoes-total">0 total</span>
+      </div>
+      <div class="stat-grid" id="death-stats"></div>
+    </div>
+    <div class="bar bar-bottom bar-stack">
+      <button id="death-retry" class="btn btn-primary" type="button">RETRY</button>
+      <button id="death-cov" class="btn" type="button">COVENANT</button>
+      <button id="death-menu" class="btn btn-ghost" type="button">MAIN MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= PAUSE ============================= -->
+<div id="pause" class="overlay" role="dialog" aria-modal="true" aria-label="Paused" hidden>
+  <div class="sheet sheet-narrow">
+    <h2 class="sheet-title">PAUSED</h2>
+    <p class="sheet-sub" id="pause-sub">&nbsp;</p>
+    <div class="pact-list" id="pause-pacts"></div>
+    <div class="bar bar-bottom bar-stack">
+      <button id="pause-resume" class="btn btn-primary" type="button">RESUME</button>
+      <button id="pause-save" class="btn" type="button">SAVE</button>
+      <button id="pause-settings" class="btn" type="button">SETTINGS</button>
+      <button id="pause-menu" class="btn btn-ghost" type="button">MAIN MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ SETTINGS ============================ -->
+<div id="settings" class="overlay" role="dialog" aria-modal="true" aria-label="Settings" hidden>
+  <div class="sheet">
+    <header class="bar bar-top">
+      <h2 class="bar-title">SETTINGS</h2>
+      <button id="set-close" class="icon-btn" type="button" aria-label="Close settings">&#10005;</button>
+    </header>
+    <div class="scroll">
+      <div class="field">
+        <label class="field-label" for="set-volume">Volume <b id="set-volume-val">70%</b></label>
+        <input id="set-volume" class="slider" type="range" min="0" max="100" step="5" value="70">
+      </div>
+      <button id="set-mute" class="toggle" type="button" role="switch" aria-checked="false">
+        <span>Mute all sound</span><span class="sw" aria-hidden="true"></span>
+      </button>
+      <button id="set-shake" class="toggle" type="button" role="switch" aria-checked="true">
+        <span>Screen shake</span><span class="sw" aria-hidden="true"></span>
+      </button>
+      <button id="set-fx" class="toggle" type="button" role="switch" aria-checked="false">
+        <span>Reduced effects</span><span class="sw" aria-hidden="true"></span>
+      </button>
+
+      <h3 class="sec-label">Controller</h3>
+      <dl class="bind-list" id="bind-list"></dl>
+
+      <h3 class="sec-label">Keyboard</h3>
+      <dl class="bind-list" id="key-list"></dl>
+
+      <h3 class="sec-label sec-danger">Danger</h3>
+      <button id="set-reset" class="btn btn-danger" type="button">RESET SAVE</button>
+      <p class="tip-line">Erases echoes, the Covenant, unlocks and any run in progress.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== CONFIRM DIALOG ======================== -->
+<div id="confirm" class="overlay" role="alertdialog" aria-modal="true" aria-label="Confirm" hidden>
+  <div class="sheet sheet-narrow">
+    <h2 class="sheet-title" id="confirm-title">ARE YOU SURE?</h2>
+    <p class="sheet-sub" id="confirm-body">&nbsp;</p>
+    <div class="bar bar-bottom bar-stack">
+      <button id="confirm-yes" class="btn btn-danger" type="button">CONFIRM</button>
+      <button id="confirm-no" class="btn btn-ghost" type="button">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating toast host: used only when the in-flow rail is off screen. -->
+<div id="toast-float" aria-live="polite"></div>
 
 <script src="js/content.js"></script>
 <script src="js/sim.js"></script>
