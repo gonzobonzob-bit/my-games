@@ -3,11 +3,13 @@
 import { spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9321;
-const GAME = 'file:///' + 'C:/Users/gonzc/AppData/Local/Temp/claude/C--Users-gonzc/eb422541-2fdb-48cb-8970-74ac66ee0215/scratchpad/my-games/veil-legends/index.html'.replace(/\\/g, '/');
+// resolve the game relative to this harness so it runs from any clone
+const GAME = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html')).href;
 const W = Number(process.argv[2] || 390), H = Number(process.argv[3] || 760);
 
 const udd = mkdtempSync(join(tmpdir(), 'vl-cdp-'));
