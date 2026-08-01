@@ -491,7 +491,7 @@ function startGame(continueRun){
   paused=false;
   lastT=performance.now();
   requestAnimationFrame(gameLoop);
-  setTimeout(startWave,PREP_TIME);
+  scheduleWave(PREP_TIME);
   showMsg('🛡️ FORTIFY');
 
   if(autosaveIntervalId)clearInterval(autosaveIntervalId);
@@ -509,6 +509,7 @@ function pauseGame(){
     waveState.intervalId=null;
     waveState.pausedSpawning=true;
   }
+  if(pendingWaveTimer){clearTimeout(pendingWaveTimer);pendingWaveTimer=null;wavePendingOnResume=true;}
   document.getElementById('pause-overlay').classList.add('show');
 }
 
@@ -520,6 +521,7 @@ function resumeGame(){
     waveState.pausedSpawning=false;
     startSpawning();
   }
+  if(wavePendingOnResume){wavePendingOnResume=false;scheduleWave(WAVE_GAP);}
   lastT=performance.now();
   requestAnimationFrame(gameLoop);
 }
@@ -715,8 +717,18 @@ function sellSelectedTower(){
 // board is clear (enemies.length===0). The spawn setInterval handle is
 // always stored and cleared before a new one is created, so waves can
 // never overlap or stack spawn timers.
+// The between-wave timer must be pause-aware: an untracked setTimeout(startWave)
+// that fired while paused was swallowed by the guard and nothing rescheduled it —
+// pausing (or alt-tabbing, which auto-pauses) during prep or a wave gap wedged
+// the run permanently.
+let pendingWaveTimer=null,wavePendingOnResume=false;
+function scheduleWave(delay){
+  clearTimeout(pendingWaveTimer);
+  pendingWaveTimer=setTimeout(()=>{pendingWaveTimer=null;startWave();},delay);
+}
 function startWave(){
-  if(paused||!gameStarted)return;
+  if(!gameStarted)return;
+  if(paused){wavePendingOnResume=true;return;}
   if(wave>=12){showGameOver(true);return;}
   wave++;
   waveActive=true;
@@ -787,6 +799,7 @@ function sfx(name){
   else if(name==='hit'){o.type='sawtooth';o.frequency.setValueAtTime(100,t);g.gain.setValueAtTime(0.05,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.06);o.start(t);o.stop(t+0.06);}
   else if(name==='sell'){o.type='triangle';o.frequency.setValueAtTime(500,t);o.frequency.setValueAtTime(320,t+0.08);g.gain.exponentialRampToValueAtTime(0.001,t+0.14);o.start(t);o.stop(t+0.14);}
   else if(name==='lose'){o.type='sawtooth';o.frequency.setValueAtTime(300,t);o.frequency.setValueAtTime(100,t+0.3);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.start(t);o.stop(t+0.5);}
+  else if(name==='win'){o.type='sine';o.frequency.setValueAtTime(523,t);o.frequency.setValueAtTime(659,t+0.12);o.frequency.setValueAtTime(784,t+0.24);o.frequency.setValueAtTime(1047,t+0.36);g.gain.exponentialRampToValueAtTime(0.001,t+0.7);o.start(t);o.stop(t+0.7);}
   else{o.disconnect();}
 }
 
@@ -972,7 +985,9 @@ function gameLoop(t){
   }
   flushGoldUI();
   render(dt);
-  if(lives>0)requestAnimationFrame(gameLoop);
+  // gameStarted goes false in showGameOver — without checking it the loop kept
+  // rendering (and burning CPU) behind the victory overlay forever.
+  if(gameStarted&&lives>0)requestAnimationFrame(gameLoop);
 }
 
 function update(dt){
@@ -1108,7 +1123,7 @@ function update(dt){
   if(waveActive&&waveState&&waveState.spawned>=waveState.total&&!waveState.intervalId&&enemies.length===0){
     waveActive=false;
     onWaveCleared();
-    setTimeout(startWave,WAVE_GAP);
+    scheduleWave(WAVE_GAP);
   }
   updateHUD();
 }
@@ -1118,7 +1133,9 @@ function hitEnemy(e,dmg,p){
   e.flash=1;
   if(p.slow)e.slow=SLOW_DURATION;
   if(p.dot){e.dot=DOT_DURATION;}
-  if(e.hp<=0){killEnemy(e);return;}
+  // Check for the kill but chain FIRST — the old early-return here meant a
+  // killing blow never chained, so Storm underperformed exactly when clearing.
+  const killed=e.hp<=0;
   // Lightning chain: jump to up to p.chain additional nearby enemies
   if(p.chain>0){
     let chainDmg=dmg*0.6;
@@ -1143,6 +1160,7 @@ function hitEnemy(e,dmg,p){
       chainDmg*=0.6;
     }
   }
+  if(killed)killEnemy(e);
 }
 
 function killEnemy(e){
@@ -1819,8 +1837,9 @@ function updateHUD(){
 }
 
 function showGameOver(win){
-  sfx('lose');
+  sfx(win?'win':'lose');
   waveActive=false;
+  clearTimeout(pendingWaveTimer);pendingWaveTimer=null;wavePendingOnResume=false;
   if(waveState&&waveState.intervalId){clearInterval(waveState.intervalId);waveState.intervalId=null;}
   if(autosaveIntervalId){clearInterval(autosaveIntervalId);autosaveIntervalId=null;}
   gameStarted=false;
