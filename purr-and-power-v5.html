@@ -944,11 +944,11 @@ const MONTHLY_OVERHEAD={
 const CONTRACTS=[
   {title:'Residential Install',type:'🏠 Residential',client:'Mrs. Rodriguez — Mesa Hills, EP',desc:'12 Solcrest Prime panels, IronRail FlexRail rails, GridWave Q400 optimizers.',reward:6800,panels:12,quality:'hot',jobIcon:'🏠'},
   {title:'Commercial Rooftop',type:'🏢 Commercial',client:'Desert Star Plaza — El Paso',desc:'50-panel system. IronRail FlexRail Tilt at 10° fixed angle.',reward:22000,panels:50,quality:'warm',jobIcon:'🏢'},
-  {title:'School District',type:'🏫 School',client:'Ysleta ISD — East EP',desc:'Arrays on 3 campuses. Solcrest Commercial NTC + GridWave three-phase.',reward:74000,panels:120,quality:'warm',jobIcon:'🏫'},
+  {title:'School District',type:'🏫 School',client:'Mission Valley ISD — Ysleta, EP',desc:'Arrays on 3 campuses. Solcrest Commercial NTC + GridWave three-phase.',reward:74000,panels:120,quality:'warm',jobIcon:'🏫'},
   {title:'Hotel Solar Array',type:'🏨 Hotel',client:'Sunland Park Hotel',desc:'30 panels for pool heating and common areas.',reward:17000,panels:30,quality:'hot',jobIcon:'🏨'},
   {title:'City Hall Bid',type:'🏛️ Government',client:'City of El Paso',desc:'200 panels, three-phase GridWave. Win this and you\'re on the news.',reward:135000,panels:200,quality:'warm',jobIcon:'🏛️'},
   {title:'Ranch Solar Farm',type:'🌵 Ground Mount',client:'Barela Family Ranch — Fabens',desc:'Off-grid. IronRail GroundTurf ground mount. 80 Solcrest panels + GridWave battery.',reward:58000,panels:80,quality:'cold',jobIcon:'🌵'},
-  {title:'Car Dealership Canopy',type:'🚗 Canopy',client:'AutoNation — Montana Ave, EP',desc:'60 bifacial panels on IronRail canopy racking over the lot.',reward:28000,panels:60,quality:'warm',jobIcon:'🚗'},
+  {title:'Car Dealership Canopy',type:'🚗 Canopy',client:'Desert Auto Group — Montana Ave, EP',desc:'60 bifacial panels on IronRail canopy racking over the lot.',reward:28000,panels:60,quality:'warm',jobIcon:'🚗'},
   {title:'Apartment Complex',type:'🏢 Commercial',client:'Sunrise Villas HOA',desc:'48 units, individual GridWave inverters per unit.',reward:85000,panels:180,quality:'cold',jobIcon:'🏢'},
   {title:'Warehouse District',type:'🏭 Industrial',client:'EP Logistics Hub',desc:'5 warehouse rooftops, 500 Solcrest panels. IronRail FlexRail commercial rails.',reward:210000,panels:500,quality:'cold',jobIcon:'🏭'},
   {title:'Fort Bliss Housing',type:'🪖 Government',client:'Fort Bliss — El Paso',desc:'Military housing complex, 40 Solcrest Prime arrays.',reward:40000,panels:160,quality:'warm',jobIcon:'🪖'},
@@ -957,9 +957,9 @@ const CONTRACTS=[
 // Las Cruces satellite-branch contracts — only enter the pipeline once the
 // 'lv4' expansion (Open Second Location — Las Cruces) has been purchased.
 // Higher reward tier reflects the larger commercial/institutional base in
-// Las Cruces (NMSU, ag co-ops, distribution hubs) vs. the El Paso residential mix.
+// Las Cruces (the university, ag co-ops, distribution hubs) vs. the El Paso residential mix.
 const LAS_CRUCES_CONTRACTS=[
-  {title:'NMSU Campus Array',type:'🎓 University',client:'New Mexico State University — Las Cruces',desc:'Rooftop arrays across 4 academic buildings. Solcrest Commercial NTC panels, GridWave three-phase.',reward:98000,panels:260,quality:'warm',jobIcon:'🎓'},
+  {title:'Desert Mesa Campus Array',type:'🎓 University',client:'Desert Mesa University — Las Cruces',desc:'Rooftop arrays across 4 academic buildings. Solcrest Commercial NTC panels, GridWave three-phase.',reward:98000,panels:260,quality:'warm',jobIcon:'🎓'},
   {title:'Mesilla Valley Ag Co-op',type:'🌱 Agricultural',client:'Mesilla Valley Farmers Co-op — Las Cruces',desc:'Ground-mount array powering irrigation pumps. IronRail GroundTurf racking, battery backup.',reward:63000,panels:110,quality:'hot',jobIcon:'🌱'},
   {title:'White Sands Distribution Center',type:'🏭 Industrial',client:'White Sands Logistics — Las Cruces',desc:'Regional warehouse rooftop. 400 Solcrest panels, IronRail FlexRail commercial rails.',reward:175000,panels:400,quality:'cold',jobIcon:'🏭'},
 ];
@@ -976,12 +976,12 @@ const OBJECTIONS=[
   {title:'Cost Objection',msg:'"$28,000 is too much. My neighbor said he paid less." — Garcia Family',save:'Offer financing — show 25yr ROI'},
   {title:'Roof Concern',msg:'"My roof is 8 years old. Will the FlexRail L-feet void my roof warranty?" — Kim Residence',save:'Reassure — IronRail installs with proper flashing'},
   {title:'HOA Pushback',msg:'"Our HOA says we need approval first. This could take months." — Sunrise Villas',save:'Offer to handle HOA paperwork for them'},
-  {title:'Utility Company Doubt',msg:'"El Paso Electric told me solar isn\'t worth it here." — Montoya Family',save:'Show EP sun hours data — 300+ sunny days/year'},
-  {title:'Competitor Quote',msg:'"DayStar Solar quoted us $2,000 less. Why should we pick you?" — UTEP Faculty',save:'Highlight Solcrest quality + GridWave monitoring'},
+  {title:'Utility Company Doubt',msg:'"Franklin Power & Light told me solar isn\'t worth it here." — Montoya Family',save:'Show EP sun hours data — 300+ sunny days/year'},
+  {title:'Competitor Quote',msg:'"DayStar Solar quoted us $2,000 less. Why should we pick you?" — Franklin State Faculty',save:'Highlight Solcrest quality + GridWave monitoring'},
 ];
 
-const LEAD_NAMES=['Garcia Family','Kim Residence','Montoya Prop.','UTEP Faculty','Torres LLC','Barela Ranch','Sunset Apt.','Fort Bliss Hsg','EP High','Costco EP','Valley View','Sun City Mall','Mesa Hills Dr.','Kern Place Res.','Del Norte Prop.','Ysleta ISD'];
-const INSTALL_JOBS=['Casa Herrera','Hotel Job','Ysleta School','Ranch Barela','AutoNation','Sunrise Villas','Fort Bliss'];
+const LEAD_NAMES=['Garcia Family','Kim Residence','Montoya Prop.','Franklin State Faculty','Torres LLC','Barela Ranch','Sunset Apt.','Fort Bliss Hsg','EP High','BulkMart EP','Valley View','Sun City Mall','Mesa Hills Dr.','Kern Place Res.','Del Norte Prop.','Mission Valley ISD'];
+const INSTALL_JOBS=['Casa Herrera','Hotel Job','Mission Valley School','Ranch Barela','Desert Auto','Sunrise Villas','Fort Bliss'];
 const STAFF_NAMES=['Alex R.','Jordan M.','Sam T.','Casey L.','Riley N.','Dana P.','Quinn S.'];
 
 const CAT_BREEDS=[
@@ -997,7 +997,7 @@ const UPGRADES_DATA=[
   {id:'soft',name:'Lead Gen Software',desc:'Desks earn 2× faster',icon:'💻',cost:600,maxLv:3},
   {id:'crm',name:'Solar CRM System',desc:'Contract values +30%',icon:'📊',cost:1200,maxLv:3},
   {id:'fleet',name:'Upgraded Fleet',desc:'Map jobs pay 50% more',icon:'🚚',cost:1500,maxLv:2},
-  {id:'cert',name:'NABCEP Certification',desc:'All income +40%',icon:'🎓',cost:2000,maxLv:3},
+  {id:'cert',name:'PV Pro Certification',desc:'All income +40%',icon:'🎓',cost:2000,maxLv:3},
   {id:'toys',name:'Premium Cat Toys',desc:'Cat morale boost — amplifies morale\'s income effect, +30% at max level',icon:'🎾',cost:300,maxLv:5},
   {id:'nanoRack',name:'IronRail QuickRack',desc:'Site completes 30% faster',icon:'🔩',cost:2500,maxLv:1},
   {id:'seapp',name:'GridWave LinkApp Pro',desc:'Commission time halved',icon:'📱',cost:1800,maxLv:1},
@@ -1035,7 +1035,7 @@ const EXPANSION_DATA=[
     already:()=>G.officeLevel>=3,
     apply:()=>{G.officeLevel=3;}},
   {id:'lv4',name:'Open Second Location — Las Cruces',icon:'📍',cost:1000000,
-    desc:'Launch a Las Cruces satellite branch: 3 remote reps start earning passive revenue immediately (see the 📍 badge in the office), and 3 exclusive high-value Las Cruces contracts (NMSU, Mesilla Valley Ag Co-op, White Sands Distribution) join your contract pipeline.',
+    desc:'Launch a Las Cruces satellite branch: 3 remote reps start earning passive revenue immediately (see the 📍 badge in the office), and 3 exclusive high-value Las Cruces contracts (Desert Mesa University, Mesilla Valley Ag Co-op, White Sands Distribution) join your contract pipeline.',
     check:()=>G.totalMoney>=1000000,
     already:()=>G.lasCrucesUnlocked,
     apply:()=>{unlockLasCruces();}},
@@ -2033,8 +2033,8 @@ function drawMap(){
   c.lineTo(W*0.34,mtY+H*0.018);
   c.closePath(); c.fill();
 
-  // UTEP campus block
-  drawLandmarkBlock(W*0.11,H*0.26,W*0.11,H*0.08,'#C4A852','#A08030','UTEP');
+  // Franklin State campus block
+  drawLandmarkBlock(W*0.11,H*0.26,W*0.11,H*0.08,'#C4A852','#A08030','FSU');
 
   // El Paso Airport
   drawLandmarkBlock(W*0.54,H*0.47,W*0.14,H*0.10,'#94A3B8','#64748B','✈ EP Airport');
