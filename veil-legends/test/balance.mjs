@@ -515,6 +515,143 @@ function isolateWave(seed, heroId, W, policy, opts) {
 }
 
 /* ==================================================================== *
+ * 4b. ABILITY DAMAGE AUDIT                                              *
+ * ==================================================================== *
+ * DESIGN 5.1 derives the entire pressure curve from P0 = k*rho = 12 * 18 =
+ * 216 DPS, i.e. 12 damage per Focus point. Before any enemy number is judged,
+ * check that the player's buttons actually deliver that. Every ability is
+ * benched against a lone indestructible dummy inside its own range, and the
+ * damage the sim really applies is summed off the 'hit' event stream. */
+
+function benchAbility(heroId, idx, trials) {
+  const declared = CONTENT.HEROES.find(h => h.id === heroId).abilities[idx];
+  let total = 0, n = 0;
+  for (let k = 0; k < trials; k++) {
+    Sim._setStorage(makeStorage());
+    Sim._setSeed(1000 + k * 37);
+    Sim.setArena(ARENA.w, ARENA.h);
+    Sim.newRun(heroId, null);
+    const S = Sim.state;
+    if (S.phase !== 'combat') continue;
+    /* one dummy, in range, that cannot die and cannot end the wave */
+    while (S.enemies.length > 1) S.enemies.pop();
+    if (!S.enemies.length) continue;
+    const d = S.enemies[0];
+    d.hp = d.maxHp = 1e7;
+    d.x = S.player.x + 40; d.y = S.player.y;
+    d.atk = 0;                                     // do not kill the tester
+    S.focus = S.focusMax;
+    S.motesOnGround.length = 0;
+    Sim.drainEvents();
+    if (!Sim.useAbility(idx)) continue;
+    let dealt = 0;
+    for (let t = 0; t < 3 / STEP; t++) {
+      Sim.tick(STEP);
+      for (const ev of Sim.drainEvents()) if (ev.type === 'hit') dealt += ev.amount;
+      d.hp = d.maxHp;                               // keep it alive and in place
+      d.x = S.player.x + 40; d.y = S.player.y;
+    }
+    total += dealt; n++;
+  }
+  return { declared, delivered: n ? total / n : 0 };
+}
+
+function HW(w) { return (6 + 2 * w) * 100 * (1 + 0.15 * w) / (20 + 0.8 * w); }
+
+section('ABILITY DAMAGE AUDIT — what the buttons actually deliver');
+{
+  const TRIALS = QUICK ? 8 : 20;
+  const rows = [];
+  for (const h of CONTENT.HEROES) {
+    for (let i = 0; i < h.abilities.length; i++) {
+      const a = h.abilities[i];
+      const r = benchAbility(h.id, i, TRIALS);
+      rows.push({ hero: h.id, a, delivered: r.delivered });
+    }
+  }
+  /* rollDamage applies +/-10% variance off the same seeded PRNG, which biases
+     every measurement by the same factor. Calibrate it out using the abilities
+     with neither ticks nor delay, so the ratios below mean what they say. */
+  const clean = rows.filter(r => !r.a.ticks && !r.a.delay && r.a.damage > 0);
+  const BIAS = median(clean.map(r => r.delivered / r.a.damage)) || 1;
+  console.log(`  (RNG calibration: ${clean.length} plain abilities deliver ${(BIAS * 100).toFixed(1)}% of ` +
+    'their declared damage; every ratio below is divided by that.)\n');
+  console.log('  hero        ability         declared ticks delay  delivered  vs damage  vs damage*ticks' +
+    '   Focus  dmg/Focus   cd    DPS');
+  const simReading = [], tipReading = [];
+  for (const r of rows) {
+    const a = r.a;
+    if (!(a.damage > 0)) continue;
+    const tk = Math.max(1, a.ticks || 0);
+    const rSim = (r.delivered / a.damage) / BIAS;
+    const rTip = (r.delivered / (a.damage * tk)) / BIAS;
+    const dpf = a.focusCost > 0 ? (r.delivered / BIAS) / a.focusCost : 0;
+    console.log('  ' + r.hero.padEnd(11) + a.id.padEnd(15) + String(a.damage).padStart(8) +
+      String(a.ticks || '-').padStart(6) + String(a.delay || '-').padStart(6) +
+      r.delivered.toFixed(0).padStart(11) + rSim.toFixed(2).padStart(11) + rTip.toFixed(2).padStart(17) +
+      String(a.focusCost).padStart(8) + dpf.toFixed(2).padStart(11) +
+      String(a.maxCd).padStart(6) + (r.delivered / BIAS / Math.max(0.05, a.maxCd)).toFixed(0).padStart(7));
+    if (rSim < 0.9) simReading.push({ id: a.id, rSim, delivered: r.delivered, a });
+    if (a.ticks > 0 && rTip < 0.9) tipReading.push({ id: a.id, rTip, delivered: r.delivered, a });
+  }
+
+  console.log(`\n  DESIGN 5.1 baseline: k = ${T.DAMAGE_PER_FOCUS} damage per Focus, ` +
+    `P0 = k*rho = ${T.DAMAGE_PER_FOCUS * T.FOCUS_REGEN} DPS.`);
+  console.log('  "vs damage" is the sim reading (damage = TOTAL, split across ticks).');
+  console.log('  "vs damage*ticks" is the tooltip/DESIGN reading (damage = PER tick).');
+
+  /* (1) the unambiguous bug: an ability that does not even deliver its own
+         declared `damage` under the sim's own reading. */
+  ok(simReading.length === 0, `${simReading.length} abilit${simReading.length === 1 ? 'y delivers' : 'ies deliver'} ` +
+    'less than 90% of their declared damage under the sim\'s OWN reading: ' +
+    simReading.map(x => `${x.id} ${(x.rSim * 100).toFixed(0)}%`).join(', '));
+  for (const x of simReading) {
+    if (x.a.ticks > 0 && x.a.delay > 0) {
+      console.log(`  -> ${x.id} carries BOTH ticks:${x.a.ticks} and delay:${x.a.delay}. In castAoe the ` +
+        `\`if (isNum(a.delay) && a.delay > 0)\` branch pre-empts the \`else if (ticks > 0)\` branch, so ` +
+        `ONE pulse of damage/ticks lands (${(x.a.damage / x.a.ticks).toFixed(0)}), not ${x.a.ticks} of ` +
+        `${x.a.damage}. The cast event still advertises ticks:${x.a.ticks}, so fx.js draws pulses ` +
+        'that never land.');
+    }
+  }
+
+  /* (2) the semantics disagreement: content/tooltips say per-tick, sim says total. */
+  ok(tipReading.length === 0, `${tipReading.length} ticked abilit${tipReading.length === 1 ? 'y delivers' : 'ies deliver'} ` +
+    'less than 90% of damage*ticks — sim.js reads the damage field as the TOTAL split across ticks, while ' +
+    'every tooltip reads it as PER tick: ' +
+    tipReading.map(x => `${x.id} ${x.delivered.toFixed(0)} vs ${x.a.damage * x.a.ticks}`).join(', '));
+  if (tipReading.length) {
+    console.log('  -> CONTRACT.md defines ticks:int without stating which reading is normative. ' +
+      'One of the two files is wrong and it is a one-line fix either way; pick the tooltip reading, ' +
+      'because DESIGN 5.1 prices every button at 12 damage/Focus and only that reading gets there.');
+  }
+
+  /* (3) the number DESIGN 5.1 actually depends on. */
+  sub('damage per Focus vs the DESIGN 5.1 baseline of ' + T.DAMAGE_PER_FOCUS);
+  const primary = [];
+  for (const h of CONTENT.HEROES) {
+    const rs = rows.filter(r => r.hero === h.id && r.a.damage > 0);
+    const best = rs.reduce((x, y) => ((y.delivered / BIAS) / y.a.maxCd > (x.delivered / BIAS) / x.a.maxCd ? y : x), rs[0]);
+    const dps = (best.delivered / BIAS) / best.a.maxCd;
+    const fps = best.a.focusCost / best.a.maxCd;
+    const veilPerSec = Math.max(0, fps - h.focusRegen) * T.OVERDRAW_Q;
+    primary.push(dps);
+    console.log('  ' + h.id.padEnd(11) + 'primary ' + best.a.id.padEnd(13) +
+      dps.toFixed(0).padStart(5) + ' DPS  ' + fps.toFixed(1).padStart(5) + ' Focus/s vs ' +
+      String(h.focusRegen).padStart(2) + ' regen  -> ' + veilPerSec.toFixed(2) + ' Veil/s if held down');
+  }
+  console.log(`  primary-button DPS across the roster: ${Math.min(...primary).toFixed(0)}-${Math.max(...primary).toFixed(0)} ` +
+    `vs the design's P0 = ${T.DAMAGE_PER_FOCUS * T.FOCUS_REGEN}.`);
+  ok(Math.min(...primary) >= T.DAMAGE_PER_FOCUS * T.FOCUS_REGEN * 0.85,
+    `the weakest hero's primary button sustains ${Math.min(...primary).toFixed(0)} DPS against a ` +
+    `design baseline of ${T.DAMAGE_PER_FOCUS * T.FOCUS_REGEN}`);
+  console.log(`  required DPS by wave, H(w)/T_par: w5 ${HW(5).toFixed(0)}  w8 ${HW(8).toFixed(0)}  ` +
+    `w10 ${HW(10).toFixed(0)}  w12 ${HW(12).toFixed(0)}  w15 ${HW(15).toFixed(0)}`);
+}
+
+
+
+/* ==================================================================== *
  * 5. ASSERTION #4 (invariants) + baseline policy spread = ASSERTION #3  *
  * ==================================================================== */
 
@@ -1333,7 +1470,24 @@ if (WHATIF) {
   const restoreAtk = () => { for (const e of CONTENT.ENEMY_TYPES) e.atk = atkOf[e.id]; };
   const tiers = CONTENT.VEIL_TIERS.map(t => t.mult);
 
+  /* QA (2026-08-01) found sim.js treats `damage` as the TOTAL split across
+     `ticks`, while every tooltip reads it as PER tick, and that castAoe's
+     delay branch pre-empts the ticks branch. Emulate the corrected semantics
+     purely in content data:
+       ticks only        -> damage x ticks       (sim splits it back)
+       ticks + delay     -> damage x ticks^2     (sim delivers damage/ticks once) */
+  const tickAbilities = [];
+  for (const h of CONTENT.HEROES) for (const a of h.abilities) {
+    if (a.ticks > 0) tickAbilities.push({ a, base: a.damage, f: a.delay > 0 ? a.ticks * a.ticks : a.ticks });
+  }
+  const applyTickFix = () => { for (const t of tickAbilities) t.a.damage = Math.round(t.base * t.f); };
+  const undoTickFix = () => { for (const t of tickAbilities) t.a.damage = t.base; };
+
   const cases = [
+    {
+      name: 'R0 BUG   : tick semantics corrected (QA finding)',
+      apply: applyTickFix, undo: undoTickFix
+    },
     {
       name: 'R1 sim  : settle window measured from last OVERDRAW',
       opts: { settleFromOverdraw: true }, apply: () => { }, undo: () => { }
@@ -1388,9 +1542,16 @@ if (WHATIF) {
       }
     },
     {
-      name: 'PACKAGE ALL R1-R8',
+      name: 'PACKAGE R0+R1+R2 (bug fix + Veil equilibrium, NO enemy retune)',
+      opts: { settleFromOverdraw: true },
+      apply: () => { applyTickFix(); T.PAR_OVERRUN_VEIL = 1.5; },
+      undo: () => { undoTickFix(); T.PAR_OVERRUN_VEIL = 4; }
+    },
+    {
+      name: 'PACKAGE ALL R0-R8',
       opts: { settleFromOverdraw: true },
       apply: () => {
+        applyTickFix();
         T.PAR_OVERRUN_VEIL = 1.5; T.ENEMY_ATTACK_PERIOD = 1.5; T.ENEMY_ATK_GROWTH = 0.07;
         scaleAtk(minions, 0.75); scaleAtk(stalkers, 0.80);
         CONTENT.HEROES.forEach(h => h.hp = Math.round(h.hp * 1.30));
@@ -1398,6 +1559,7 @@ if (WHATIF) {
         const v = [1, 1.85, 3.4, 6.3, 11.7]; CONTENT.VEIL_TIERS.forEach((t, i) => t.mult = v[i]);
       },
       undo: () => {
+        undoTickFix();
         T.PAR_OVERRUN_VEIL = 4; T.ENEMY_ATTACK_PERIOD = save.atkPeriod; T.ENEMY_ATK_GROWTH = save.atkGrowth;
         restoreAtk(); CONTENT.HEROES.forEach((h, i) => h.hp = save.heroHp[i]);
         boss.behaviors[1].count = save.summon; boss.behaviors[1].period = save.summonPeriod; boss.atk = save.bossAtk;
