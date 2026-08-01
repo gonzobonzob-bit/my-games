@@ -48,11 +48,18 @@
 
   /* Deterministic PRNG (mulberry32) so the balance harness can repeat runs. */
   var _seed = 0x9e3779b9;
+  /* Math.imul is ES2015; shim it so an older engine does not throw on the very
+     first random number the sim asks for. */
+  var imul = Math.imul || function (a, b) {
+    var aHi = (a >>> 16) & 0xffff, aLo = a & 0xffff;
+    var bHi = (b >>> 16) & 0xffff, bLo = b & 0xffff;
+    return ((aLo * bLo) + (((aHi * bLo + aLo * bHi) << 16) >>> 0)) | 0;
+  };
   function setSeed(s) { _seed = (isNum(s) ? (s >>> 0) : 0x9e3779b9) || 1; }
   function rnd() {
     _seed |= 0; _seed = (_seed + 0x6D2B79F5) | 0;
-    var t = Math.imul(_seed ^ (_seed >>> 15), 1 | _seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    var t = imul(_seed ^ (_seed >>> 15), 1 | _seed);
+    t = (t + imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
   function rndRange(a, b) { return a + rnd() * (b - a); }
@@ -76,6 +83,7 @@
     PAR_OVERRUN_FLOOR: 0.1,   // permanent run floor per second past par
     HP_RESTORE_BETWEEN: 0.25, // +25% of hpMax
     MOTE_LIFE: 6,
+    TICK_INTERVAL: 0.25,      // seconds between pulses of a `ticks` ability
     DAMAGE_PER_FOCUS: 12,     // k
     ENEMY_ATTACK_PERIOD: 1.0, // per-enemy contact cadence (no global i-frame)
     ENEMY_ATK_GROWTH: 0.10,   // per wave, linear
@@ -599,6 +607,23 @@
     var scale = pool / baseSum;   // pool always matches DESIGN N(w)*avgHP(w)
 
     run.hpScale = scale;
+
+    /* Wraiths persist across waves and count against MAX_ENEMIES. At the cap
+       this loop spawned NOTHING, so waveEnemiesAlive() was false on the next
+       tick and onWaveClear() fired again immediately — an unbounded wave/echo
+       farm (measured: wave 1 -> 601 in ten seconds of sim time). Guarantee the
+       wave can always place at least one body by evicting the oldest wraiths,
+       which only ever bites at a boundary the player cannot survive anyway. */
+    while (state.enemies.length >= T.MAX_ENEMIES && roster.length) {
+      var oldest = -1;
+      for (k = 0; k < state.enemies.length; k++) {
+        if (state.enemies[k].isWraith) { oldest = k; break; }
+      }
+      if (oldest < 0) break;             // nothing evictable: let the cap hold
+      state.enemies.splice(oldest, 1);
+      if (state.wraithCount > 0) state.wraithCount--;
+    }
+
     var total = 0;
     for (k = 0; k < roster.length && state.enemies.length < T.MAX_ENEMIES; k++) {
       var hp = Math.max(1, num(roster[k].hp, 100, 1, 1e7) * scale);
@@ -819,27 +844,32 @@
   // Predicts an intercept point for a moving target given a projectile speed,
   // so ranged abilities actually lead their target instead of always aiming
   // at its current (soon-to-be-stale) position.   [PORTED VERBATIM]
+  /* ES5 only, deliberately: this file ships as a plain script and const/let/
+     arrow/spread here would be a PARSE-time failure on an older engine, which
+     takes the whole of sim.js down rather than just this function. */
   function leadAim(px, py, target, speed) {
-    const tvx = target.vx || 0, tvy = target.vy || 0;
-    const dx = target.x - px, dy = target.y - py;
-    const a = tvx * tvx + tvy * tvy - speed * speed;
-    const b = 2 * (dx * tvx + dy * tvy);
-    const c = dx * dx + dy * dy;
-    let t = 0;
+    var tvx = target.vx || 0, tvy = target.vy || 0;
+    var dx = target.x - px, dy = target.y - py;
+    var a = tvx * tvx + tvy * tvy - speed * speed;
+    var b = 2 * (dx * tvx + dy * tvy);
+    var c = dx * dx + dy * dy;
+    var t = 0;
     if (Math.abs(a) < 0.0001) {
       if (b !== 0) t = -c / b;
     } else {
-      const disc = b * b - 4 * a * c;
+      var disc = b * b - 4 * a * c;
       if (disc >= 0) {
-        const sq = Math.sqrt(disc);
-        const t1 = (-b + sq) / (2 * a), t2 = (-b - sq) / (2 * a);
-        const candidates = [t1, t2].filter(v => v > 0 && isFinite(v));
-        if (candidates.length) t = Math.min(...candidates);
+        var sq = Math.sqrt(disc);
+        var t1 = (-b + sq) / (2 * a), t2 = (-b - sq) / (2 * a);
+        var best = Infinity;
+        if (t1 > 0 && isFinite(t1)) best = t1;
+        if (t2 > 0 && isFinite(t2) && t2 < best) best = t2;
+        if (best !== Infinity) t = best;
       }
     }
     if (!isFinite(t) || t < 0) t = 0;
-    const aimX = target.x + tvx * t, aimY = target.y + tvy * t;
-    const ang = Math.atan2(aimY - py, aimX - px);
+    var aimX = target.x + tvx * t, aimY = target.y + tvy * t;
+    var ang = Math.atan2(aimY - py, aimX - px);
     return { vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed };
   }
 
@@ -876,19 +906,33 @@
   }
 
   function castMelee(a, dmg) {
-    var near = nearestEnemy();
-    if (!near) { emit({ type: 'float', x: state.player.x, y: state.player.y, text: 'No target', color: '#94a3b8' }); return; }
-    var range = abilityRange(a);
-    var dx = near.x - state.player.x, dy = near.y - state.player.y;
-    var dist = hyp(dx, dy) || 0.0001;
-    var ang = Math.atan2(dy, dx);
-    if (dist <= range) {
-      dealDamage(near, dmg, { chain: true });
-    } else if (a.lunge && dist <= range + 80) {
-      movePlayerTo(near.x - Math.cos(ang) * (range * 0.6), near.y - Math.sin(ang) * (range * 0.6));
-      dealDamage(near, dmg, { chain: true });
-    } else {
-      emit({ type: 'float', x: state.player.x, y: state.player.y, text: 'Out of range', color: '#94a3b8' });
+    /* `ticks` applies here too — Twin Fang promises "two hits of 130" and used
+       to land exactly one. Each pulse re-resolves its target, so backing off
+       between them drops the later hits, which is what its tip describes. */
+    var ticks = clamp(Math.floor(num(a.ticks, 0, 0, 20)), 0, 20);
+    var strike = function (announceMiss) {
+      var near = nearestEnemy();
+      if (!near) {
+        if (announceMiss) emit({ type: 'float', x: state.player.x, y: state.player.y, text: 'No target', color: '#94a3b8' });
+        return;
+      }
+      var range = abilityRange(a);
+      var dx = near.x - state.player.x, dy = near.y - state.player.y;
+      var dist = hyp(dx, dy) || 0.0001;
+      var ang = Math.atan2(dy, dx);
+      if (dist <= range) {
+        dealDamage(near, dmg, { chain: true });
+      } else if (a.lunge && dist <= range + 80) {
+        movePlayerTo(near.x - Math.cos(ang) * (range * 0.6), near.y - Math.sin(ang) * (range * 0.6));
+        dealDamage(near, dmg, { chain: true });
+      } else if (announceMiss) {
+        emit({ type: 'float', x: state.player.x, y: state.player.y, text: 'Out of range', color: '#94a3b8' });
+      }
+    };
+    strike(true);
+    if (!run) return;
+    for (var k = 1; k < ticks; k++) {
+      run.delayed.push({ timer: k * T.TICK_INTERVAL, fn: function () { strike(false); } });
     }
   }
 
@@ -956,7 +1000,10 @@
     var cx = state.player.x, cy = state.player.y;
     var radius = abilityRange(a) * mods.aoeRadiusMult;
     var ticks = clamp(Math.floor(num(a.ticks, 0, 0, 20)), 0, 20);
-    var perHit = ticks > 0 ? dmg / ticks : dmg;
+    /* `damage` is PER TICK, not a total to be split — see CONTRACT.md. Every
+       tooltip reads it that way ("Two hits of 130"), and only this reading
+       lands DESIGN 5.1's 12 damage per Focus. */
+    var perHit = dmg;
     var slow = (a.slow && typeof a.slow === 'object') ? a.slow : null;
 
     var apply = function () {
@@ -973,10 +1020,16 @@
       }
     };
 
-    if (isNum(a.delay) && a.delay > 0) {
-      run.delayed.push({ timer: clamp(a.delay, 0, 10), fn: apply });
-    } else if (ticks > 0) {
-      for (var i = 0; i < ticks; i++) run.delayed.push({ timer: (i + 1) * 0.25, fn: apply });
+    /* delay and ticks compose: a delayed multi-tick ability lands all N pulses,
+       the first one `delay` seconds out. Ordering these as exclusive branches
+       silently dropped every pulse but one. */
+    var delay = (isNum(a.delay) && a.delay > 0) ? clamp(a.delay, 0, 10) : 0;
+    if (ticks > 0) {
+      for (var k = 0; k < ticks; k++) {
+        run.delayed.push({ timer: delay + k * T.TICK_INTERVAL, fn: apply });
+      }
+    } else if (delay > 0) {
+      run.delayed.push({ timer: delay, fn: apply });
     } else {
       apply();
     }
@@ -1270,7 +1323,11 @@
       if (p.owner === 'player') {
         for (var e = state.enemies.length - 1; e >= 0; e--) {
           var en = state.enemies[e];
-          if (en.dead) continue;
+          /* dealDamage -> killEnemy splices state.enemies, and a chain or a
+             Slagbrute detonation can remove two or more in one iteration while
+             `e` only decrements by one — so this index can outrun the array.
+             castAoe and castDash already guard the same way. */
+          if (!en || en.dead) continue;
           if (p.hit && p.hit[en.uid]) continue;
           if (hyp(en.x - p.x, en.y - p.y) < en.size + p.r) {
             if (p.slow) {
@@ -1923,7 +1980,7 @@
           abilityId: a.id, range: abilityRange(a) * (a.kind === 'aoe' ? mods.aoeRadiusMult : 1),
           delay: isNum(a.delay) ? clamp(a.delay, 0, 10) : 0,
           ticks: castTicks,
-          tickInterval: castTicks > 0 ? 0.25 : 0
+          tickInterval: castTicks > 0 ? T.TICK_INTERVAL : 0
         });
 
         switch (a.kind) {
@@ -1947,10 +2004,15 @@
       run.moveY = clamp(isNum(my) ? my : 0, -1, 1);
     },
 
+    /* The floor must stay below anything the CSS can hand us or the sim
+       silently simulates space the canvas never draws: in landscape the
+       playfield is ~157px tall, so a floor of 200 put 21.5% of the arena — and
+       the player — off the bottom of the visible canvas. */
     setArena: function (w, h) {
-      state.arena.w = clamp(isNum(w) ? w : 390, 200, 8000);
-      state.arena.h = clamp(isNum(h) ? h : 700, 200, 8000);
+      state.arena.w = clamp(isNum(w) ? w : 390, 120, 8000);
+      state.arena.h = clamp(isNum(h) ? h : 700, 120, 8000);
       movePlayerTo(state.player.x, state.player.y);
+      return { w: state.arena.w, h: state.arena.h };   // so callers can assert
     },
 
     choosePact: function (idOrNull) {
