@@ -79,7 +79,7 @@
     spd: 240, color: '#a855f7', abilities: []
   }];
   var FALLBACK_RIFTS = [{ id: 'thinning', name: 'The Thinning', text: 'Standard rift. No modifiers.' }];
-  var FALLBACK_TIERS = [{ min: 0, mult: 1 }, { min: 25, mult: 2 }, { min: 50, mult: 4 }, { min: 75, mult: 8 }, { min: 90, mult: 16 }];
+  var FALLBACK_TIERS = [{ min: 0, mult: 1 }, { min: 25, mult: 2 }, { min: 50, mult: 3.5 }, { min: 75, mult: 6 }, { min: 90, mult: 11 }];
   var FALLBACK_CAUSE = {
     brink: 'You rode the Veil past the brink. Everything moved faster than you did.',
     wraith: 'The wraiths you left behind finally caught you.',

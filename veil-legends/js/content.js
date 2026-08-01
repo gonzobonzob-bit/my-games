@@ -45,10 +45,10 @@
      ======================================================================== */
   var VEIL_TIERS = [
     { min: 0,  mult: 1  },
-    { min: 25, mult: 2  },
-    { min: 50, mult: 4  },
-    { min: 75, mult: 8  },
-    { min: 90, mult: 16 }
+    { min: 25, mult: 2   },
+    { min: 50, mult: 3.5 },
+    { min: 75, mult: 6   },
+    { min: 90, mult: 11  }
   ];
 
   /* ==========================================================================
@@ -57,7 +57,7 @@
   var HEROES = [
     {
       id: 'warrior', name: 'Warrior', icon: '⚔️', color: '#ef4444',
-      hp: 1250, focusMax: 90, focusRegen: 17, atk: 100, spd: 340,
+      hp: 1625, focusMax: 90, focusRegen: 17, atk: 100, spd: 340,
       unlockAt: null,
       tagline: 'Spends past regen on purpose and has the meat to survive it.',
       quirk: 'Counts the wave out loud and is usually wrong by two.',
@@ -80,7 +80,7 @@
     },
     {
       id: 'mage', name: 'Mage', icon: '🔮', color: '#8b5cf6',
-      hp: 720, focusMax: 120, focusRegen: 20, atk: 100, spd: 330,
+      hp: 936, focusMax: 120, focusRegen: 20, atk: 100, spd: 330,
       unlockAt: null,
       tagline: 'The deepest pool in the roster and the softest body under it.',
       quirk: 'Will not cast standing on a seam in the stones.',
@@ -104,7 +104,7 @@
     },
     {
       id: 'assassin', name: 'Assassin', icon: '🗡️', color: '#10b981',
-      hp: 860, focusMax: 80, focusRegen: 21, atk: 100, spd: 420,
+      hp: 1118, focusMax: 80, focusRegen: 21, atk: 100, spd: 420,
       unlockAt: null,
       tagline: 'Fastest regen, smallest pool. Sustainable if you never stop moving.',
       quirk: 'Sharpens between waves whether or not it needs it.',
@@ -125,7 +125,7 @@
     },
     {
       id: 'ranger', name: 'Ranger', icon: '🏹', color: '#f59e0b',
-      hp: 950, focusMax: 100, focusRegen: 18, atk: 100, spd: 375,
+      hp: 1235, focusMax: 100, focusRegen: 18, atk: 100, spd: 375,
       unlockAt: null,
       tagline: 'Sits on the baseline: 18 Focus a second in, 18.2 out. Always slightly behind.',
       quirk: 'Feeds the wall cat. Every run. Before anything else.',
@@ -149,7 +149,7 @@
     },
     {
       id: 'veilcaller', name: 'Veilcaller', icon: '🕯️', color: '#f472b6',
-      hp: 800, focusMax: 70, focusRegen: 15, atk: 100, spd: 355,
+      hp: 1040, focusMax: 70, focusRegen: 15, atk: 100, spd: 355,
       unlockAt: { wave: 12 },
       tagline: 'Lowest regen, smallest pool. Built to be in debt and to schedule it.',
       quirk: 'Talks to the Veil the way you would talk to a landlord.',
@@ -260,94 +260,94 @@
       flavor: 'Two seconds, entered in a hand that is not yours.' },
 
     /* ---- TIER 2 : upkeep-bearing ---- */
-    { id: 't2_sever', name: 'Sever', icon: '🗡️', tier: 2, cost: 190, upkeep: 5,
+    { id: 't2_sever', name: 'Sever', icon: '🗡️', tier: 2, cost: 430, upkeep: 5,
       ops: { meleeDamageMult: 1.35 },
       text: 'Melee damage ×1.35.',
       flavor: 'Keen Edge taught the blade the trick. This one taught it the habit.' },
 
-    { id: 't2_ranging_eye', name: 'Ranging Eye', icon: '👁️', tier: 2, cost: 190, upkeep: 5,
+    { id: 't2_ranging_eye', name: 'Ranging Eye', icon: '👁️', tier: 2, cost: 430, upkeep: 5,
       ops: { projDamageMult: 1.35 },
       text: 'Projectile damage ×1.35.',
       flavor: 'It sights down the shaft from the far end. Stack it under Splinter.' },
 
-    { id: 't2_bloom', name: 'Bloom', icon: '💥', tier: 2, cost: 210, upkeep: 6,
+    { id: 't2_bloom', name: 'Bloom', icon: '💥', tier: 2, cost: 475, upkeep: 6,
       ops: { aoeDamageMult: 1.30, aoeRadiusMult: 1.25 },
       text: 'Area damage ×1.30, area radius ×1.25.',
       flavor: 'Wide Burn wanted the room. This one wants the street.' },
 
-    { id: 't2_hastened', name: 'Hastened', icon: '⚡', tier: 2, cost: 230, upkeep: 7,
+    { id: 't2_hastened', name: 'Hastened', icon: '⚡', tier: 2, cost: 520, upkeep: 7,
       ops: { cooldownMult: 0.82 },
       text: 'All cooldowns ×0.82.',
       flavor: 'Faster hands spend faster. The Veil is fine with that.' },
 
-    { id: 't2_hollow_lung', name: 'Hollow Lung', icon: '🫁', tier: 2, cost: 240, upkeep: 8,
+    { id: 't2_hollow_lung', name: 'Hollow Lung', icon: '🫁', tier: 2, cost: 540, upkeep: 8,
       ops: { focusRegenAdd: 4 },
       text: 'Focus regen +4/s.',
       flavor: 'Something breathes for you now. It charges by the hour.' },
 
-    { id: 't2_glass_edge', name: 'Glass Edge', icon: '💎', tier: 2, cost: 200, upkeep: 6,
+    { id: 't2_glass_edge', name: 'Glass Edge', icon: '💎', tier: 2, cost: 450, upkeep: 6,
       ops: { critChanceAdd: 0.18, critMult: 1.9 },
       text: 'Crit chance +18%. Crits deal ×1.9.',
       flavor: 'It breaks about one press in five, and takes something with it.' },
 
-    { id: 't2_cheap_debt', name: 'Cheap Debt', icon: '🪙', tier: 2, cost: 250, upkeep: 6,
+    { id: 't2_cheap_debt', name: 'Cheap Debt', icon: '🪙', tier: 2, cost: 565, upkeep: 6,
       ops: { overdrawRateMult: 0.80 },
       text: 'Overdraw costs 0.64 Veil per Focus instead of 0.80.',
       flavor: 'Better terms on the loan. The loan is still the problem.' },
 
-    { id: 't2_iron_answer', name: 'Iron Answer', icon: '🌵', tier: 2, cost: 185, upkeep: 4,
+    { id: 't2_iron_answer', name: 'Iron Answer', icon: '🌵', tier: 2, cost: 415, upkeep: 4,
       ops: { thornsPct: 0.25 },
       text: 'Attackers take 25% of the damage they deal you.',
       flavor: 'They keep coming. It keeps costing them. Neither party learns.' },
 
     /* ---- TIER 2 : zero upkeep ---- */
-    { id: 't2_leech', name: 'Leech', icon: '🩸', tier: 2, cost: 175, upkeep: 0,
+    { id: 't2_leech', name: 'Leech', icon: '🩸', tier: 2, cost: 395, upkeep: 0,
       ops: { lifestealPct: 0.06 },
       text: 'Heal 6% of damage dealt.',
       flavor: 'It takes nothing from the Veil. It takes it from them.' },
 
-    { id: 't2_wardens_rest', name: "Warden's Rest", icon: '🛏️', tier: 2, cost: 165, upkeep: 0,
+    { id: 't2_wardens_rest', name: "Warden's Rest", icon: '🛏️', tier: 2, cost: 370, upkeep: 0,
       ops: { hpRestoreMultBetweenWaves: 2.0 },
       text: 'Recover 50% of max HP between waves instead of 25%.',
       flavor: 'Somebody sets out water between waves. Nobody has seen them do it.' },
 
-    { id: 't2_one_forgiveness', name: 'One Forgiveness', icon: '🕊️', tier: 2, cost: 220, upkeep: 0,
+    { id: 't2_one_forgiveness', name: 'One Forgiveness', icon: '🕊️', tier: 2, cost: 495, upkeep: 0,
       ops: { brinkGuard: 1 },
       text: 'Your first breach this run spawns no wraith.',
       flavor: 'Once. Written down, and initialled, and once.' },
 
-    { id: 't2_swift_tide', name: 'Swift Tide', icon: '🌊', tier: 2, cost: 200, upkeep: 0,
+    { id: 't2_swift_tide', name: 'Swift Tide', icon: '🌊', tier: 2, cost: 450, upkeep: 0,
       ops: { veilDecayMult: 1.5 },
       text: 'Veil bleeds 6/s once settled, instead of 4/s.',
       flavor: 'The tide goes out faster. It comes in at the same hour.' },
 
     /* ---- TIER 3 ---- */
-    { id: 't3_unmade_hand', name: 'The Unmade Hand', icon: '✋', tier: 3, cost: 380, upkeep: 12,
+    { id: 't3_unmade_hand', name: 'The Unmade Hand', icon: '✋', tier: 3, cost: 760, upkeep: 12,
       ops: { damageMult: 1.5 },
       text: 'All damage ×1.50.',
       flavor: 'It does not sharpen the weapon. It sharpens the intent behind it.' },
 
-    { id: 't3_wide_dark', name: 'The Wide Dark', icon: '🌑', tier: 3, cost: 420, upkeep: 14,
+    { id: 't3_wide_dark', name: 'The Wide Dark', icon: '🌑', tier: 3, cost: 840, upkeep: 14,
       ops: { aoeDamageMult: 1.5, aoeRadiusMult: 1.4, chainCount: 1 },
       text: 'Area damage ×1.50, area radius ×1.40, hits chain to 1 extra enemy.',
       flavor: 'The end of the Wide Burn line. Bring Bloom or do not bother.' },
 
-    { id: 't3_gutter_kings_price', name: "Gutter King's Price", icon: '👑', tier: 3, cost: 470, upkeep: 22,
+    { id: 't3_gutter_kings_price', name: "Gutter King's Price", icon: '👑', tier: 3, cost: 940, upkeep: 22,
       ops: { damageMult: 1.9, moveSpeedMult: 0.88 },
       text: 'All damage ×1.90. Move speed ×0.88.',
       flavor: 'The best rate anyone offers, from the last person you should take it from.' },
 
-    { id: 't3_wraithbane', name: 'Wraithbane', icon: '⚱️', tier: 3, cost: 340, upkeep: 6,
+    { id: 't3_wraithbane', name: 'Wraithbane', icon: '⚱️', tier: 3, cost: 680, upkeep: 6,
       ops: { wraithDamageMult: 2.2, executeThresholdAdd: 0.10 },
       text: 'Damage to Veilwraiths ×2.20. Execute threshold +10%.',
       flavor: 'Names the thing that came through, which is most of the work.' },
 
-    { id: 't3_open_channel', name: 'Open Channel', icon: '🌀', tier: 3, cost: 450, upkeep: 15,
+    { id: 't3_open_channel', name: 'Open Channel', icon: '🌀', tier: 3, cost: 900, upkeep: 15,
       ops: { focusRegenAdd: 7, focusMaxAdd: 40 },
       text: 'Focus regen +7/s. Focus pool +40.',
       flavor: 'Deeper Well, then Hollow Lung, then this, and the floor to pay for all three.' },
 
-    { id: 't3_glass_cathedral', name: 'Glass Cathedral', icon: '⛪', tier: 3, cost: 460, upkeep: 0,
+    { id: 't3_glass_cathedral', name: 'Glass Cathedral', icon: '⛪', tier: 3, cost: 920, upkeep: 0,
       ops: { hpMaxAdd: 600, veilDecayMult: 1.8, moveSpeedMult: 1.12 },
       text: 'Max HP +600. Veil bleeds 7.2/s once settled. Move speed ×1.12.',
       flavor: 'Costs a fortune and adds not one point of damage. Wins runs anyway.' }
@@ -365,62 +365,62 @@
   var ENEMY_TYPES = [
     /* --- minions --- */
     { id: 'husk', name: 'Husk', shape: 'husk', color: '#94a3b8', role: 'minion',
-      size: 15, hp: 70, atk: 6, spd: 100, moteValue: 8, boss: false, telegraph: 0,
+      size: 15, hp: 70, atk: 4.5, spd: 100, moteValue: 4, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }],
       text: 'Walks at you. Nothing else. Most of the wave, most of the time.' },
 
     { id: 'wisp', name: 'Emberwisp', shape: 'wisp', color: '#fbbf24', role: 'minion',
-      size: 11, hp: 40, atk: 5, spd: 142, moteValue: 8, boss: false, telegraph: 0,
+      size: 11, hp: 40, atk: 3.75, spd: 142, moteValue: 4, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }],
       text: 'Forty HP at 142 speed. Harmless alone, and never alone.' },
 
     /* --- brutes: ~70% of wave HP, low threat --- */
     { id: 'cairnbound', name: 'Cairnbound', shape: 'block', color: '#78716c', role: 'brute',
-      size: 34, hp: 420, atk: 9, spd: 60, moteValue: 32, boss: false, telegraph: 0,
+      size: 34, hp: 420, atk: 6.75, spd: 60, moteValue: 14, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }],
       text: '420 HP at speed 60. It cannot catch you and it does not need to — it is the par clock walking.' },
 
     { id: 'slagbrute', name: 'Slagbrute', shape: 'hex', color: '#ea580c', role: 'brute',
-      size: 29, hp: 340, atk: 8, spd: 72, moteValue: 32, boss: false, telegraph: 0.5,
+      size: 29, hp: 340, atk: 6, spd: 72, moteValue: 14, boss: false, telegraph: 0.5,
       behaviors: [{ type: 'chaser' }, { type: 'bomber', radius: 95, damage: 34 }],
       text: 'Bursts for 34 across 95px when it dies. Killing it in a crowd kills the crowd. Killing it next to you kills you.' },
 
     { id: 'motherglass', name: 'Motherglass', shape: 'diamond', color: '#2dd4bf', role: 'brute',
-      size: 26, hp: 200, atk: 8, spd: 84, moteValue: 24, boss: false, telegraph: 0,
+      size: 26, hp: 200, atk: 6, spd: 84, moteValue: 11, boss: false, telegraph: 0,
       behaviors: [{ type: 'chaser' }, { type: 'splitter', into: 'wisp', count: 3 }],
       text: 'Breaks into three Emberwisps. The HP pool does not go down when it dies — it spreads out.' },
 
     /* --- stalkers: ~70% of incoming damage rate --- */
     { id: 'nettle', name: 'Nettle', shape: 'shard', color: '#f43f5e', role: 'stalker',
-      size: 13, hp: 90, atk: 30, spd: 132, moteValue: 16, boss: false, telegraph: 0.25,
+      size: 13, hp: 90, atk: 24, spd: 132, moteValue: 7, boss: false, telegraph: 0.25,
       behaviors: [{ type: 'orbiter', radius: 120, strikeCd: 1.6 }],
-      text: 'Circles at 120px and darts in every 1.6s for 30. Ninety HP. Kill it first; it will not be there later.' },
+      text: 'Circles at 120px and darts in every 1.6s for 24. Ninety HP. Kill it first; it will not be there later.' },
 
     { id: 'lancer', name: 'Lancer', shape: 'spike', color: '#fb7185', role: 'stalker',
-      size: 18, hp: 130, atk: 38, spd: 88, moteValue: 24, boss: false, telegraph: 0.7,
+      size: 18, hp: 130, atk: 30, spd: 88, moteValue: 11, boss: false, telegraph: 0.7,
       behaviors: [{ type: 'charger', windup: 0.7, dashSpeed: 470, dashCd: 3.2 }],
-      text: '0.7s of windup, then 470 speed and 38 damage. The windup is the whole fight — step sideways, not back.' },
+      text: '0.7s of windup, then 470 speed and 30 damage. The windup is the whole fight — step sideways, not back.' },
 
     { id: 'ashcaster', name: 'Ashcaster', shape: 'star', color: '#c084fc', role: 'stalker',
-      size: 16, hp: 100, atk: 26, spd: 76, moteValue: 24, boss: false, telegraph: 0.4,
+      size: 16, hp: 100, atk: 21, spd: 76, moteValue: 11, boss: false, telegraph: 0.4,
       behaviors: [{ type: 'ranged', range: 270, attackCd: 2.0, projSpeed: 250 }],
-      text: 'Holds 270px and lobs for 26 every 2s. It never closes, so it never stops.' },
+      text: 'Holds 270px and lobs for 21 every 2s. It never closes, so it never stops.' },
 
     /* --- support --- */
     { id: 'warden', name: 'Hollow Warden', shape: 'ring', color: '#38bdf8', role: 'support',
-      size: 22, hp: 240, atk: 6, spd: 66, moteValue: 48, boss: false, telegraph: 0,
+      size: 22, hp: 240, atk: 4.5, spd: 66, moteValue: 22, boss: false, telegraph: 0,
       behaviors: [{ type: 'shielder', radius: 150, reduction: 0.35 }],
       text: 'Everything within 150px takes 35% less. It pays the best of any minion and it is worth killing for free.' },
 
     /* --- bosses: wave 5 / 10 / 15 rotation --- */
     { id: 'toll_collector', name: 'The Toll Collector', shape: 'crown', color: '#fbbf24',
-      role: 'boss', size: 50, hp: 2600, atk: 34, spd: 80, moteValue: 90,
+      role: 'boss', size: 50, hp: 2600, atk: 26, spd: 80, moteValue: 90,
       boss: true, telegraph: 1.0,
       behaviors: [
         { type: 'charger', windup: 1.0, dashSpeed: 520, dashCd: 4.5 },
-        { type: 'summoner', spawns: 'husk', count: 3, period: 7 }
+        { type: 'summoner', spawns: 'husk', count: 1, period: 9 }
       ],
-      text: 'Charges on a 4.5s cycle and sets down three Husks every 7s. The Husks are the toll. It is only collecting.' },
+      text: 'Charges on a 4.5s cycle and sets down a Husk every 9s. The Husk is the toll. It is only collecting.' },
 
     { id: 'lamplighter', name: 'The Lamplighter', shape: 'orb', color: '#38bdf8',
       role: 'boss', size: 56, hp: 4200, atk: 40, spd: 62, moteValue: 140,
@@ -679,7 +679,7 @@
      from DESIGN.md's binding constants:
        0.8 Veil per Focus (= "4 Veil per 5 Focus")  DESIGN 1
        decay 4/s after 1.5s settle                  DESIGN 1
-       tiers 25/50/75/90 -> x2/x4/x8/x16            VEIL_TIERS above
+       tiers 25/50/75/90 -> x2/x3.5/x6/x11         VEIL_TIERS above
        contact x(1+V/50): V=50 -> x2, V=96 -> x2.92 DESIGN 1
        brink at 100, resets to 60                   DESIGN 1
        wraith speed 1.05x player base               DESIGN 1
@@ -742,7 +742,7 @@
         { h: 'WHAT VEIL DOES',
           p: 'At 50 Veil everything that touches you hits twice as hard, and everything on the field is faster. Near 100, the quick ones run you down.' },
         { h: 'WHAT VEIL PAYS',
-          p: 'Motes multiply with held Veil: ×2 at 25, ×4 at 50, ×8 at 75, ×16 at 90. Held Veil is the price. You are not paid for touching the number, only for staying there.' },
+          p: 'Motes multiply with held Veil: ×2 at 25, ×3.5 at 50, ×6 at 75, ×11 at 90. Held Veil is the price. You are not paid for touching the number, only for staying there.' },
         { h: 'SETTLE',
           p: 'Stop casting for 1.5 seconds and Veil bleeds off at 4 a second. That pause is a real move. Most deaths are somebody who never took one.' },
         { h: 'BRINK',
@@ -803,9 +803,9 @@
       tierBands: [
         { min: 0,  label: 'CLEAR',     mult: '×1'  },
         { min: 25, label: 'THIN',      mult: '×2'  },
-        { min: 50, label: 'DEEP',      mult: '×4'  },
-        { min: 75, label: 'CLOSE',     mult: '×8'  },
-        { min: 90, label: 'BREACHING', mult: '×16' }
+        { min: 50, label: 'DEEP',      mult: '×3.5' },
+        { min: 75, label: 'CLOSE',     mult: '×6'  },
+        { min: 90, label: 'BREACHING', mult: '×11' }
       ]
     },
 
@@ -886,7 +886,7 @@
     ],
 
     bossIntro: {
-      toll_collector: '👑 THE TOLL COLLECTOR\nIt sets down three Husks every seven seconds. Those are the toll. It is only collecting.',
+      toll_collector: '👑 THE TOLL COLLECTOR\nIt sets down a Husk every nine seconds. That is the toll. It is only collecting.',
       lamplighter: '🔵 THE LAMPLIGHTER\nEverything inside her ring takes 45% less. She has never had to come closer than 320.',
       reckoner: '🔴 THE RECKONER\nSpeed 108 at Veil 0, 270 at Veil 90. Take it low or do not take it.'
     },
@@ -946,7 +946,7 @@
       causes: {
         brink: [
           'You held above 90 Veil for the last stretch of it. At that height a Husk hits for very nearly three times its listed number, and there were more than three Husks.',
-          'You were buying ×16 motes and paying for them with the only body you had.',
+          'You were buying ×11 motes and paying for them with the only body you had.',
           'The breach opened under your feet on wave {wave}. Nothing on the field was faster than you when the wave started. By the end, most of it was.',
           'Veil 100 with {n} HP in hand. The arithmetic finished without you.'
         ],
@@ -1215,7 +1215,7 @@
     if (!asc(7) || asc(7).mods.parMult !== 0.8) out.push('A7 must be parMult 0.8');
 
     /* Veil tiers keep the x1/2/4/8/16 shape. */
-    var wantMult = [1, 2, 4, 8, 16];
+    var wantMult = [1, 2, 3.5, 6, 11];
     for (i = 0; i < wantMult.length; i++) {
       if (!VEIL_TIERS[i] || VEIL_TIERS[i].mult !== wantMult[i]) {
         out.push('VEIL_TIERS[' + i + '] must have mult ' + wantMult[i]);

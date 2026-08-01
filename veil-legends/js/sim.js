@@ -79,13 +79,17 @@
     MAX_VEIL_FLOOR: 90,       // hard cap; keeps breach from re-triggering instantly
     WRAITH_SPEED_MULT: 1.05,  // x player BASE speed
     WRAITH_BASE_HP: 220,
-    PAR_OVERRUN_VEIL: 4,      // Veil per second past par
+    PAR_OVERRUN_VEIL: 1.5,    // Veil per second past par; MUST stay under
+                              // VEIL_DECAY or the overrun spiral is terminal
     PAR_OVERRUN_FLOOR: 0.1,   // permanent run floor per second past par
     HP_RESTORE_BETWEEN: 0.25, // +25% of hpMax
     MOTE_LIFE: 6,
     TICK_INTERVAL: 0.25,      // seconds between pulses of a `ticks` ability
     DAMAGE_PER_FOCUS: 12,     // k
-    ENEMY_ATTACK_PERIOD: 1.0, // per-enemy contact cadence (no global i-frame)
+    ENEMY_ATTACK_PERIOD: 1.5, // per-enemy contact cadence (no global i-frame).
+                              // 1.0 put wave 5 at 48% of max HP against a 25%
+                              // between-wave restore — the squeeze landed on
+                              // DESIGN Part 4's onboarding runway.
     ENEMY_ATK_GROWTH: 0.10,   // per wave, linear
     PLAYER_R: 16,
     PICKUP_R: 26,
@@ -1559,12 +1563,15 @@
     /* --- Focus & Veil ------------------------------------------------ */
     state.focus = Math.min(state.focusMax, state.focus + effFocusRegen() * dt);
     run.sinceCast += dt;
-    /* Decay only applies inside the settle window AND while at or under par.
-       Without the par condition the +4 V/s overrun penalty and the 4 V/s decay
-       cancel exactly for a player who has stopped casting, which would delete
-       the entire attrition-death pressure (DESIGN Part 2.3). Past par you
-       cannot settle. */
-    if (run.sinceCast >= settleWindow() && state.parRemaining >= 0) {
+    /* Decay applies inside the settle window, past par as well as under it.
+       The old code disabled decay past par to stop the +4 V/s overrun penalty
+       cancelling the 4 V/s decay exactly — but that made the overrun spiral
+       terminal by construction: once behind, Veil rose no matter what the
+       player did. PAR_OVERRUN_VEIL is now 1.5, comfortably under VEIL_DECAY,
+       so a player who stops casting past par sheds a net 2.5 V/s. Attrition
+       pressure (DESIGN Part 2.3) still bites through the permanent floor,
+       which PAR_OVERRUN_FLOOR ratchets and nothing ever lowers. */
+    if (run.sinceCast >= settleWindow()) {
       setVeil(state.veil - T.VEIL_DECAY * mods.veilDecayMult * dt);
     } else {
       setVeil(state.veil);   // keeps veil >= floor and tier events flowing
@@ -1958,11 +1965,18 @@
           state.focus = 0;
           addVeil(deficit * T.OVERDRAW_Q * mods.overdrawRateMult);
           emit({ type: 'overdraw', deficit: deficit });
+          /* Only BORROWING holds the Veil open. Resetting the settle window on
+             every cast gave Veil no reachable equilibrium: decay needs 1.5s of
+             silence and the fastest cooldown is 0.42s, so a player who was
+             fighting at all shed ~31% of what they gained and a full 85->25
+             reset cost 16.5s of not casting against a 26s par. DESIGN Part 1
+             is explicit that casting PAST your Focus is what feeds the Veil —
+             so spending inside your own regen now settles normally. */
+          run.sinceCast = 0;
         } else {
           state.focus -= cost;
         }
         a.cd = a.maxCd;
-        run.sinceCast = 0;                       // resets the settle window
 
         var dmg = abilityDamage(a);
         var tgt = nearestEnemy();

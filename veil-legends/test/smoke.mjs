@@ -499,7 +499,41 @@ section('par overrun');
   for (let i = 0; i < 60; i++) { Sim.setMove(0, 0); Sim.tick(STEP); }
   ok(Math.abs(S.veilFloor - (f0 + 0.1)) < 0.02, 'par overrun adds +0.1 floor/s (saw +' +
     (S.veilFloor - f0).toFixed(3) + ')');
-  ok(S.veil - v0 > 3, 'par overrun adds +4 Veil/s (saw +' + (S.veil - v0).toFixed(2) + ')');
+  /* The overrun rate USED to be 4/s, exactly cancelling VEIL_DECAY, so once a
+     player fell behind par their Veil rose no matter what they did — the
+     spiral was terminal by construction rather than by play. It is now 1.5,
+     and this invariant is the thing to protect: attrition pressure comes from
+     the PERMANENT floor ratchet asserted above, which nothing ever lowers. */
+  ok(Sim.TUNING.PAR_OVERRUN_VEIL < Sim.TUNING.VEIL_DECAY,
+    'par overrun rate stays under the decay rate (' + Sim.TUNING.PAR_OVERRUN_VEIL +
+    ' vs ' + Sim.TUNING.VEIL_DECAY + ')');
+  ok(S.veil - v0 < 1, 'a player who stops casting past par can still settle (saw +' +
+    (S.veil - v0).toFixed(2) + ')');
+}
+
+section('par overrun still applies to a player who cannot settle');
+{
+  /* Isolate the par term: overdraw once to open the settle window, then hold
+     for under settleWindow() so decay never engages, and compare the Veil
+     gained past par against the same second spent under par. The difference
+     is PAR_OVERRUN_VEIL and nothing else. */
+  const gainOverPar = (parRemaining) => {
+    Sim._setStorage(makeStorage());
+    Sim._setSeed(5);
+    Sim.newRun('warden', null);
+    const S = Sim.state;
+    S.focus = 0;                       // guarantees the cast overdraws
+    Sim.useAbility(0);                 // resets sinceCast to 0
+    S.parRemaining = parRemaining;
+    const v0 = S.veil;
+    for (let i = 0; i < 60; i++) { Sim.setMove(0, 0); Sim.tick(STEP); }
+    return S.veil - v0;
+  };
+  const over = gainOverPar(0), under = gainOverPar(100);
+  const delta = over - under;
+  ok(Math.abs(delta - Sim.TUNING.PAR_OVERRUN_VEIL) < 0.25,
+    'past par costs exactly PAR_OVERRUN_VEIL more Veil per second (saw +' +
+    delta.toFixed(2) + ' vs ' + Sim.TUNING.PAR_OVERRUN_VEIL + ')');
 }
 
 section('between-wave HP restore');

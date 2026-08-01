@@ -171,7 +171,9 @@ ok('tick dt is fixed 1/60', await evaluate('__calls.filter(c=>c[0]==="tick").eve
 ok('HP text painted', (await evaluate('document.getElementById("hp-val").textContent')) === '420/900');
 ok('HP warn state at 46%', await evaluate('document.getElementById("hp-val").classList.contains("warn")'));
 ok('par clock painted AND labelled', (await evaluate('document.getElementById("hud-par").textContent')) === 'PAR 0:14');
-ok('veil value shows tier mult', (await evaluate('document.getElementById("veil-val").textContent')) === '63 ×4');
+/* Ladder flattened to x1/2/3.5/6/11 (DESIGN 5.5#1's designated lever), so
+   Veil 63 sits in the 50-75 band at x3.5 rather than the old x4. */
+ok('veil value shows tier mult', (await evaluate('document.getElementById("veil-val").textContent')) === '63 ×3.5');
 ok('veil tier band highlighted (index 2)', (await evaluate('[...document.querySelectorAll("#veil-bands .veil-band")].findIndex(b=>b.classList.contains("on"))')) === 2);
 ok('veil floor marker set', (await evaluate('document.getElementById("veil-floor-mark").style.width')) === '12%');
 ok('HUD leaves the arena at least 55% of the viewport',
