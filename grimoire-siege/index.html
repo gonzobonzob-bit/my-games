@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Grimoire Siege</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#04030e;--panel:#08060f;--card:#0d0b18;--border:#1d1238;--purple:#7c3aed;--gold:#d97706;--red:#dc2626;--green:#16a34a;--blue:#2563eb;--text:#e2d9f3;--muted:#4a3d6a;}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
+
+/* ---------------- Splash ---------------- */
+#splash{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 25%,#1b0a3c 0%,#0a0420 45%,#030108 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:14px;padding:30px;text-align:center;overflow:hidden;}
+#splash::before{content:'';position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent 0%,rgba(124,58,237,0.10) 12%,transparent 26%,transparent 50%,rgba(240,171,252,0.07) 62%,transparent 76%);animation:swirl 26s linear infinite;pointer-events:none;}
+@keyframes swirl{to{transform:rotate(360deg)}}
+#splash::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,transparent 35%,rgba(0,0,0,0.75) 100%);pointer-events:none;}
+.sp-runes{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.sp-runes i{position:absolute;bottom:-30px;font-size:13px;color:#a78bfa;opacity:0;font-style:normal;font-family:'Cinzel',serif;animation:riseRune linear infinite;text-shadow:0 0 12px #7c3aed;}
+@keyframes riseRune{0%{opacity:0;transform:translateY(0) rotate(0deg)}12%{opacity:0.55}88%{opacity:0.4}100%{opacity:0;transform:translateY(-105vh) rotate(220deg)}}
+.sp-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:14px;}
+.sp-ico{font-size:74px;filter:drop-shadow(0 0 34px #7c3aedee);animation:wizFloat 3.2s ease-in-out infinite;}
+@keyframes wizFloat{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-13px) rotate(3deg)}}
+.sp-title{font-family:'Cinzel',serif;font-size:30px;font-weight:900;letter-spacing:1px;background:linear-gradient(135deg,#c4b5fd 0%,#f0abfc 45%,#fbbf24 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 18px rgba(168,85,247,0.5));}
+.sp-rule{width:150px;height:1px;background:linear-gradient(90deg,transparent,#7c3aed,transparent);}
+.sp-sub{font-size:10px;color:#8b7bb8;letter-spacing:4px;}
+.sp-desc{font-size:11.5px;color:#bfb2dd;line-height:1.75;max-width:280px;}
+.sp-btn{position:relative;background:linear-gradient(135deg,#5b21b6,#7c3aed);border:1px solid #a78bfa55;border-radius:14px;padding:14px 42px;font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:#f3e8ff;cursor:pointer;box-shadow:0 6px 26px rgba(124,58,237,0.55),inset 0 1px 0 rgba(255,255,255,0.18);transition:transform 0.15s,box-shadow 0.15s;}
+.sp-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(124,58,237,0.7),inset 0 1px 0 rgba(255,255,255,0.25);}
+.sp-btn:active{transform:translateY(0) scale(0.97);}
+.sp-btn.continue{background:linear-gradient(135deg,#166534,#16a34a);border-color:#4ade8055;box-shadow:0 6px 26px rgba(22,163,74,0.55),inset 0 1px 0 rgba(255,255,255,0.18);}
+.sp-btn.continue:hover{box-shadow:0 10px 32px rgba(22,163,74,0.7),inset 0 1px 0 rgba(255,255,255,0.25);}
+#splash-stats{display:none;font-size:11px;color:#6d5f92;font-weight:700;}
+#splash-stats b{color:#fbbf24;}
+
+/* ---------------- HUD ---------------- */
+#hud{position:relative;background:linear-gradient(180deg,#100a24,#08060f);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:6px 10px;flex-shrink:0;gap:6px;box-shadow:0 2px 14px rgba(0,0,0,0.6);}
+.hud-stat{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:800;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:3px 8px;}
+.hud-stat .icon{font-size:13px;filter:drop-shadow(0 0 5px currentColor);}
+.hud-lives{color:#f87171;}
+.hud-lives.critical{animation:lowPulse 0.8s ease-in-out infinite;}
+@keyframes lowPulse{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 14px rgba(239,68,68,0.7)}}
+.hud-gold{color:#fbbf24;}
+.hud-wave{color:#c4b5fd;font-family:'Cinzel',serif;letter-spacing:0.5px;}
+.hud-kills{color:#a78bfa;}
+.hud-controls{display:flex;gap:5px;margin-left:auto;}
+.hud-icon-btn{background:linear-gradient(180deg,#1a1130,#0d0918);border:1px solid #2a1c4d;border-radius:8px;color:var(--text);font-size:12px;font-weight:800;padding:5px 10px;cursor:pointer;transition:border-color 0.15s;}
+.hud-icon-btn:hover{border-color:var(--purple);}
+.hud-icon-btn:active{transform:scale(0.93);}
+#wave-bar{height:3px;background:#150d2b;flex-shrink:0;overflow:hidden;}
+#wave-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#f0abfc,#fbbf24);box-shadow:0 0 10px #a855f7;transition:width 0.25s linear;}
+
+#game-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;}
+#main-canvas{display:block;flex:1;touch-action:none;}
+
+/* ---------------- Tower shop ---------------- */
+#tower-panel{background:linear-gradient(0deg,#100a24,#08060f);border-top:1px solid var(--border);padding:7px 8px;display:flex;gap:6px;overflow-x:auto;flex-shrink:0;box-shadow:0 -2px 14px rgba(0,0,0,0.6);}
+#tower-panel::-webkit-scrollbar{display:none;}
+.tower-btn{position:relative;flex-shrink:0;background:linear-gradient(180deg,#141026,#0a0714);border:1px solid #241844;border-radius:11px;padding:6px 8px 5px;cursor:pointer;text-align:center;min-width:62px;transition:transform 0.12s,border-color 0.15s,box-shadow 0.15s;overflow:hidden;}
+.tower-btn::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--tcol);opacity:0.75;}
+.tower-btn::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,var(--tcol),transparent 68%);opacity:0.11;pointer-events:none;}
+.tower-btn:hover{transform:translateY(-2px);border-color:var(--tcol);}
+.tower-btn:active{transform:scale(0.94);}
+.tower-btn.selected{border-color:var(--tcol);box-shadow:0 0 0 1px var(--tcol),0 0 16px -2px var(--tcol);}
+.tower-btn.selected::after{opacity:0.26;}
+.tower-btn.cant{opacity:0.4;filter:grayscale(0.6);}
+.tb-icon{font-size:21px;display:block;line-height:1.1;filter:drop-shadow(0 0 7px var(--tcol));}
+.tb-name{font-size:7px;font-weight:800;color:#d6cced;display:block;text-transform:uppercase;letter-spacing:0.4px;}
+.tb-stats{font-size:6.5px;color:#6d5f92;font-weight:700;display:block;letter-spacing:0.2px;}
+.tb-cost{font-size:8.5px;color:#fbbf24;font-weight:800;display:block;margin-top:1px;}
+
+#msg-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:50;}
+.wave-msg{font-family:'Cinzel',serif;font-size:24px;font-weight:900;color:#f0abfc;text-shadow:0 0 34px #7c3aed,0 2px 6px #000;animation:waveMsgAn 2s ease forwards;letter-spacing:1px;}
+@keyframes waveMsgAn{0%{opacity:0;transform:scale(0.65) translateY(14px)}28%{opacity:1;transform:scale(1.1) translateY(0)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0.94) translateY(-10px)}}
+
+/* ---------------- Tower action popover ---------------- */
+#tower-action-panel{position:absolute;z-index:60;display:none;background:linear-gradient(180deg,#191033,#0c0818);border:1px solid var(--purple);border-radius:12px;padding:10px 12px;min-width:156px;box-shadow:0 10px 34px rgba(0,0,0,0.7),0 0 22px -6px #7c3aed;}
+#tower-action-panel.show{display:block;animation:popIn 0.16s ease;}
+@keyframes popIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+.tap-name{font-family:'Cinzel',serif;font-weight:900;font-size:13px;margin-bottom:4px;}
+.tap-stats{font-size:9px;color:#8b7bb8;font-weight:700;margin-bottom:8px;line-height:1.6;}
+.tap-stats b{color:#e2d9f3;}
+.tap-btns{display:flex;gap:6px;}
+.tap-btns button{flex:1;background:linear-gradient(135deg,#5b21b6,#7c3aed);border:none;border-radius:8px;padding:7px 4px;font-size:10px;font-weight:800;color:#f3e8ff;cursor:pointer;}
+.tap-btns button:disabled{opacity:0.35;cursor:not-allowed;}
+.tap-btns button.sell-btn{background:linear-gradient(135deg,#7f1d1d,#dc2626);}
+.tap-close{position:absolute;top:3px;right:6px;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:2px;}
+
+/* ---------------- Overlays ---------------- */
+#pause-overlay,#gameover{position:fixed;inset:0;background:rgba(3,1,10,0.9);backdrop-filter:blur(4px);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:14px;padding:24px;text-align:center;}
+#pause-overlay.show,#gameover.show{display:flex;}
+.go-title{font-family:'Cinzel',serif;font-size:32px;font-weight:900;text-shadow:0 0 30px rgba(168,85,247,0.6);}
+#pause-overlay .go-title{font-size:26px;}
+.go-score{font-family:'Cinzel',serif;font-size:13px;color:#fbbf24;max-width:290px;line-height:1.8;}
+.go-btn{background:linear-gradient(135deg,#5b21b6,#7c3aed);border:1px solid #a78bfa44;border-radius:12px;padding:12px 36px;font-family:'Cinzel',serif;font-size:16px;color:#f3e8ff;cursor:pointer;margin-top:6px;box-shadow:0 5px 20px rgba(124,58,237,0.45);}
+.go-btn:active{transform:scale(0.96);}
+.go-btn.secondary{background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b556344;font-size:13px;padding:9px 26px;box-shadow:none;}
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="sp-runes" id="sp-runes"></div>
+  <div class="sp-inner">
+    <div class="sp-ico">🧙‍♂️</div>
+    <div class="sp-title">GRIMOIRE SIEGE</div>
+    <div class="sp-rule"></div>
+    <div class="sp-sub">TOWER DEFENSE</div>
+    <div class="sp-desc">Your tower is under siege. Place magical defenses, upgrade your arsenal, and hold the line through 12 waves of darkness. Do not let them reach the crystal.</div>
+    <div id="splash-stats">Best Wave <b id="best-wave-disp">0</b>/12 &nbsp;·&nbsp; High Score <b id="high-score-disp">0</b></div>
+    <button class="sp-btn continue" id="continue-btn" style="display:none;" onclick="startGame(true)">Continue Siege</button>
+    <button class="sp-btn" onclick="startGame(false)">New Siege</button>
+  </div>
+</div>
+<div id="app" style="display:none;flex-direction:column;height:100%;">
+  <div id="hud">
+    <div class="hud-stat hud-lives" id="hud-lives-box"><span class="icon">❤️</span><span id="hud-lives">20</span></div>
+    <div class="hud-stat hud-gold"><span class="icon">🪙</span><span id="hud-gold">240</span></div>
+    <div class="hud-stat hud-wave"><span>WAVE&nbsp;</span><span id="hud-wave">0</span><span>/12</span></div>
+    <div class="hud-stat hud-kills"><span id="hud-kills">0</span><span style="font-size:9px;margin-left:2px;color:var(--muted)">kills</span></div>
+    <div class="hud-controls">
+      <button class="hud-icon-btn" id="speed-btn" onclick="toggleSpeed()" title="Toggle speed">1x</button>
+      <button class="hud-icon-btn" onclick="pauseGame()" title="Pause">⏸️</button>
+    </div>
+  </div>
+  <div id="wave-bar"><div id="wave-bar-fill"></div></div>
+  <div id="game-wrap">
+    <canvas id="main-canvas"></canvas>
+    <div id="msg-overlay"></div>
+    <div id="tower-action-panel">
+      <button class="tap-close" onclick="closeTowerActionPanel()">✕</button>
+      <div class="tap-name" id="tap-name"></div>
+      <div class="tap-stats" id="tap-stats"></div>
+      <div class="tap-btns">
+        <button id="tap-upgrade-btn" onclick="upgradeSelectedTower()">Upgrade</button>
+        <button class="sell-btn" onclick="sellSelectedTower()">Sell</button>
+      </div>
+    </div>
+  </div>
+  <div id="tower-panel"></div>
+</div>
+<div id="pause-overlay">
+  <div class="go-title">⏸️ PAUSED</div>
+  <button class="go-btn" onclick="resumeGame()">Resume</button>
+  <button class="go-btn secondary" onclick="saveAndExit()">Save &amp; Main Menu</button>
+  <button class="go-btn secondary" onclick="exitNoSave()">Main Menu (No Save)</button>
+</div>
+<div id="gameover">
+  <div class="go-title" id="go-title">☠️ DEFEATED</div>
+  <div class="go-score" id="go-score"></div>
+  <button class="go-btn" onclick="location.reload()">Play Again</button>
+</div>
+<script src="js/content.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
