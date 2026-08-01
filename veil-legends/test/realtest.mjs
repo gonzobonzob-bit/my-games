@@ -41,6 +41,17 @@ async function evaluate(e) {
 }
 await send('Runtime.enable'); await send('Page.enable'); await send('Log.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 2, mobile: true });
+/* The first-run tutorial pauses the run on its trigger events, which would
+   block every assertion below. Mark the tips seen BEFORE the document runs —
+   writing localStorage after navigation loses the race with the game's own
+   pagehide autosave. The tutorial itself is covered separately at the end. */
+const ALL_TIPS = JSON.stringify({
+  tut_combat: 1, tut_focus: 1, tut_overdraw: 1, tut_tier: 1, tut_settle: 1,
+  tut_par: 1, tut_draft: 1, tut_breach: 1, tut_wraith: 1, tut_boss: 1
+});
+const seedRes = await send('Page.addScriptToEvaluateOnNewDocument',
+  { source: `try{localStorage.setItem('veilLegendsSeenTips',${JSON.stringify(ALL_TIPS)})}catch(e){}` });
+const seedId = seedRes.result && seedRes.result.identifier;
 await send('Page.navigate', { url: GAME });
 await sleep(1600);
 
@@ -64,7 +75,7 @@ ok('enemies spawned', await evaluate('Sim.state.enemies.length>0'), await evalua
 ok('HUD hp painted from sim', await evaluate('document.getElementById("hp-val").textContent===Math.round(Sim.state.hp)+"/"+Math.round(Sim.state.hpMax)'),
   await evaluate('document.getElementById("hp-val").textContent'));
 ok('HUD veil painted', await evaluate('/^\\d+ ×\\d+$/.test(document.getElementById("veil-val").textContent)'), await evaluate('document.getElementById("veil-val").textContent'));
-ok('par clock painted', await evaluate('/^\\d+:\\d\\d/.test(document.getElementById("hud-par").textContent)'), await evaluate('document.getElementById("hud-par").textContent'));
+ok('par clock painted AND labelled', await evaluate('/^PAR \\d+:\\d\\d/.test(document.getElementById("hud-par").textContent)'), await evaluate('document.getElementById("hud-par").textContent'));
 ok('4 ability buttons labelled', await evaluate('[...document.querySelectorAll(".ability-btn .ab-name")].every(e=>e.textContent!=="—")'),
   await evaluate('[...document.querySelectorAll(".ability-btn .ab-name")].map(e=>e.textContent).join("/")'));
 ok('ability costs shown', await evaluate('[...document.querySelectorAll(".ability-btn .ab-cost")].every(e=>/^\\d+F$/.test(e.textContent))'));
@@ -123,6 +134,44 @@ ok('ops summarised in words', await evaluate('!/\\[object|undefined|NaN/.test(do
 ok('upkeep shown on every card', await evaluate('[...document.querySelectorAll(".pact-upkeep .u-num")].length===3'));
 
 ok('no horizontal overflow', await evaluate('document.documentElement.scrollWidth<=window.innerWidth+1'));
+
+/* ---- help + first-run tutorial: both live in content.js and were, for the
+   whole of Squad 1, wired to nothing at all. ---- */
+await evaluate('document.getElementById("pact-draft").hidden=true; Sim.state.phase="combat";');
+await evaluate('document.getElementById("btn-pause").click(); document.getElementById("pause-menu").click(); document.getElementById("confirm-yes").click()');
+await sleep(300);
+ok('menu offers HOW IT WORKS', await evaluate('!!document.getElementById("btn-help")'));
+await evaluate('document.getElementById("btn-help").click()'); await sleep(250);
+ok('help overlay opens', await evaluate('!document.getElementById("help").hidden'));
+ok('help renders every section from content', (await evaluate('document.querySelectorAll("#help-body .help-sec").length')) === (await evaluate('CONTENT.STRINGS.help.sections.length')),
+  await evaluate('document.querySelectorAll("#help-body .help-sec").length+" of "+CONTENT.STRINGS.help.sections.length'));
+ok('help names the mechanic the game is about', await evaluate('/OVERDRAW/.test(document.getElementById("help-body").textContent)'));
+ok('help has no unfilled tokens', await evaluate('!/\\{\\w+\\}/.test(document.getElementById("help-body").textContent)'));
+await evaluate('document.getElementById("help-close").click()'); await sleep(200);
+ok('help closes', await evaluate('document.getElementById("help").hidden'));
+
+/* Prove a tip actually fires. The seen-tips map is cached at page load, so
+   this needs a genuinely fresh document with the seeding script removed. */
+if (seedId) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: seedId });
+await send('Page.addScriptToEvaluateOnNewDocument',
+  { source: `try{localStorage.removeItem('veilLegendsSeenTips');localStorage.removeItem('veilLegendsSave')}catch(e){}` });
+await send('Page.navigate', { url: GAME });
+await sleep(1600);
+await evaluate('document.getElementById("btn-new").click()'); await sleep(250);
+await evaluate('document.getElementById("btn-enter").click()'); await sleep(900);
+const tutShown = await evaluate('!document.getElementById("tutorial").hidden');
+ok('a first-run tip fires on entering combat', tutShown,
+  await evaluate('document.getElementById("tut-title").textContent'));
+if (tutShown) {
+  ok('the tip pauses the run rather than toasting over it', await evaluate('UI.paused === true'));
+  const tt = await evaluate('Sim.state.time'); await sleep(300);
+  ok('sim really is frozen behind the tip', (await evaluate('Sim.state.time')) === tt);
+  await evaluate('document.getElementById("tut-ok").click()'); await sleep(250);
+  ok('dismissing the tip resumes the run', await evaluate('UI.paused === false && document.getElementById("tutorial").hidden'));
+  const t2 = await evaluate('Sim.state.time'); await sleep(300);
+  ok('sim advances again after the tip', (await evaluate('Sim.state.time')) > t2);
+  ok('the same tip does not fire twice', await evaluate('!!JSON.parse(localStorage.veilLegendsSeenTips||"{}").tut_combat'));
+}
 
 console.log('\n=== REAL MODULES ' + W + 'x' + H + ' ===');
 console.log(res.join('\n'));

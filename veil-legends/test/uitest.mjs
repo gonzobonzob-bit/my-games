@@ -68,6 +68,12 @@ await send('Runtime.enable');
 await send('Page.enable');
 await send('Log.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 2, mobile: true });
+/* Mark the first-run tips seen before the document runs, or the tutorial card
+   pauses the run and sits over the layout assertions below. Setting this after
+   navigation loses the race with the game's own pagehide autosave. */
+await send('Page.addScriptToEvaluateOnNewDocument', {
+  source: "try{localStorage.setItem('veilLegendsSeenTips',JSON.stringify({tut_combat:1,tut_focus:1,tut_overdraw:1,tut_tier:1,tut_settle:1,tut_par:1,tut_draft:1,tut_breach:1,tut_wraith:1,tut_boss:1}))}catch(e){}"
+});
 await send('Page.navigate', { url: GAME });
 await sleep(1400);
 
@@ -164,7 +170,7 @@ ok('tick dt is fixed 1/60', await evaluate('__calls.filter(c=>c[0]==="tick").eve
 /* ---- HUD paint ---- */
 ok('HP text painted', (await evaluate('document.getElementById("hp-val").textContent')) === '420/900');
 ok('HP warn state at 46%', await evaluate('document.getElementById("hp-val").classList.contains("warn")'));
-ok('par clock painted', (await evaluate('document.getElementById("hud-par").textContent')) === '0:14');
+ok('par clock painted AND labelled', (await evaluate('document.getElementById("hud-par").textContent')) === 'PAR 0:14');
 ok('veil value shows tier mult', (await evaluate('document.getElementById("veil-val").textContent')) === '63 ×4');
 ok('veil tier band highlighted (index 2)', (await evaluate('[...document.querySelectorAll("#veil-bands .veil-band")].findIndex(b=>b.classList.contains("on"))')) === 2);
 ok('veil floor marker set', (await evaluate('document.getElementById("veil-floor-mark").style.width')) === '12%');

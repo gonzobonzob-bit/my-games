@@ -46,6 +46,8 @@
   --tap:44px;                /* minimum touch target */
   --sat:env(safe-area-inset-top,0px);
   --sab:env(safe-area-inset-bottom,0px);
+  --ability-band:88px;       /* height the ability row occupies; overlay action
+                                bars clear it so a mid-combat tap cannot hit them */
   --sal:env(safe-area-inset-left,0px);
   --sar:env(safe-area-inset-right,0px);
 
@@ -137,6 +139,12 @@ body{user-select:none;-webkit-user-select:none;}
 .bar-top{border-bottom:1px solid var(--line);min-height:52px;}
 .bar-bottom{border-top:1px solid var(--line);
   padding-bottom:calc(8px + var(--sab));flex-wrap:wrap;}
+/* The pact draft and the death screen open directly over the ability row, and
+   their bottom action sat exactly on it — so the thumb that was attacking
+   auto-declined every draft and skipped every death screen. Lift these two
+   clear of that band; the in-flight lockout in ui.js covers the rest. */
+#pact-draft .bar-bottom,
+#death .bar-bottom{padding-bottom:calc(8px + var(--sab) + var(--ability-band));}
 .bar-stack{flex-direction:column;align-items:stretch;gap:8px;}
 .bar-title{flex:1;font-size:15px;color:var(--accent);text-align:center;}
 .bar-side{font-size:14px;color:var(--muted);min-width:56px;text-align:right;}
@@ -512,6 +520,20 @@ body{user-select:none;-webkit-user-select:none;}
   .ab-icon{font-size:21px;}
   .cov-grid{grid-template-columns:1fr 1fr;}
 }
+/* ---- help sheet & first-run tutorial card ---- */
+.help-thesis{padding:12px 14px;margin:0;color:var(--text);font-size:14px;line-height:1.5;
+  border-bottom:1px solid var(--line);}
+.help-sec{padding:10px 14px;border-bottom:1px solid var(--line);}
+.help-h{margin:0 0 4px;font-size:12px;letter-spacing:.08em;color:var(--accent);
+  font-family:'Cinzel',serif;}
+.help-p{margin:0;font-size:13px;line-height:1.5;color:var(--muted);}
+.sheet-card{max-width:420px;align-self:center;}
+.tut-title{margin:18px 16px 6px;font-size:18px;letter-spacing:.06em;color:var(--gold-t);
+  font-family:'Cinzel',serif;text-align:center;}
+.tut-body{margin:0 16px 16px;font-size:14px;line-height:1.55;color:var(--text);text-align:center;}
+.wraith-tag{font-size:11px;letter-spacing:.06em;color:var(--danger-t);
+  border:1px solid var(--danger-t);border-radius:4px;padding:2px 6px;white-space:nowrap;}
+
 @media (max-width:340px){
   .cov-grid{grid-template-columns:1fr;}
   .ab-name{font-size:11px;letter-spacing:-.01em;}
@@ -521,17 +543,23 @@ body{user-select:none;-webkit-user-select:none;}
 /* Landscape: shrink the HUD, keep every control reachable, action bars
    stay outside the scroll containers so they cannot scroll away. */
 @media (orientation:landscape) and (max-height:520px){
-  #hud-top{gap:2px;padding:3px 10px 4px;}
+  #hud-top{gap:1px;padding:2px 10px 3px;}
   .hud-row-meta{min-height:var(--tap);}
-  .veil-legend{display:none;}
+  /* The tier ladder and the OVERDRAW word are the ONLY labels the central
+     mechanic has. Hiding them in landscape left a first-time player with a
+     bare number and a red border, so shrink them rather than dropping them. */
+  .veil-legend{font-size:8px;letter-spacing:0;gap:2px;}
   .hud-row-wavehp .bar-tag{flex-basis:36px;}
-  #toast-rail{height:26px;}
-  #hud-bottom{padding:5px 8px calc(5px + var(--sab));}
-  /* Landscape drops the OVERDRAW *word*; the state still reads from the red
-     border and cost colour, so no information is lost. */
-  .ability-btn{min-height:56px;padding:4px 3px;}
-  .ability-btn.will-overdraw::after{display:none;}
-  .ab-icon{font-size:19px;}
+  #toast-rail{height:22px;}
+  #hud-bottom{padding:4px 8px calc(4px + var(--sab));}
+  :root{--ability-band:60px;}                /* shorter row in landscape */
+  .ability-btn{min-height:52px;padding:3px 3px;}
+  .ability-btn.will-overdraw::after{font-size:7px;letter-spacing:0;}
+  .ab-icon{font-size:18px;}
+  /* No min-height here on purpose: the sim's arena floor is now 120 and
+     UI.doResize feeds it the real measured height, so whatever the playfield
+     gets is exactly what is simulated. Forcing a taller canvas than the
+     viewport can give would just reintroduce the mismatch from the other end. */
   .joystick-zone{width:88px;height:88px;left:10px;bottom:10px;}
   .joystick-knob{width:42px;height:42px;}
   .overlay{align-items:stretch;}

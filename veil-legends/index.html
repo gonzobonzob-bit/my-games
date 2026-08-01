@@ -45,6 +45,10 @@
           <span class="btn-label">COVENANT</span>
           <span class="btn-sub" id="menu-echoes">0 echoes banked</span>
         </button>
+        <button id="btn-help" class="btn" type="button">
+          <span class="btn-label">HOW IT WORKS</span>
+          <span class="btn-sub">Focus, Overdraw and the Veil</span>
+        </button>
         <button id="btn-settings" class="btn" type="button">
           <span class="btn-label">SETTINGS</span>
         </button>
@@ -114,8 +118,9 @@
       <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">&#10073;&#10073;</button>
       <div class="wave-block">
         <span class="wave-num">WAVE <b id="hud-wave">1</b></span>
-        <span class="par-clock" id="hud-par">0:20</span>
+        <span class="par-clock" id="hud-par">PAR 0:20</span>
       </div>
+      <span class="wraith-tag" id="hud-wraiths" hidden>WRAITHS 0</span>
       <div class="motes" title="Motes">&#10022;<b id="hud-motes">0</b></div>
     </div>
 
@@ -220,6 +225,30 @@
   </div>
 </div>
 
+<!-- ============================== HELP ============================== -->
+<div id="help" class="overlay" role="dialog" aria-modal="true" aria-label="How it works" hidden>
+  <div class="sheet">
+    <header class="bar bar-top">
+      <h2 class="bar-title">HOW IT WORKS</h2>
+    </header>
+    <div class="scroll" id="help-body"></div>
+    <div class="bar bar-bottom">
+      <button id="help-close" class="btn btn-primary" type="button">GOT IT</button>
+    </div>
+  </div>
+</div>
+
+<!-- First-run tutorial card. One beat, fired on a sim event, pauses the run. -->
+<div id="tutorial" class="overlay" role="dialog" aria-modal="true" aria-label="Tip" hidden>
+  <div class="sheet sheet-card">
+    <h2 class="tut-title" id="tut-title">TITLE</h2>
+    <p class="tut-body" id="tut-body">Body</p>
+    <div class="bar bar-bottom">
+      <button id="tut-ok" class="btn btn-primary" type="button">GOT IT</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============================= DEATH ============================= -->
 <div id="death" class="overlay" role="dialog" aria-modal="true" aria-label="Run over" hidden>
   <div class="sheet">
@@ -250,6 +279,7 @@
     <div class="bar bar-bottom bar-stack">
       <button id="pause-resume" class="btn btn-primary" type="button">RESUME</button>
       <button id="pause-save" class="btn" type="button">SAVE</button>
+      <button id="pause-help" class="btn" type="button">HOW IT WORKS</button>
       <button id="pause-settings" class="btn" type="button">SETTINGS</button>
       <button id="pause-menu" class="btn btn-ghost" type="button">MAIN MENU</button>
     </div>

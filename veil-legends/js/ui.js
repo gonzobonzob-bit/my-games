@@ -84,7 +84,10 @@
     brink: 'You rode the Veil past the brink. Everything moved faster than you did.',
     wraith: 'The wraiths you left behind finally caught you.',
     attrition: 'The floor rose until there was no headroom left to spend.',
-    swarm: 'Surrounded, and out of Focus.'
+    /* swarm is the catch-all bucket, so this line has to be true of every
+       death that lands in it. The old copy asserted "out of Focus" and was
+       routinely shown with the Focus bar reading 84/90 six lines above it. */
+    swarm: 'Surrounded. Too many bodies, too close, for too long.'
   };
 
   function CT() { return g.CONTENT || {}; }
@@ -119,6 +122,16 @@
   /* content.js ships STRINGS.death = { titles:{cause:str}, causes:{cause:[str]} }
      with {wave} {n} {breaches} {floor} placeholders. Older/flat shapes and a
      missing STRINGS both still resolve to something readable. */
+  /* Generic {token} filler for the HUD strings, which are keyed to their own
+     values rather than to run state. */
+  function tok(str, map) {
+    var out = String(str);
+    for (var k in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+      out = out.replace(new RegExp('\\{' + k + '\\}', 'g'), String(map[k]));
+    }
+    return out;
+  }
   function fillTokens(str, s) {
     var st = (s && s.runStats) || {};
     return String(str)
@@ -319,7 +332,11 @@
     if ($('covenant')) $('covenant').hidden = name !== 'covenant';
     if ($('game-ui')) $('game-ui').hidden = name !== 'game';
 
+    /* Leaving the game stops the loop; coming BACK has to start it again, or
+       the arena behind the death overlay is a frozen frame (death -> covenant
+       -> back rendered 0 times until reload). */
     if (name !== 'game') { stopLoop(); UI.paused = false; }
+    else if (!UI.paused && state().phase) startLoop();
     if (name === 'menu') { closeAllOverlays(); refreshMenu(); }
     if (name === 'select') refreshSelect();
     if (name === 'covenant') renderCovenant();
@@ -337,11 +354,27 @@
     }
     routeTo('menu');
   }
+  /* Pointer input aimed at an overlay is ignored for this long after it opens,
+     so a tap meant for the ability underneath cannot activate it. */
+  var OVERLAY_ARM_MS = 450;
+  var overlayArmedAt = 0;
+  function overlayGuard(e) {
+    if (!overlayStack.length) return;
+    /* Only real input can be "already in flight" — a programmatic .click() is
+       not a thumb, and gating on that keeps scripted callers working. */
+    if (e.isTrusted === false) return;
+    if (perfNow() - overlayArmedAt >= OVERLAY_ARM_MS) return;
+    var top = $(overlayStack[overlayStack.length - 1]);
+    if (!top || !e.target || !top.contains(e.target)) return;
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+  }
   function openOverlay(id) {
     var e = $(id); if (!e || overlayStack.indexOf(id) >= 0) return;
     openers[id] = doc.activeElement;
     overlayStack.push(id);
     e.hidden = false;
+    overlayArmedAt = perfNow();
     navRefresh(true);
   }
   function closeOverlay(id) {
@@ -359,6 +392,95 @@
     navRefresh(true);
   }
   function isOpen(id) { return overlayStack.indexOf(id) >= 0; }
+
+  /* ------------------------- help & tutorial -------------------------
+     content.js has always carried STRINGS.help and a ten-step
+     STRINGS.tutorial keyed to sim events. Nothing consumed either, so the
+     game shipped with its own tutorial switched off and every one of its
+     terms — Veil, Focus, motes, par, breach, headroom — undefined on screen.
+     ------------------------------------------------------------------ */
+  var TUT_KEY = 'veilLegendsSeenTips';
+  var seenTips = null;
+  function loadSeenTips() {
+    if (seenTips) return seenTips;
+    seenTips = {};
+    try {
+      var raw = g.localStorage && g.localStorage.getItem(TUT_KEY);
+      var o = raw ? JSON.parse(raw) : null;
+      if (o && typeof o === 'object' && !(o instanceof Array)) {
+        for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) seenTips[k] = !!o[k];
+      }
+    } catch (e) { seenTips = {}; }
+    return seenTips;
+  }
+  function markTipSeen(id) {
+    loadSeenTips()[id] = true;
+    try { g.localStorage.setItem(TUT_KEY, JSON.stringify(seenTips)); } catch (e) { }
+  }
+  function tips() { var s = strings().tutorial; return (s instanceof Array) ? s : []; }
+
+  function openHelp() {
+    var h = strings().help || {};
+    var host = $('help-body'); if (!host) return;
+    host.innerHTML = '';
+    if (h.thesis) {
+      var t = el('p', 'help-thesis', h.thesis);
+      host.appendChild(t);
+    }
+    var secs = (h.sections instanceof Array) ? h.sections : [];
+    for (var i = 0; i < secs.length; i++) {
+      var wrap = el('div', 'help-sec');
+      wrap.appendChild(el('h3', 'help-h', String(secs[i].h || '')));
+      wrap.appendChild(el('p', 'help-p', String(secs[i].p || '')));
+      host.appendChild(wrap);
+    }
+    if (!secs.length && !h.thesis) host.appendChild(el('p', 'tip-line', 'No help available.'));
+    openOverlay('help');
+  }
+
+  /* One tip at a time, each shown once ever, and the run is paused behind it —
+     a 2.4s toast over live combat is not a teaching moment. */
+  var tutPending = null;
+  function showTip(tip) {
+    if (!tip || loadSeenTips()[tip.id] || isOpen('tutorial')) return;
+    markTipSeen(tip.id);
+    setText($('tut-title'), String(tip.title || ''));
+    setText($('tut-body'), String(tip.body || ''));
+    tutPending = tip;
+    if (!UI.paused) { UI.paused = true; tutResumeOnClose = true; } else tutResumeOnClose = false;
+    openOverlay('tutorial');
+  }
+  var tutResumeOnClose = false;
+  function dismissTutorial() {
+    closeOverlay('tutorial');
+    tutPending = null;
+    if (tutResumeOnClose) { tutResumeOnClose = false; UI.paused = false; }
+  }
+  function fireTip(when) {
+    var list = tips();
+    for (var i = 0; i < list.length; i++) if (list[i].when === when) { showTip(list[i]); return; }
+  }
+
+  var tutSeenBreaches = 0;
+  function tutorialWatch(s, evs) {
+    if (!s || !tips().length) return;
+    if (route !== 'game') return;
+    for (var i = 0; i < evs.length; i++) {
+      var e = evs[i];
+      if (e.type === 'wave_start' && s.wave === 1) fireTip('first_combat');
+      else if (e.type === 'cast') fireTip('first_cast');
+      else if (e.type === 'overdraw') fireTip('first_overdraw');
+      else if (e.type === 'tier_change' && num(s.veil) >= 25) fireTip('veil_25');
+      else if (e.type === 'breach') {
+        tutSeenBreaches++;
+        fireTip(tutSeenBreaches >= 2 ? 'second_breach' : 'first_breach');
+      } else if (e.type === 'wave_start' && s.wave === 5) fireTip('first_boss');
+    }
+    if (s.phase === 'pactDraft') fireTip('first_draft');
+    /* Settle and par have no event of their own — they are states. */
+    if (s.phase === 'combat' && num(s.parRemaining) < 0) fireTip('par_visible');
+    if (s.phase === 'combat' && num(s.veil) > 12 && num(s.veil) > num(s.veilFloor) + 8) fireTip('settle_available');
+  }
 
   /* confirm dialog -------------------------------------------------- */
   var confirmFn = null;
@@ -401,10 +523,13 @@
     if (!r.unlockAt) return true;
     return (m.riftsUnlocked || []).indexOf(r.id) >= 0;
   }
+  /* A bare "Wave 12" badge reads as a label, not a lock — players tapped these
+     cards, got no response and assumed the game was broken. Say the verb. */
   function unlockText(u) {
     if (!u) return '';
-    if (u.wave) return 'Wave ' + u.wave;
-    if (u.ascension) return 'Ascension ' + u.ascension;
+    var hs = strings().heroSelect || {};
+    if (u.wave) return tok(hs.locked || 'Locked — reach wave {wave} in a single run.', { wave: u.wave });
+    if (u.ascension) return 'Locked — reach Ascension ' + u.ascension + '.';
     return 'Locked';
   }
   function refreshSelect() {
@@ -428,9 +553,15 @@
       var b = el('button', 'card' + (h.id === selHero ? ' selected' : ''));
       b.type = 'button'; b.disabled = !ok;
       b.setAttribute('aria-pressed', h.id === selHero ? 'true' : 'false');
+      /* STRINGS.heroSelect.sub says regen "is the whole difference" — and the
+         card used to omit it, so the deciding stat was not on the comparison
+         surface. focusLine was written for this and had no consumer. */
+      var hs = strings().heroSelect || {};
+      var statLine = tok(hs.focusLine || '{regen} Focus/s regen · {max} pool · {hp} HP',
+        { regen: r1(h.focusRegen), max: num(h.focusMax) | 0, hp: num(h.hp) | 0 });
       b.innerHTML = '<span class="card-icon">' + esc(h.icon || '⚔️') + '</span>' +
         '<span class="card-name">' + esc(h.name || h.id) + '</span>' +
-        '<span class="card-stat">HP ' + (num(h.hp) | 0) + ' · F ' + (num(h.focusMax) | 0) + '</span>' +
+        '<span class="card-stat">' + esc(statLine) + '</span>' +
         (ok ? '' : '<span class="card-lock">' + esc(unlockText(h.unlockAt)) + '</span>');
       b.onclick = function () { selHero = h.id; refreshSelect(); tapSfx(); };
       hr.appendChild(b);
@@ -776,8 +907,25 @@
     if (last.motes !== motes) { last.motes = motes; setText($('hud-motes'), String(motes)); }
 
     var par = num(s.parRemaining);
-    var parTxt = par >= 0 ? mmss(par) : '+' + mmss(-par) + ' OVER';
+    /* A bare "0:20" taught nobody what the clock was, and going past it
+       silently ratchets a permanent Veil floor. STRINGS.hud.par/overPar were
+       written for exactly this and had no consumer. */
+    var hudS = (strings().hud) || {};
+    var parTxt = par >= 0
+      ? tok(hudS.par || "PAR {time}", { time: mmss(par) })
+      : tok(hudS.overPar || "OVER PAR +{time}", { time: mmss(-par) });
     if (last.parTxt !== parTxt) { last.parTxt = parTxt; setText($('hud-par'), parTxt); }
+
+    /* Wraiths are permanent, stack, and had no counter anywhere on screen. */
+    var wr = num(s.wraithCount) | 0;
+    if (last.wraiths !== wr) {
+      last.wraiths = wr;
+      var wt = $('hud-wraiths');
+      if (wt) {
+        wt.hidden = wr <= 0;
+        if (wr > 0) setText(wt, tok(hudS.wraiths || "WRAITHS {n}", { n: String(wr) }));
+      }
+    }
     /* warning arrives BEFORE the cliff: hot at 6s left, critical past par */
     var parState = par < 0 ? 'crit' : (par <= 6 ? 'warn' : '');
     if (last.parState !== parState) {
@@ -1188,6 +1336,12 @@
         'MAIN MENU', function () { quitToMenu(); });
     });
 
+    /* help */
+    on($('btn-help'), 'click', function () { tapSfx(); openHelp(); });
+    on($('pause-help'), 'click', function () { tapSfx(); openHelp(); });
+    on($('help-close'), 'click', function () { tapSfx(); closeOverlay('help'); });
+    on($('tut-ok'), 'click', function () { tapSfx(); dismissTutorial(); });
+
     /* draft */
     on($('btn-decline'), 'click', function () { tapSfx(); call(g.Sim, 'choosePact', null); closeOverlay('pact-draft'); });
 
@@ -1355,6 +1509,7 @@
     var evs = (g.Sim && typeof g.Sim.drainEvents === 'function') ? (g.Sim.drainEvents() || []) : [];
     if (g.FX && typeof g.FX.render === 'function') g.FX.render(state(), evs);
     UI.syncHud(state(), evs);
+    tutorialWatch(state(), evs);
 
     rafId = requestAnimationFrame(frame);
   }
@@ -1419,6 +1574,13 @@
     bindKeyboard();
     bindJoystick();
     bindButtons();
+    /* An overlay opens directly over the ability row, so a tap already in
+       flight lands on whatever button appeared under the thumb. That silently
+       auto-declined every pact draft (measured: drafts alive ~130ms, pacts
+       taken 0) and skipped the death screen. Swallow input aimed at a
+       just-opened overlay, in capture, before any handler sees it. */
+    on(doc, 'pointerdown', overlayGuard, true);
+    on(doc, 'click', overlayGuard, true);
     on(doc, 'pointerdown', firstGesture, { passive: true });
     on(g, 'gamepadconnected', function (e) {
       var id = (e && e.gamepad && e.gamepad.id) || 'Controller';
