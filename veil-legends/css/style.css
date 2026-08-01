@@ -1,0 +1,16 @@
+/* SCAFFOLD — interface-engineer owns this file. */
+@font-face{
+  font-family:'Cinzel';
+  src:url('../fonts/cinzel-latin.woff2') format('woff2');
+  font-weight:700 900;
+  font-display:swap;
+}
+@font-face{
+  font-family:'Nunito';
+  src:url('../fonts/nunito-latin.woff2') format('woff2');
+  font-weight:700 800;
+  font-display:swap;
+}
+:root{--bg:#05030f;--dark:#08050a;--border:#1a0f2a;--purple:#7c3aed;--gold:#d97706;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--text:#e2d9f3;--muted:#6b5e8a;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',system-ui,sans-serif;color:var(--text);}
