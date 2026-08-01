@@ -1386,28 +1386,34 @@
     if (!pet) return;
     var p = state.player;
 
-    /* Trail the player rather than sit on them, so the collect radius sweeps
-       ground the player has already left — which is exactly where the motes a
-       kiting player abandoned are lying. */
-    var dx = p.x - pet.x, dy = p.y - pet.y;
-    var d = hyp(dx, dy);
-    if (d > pet.followDist) {
-      var want = Math.min(pet.spd, (d - pet.followDist) * 4.5);
-      pet.vx = (dx / (d || 1)) * want;
-      pet.vy = (dy / (d || 1)) * want;
-    } else {
-      pet.vx *= 0.86; pet.vy *= 0.86;
-    }
-    /* A mote inside reach outranks following. */
-    var best = null, bd = pet.collectR + 40;
-    for (var i = 0; i < state.motesOnGround.length; i++) {
-      var m = state.motesOnGround[i];
-      var md = hyp(m.x - pet.x, m.y - pet.y);
+    /* PRIORITY: gold first, the player second. Motes expire 6s after they drop
+       and a kiting player is running away from their own, so the familiar's
+       whole job is fetching them — following is only what it does when there
+       is nothing left on the floor. Nearest mote anywhere in the arena wins;
+       there is deliberately no leash back to the player, because a leash is
+       exactly what stops it reaching the drops that were being lost. */
+    var best = null, bd = Infinity, i, m, md;
+    for (i = 0; i < state.motesOnGround.length; i++) {
+      m = state.motesOnGround[i];
+      md = hyp(m.x - pet.x, m.y - pet.y);
       if (md < bd) { bd = md; best = m; }
     }
-    if (best && hyp(best.x - p.x, best.y - p.y) < pet.collectR + pet.followDist + 60) {
+
+    if (best) {
       pet.vx = ((best.x - pet.x) / (bd || 1)) * pet.spd;
       pet.vy = ((best.y - pet.y) / (bd || 1)) * pet.spd;
+    } else {
+      /* Nothing to fetch: trail the player, offset rather than sitting on
+         them, so its collect radius still covers ground just vacated. */
+      var dx = p.x - pet.x, dy = p.y - pet.y;
+      var d = hyp(dx, dy);
+      if (d > pet.followDist) {
+        var want = Math.min(pet.spd, (d - pet.followDist) * 4.5);
+        pet.vx = (dx / (d || 1)) * want;
+        pet.vy = (dy / (d || 1)) * want;
+      } else {
+        pet.vx *= 0.86; pet.vy *= 0.86;
+      }
     }
     pet.x = clamp(pet.x + pet.vx * dt, 0, state.arena.w);
     pet.y = clamp(pet.y + pet.vy * dt, 0, state.arena.h);
