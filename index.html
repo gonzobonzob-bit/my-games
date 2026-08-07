@@ -125,6 +125,10 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .banner-xfilesvr{background:linear-gradient(135deg,#04030d 0%,#0a0820 50%,#050310 100%);}
 .banner-xfilesvr::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.4) 2px,rgba(0,0,0,0.4) 3px);}
 .banner-xfilesvr::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 65% at 50% 45%,rgba(99,102,241,0.28) 0%,rgba(139,92,246,0.12) 40%,transparent 70%);}
+/* Late Signal — Late-Night Broadcast Studio */
+.banner-signal{background:linear-gradient(180deg,#0d0508 0%,#1c0a10 45%,#2a0d12 80%,#120507 100%);}
+.banner-signal::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.35) 3px,rgba(0,0,0,0.35) 4px);}
+.banner-signal::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 50% 40%,rgba(251,113,133,0.32) 0%,rgba(244,63,94,0.14) 40%,transparent 72%),radial-gradient(ellipse 80% 40% at 50% 100%,rgba(251,191,36,0.18) 0%,transparent 70%);}
 /* Banner emoji overlay */
 .banner-emoji{position:relative;z-index:2;font-size:44px;text-shadow:0 0 20px rgba(255,255,255,0.6),0 2px 8px rgba(0,0,0,0.8);line-height:1;}
 .card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;}
@@ -139,6 +143,7 @@ header{position:relative;z-index:1;text-align:center;padding:44px 20px 28px;bord
 .badge-transport{background:rgba(242,193,78,0.2);color:#fbbf24;border:1px solid rgba(242,193,78,0.4);}
 .badge-vn{background:rgba(236,72,153,0.2);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);}
 .badge-dev{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);}
+.badge-live{background:rgba(244,63,94,0.22);color:#fda4af;border:1px solid rgba(244,63,94,0.4);}
 .card-body{padding:12px 14px;flex:1;}
 .card-genre{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;}
 .card-title{font-family:'Cinzel',serif;font-size:15px;color:var(--text);margin-bottom:4px;}
@@ -197,22 +202,22 @@ footer a{color:var(--purple);text-decoration:none;}
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
 
-  <a class="card status-complete" href="transport-empire.html" data-tags="transport strategy idle" data-status="complete">
-    <div class="card-banner banner-transport"><span class="banner-emoji">🚚🌆</span><span class="card-badge badge-transport">Tycoon</span></div>
-    <div class="card-body">
-      <div class="card-genre">🚛 Transport Tycoon</div>
-      <div class="card-title">Freight Dominion</div>
-      <div class="card-desc">From one truck to a logistics empire across road, rail, sea & air. A pseudo-3D isometric world with 28 industries to invest in or acquire, an HQ compound that physically grows, 3 rival firms, and a philanthropic Community Movement division that earns goodwill — not just money. 3 game modes, autosave, fully mobile.</div>
-    </div>
-    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
-  </a>
-
   <a class="card status-complete" href="grimoire-siege.html" data-tags="td" data-status="complete">
     <div class="card-banner banner-wizard"><span class="banner-emoji">🧙‍♂️⚔️</span><span class="card-badge badge-td">Tower Defense</span></div>
     <div class="card-body">
       <div class="card-genre">🏰 Tower Defense</div>
       <div class="card-title">Grimoire Siege</div>
       <div class="card-desc">10 tower types — Archer, Pyromage, Frost, Storm, Venom, Cannon, Arcane, Shadow, Divine, Dragon. 12 escalating waves with bosses and fast enemies. Sell/upgrade towers mid-battle, high score tracking. Protect the crystal.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
+  </a>
+
+  <a class="card status-complete" href="trivia/index.html" data-tags="trivia party multiplayer" data-status="complete">
+    <div class="card-banner banner-signal"><span class="banner-emoji">📡🎙️</span><span class="card-badge badge-live">Multiplayer</span></div>
+    <div class="card-body">
+      <div class="card-genre">📡 Live Party Trivia</div>
+      <div class="card-title">Late Signal</div>
+      <div class="card-desc">A late-night broadcast studio for 1–8 players. Host a room, share the code, and race through ten questions at twenty seconds each — faster lock-ins score bigger. Six genres plus Mixed, three difficulties, and per-player English or Spanish in the same room. Server-authoritative: the correct answer never reaches your browser until the reveal, so the room is honest by construction.</div>
     </div>
     <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-complete">✓ Complete</span></div>
   </a>
@@ -228,6 +233,16 @@ footer a{color:var(--purple);text-decoration:none;}
   </a>
 
   <!-- ===== IN PROGRESS ===== -->
+
+  <a class="card status-wip" href="transport-empire.html" data-tags="transport strategy idle" data-status="wip">
+    <div class="card-banner banner-transport"><span class="banner-emoji">🚚🌆</span><span class="card-badge badge-transport">Tycoon</span></div>
+    <div class="card-body">
+      <div class="card-genre">🚛 Transport Tycoon</div>
+      <div class="card-title">Freight Dominion</div>
+      <div class="card-desc">From one truck to a logistics empire across road, rail, sea & air. A pseudo-3D isometric world with 28 industries to invest in or acquire, an HQ compound that physically grows, 3 rival firms, and a philanthropic Community Movement division that earns goodwill — not just money. 3 game modes, autosave, fully mobile.</div>
+    </div>
+    <div class="card-footer"><span class="play-btn">Play ▶</span><span class="status-chip chip-wip">🚧 In Progress</span></div>
+  </a>
 
   <a class="card status-wip" href="cascade-foundling/index.html" data-tags="action arcade" data-status="wip">
     <div class="card-banner banner-cascade"><span class="banner-emoji">🛸🚜</span><span class="card-badge badge-new">3D FPS</span></div>
