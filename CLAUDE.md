@@ -135,12 +135,15 @@ Before adding a new game, check whether its core mechanic is already well-covere
 ## Late Signal (`trivia/index.html` + `trivia-server/`)
 
 The only game in this vault with a server. Cloudflare Worker, one Durable
-Object per room code. Merged to `main`, so the client ships with the vault, but
-**the backend is not deployed** — `BACKEND` in the client is still
-`ws://localhost:8787`, and the game still has no portfolio card, so it is
-unreachable from the index and cannot connect for anyone but a local dev.
-Going properly live means: publish the Worker, change that one line, add the
-card.
+Object per room code. **Live since 2026-08-07**: the Worker is deployed as
+`trivia-rooms` at `wss://trivia-rooms.trivia-server.workers.dev` (Cloudflare
+account subdomain `trivia-server`, `wrangler login` under the owner's
+account), `BACKEND` in the client points at it, and the portfolio card exists.
+Redeploying after server changes is `npx wrangler deploy` from
+`trivia-server/` — the client only needs touching if that URL changes. The
+Worker's `ALLOWED_ORIGIN` pins `https://gonzobonzob-bit.github.io` (plus
+localhost for dev), so a fork or mirror of the vault cannot use the deployed
+backend without changing that constant.
 
 ### The invariant, which is the reason the project exists
 The client is a renderer and never learns the correct answer. `correctIndex`
