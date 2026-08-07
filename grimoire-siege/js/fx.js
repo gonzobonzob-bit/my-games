@@ -460,19 +460,23 @@ function drawWavePreviewStir(){
   const cols=previewStirCols();
   if(!cols)return;
   const p=path[0];
+  // Reduced motion: the stir carries information (the incoming wave's resist
+  // colours), so it doesn't vanish — it holds still. Fixed angles, fixed
+  // alpha, no inward motes.
+  const still=_reducedMotion;
   ctx.save();
   ctx.translate(p.x,p.y);
-  drawGlow(cols[0],0,0,40,0.22+0.1*Math.sin(now*3));
+  drawGlow(cols[0],0,0,40,still?0.22:0.22+0.1*Math.sin(now*3));
   for(let i=0;i<cols.length;i++){
     const dirn=i%2?-1:1;
-    const a=now*(1.5+i*0.4)*dirn;
-    ctx.strokeStyle=hexA(cols[i],0.38+0.18*Math.sin(now*4+i*2.1));
+    const a=still?(i*2.1):(now*(1.5+i*0.4)*dirn);
+    ctx.strokeStyle=hexA(cols[i],still?0.45:0.38+0.18*Math.sin(now*4+i*2.1));
     ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(0,0,23+i*5,a,a+1.7);ctx.stroke();
   }
   ctx.restore();
   // Motes drawn into the maw — spawned sparingly, budget-gated.
-  if(frame%6===0&&particles.length<MAX_PARTICLES-20){
+  if(!still&&frame%6===0&&particles.length<MAX_PARTICLES-20){
     const col=cols[(frame/6|0)%cols.length];
     const a=Math.random()*Math.PI*2,r=22+Math.random()*16;
     particles.push({

@@ -14,7 +14,11 @@
 html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);}
 
 /* ---------------- Splash ---------------- */
-#splash{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 25%,#1b0a3c 0%,#0a0420 45%,#030108 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:14px;padding:30px;text-align:center;overflow:hidden;}
+/* overflow-y:auto, not hidden: landscape phones clip the Settings button with
+   no way to reach it. justify-content flips to flex-start on short viewports
+   because centered flex + overflow makes the top of the column unscrollable. */
+#splash{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 25%,#1b0a3c 0%,#0a0420 45%,#030108 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:14px;padding:30px;text-align:center;overflow-y:auto;overflow-x:hidden;}
+@media (max-height:520px){#splash{justify-content:flex-start;}}
 #splash::before{content:'';position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent 0%,rgba(124,58,237,0.10) 12%,transparent 26%,transparent 50%,rgba(240,171,252,0.07) 62%,transparent 76%);animation:swirl 26s linear infinite;pointer-events:none;}
 @keyframes swirl{to{transform:rotate(360deg)}}
 #splash::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,transparent 35%,rgba(0,0,0,0.75) 100%);pointer-events:none;}
@@ -54,6 +58,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Nunito',
 .hud-icon-btn::after{content:'';position:absolute;inset:-10px -3px;}
 .hud-icon-btn:hover{border-color:var(--purple);}
 .hud-icon-btn:active{transform:scale(0.93);}
+/* 320px viewports: four stats + two buttons overflow a single row and push
+   the pause button off-screen (measured on 320px). Wrap instead of clip. */
+@media (max-width:379px){
+  #hud{flex-wrap:wrap;padding:4px 6px;gap:4px;row-gap:3px;}
+  .hud-stat{font-size:10px;padding:2px 6px;}
+  .hud-controls{margin-left:auto;}
+}
+/* Reduced motion: the JS side already gates canvas shake (fx.js), but these
+   CSS animations ran regardless. Kill the continuous decorative ones; keep
+   the critical-lives cue as a static glow so the signal survives. */
+@media (prefers-reduced-motion:reduce){
+  #splash::before,.sp-runes i,.sp-ico{animation:none;}
+  #wave-preview.show{animation:none;}
+  .hud-lives.critical{animation:none;box-shadow:0 0 14px rgba(239,68,68,0.7);}
+}
 #wave-bar{height:3px;background:#150d2b;flex-shrink:0;overflow:hidden;}
 #wave-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#f0abfc,#fbbf24);box-shadow:0 0 10px #a855f7;transition:width 0.25s linear;}
 

@@ -134,7 +134,12 @@ function startGame(continueRun){
             const x=typeof ct.nx==='number'?ct.nx*W:ct.x;
             const y=typeof ct.ny==='number'?ct.ny*H:ct.y;
             if(typeof x!=='number'||typeof y!=='number')return null;
+            // branch must survive the restore: branchMods() reads it at fire
+            // time, and the picker gates on !t.branch — dropping it here both
+            // weakened restored towers and let the player re-pay for a path
+            // they already owned.
             return {...base,x,y,cd:0,level:ct.level||0,invested:ct.invested||base.cost,
+              branch:(ct.branch==='a'||ct.branch==='b')?ct.branch:null,
               aim:-Math.PI/2,aimTo:-Math.PI/2,recoil:0,flash:0,phase:Math.random()*Math.PI*2};
           }).filter(Boolean);
         }
@@ -155,7 +160,8 @@ function startGame(continueRun){
   gameStarted=true;
   paused=false;
   lastT=performance.now();
-  requestAnimationFrame(gameLoop);
+  if(rafId)cancelAnimationFrame(rafId);
+  rafId=requestAnimationFrame(gameLoop);
   scheduleWave(PREP_TIME);
   showMsg('🛡️ FORTIFY');
 
@@ -188,7 +194,8 @@ function resumeGame(){
   }
   if(wavePendingOnResume){wavePendingOnResume=false;scheduleWave(WAVE_GAP);}
   lastT=performance.now();
-  requestAnimationFrame(gameLoop);
+  if(rafId)cancelAnimationFrame(rafId);
+  rafId=requestAnimationFrame(gameLoop);
 }
 
 function saveAndExit(){
@@ -202,6 +209,10 @@ function exitNoSave(){
 function toggleSpeed(){
   gameSpeed=gameSpeed>=3?1:gameSpeed+1;
   document.getElementById('speed-btn').textContent=gameSpeed+'x';
+  // The spawn interval is wall-clock and was armed at the old speed — re-arm
+  // it at the new cadence, but only while actively spawning (never during
+  // pause, and never in a way that could resurrect a finished wave's timer).
+  if(!paused&&waveState&&waveState.intervalId&&waveState.spawned<waveState.total)startSpawning();
 }
 
 // ---------------- Tower panel / placement ----------------
@@ -407,15 +418,24 @@ function showMsg(txt){
 }
 
 // ---------------- HUD ----------------
+// updateHUD runs every tick, and unconditional writes cost ~59 forced
+// layouts/s even with nothing changing (measured; change-guarding was proven
+// ~0/s). Route every per-tick DOM write through this cache.
+const hudCache={};
+function hudWrite(key,val,write){
+  if(hudCache[key]===val)return;
+  hudCache[key]=val;
+  write(val);
+}
 function updateHUD(){
-  document.getElementById('hud-lives').textContent=lives;
-  document.getElementById('hud-gold').textContent=gold;
-  document.getElementById('hud-wave').textContent=wave;
-  document.getElementById('hud-kills').textContent=kills;
+  hudWrite('lives',lives,v=>{document.getElementById('hud-lives').textContent=v;});
+  hudWrite('gold',gold,v=>{document.getElementById('hud-gold').textContent=v;});
+  hudWrite('wave',wave,v=>{document.getElementById('hud-wave').textContent=v;});
+  hudWrite('kills',kills,v=>{document.getElementById('hud-kills').textContent=v;});
   // Endless: past wave 12 the /12 cap is meaningless — drop it, and tint the
   // counter gold (non-textual signal that the run has gone endless).
   const cap=document.getElementById('hud-wave-cap');
-  if(cap)cap.style.display=wave>12?'none':'';
+  if(cap)hudWrite('waveCap',wave>12?'none':'',v=>{cap.style.display=v;});
   const wb=document.getElementById('hud-wave-box');
   if(wb)wb.classList.toggle('endless',wave>12);
   const lb=document.getElementById('hud-lives-box');
@@ -429,12 +449,12 @@ function updateHUD(){
   }
   const fill=document.getElementById('wave-bar-fill');
   if(fill){
+    let w='0%';
     if(waveState&&waveState.total>0){
       const remaining=(waveState.total-waveState.spawned)+enemies.length;
-      fill.style.width=Math.max(0,Math.min(100,(1-remaining/waveState.total)*100))+'%';
-    }else{
-      fill.style.width='0%';
+      w=Math.max(0,Math.min(100,(1-remaining/waveState.total)*100)).toFixed(1)+'%';
     }
+    hudWrite('waveBar',w,v=>{fill.style.width=v;});
   }
 }
 

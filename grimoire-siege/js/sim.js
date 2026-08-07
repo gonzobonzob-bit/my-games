@@ -77,6 +77,9 @@ function enemyProgress(e){
 // fresh start.
 function hasOwn(o,k){ return Object.prototype.hasOwnProperty.call(o,k); }
 function numClamp(v,def,min,max){
+  // Number(null) is 0, not NaN — without this guard a nulled field clamps to
+  // the range floor instead of falling back to its default.
+  if(v===null||v===undefined)return def;
   const n=Number(v);
   if(!Number.isFinite(n))return def;
   return Math.min(max,Math.max(min,n));
@@ -124,6 +127,11 @@ function sanitizeCheckpoint(raw){
         towersOut.push(entry);
       }
     }
+    // A checkpoint carrying no usable run at all (no numeric core fields, no
+    // towers) is hostile or corrupt, not old — reject it so Continue offers a
+    // fresh start instead of a 0-gold ghost run.
+    const hasCore=[raw.gold,raw.lives,raw.wave,raw.kills].some(v=>Number.isFinite(Number(v))&&v!==null);
+    if(!hasCore&&towersOut.length===0)return null;
     // Tolerate missing investedGold (v1 checkpoints): derive a lower bound
     // from the surviving towers' invested totals.
     let inv=hasOwn(raw,'investedGold')?numClamp(raw.investedGold,-1,0,1e9):-1;
@@ -486,7 +494,10 @@ function scheduleWave(delay){
   if(!nextWaveDef||nextWaveDef.n!==wave+1){
     nextWaveDef=generateWave(wave+1);
   }
-  pendingWaveTimer=setTimeout(()=>{pendingWaveTimer=null;startWave();},delay);
+  // Gap timers are wall-clock too; scale at creation so 3x actually shortens
+  // the between-wave wait. A speed toggle mid-gap keeps the old deadline —
+  // rescaling a live timeout isn't worth the bookkeeping for a <=6s window.
+  pendingWaveTimer=setTimeout(()=>{pendingWaveTimer=null;startWave();},delay/gameSpeed);
 }
 
 function startWave(){
@@ -545,7 +556,10 @@ function startSpawning(){
       clearInterval(waveState.intervalId);
       waveState.intervalId=null;
     }
-  },SPAWN_INTERVAL);
+  // Wall-clock timer, so it must scale with gameSpeed by hand — the rAF
+  // loop's speed multiplier only covers update(), not these timers.
+  // toggleSpeed() re-arms this interval when speed changes mid-wave.
+  },SPAWN_INTERVAL/gameSpeed);
 }
 
 function onWaveCleared(){
@@ -579,6 +593,12 @@ function claimVictory(){
 
 // ---------------- Main loop ----------------
 let lastT=0;
+// Exactly one rAF chain may exist. pause() drops the chain (gameLoop returns
+// without re-arming) and resume() starts a new one — but a pause/resume inside
+// a single frame leaves the old chain's queued callback alive, and each such
+// cycle stacks another loop (measured 60 -> 300+ updates/s). Every request
+// goes through this handle so starters can cancel before they arm.
+let rafId=0;
 // gameSpeed runs update() multiple times per rendered frame so every
 // subsystem (movement, cooldowns, projectiles, dot ticks) scales together
 // instead of hand-tuning a dt multiplier per system.
@@ -595,7 +615,7 @@ function gameLoop(t){
   try{ flushGoldUI(); render(dt); }catch(err){ console.error('Grimoire Siege: render error',err); }
   // gameStarted goes false in showGameOver — without checking it the loop kept
   // rendering (and burning CPU) behind the victory overlay forever.
-  if(gameStarted&&lives>0)requestAnimationFrame(gameLoop);
+  if(gameStarted&&lives>0)rafId=requestAnimationFrame(gameLoop);
 }
 
 function update(dt){
