@@ -1,8 +1,10 @@
 // End-to-end: two real headless-Chrome clients against the real Worker.
 import WS from 'ws';
 
-const CDP = 'http://127.0.0.1:9222';
-const PAGE = 'http://localhost:8000/trivia/';
+/* Overridable like LS_OUT: several suites share this machine, and the
+   default ports are not always free. The defaults stay the documented ones. */
+const CDP = process.env.LS_CDP || 'http://127.0.0.1:9222';
+const PAGE = process.env.LS_PAGE || 'http://localhost:8000/trivia/';
 /* A fresh code every run. Durable Object storage persists between runs, so a
    fixed room code means each run inherits the previous run's room state —
    which produced a deterministic failure in the genre harness that looked
