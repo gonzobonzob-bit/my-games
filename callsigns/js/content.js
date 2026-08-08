@@ -1064,10 +1064,10 @@ const OFFLINE_MAX_DAYS   = 96;
 const OFFLINE_CAP_MS     = OFFLINE_MAX_DAYS * OFFLINE_MS_PER_DAY;
 const OFFLINE_RATE       = 0.50;
 
-// v2 alias, kept alive on purpose. The 50%-baseline ui.js and sim.js still read
-// this name (viewEmpire, doFoundSecondStation, checkUnlock); deleting it here
-// would break the branch before the founding flow is rebuilt against
-// STATION_COSTS. It is DEFINED FROM the curve, so the two cannot disagree while
-// both exist. Delete it in the commit that lands foundStation().
-const SECOND_STATION_COST = STATION_COSTS[0];
+/* SECOND_STATION_COST lived here as a v2 alias (= STATION_COSTS[0]) so the
+   50%-baseline ui.js kept working while the founding flow was rebuilt. That
+   flow landed with foundStation(), the merged ui.js reads the curve directly,
+   and nothing referenced the alias but its own definition — so it is gone,
+   exactly where the integration checklist said to retire it. Two names for
+   one number is how they drift apart later. */
 const BANKRUPTCY_FLOOR = -4000;

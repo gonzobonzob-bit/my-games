@@ -204,10 +204,23 @@ async function main(){
     await clickModalButton('/start/i');            // "Start Broadcasting"
     await until(`typeof S === 'object' && S !== null && S.day === 1`);
     assert('new game: state installed at day 1', true);
-    // The intro modal auto-pauses the sim; dismissing it is part of the flow.
-    await until(`document.querySelector('#modal-back').classList.contains('open')`);
-    await clickModalButton('/./');                  // "Start the day" is its only button
+    /* Onboarding is NOT a modal (producer condition #7). This used to wait for
+       an intro modal and dismiss it; that modal is gone on purpose, replaced by
+       an inline coach card above the schedule whose button performs the
+       decision it describes. Asserting the absence is the point — a future
+       change that "helpfully" reintroduces a blocking intro dialog would
+       otherwise sail through a suite that was written expecting one. */
     await until(`!document.querySelector('#modal-back').classList.contains('open')`);
+    assert('onboarding does not open a modal',
+      await evaluate(`!document.querySelector('#modal-back').classList.contains('open')`) === true);
+    assert('onboarding is an inline coach card with content',
+      await evaluate(`(function(){
+        const c = document.querySelector('#studio-coach');
+        return !!c && c.textContent.trim().length > 0;
+      })()`) === true);
+    // ...and it must not have stopped the clock to say it.
+    assert('onboarding leaves the sim running (no auto-pause)',
+      await evaluate(`typeof paused === 'undefined' || paused === false`) === true);
     const s0 = await evaluate(`({
       v: S.v, cash: S.cash, key: SAVE_KEY,
       stationsIsArray: Array.isArray(S.stations), stations: S.stations.length,
@@ -354,6 +367,88 @@ async function main(){
     await evaluate(`(function(){ render(); for (let i = 0; i < 3; i++) tick(); return true; })()`);
     assert('four stations simulate and render without a fault',
       await evaluate(`S.stations.length === 4 && Number.isFinite(S.cash) && Math.abs(ledgerDrift()) < 1e-6`) === true);
+
+    /* ---- 6b. the two cross-file seams the integrator had to wire ----
+       Both of these fail SILENTLY when unwired — no crash, no visible {brace},
+       just permanently generic text. That is precisely why they are asserted
+       rather than eyeballed. */
+
+    // eventVars(S) merged into rollEvent()'s bag. Unwired, every event still
+    // renders — through EVENT_FALLBACKS — as bland filler forever.
+    const evars = await evaluate(`(function(){
+      if (typeof eventVars !== 'function') return { missing: true };
+      const v = eventVars(S);
+      // Roll events until one fires, then check it resolved no raw braces.
+      let msg = null;
+      for (let i = 0; i < 400 && !msg; i++) { const e = rollEvent(); if (e) msg = e.msg; }
+      return {
+        keys: Object.keys(v),
+        hasRival: typeof v.rival === 'string' && v.rival.length > 0,
+        hasCall:  typeof v.call === 'string'  && v.call.length > 0,
+        hasSeg:   typeof v.seg === 'string'   && v.seg.length > 0,
+        sampled: msg,
+        rawBrace: msg ? /\\{[a-z]+\\}/i.test(msg) : false
+      };
+    })()`);
+    assert('eventVars() supplies the copy variables content.js writes against',
+      !evars.missing && evars.hasRival && evars.hasCall && evars.hasSeg, JSON.stringify(evars));
+    assert('a rolled event resolves every variable (no raw {brace} on screen)',
+      evars.sampled === null || evars.rawBrace === false, JSON.stringify(evars));
+
+    // The six post-mortems content.js authors must actually be reachable.
+    /* Drive each branch to its own verdict. Asserting "the answer changed"
+       was the first version of this and it was a bad test: stripping the
+       crews makes an over-expanded empire MORE over-expanded, so the same
+       (correct) verdict kept winning and the test called it a bug. What is
+       actually worth pinning is that all six are REACHABLE — an unreachable
+       post-mortem is authored copy nobody will ever read, which is the exact
+       failure this whole block exists to catch. */
+    const post = await evaluate(`(function(){
+      if (typeof bankruptCause !== 'function') return { missing: true };
+      const one = S.stations[0];
+      const parts = Object.keys(one.schedule);
+      const setAll = (show, eng, djs) => parts.forEach(p => {
+        one.schedule[p].show = show;
+        one.schedule[p].eng = eng;
+        one.schedule[p].djs = djs.slice();
+      });
+      const solo = () => { S.stations = [one]; };
+      const got = {};
+
+      // over-expanded: two signals, the second airing nothing at all.
+      const ghost = JSON.parse(JSON.stringify(one));
+      Object.keys(ghost.schedule).forEach(p => { ghost.schedule[p].djs = []; ghost.schedule[p].eng = null; });
+      S.stations = [one, ghost];
+      setAll('music', 'e1', ['d1']);
+      got.over = bankruptCause().key;
+
+      solo();
+      setAll('ads', 'e1', ['d1']);           got.ads   = bankruptCause().key;
+      setAll('music', null, ['d1']);         got.noEng = bankruptCause().key;
+      one.tx = 3; S.rep = 20;
+      setAll('music', 'e1', ['d1']);         got.gear  = bankruptCause().key;
+      one.tx = 0; S.rep = 80;
+      S.staff = [{ id:'d1', role:'dj' }];    got.thin  = bankruptCause().key;
+      S.staff = [{ id:'d1', role:'dj' }, { id:'d2', role:'dj' },
+                 { id:'d3', role:'dj' }, { id:'d4', role:'dj' }];
+      got.quiet = bankruptCause().key;
+
+      const all = ['causeOverExpanded','causeTalentThin','causeGearHeavy',
+                   'causeAdsOnly','causeNoEngineer','causeQuiet'];
+      const bad = all.filter(k => {
+        const s = t(k, { n: 2, slots: 8 });
+        return !s || s === k || /\\{[a-z]+\\}/i.test(s);
+      });
+      return { got: got, unrenderable: bad,
+               reached: Object.keys(got).map(k => got[k]).filter((v,i,a) => a.indexOf(v) === i).length };
+    })()`);
+    assert('every authored post-mortem renders with its variables filled',
+      !post.missing && post.unrenderable && post.unrenderable.length === 0, JSON.stringify(post));
+    assert('all six post-mortems are reachable from real state',
+      post.got && post.got.over === 'causeOverExpanded' && post.got.ads === 'causeAdsOnly'
+      && post.got.noEng === 'causeNoEngineer' && post.got.gear === 'causeGearHeavy'
+      && post.got.thin === 'causeTalentThin' && post.got.quiet === 'causeQuiet',
+      JSON.stringify(post));
 
     /* ---- 7. nothing errored anywhere along the way ---- */
     assert('zero console errors / uncaught exceptions', consoleErrors.length === 0, consoleErrors.join(' ;; '));

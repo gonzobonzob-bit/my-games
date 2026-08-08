@@ -899,11 +899,28 @@ function rollEvent(){
   const ev = pool.find(e => (r -= e.w) <= 0) || pool[0];
 
   const djs = staffOf('dj');
-  const vars = {
-    // Short form: this lands mid-sentence, not in the schedule grid.
-    part: partShort(pick(DAYPARTS).id),
-    name: djs.length ? pick(djs).name : 'Your overnight host'
-  };
+  /* content.js owns the event copy, so it owns most of the variables in it:
+     {rival} {rivalCall} {co} {eng} {gear} {call} {seg} all come out of
+     eventVars(S). That is a deliberate cross-file seam — the content writer
+     flagged it for the integrator instead of wiring it, because a content
+     file reaching into sim's roll is how the two ends drift apart.
+
+     Worth knowing how this fails: unwired, EVENT_FALLBACKS still keeps raw
+     braces off the screen, so the symptom is not a crash or a visible {brace}
+     — it is every event quietly reading as generic filler forever. Nothing
+     looks broken. Hence the explicit wiring and the smoke assertion.
+
+     sim's own two are applied LAST and win: {part} and {name} are computed
+     from live daypart and roster state here, and must beat anything the
+     variable bag guessed independently. */
+  const vars = Object.assign(
+    (typeof eventVars === 'function' ? eventVars(S) : {}),
+    {
+      // Short form: this lands mid-sentence, not in the schedule grid.
+      part: partShort(pick(DAYPARTS).id),
+      name: djs.length ? pick(djs).name : 'Your overnight host'
+    }
+  );
   // Events write cash directly (content.js owns their bodies), so book the
   // delta by measurement rather than by asking every event to cooperate — an
   // event added later cannot forget to.
@@ -1195,6 +1212,57 @@ function tick(){
   }
 }
 
+/** Why the run actually ended.
+
+    content.js authors six post-mortems — causeOverExpanded, causeTalentThin,
+    causeGearHeavy, causeAdsOnly, causeNoEngineer, causeQuiet — and until this
+    existed not one of them reached a screen. They were not broken; nothing
+    called them. A bankrupt player got "you ran out of money", which they had
+    worked out, and none of the diagnosis the copy was written to deliver.
+
+    Read the corpse rather than keep a running tally: a counter maintained
+    across the run is one more thing that can drift out of step with the
+    station, and the state at the moment of death is exactly the evidence.
+
+    Order is most-specific-first, and it is a judgement, not an accident: a
+    losing run usually fits two or three of these at once, so the one that
+    fires should be the one the player could most directly have changed. The
+    last is unconditional, so this always names something. */
+function bankruptCause(){
+  const sts = S.stations || [];
+  const slots = sts.length * DAYPARTS.length;
+  let adsSlots = 0, engAssigned = 0, maxTx = 0;
+  const staffedPerStation = sts.map(st => {
+    let n = 0;
+    DAYPARTS.forEach(p => {
+      const sl = st.schedule && st.schedule[p.id];
+      if (!sl) return;
+      if (sl.djs && sl.djs.length) n++;
+      if (sl.eng) engAssigned++;
+      if (sl.show === 'ads') adsSlots++;
+    });
+    maxTx = Math.max(maxTx, st.tx || 0);
+    return n;
+  });
+  const djs = (S.staff || []).filter(p => p.role === 'dj').length;
+
+  // Paying rent on a signal that aired nothing is the most expensive mistake
+  // available, and the easiest to have not made.
+  if (sts.length >= 2 && staffedPerStation.some(n => n === 0))
+    return { key: 'causeOverExpanded', vars: { n: sts.length } };
+  // ads pays today and burns the rep the ad rate multiplies by.
+  if (slots > 0 && adsSlots / slots >= 0.5)
+    return { key: 'causeAdsOnly', vars: {} };
+  if (slots > 0 && engAssigned === 0)
+    return { key: 'causeNoEngineer', vars: {} };
+  // Reach you cannot sell is just a bigger lease.
+  if (maxTx >= 3 && S.rep < 40)
+    return { key: 'causeGearHeavy', vars: {} };
+  if (slots > 0 && djs < slots * 0.5)
+    return { key: 'causeTalentThin', vars: { n: djs, slots: slots } };
+  return { key: 'causeQuiet', vars: {} };
+}
+
 /** Cash has run dry for good. Ends the run: the save is cleared so a fresh
     station starts clean rather than reloading straight back into the same
     unrecoverable spiral. */
@@ -1207,9 +1275,13 @@ function triggerBankruptcy(){
   modalQueue.length = 0;
   sfxBankrupt();
   addLog(t('bankruptSub', { call: S.stations[0].call }), 'bad');
+  const why = bankruptCause();
   openModal(
     '📉 ' + t('bankruptTitle'),
     t('bankruptSub', { call: S.stations[0].call }),
+    // The diagnosis reads as body text, not as a footnote — it is the part
+    // the player did not already know.
+    '<p style="font-size:13px;margin-top:10px">' + esc(t(why.key, why.vars)) + '</p>' +
     '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('bankruptNote')) + '</p>',
     [{ label: t('mainMenu'), cls: 'danger', act: () => returnToMenu({ wipe: true }) }],
     { blocking: true }
