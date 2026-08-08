@@ -18,7 +18,14 @@
      2. Celebration is loud, correction is quiet.
      3. Pressure is targeted — it stops for you the moment you lock in.
 
-   Single theme, dark only. That is a commitment, not an omission.
+   Five themes, one skeleton. Studio Classic is the default and is the
+   look this file was designed around; the others are palette + motion
+   swaps only. No theme forks the markup, and no theme is allowed to
+   break the three rules above.
+
+   Adding a theme means adding ONE [data-theme=] block that redefines
+   tokens. If a theme needs a new selector, the theme is wrong — token
+   the thing it wants to change instead.
    ================================================================== */
 
 /* --- registered custom property: the stage light is the only thing
@@ -63,6 +70,49 @@
   --hair-strong:rgba(255,255,255,.16);
 
   --stage-hue:#161B2E;
+  /* the two outer stops of the stage gradient — themed, so a light
+     theme can lift the floor instead of fighting a black vignette */
+  --stage-mid:#0A0C14;
+  --stage-far:#05060B;
+
+  /* WHAT ACTUALLY GETS PAINTED at the centre of the stage.
+     --stage-hue is written as an INLINE style by setStage(), from a
+     fixed set of dark mood colours (cruise/warm/panic/right/...) and
+     from each genre's own colour. Inline styles beat stylesheets, so a
+     theme cannot override --stage-hue — it would just get overwritten
+     on the next mood change. A theme therefore says how much of that
+     mood it wants to absorb, via this indirection, instead. */
+  --stage-paint:var(--stage-hue);
+
+  /* things that used to be literals below. Every one of these is a
+     colour a theme has a legitimate reason to disagree with. */
+  --flash:#FFFFFF;            /* full-screen pop; white reads as light ON */
+  --amber-hi:#FFB84E;         /* primary button hover */
+  --bronze:#C2743A;           --bronze-rgb:194,116,58;   /* third place */
+  --sheen:#FFFFFF;            /* top stop of the podium/medal sheen */
+  --pill-idle:rgba(255,255,255,.14);
+
+  /* .studio's two hardcoded layers. Both were near-black, which is right
+     for a dark set and reads as grime and grey banding on a light one. */
+  --vignette:rgba(3,5,12,.34);
+  --vignette-edge:rgba(3,5,12,.62);
+  --scanline:rgba(0,0,0,.13);
+
+  /* decorative backdrop layer — off by default. A theme opts in by
+     setting an image and (optionally) an animation. Motion here is
+     transform-only so it never costs a layout. */
+  --veil-image:none;
+  --veil-size:auto;
+  --veil-opacity:0;
+  --veil-anim:none;
+  --veil-travel:120px;
+  --veil-blend:normal;
+  /* Overflow so a translating layer never exposes an edge. A theme that
+     travels only horizontally sets 0 for the vertical inset, so its
+     layer can position against the real top and bottom of the screen. */
+  --veil-inset:-30%;
+  --veil-repeat:repeat;
+  --veil-pos:0 0;
 
   --font-ui: system-ui, -apple-system, "Segoe UI Variable Display", "Segoe UI",
              Ubuntu, Cantarell, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
@@ -102,6 +152,228 @@
   transition: --stage-hue 600ms var(--ease-out-soft);
 }
 
+/* ==================================================================
+   THEMES
+
+   Each block below redefines tokens and nothing else. Two rules that
+   are not obvious and cost real time when broken:
+
+   1. The SIGNAL hues (--mint correct, --crimson wrong) stay legible
+      and stay themselves in every theme. They are information, not
+      decoration, and a theme that recolours them for vibe is lying to
+      the player at the only moment that matters.
+   2. The ink/paper scales are GROUND and FOREGROUND, not "dark" and
+      "light". Daybreak inverts what they hold. Anything that assumes
+      ink=dark is a bug waiting for that theme.
+   ================================================================== */
+
+/* --- 1. Studio Classic — the default. Palette untouched; the only
+       addition is a very slow haze drift so the set breathes. --- */
+:root[data-theme="studio"]{
+  --veil-image:radial-gradient(60% 40% at 50% 0%, rgba(255,169,46,.18), transparent 70%);
+  --veil-size:cover;
+  --veil-opacity:.5;
+  --veil-anim:veilFall 34s var(--ease-out-soft) infinite alternate;
+  --veil-travel:70px;
+}
+
+/* --- 2. Marquee Night — game-show glitz. The excitement ceiling.
+       Energy comes from light and motion, never from attitude. --- */
+:root[data-theme="marquee"]{
+  --ink-950:#0B0410;
+  --ink-900:#150726;
+  --ink-800:#1F0B33;
+  --ink-700:#2C1145;
+  --ink-600:#3D1B5C;
+  --slate-400:#8E77A8;
+  --slate-300:#C0A9D6;
+  --paper-200:#EFE2F7;
+  --paper-100:#FBF4FF;
+
+  --amber:#FFC53D;      --amber-rgb:255,197,61;
+  --amber-hi:#FFD873;
+
+  --c-cobalt:#5B7BFF;   --c-cobalt-rgb:91,123,255;
+  --c-violet:#D46BFF;   --c-violet-rgb:212,107,255;
+  --c-cyan:#2FD8E8;     --c-cyan-rgb:47,216,232;
+  --c-amber:#FFC53D;    --c-amber-rgb:255,197,61;
+
+  --stage-hue:#3A1152;
+  --stage-mid:#1A0828;
+  --stage-far:#0B0410;
+
+  --hair:rgba(255,220,255,.14);
+  --hair-strong:rgba(255,220,255,.22);
+  --pill-idle:rgba(255,220,255,.16);
+  --bronze:#D98A45;     --bronze-rgb:217,138,69;
+
+  /* Marquee bulbs that CHASE rather than blink. The gradient tiles every
+     44px and the layer travels exactly one tile in stepped jumps, so the
+     bulbs appear to run around the set and the loop is seamless. */
+  --veil-image:
+    radial-gradient(circle at 12px 12px, rgba(255,197,61,.90) 0 3px, transparent 4px),
+    radial-gradient(circle at 12px 12px, rgba(255,107,214,.80) 0 3px, transparent 4px);
+  --veil-size:44px 24px, 44px 24px;
+  --veil-repeat:repeat-x, repeat-x;
+  --veil-pos:0 6px, 0 calc(100% - 30px);
+  --veil-inset:0 -20%;            /* travels sideways only */
+  --veil-opacity:.85;
+  --veil-anim:veilPan 1.4s steps(4,end) infinite;
+  --veil-travel:44px;
+
+  --vignette:rgba(20,4,32,.36);
+  --vignette-edge:rgba(11,4,16,.66);
+}
+
+/* --- 3. Signal Drift — synthwave. Slow neon horizon, scrolling grid. --- */
+:root[data-theme="drift"]{
+  --ink-950:#05030F;
+  --ink-900:#0A0620;
+  --ink-800:#120A2E;
+  --ink-700:#1B1042;
+  --ink-600:#291B5E;
+  --slate-400:#7A6FA8;
+  --slate-300:#A9A0D4;
+  --paper-200:#DED7F5;
+  --paper-100:#F1ECFF;
+
+  --amber:#FF4FD8;      --amber-rgb:255,79,216;
+  --amber-hi:#FF7FE4;
+
+  --c-cobalt:#4D7CFF;   --c-cobalt-rgb:77,124,255;
+  --c-violet:#B96BFF;   --c-violet-rgb:185,107,255;
+  --c-cyan:#22D3EE;     --c-cyan-rgb:34,211,238;
+  --c-amber:#FF4FD8;    --c-amber-rgb:255,79,216;
+
+  --stage-hue:#2A1060;
+  --stage-mid:#0D0726;
+  --stage-far:#04020C;
+
+  --hair:rgba(180,220,255,.13);
+  --hair-strong:rgba(180,220,255,.20);
+  --pill-idle:rgba(180,220,255,.15);
+  --bronze:#D07A5A;     --bronze-rgb:208,122,90;
+
+  --veil-image:
+    repeating-linear-gradient(0deg, rgba(34,211,238,.20) 0 1px, transparent 1px 46px),
+    repeating-linear-gradient(90deg, rgba(255,79,216,.14) 0 1px, transparent 1px 46px);
+  --veil-size:auto;
+  --veil-opacity:.55;
+  --veil-anim:veilFall 9s linear infinite;
+  --veil-travel:46px;
+}
+
+/* --- 4. Daybreak — the deliberate bland. Paper-light, calm, high
+       readability, near-zero motion. Requested explicitly. --- */
+:root[data-theme="daybreak"]{
+  color-scheme:light;
+
+  --ink-950:#EFEBE2;
+  --ink-900:#F7F4ED;
+  --ink-800:#FFFFFF;
+  --ink-700:#F2EEE5;
+  --ink-600:#E4DFD3;
+  --slate-400:#8A8378;
+  --slate-300:#5F594F;
+  --paper-200:#3A352D;
+  --paper-100:#1C1A16;
+  --paper-000:#000000;
+
+  /* amber has to survive on paper — the bright one is invisible here */
+  --amber:#B87400;      --amber-rgb:184,116,0;
+  --amber-hi:#9C6200;
+
+  --mint:#0E9E63;       --mint-rgb:14,158,99;
+  --mint-hi:#12B372;
+  --mint-lo:#0A7F4F;
+  --crimson:#C81E3C;    --crimson-rgb:200,30,60;
+
+  --c-cobalt:#2A4FD0;   --c-cobalt-rgb:42,79,208;
+  --c-violet:#7431C4;   --c-violet-rgb:116,49,196;
+  --c-cyan:#0C7C89;     --c-cyan-rgb:12,124,137;
+  --c-amber:#B87400;    --c-amber-rgb:184,116,0;
+
+  --stage-hue:#FFFFFF;
+  --stage-mid:#F5F1E8;
+  --stage-far:#E6E1D5;
+
+  --hair:rgba(28,26,22,.12);
+  --hair-strong:rgba(28,26,22,.22);
+  --pill-idle:rgba(28,26,22,.14);
+  --bronze:#96552A;     --bronze-rgb:150,85,42;
+
+  /* a white flash on paper is nothing; pop dark instead */
+  --flash:#1C1A16;
+  --sheen:#FFFFFF;
+
+  --e1: 0 1px 2px rgba(60,52,38,.14);
+  --e2: 0 2px 4px rgba(60,52,38,.12), 0 8px 20px rgba(60,52,38,.10);
+  --e3: 0 4px 8px rgba(60,52,38,.14), 0 18px 44px rgba(60,52,38,.14);
+
+  --veil-opacity:0;
+  --veil-anim:none;
+
+  /* Flat paper by default. Every mood colour setStage() writes is a dark
+     one, so absorbing it raw is what turns this theme into grey mud. */
+  --stage-paint:#FFFFFF;
+
+  /* warm grey, not black — a black vignette on paper reads as a smudge */
+  --vignette:rgba(96,84,62,.05);
+  --vignette-edge:rgba(96,84,62,.12);
+  --scanline:rgba(96,84,62,.045);
+}
+/* Where color-mix is available, let a little of the mood through — the
+   clock going panic should still be felt on paper, just quietly. Kept in
+   @supports so the flat-white fallback above stands on older engines
+   rather than collapsing to an invalid value. */
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  :root[data-theme="daybreak"]{
+    --stage-paint:color-mix(in srgb, var(--stage-hue) 15%, #FFFFFF);
+  }
+}
+/* the noise layer is tuned for a dark ground; on paper it reads as dirt */
+:root[data-theme="daybreak"] .stage::after{ opacity:.018; }
+
+/* --- 5. Dead Air — ultra-dark minimal, FM dial at 3am. Almost no
+       colour, almost no motion. The opposite pole from Marquee. --- */
+:root[data-theme="deadair"]{
+  --ink-950:#000000;
+  --ink-900:#050608;
+  --ink-800:#0A0C10;
+  --ink-700:#111419;
+  --ink-600:#1A1E25;
+  --slate-400:#5A6068;
+  --slate-300:#878D96;
+  --paper-200:#B6BBC2;
+  --paper-100:#DCE0E5;
+
+  --amber:#C98A2E;      --amber-rgb:201,138,46;
+  --amber-hi:#DDA046;
+
+  --c-cobalt:#3E5C8A;   --c-cobalt-rgb:62,92,138;
+  --c-violet:#6B5A8A;   --c-violet-rgb:107,90,138;
+  --c-cyan:#2E7A85;     --c-cyan-rgb:46,122,133;
+  --c-amber:#C98A2E;    --c-amber-rgb:201,138,46;
+
+  --stage-hue:#0C1016;
+  --stage-mid:#05070A;
+  --stage-far:#000000;
+
+  --hair:rgba(255,255,255,.07);
+  --hair-strong:rgba(255,255,255,.12);
+  --pill-idle:rgba(255,255,255,.10);
+  --bronze:#8A5F33;     --bronze-rgb:138,95,51;
+
+  --veil-image:radial-gradient(70% 50% at 50% 100%, rgba(201,138,46,.10), transparent 70%);
+  --veil-size:cover;
+  --veil-opacity:.6;
+  --veil-anim:none;
+
+  --vignette:rgba(0,0,0,.46);
+  --vignette-edge:rgba(0,0,0,.78);
+  --scanline:rgba(0,0,0,.16);
+}
+
 *,*::before,*::after{ box-sizing:border-box; }
 html,body{ margin:0; padding:0; }
 /* `.btn` and `.waiting` set display, which beats the UA sheet's [hidden]
@@ -129,8 +401,38 @@ body{
 /* ---------- the stage ---------- */
 .stage{
   position:fixed; inset:0; z-index:0; pointer-events:none;
-  background:radial-gradient(120% 100% at 50% 38%, var(--stage-hue) 0%, #0A0C14 58%, #05060B 100%);
+  background:radial-gradient(120% 100% at 50% 38%, var(--stage-paint) 0%, var(--stage-mid) 58%, var(--stage-far) 100%);
 }
+/* The themed backdrop. Inset negative so a translating layer never
+   exposes an edge; transform-only motion, so this animates on the
+   compositor and contributes zero layouts to perf.mjs's budget. */
+.stage::before{
+  content:''; position:absolute; inset:var(--veil-inset);
+  background-image:var(--veil-image);
+  background-size:var(--veil-size);
+  background-repeat:var(--veil-repeat);
+  background-position:var(--veil-pos);
+  mix-blend-mode:var(--veil-blend);
+  opacity:var(--veil-opacity);
+  animation:var(--veil-anim);
+  will-change:transform;
+}
+/* Transform and opacity only — a hard rule, not a stylistic preference.
+   Both are composited, so a theme's backdrop costs zero layout no matter
+   how busy it looks. Measured on an idle screen over 5s:
+
+     transform (what ships)      0 layouts
+     opacity                     0 layouts
+     top / left / width / any
+       geometric property      236 layouts   <- one per frame
+
+   That last row is the whole reason theme-test.mjs's idle gate exists:
+   a theme that animates `top` instead of `translate3d` still LOOKS
+   correct and quietly costs a layout every single frame. The gate is
+   set at <=2 layouts per idle theme, which the 236 case blows through
+   immediately. Add a theme, run that test. */
+@keyframes veilFall{ from{transform:translate3d(0,0,0)} to{transform:translate3d(0,var(--veil-travel),0)} }
+@keyframes veilPan { from{transform:translate3d(0,0,0)} to{transform:translate3d(var(--veil-travel),0,0)} }
 /* Noise, painted once, never animated. It is what stops the big gradient
    banding into stripes on integrated graphics. */
 .stage::after{
@@ -141,7 +443,7 @@ body{
 /* full-screen effect layers — opacity only, one at a time */
 .fx{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:0; }
 #roomPulse{ background:radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(var(--crimson-rgb),.22) 100%); }
-#flash{ background:#FFFFFF; }
+#flash{ background:var(--flash); }
 #roomPulse.beat{ animation:roomPulse 1000ms ease-in-out 1; }
 #flash.pop{ animation:flashPop 220ms ease-out 1; }
 @keyframes roomPulse{ 0%{opacity:0} 42%{opacity:1} 100%{opacity:0} }
@@ -185,7 +487,7 @@ body[data-screen="landing"] .hud{ display:none; }
 .hud-right{ flex:0 0 auto; display:flex; align-items:center; gap:var(--sp-2); }
 
 .pills{ display:flex; gap:5px; align-items:center; }
-.pill{ width:16px; height:4px; border-radius:var(--r-pill); background:rgba(255,255,255,.14); flex:0 0 auto; }
+.pill{ width:16px; height:4px; border-radius:var(--r-pill); background:var(--pill-idle); flex:0 0 auto; }
 .pill.done{ background:var(--amber); }
 .pill.now{ background:var(--amber); animation:pillPulse 1.4s ease-in-out infinite; }
 @keyframes pillPulse{ 0%,100%{opacity:.55} 50%{opacity:1} }
@@ -201,6 +503,15 @@ body[data-screen="landing"] .hud{ display:none; }
 .chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
 /* Fixed width so switching EN/ES does not shuffle the header controls. */
 #langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
+/* Back to Menu, disabled while a round is live. The disabled state borrows
+   the ON AIR sign's amber rather than greying out — a studio door with the
+   light on, not a broken control. cursor:default, not not-allowed: nothing
+   is forbidden, it is just not yet. */
+#backBtn[disabled]{
+  cursor:default; color:var(--amber);
+  border-color:rgba(var(--amber-rgb),.35); background:rgba(var(--amber-rgb),.08);
+}
+#backBtn[disabled] .icon{ display:none; }
 .icon{ width:14px; height:14px; display:block; }
 .netdot{ width:8px; height:8px; border-radius:var(--r-pill); background:var(--mint); flex:0 0 auto; }
 .netdot[data-net="down"]{ background:var(--amber); animation:pillPulse 1s ease-in-out infinite; }
@@ -229,11 +540,11 @@ body[data-screen="landing"] .hud{ display:none; }
       rgba(var(--floor-rgb,120,140,200),.10) 0%, rgba(0,0,0,0) 70%),
     /* vignette — closes the corners so the light has an edge */
     radial-gradient(115% 88% at 50% 40%,
-      rgba(0,0,0,0) 42%, rgba(3,5,12,.34) 78%, rgba(3,5,12,.62) 100%),
+      rgba(0,0,0,0) 42%, var(--vignette) 78%, var(--vignette-edge) 100%),
     /* scanlines — 1 in 3, low alpha. Any stronger and it stops reading as
        texture and starts reading as a broken screen. */
     repeating-linear-gradient(0deg,
-      rgba(0,0,0,.13) 0px, rgba(0,0,0,.13) 1px,
+      var(--scanline) 0px, var(--scanline) 1px,
       rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px);
 }
 /* Two cores or fewer: the scanline layer is the one thing here with a real
@@ -242,7 +553,7 @@ body[data-screen="landing"] .hud{ display:none; }
 html.low-power .studio{
   background-image:
     radial-gradient(115% 88% at 50% 40%,
-      rgba(0,0,0,0) 42%, rgba(3,5,12,.34) 78%, rgba(3,5,12,.62) 100%);
+      rgba(0,0,0,0) 42%, var(--vignette) 78%, var(--vignette-edge) 100%);
 }
 
 /* ---------- screens ---------- */
@@ -307,15 +618,69 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .btn:active{ transform:scale(.985); }
 .btn-primary{ background:var(--amber); color:var(--ink-950);
               box-shadow:var(--e2), 0 10px 30px rgba(var(--amber-rgb),.26); }
-.btn-primary:hover{ background:#FFB84E; }
+.btn-primary:hover{ background:var(--amber-hi); }
 .btn-primary[disabled]{ background:var(--ink-700); color:var(--slate-300); box-shadow:none;
                         cursor:not-allowed; transform:none; }
 .btn-ghost{ background:transparent; color:var(--slate-300); border-color:var(--hair); }
 .btn-ghost:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
 
+/* --- LIVE NOW — the watch-party marquee on the landing screen.
+   Rows only exist while somebody's room is listed, so the section hides
+   itself rather than showing an empty stage door. --- */
+/* ---------- theme picker (landing) ---------- */
+.themebar{ width:100%; display:flex; align-items:center; gap:var(--sp-3);
+           flex-wrap:wrap; text-align:left; }
+.themebar-k{ flex:0 0 auto; }
+.themebar-opts{ display:flex; gap:var(--sp-2); flex-wrap:wrap; }
+.theme-dot{
+  width:26px; height:26px; padding:0; border-radius:var(--r-pill);
+  border:1px solid var(--hair-strong); cursor:pointer;
+  background:var(--dot, var(--ink-700));
+  transition:transform var(--d-state) var(--ease-snap),
+             box-shadow var(--d-state) var(--ease-out-soft);
+}
+.theme-dot:hover{ transform:scale(1.12); }
+.theme-dot[aria-checked="true"]{
+  box-shadow:0 0 0 2px var(--ink-900), 0 0 0 4px var(--amber);
+  transform:scale(1.06);
+}
+/* swatches are literal on purpose: each previews a palette that is not
+   the one currently applied, so it cannot use the live tokens */
+.theme-dot[data-theme="studio"]  { --dot:linear-gradient(135deg,#161B2E,#FFA92E); }
+.theme-dot[data-theme="marquee"] { --dot:linear-gradient(135deg,#3A1152,#FFC53D); }
+.theme-dot[data-theme="drift"]   { --dot:linear-gradient(135deg,#2A1060,#FF4FD8); }
+.theme-dot[data-theme="daybreak"]{ --dot:linear-gradient(135deg,#FFFFFF,#B87400); }
+.theme-dot[data-theme="deadair"] { --dot:linear-gradient(135deg,#0C1016,#C98A2E); }
+
+.livenow{ width:100%; display:flex; flex-direction:column; gap:var(--sp-3); text-align:left; }
+.livenow-head{ display:flex; align-items:center; gap:var(--sp-2); }
+.live-list{ display:flex; flex-direction:column; gap:var(--sp-2); }
+.live-row{
+  display:flex; align-items:center; gap:var(--sp-3);
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-lg);
+  border-left:3px solid var(--accent, var(--slate-300));
+  padding:var(--sp-3) var(--sp-4);
+}
+.live-info{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.live-code{ font-family:var(--font-num); font-weight:700; letter-spacing:.18em;
+            color:var(--paper-100); }
+.live-meta{ font-size:14px; color:var(--slate-300);
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.live-actions{ flex:0 0 auto; display:flex; gap:var(--sp-2); }
+/* Smaller than the stage buttons but still a 44px touch target. */
+.btn.btn-small{ font-size:13px; padding:10px 16px; min-height:44px; }
+
 /* --- lobby --- */
 .lobby{ margin:auto; width:100%; max-width:960px; display:flex; flex-direction:column;
         align-items:center; gap:var(--sp-6); }
+/* The "list publicly" toggle. Amber only while ON — a listed room is a
+   published room code, and the state should read from across the table. */
+.pub-row{ display:flex; align-items:center; justify-content:center; gap:var(--sp-3); }
+#publicToggle[aria-pressed="true"]{
+  color:var(--amber); border-color:rgba(var(--amber-rgb),.45);
+  background:rgba(var(--amber-rgb),.08);
+}
+.pub-tag{ color:var(--amber); }
 
 /* --- The call sheet.
    What is on tonight, stated once. The lobby is the calm screen in this
@@ -405,6 +770,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   animation:slotPulse 2.4s ease-in-out infinite;
 }
 @keyframes slotPulse{ 0%,100%{opacity:.28} 50%{opacity:.48} }
+
+/* "N watching" — a headcount, not a roster. Kept quiet on purpose: the
+   audience is atmosphere, the players are the show. */
+.watch-count{ color:var(--slate-400); }
 
 .waiting{ display:flex; align-items:center; gap:var(--sp-2);
           font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
@@ -677,7 +1046,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
            color:var(--slate-400); min-width:1.4em; text-align:right; flex:0 0 auto; }
 .row.r1 .row-rank{ color:var(--amber); }
 .row.r2 .row-rank{ color:var(--paper-200); }
-.row.r3 .row-rank{ color:#C2743A; }
+.row.r3 .row-rank{ color:var(--bronze); }
 
 /* --- The podium.
    Tinting the rank numeral alone was too quiet to register: second place
@@ -691,7 +1060,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   background-image:linear-gradient(100deg,
     rgba(var(--medal-rgb),.11) 0%, rgba(var(--medal-rgb),0) 42%);
 }
-.podium .row.r3{ --medal:#C2743A; --medal-rgb:194,116,58; }
+.podium .row.r3{ --medal:var(--bronze); --medal-rgb:var(--bronze-rgb); }
 .podium .row.r2{ min-height:76px; }
 .podium .row.r3{ min-height:70px; }
 .podium .row.r2 .row-rank, .podium .row.r3 .row-rank{
@@ -745,7 +1114,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .winner-name{
   margin:0; font-size:var(--fs-display); font-weight:700; letter-spacing:-.03em; line-height:.96;
   color:var(--paper-000); text-align:center; overflow-wrap:anywhere;
-  background:linear-gradient(180deg,#FFFFFF,var(--paper-200));
+  background:linear-gradient(180deg,var(--sheen),var(--paper-200));
 }
 /* The shine is a second gradient layer inside the same background-clip:text
    fill, not an overlay. An overlay would paint a bright rectangle across
@@ -756,7 +1125,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
     background-image:
       linear-gradient(100deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.95) 50%, rgba(255,255,255,0) 58%),
-      linear-gradient(180deg, #FFFFFF, var(--paper-200));
+      linear-gradient(180deg, var(--sheen), var(--paper-200));
     background-size: 320% 100%, 100% 100%;
     background-position: 160% 0, 0 0;
     background-repeat: no-repeat;
@@ -885,6 +1254,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   @keyframes rmIn{ from{opacity:0} to{opacity:1} }
 
   .code-ch, .slot, .onair, .pill.now, .dots i, .winner-name, .winner.play{ animation:none !important; }
+  /* every theme's decorative backdrop stills — the palette survives,
+     the movement does not. This one line covers all five because the
+     themes only ever animate through --veil-anim. */
+  .stage::before{ animation:none !important; }
   .clock.panic:not(.locked) .ring{ animation:none !important; }
   .wave, .shock, .ping, .cf, .delta{ display:none !important; }
   .tile-enter, .q-enter, .seat.filled, .row-enter, .gchip, .pod-rise, .rest-rise, .pop-in{
@@ -904,6 +1277,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   .dwell.run{ animation:dwell var(--dwell,4000ms) linear forwards; }
 }
 </style>
+<script>
+/* Runs before first paint, on purpose. Reading the saved theme down in
+   the main script (which sits at the end of <body>) would show every
+   non-default player a flash of Studio Classic on every load.
+   The enum check is repeated here rather than shared because this runs
+   before anything else exists — and localStorage is untrusted input in
+   both places. */
+(function () {
+  var ok = ['studio', 'marquee', 'drift', 'daybreak', 'deadair'];
+  var t = 'studio';
+  try {
+    var s = localStorage.getItem('ls:theme');
+    if (s && ok.indexOf(s) >= 0) t = s;
+  } catch (e) {}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 </head>
 <body data-screen="landing">
 
@@ -919,6 +1309,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   </div>
   <div class="hud-mid"><div class="pills" id="hudPills" aria-hidden="true"></div></div>
   <div class="hud-right">
+    <button type="button" class="chip-btn" id="backBtn" title="Back to menu">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="backLabel">Menu</span>
+    </button>
     <button type="button" class="chip-btn" id="hudCode" title="Copy the room link">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 5H4v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <span class="code" id="hudCodeText">----</span>
@@ -926,6 +1320,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     <button type="button" class="chip-btn" id="soundBtn" aria-pressed="false" title="Sound">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="soundOff" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
       <span class="sr" id="soundLabel">Sound off</span>
+    </button>
+    <button type="button" class="chip-btn" id="themeBtn" title="Theme">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+      <span class="sr" id="themeLabel">Theme</span>
     </button>
     <button type="button" class="chip-btn" id="langBtn" title="Language / Idioma">
       <span id="langLabel">EN</span>
@@ -962,6 +1360,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         </div>
         <p class="field-note" id="joinNote">A room is just a link. Share it and people land straight in.</p>
       </form>
+      <div class="themebar" id="themeBar">
+        <span class="micro themebar-k" id="themeBarLabel">Look</span>
+        <div class="themebar-opts" id="themeOpts" role="radiogroup" aria-labelledby="themeBarLabel"></div>
+      </div>
+      <div class="livenow" id="liveNow" hidden>
+        <div class="livenow-head">
+          <span class="onair" aria-hidden="true"></span>
+          <h2 class="micro livenow-title" id="liveNowTitle">Live now</h2>
+        </div>
+        <div class="live-list" id="liveList"></div>
+      </div>
     </div>
   </section>
 
@@ -984,6 +1393,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         </button>
       </div>
       <div class="players" id="lobbyPlayers"></div>
+      <div class="micro watch-count" id="lobbyWatch" hidden></div>
+      <div class="pub-row">
+        <button type="button" class="chip-btn" id="publicToggle" aria-pressed="false" hidden></button>
+        <span class="micro pub-tag" id="publicTag" hidden></span>
+      </div>
       <div class="board-actions">
         <button type="button" class="btn btn-primary" id="startBtn" hidden>Start game</button>
         <div class="waiting" id="waitLine" hidden>
@@ -1076,6 +1490,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      file:///. A file:// page sends Origin: null and will be refused.)
      ================================================================== */
   var BACKEND = 'wss://trivia-rooms.trivia-server.workers.dev';
+  /* A page served from localhost is a dev copy and talks to `wrangler dev`,
+     never to the deployed Worker. Without this, every local test run since
+     the deploy has been quietly exercising the SHIPPED backend — old server
+     code, real Durable Object storage — instead of the code under test. */
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+    BACKEND = 'ws://localhost:8787';
+  }
 
   /* ------------------------------------------------------------------
      THE INVARIANT, restated on the client side:
@@ -1095,7 +1516,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   var MAX_PLAYERS = 8;
   var MIN_PLAYERS = 1;
   var RING_C      = 351.86; // 2 * PI * 56
-  var DWELL_MS    = 4000;
+  /* How long the reveal dwells on the answer before the scoreboard. The
+     server advances 6s after the reveal broadcast, so the whole beat has a
+     budget now: 1.6s of reveal animation + this dwell = board at ~2.8s,
+     leaving ~3.2s for rows to land, scores to count up and people to find
+     their name before the next question arrives. The old 4000 was tuned for
+     a host-paced game and left the scoreboard on screen for 0.4s. */
+  var DWELL_MS    = 1200;
 
   var ROOM_RE = /^[A-Z0-9]{4,6}$/;
 
@@ -1123,6 +1550,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       needMore1: 'Need 1 more player',
       winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
       nextQuestion: 'Next question', scoreboard: 'Scoreboard',
+      nextIn: 'Next question in #', finalIn: 'Final standings in #',
       roundOf: 'Round # of #', pickOne: 'Pick one', pickOneKeys: 'Pick one — keys 1-4 work too',
       answerLocked: 'Answer locked', youGotIt: 'You got it', notThisTime: 'Not this time',
       noAnswer: 'No answer this round', fastest: 'Fastest', you: 'You',
@@ -1130,6 +1558,21 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       lede: 'Live trivia for one to eight people. Ten questions, twenty seconds each — and a server that flatly refuses to tell your browser the answer until the clock is done.',
       inviteNote: 'A room is just a link. Share it and people land straight in.',
       noSpanish: 'No Spanish questions yet',
+      watchingN: '# watching', youreWatching: 'You’re watching',
+      liveNow: 'Live now', watch: 'Watch', joinShort: 'Join',
+      playingN: '# playing', inLobbyTag: 'In the lobby', podiumTag: 'Podium',
+      listPublic: 'List publicly', pubOn: 'On', pubOff: 'Off',
+      publicTag: 'Listed publicly',
+      publicNote: 'A listed room appears on the main screen with its code — anyone can watch, and anyone can join while you are in the lobby.',
+      backToMenu: 'Menu', onAirTag: 'On air',
+      noLeaveLive: 'The round is live — you can leave between rounds.',
+      cantJoin: 'Could not join that room — it may be full, already on air, or the code may be wrong.',
+      watchInstead: 'Watch instead', changeRoom: 'Change room',
+      look: 'Look', themeNamed: 'Theme: #',
+      themeStudio: 'Studio Classic', themeMarquee: 'Marquee Night',
+      themeDrift: 'Signal Drift', themeDaybreak: 'Daybreak',
+      themeDeadair: 'Dead Air',
+      m_spectator: 'Spectators watch — they cannot play.',
       m_bilingual: 'Bilingual set — #. Everyone can read these in their own language.',
       m_offline: 'Offline pack — #. Open Trivia DB did not answer, so these are from the built-in set.',
       m_noLang: '# has no Spanish questions yet. Pick another genre, or switch everyone to English.',
@@ -1145,6 +1588,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       needMore1: 'Falta 1 jugador',
       winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
       nextQuestion: 'Siguiente pregunta', scoreboard: 'Marcador',
+      nextIn: 'Siguiente pregunta en #', finalIn: 'Clasificación final en #',
       roundOf: 'Ronda # de #', pickOne: 'Elige una', pickOneKeys: 'Elige una — las teclas 1-4 también sirven',
       answerLocked: 'Respuesta enviada', youGotIt: 'Correcto', notThisTime: 'Esta vez no',
       noAnswer: 'Sin respuesta', fastest: 'La más rápida', you: 'Tú',
@@ -1152,6 +1596,21 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       lede: 'Trivia en directo para una a ocho personas. Diez preguntas, veinte segundos cada una — y un servidor que se niega en redondo a decirle la respuesta a tu navegador hasta que el reloj termine.',
       inviteNote: 'Una sala es solo un enlace. Compártelo y entran directamente.',
       noSpanish: 'Aún sin preguntas en español',
+      watchingN: '# viendo', youreWatching: 'Estás viendo',
+      liveNow: 'En directo', watch: 'Ver', joinShort: 'Entrar',
+      playingN: '# jugando', inLobbyTag: 'En la sala', podiumTag: 'Podio',
+      listPublic: 'Listar en público', pubOn: 'Sí', pubOff: 'No',
+      publicTag: 'Sala listada en público',
+      publicNote: 'Una sala listada aparece en la pantalla principal con su código — cualquiera puede verla, y cualquiera puede entrar mientras estén en la sala de espera.',
+      backToMenu: 'Menú', onAirTag: 'En el aire',
+      noLeaveLive: 'La ronda está en directo — puedes salir entre rondas.',
+      cantJoin: 'No se pudo entrar en esa sala — puede estar llena, ya en el aire, o el código puede estar mal.',
+      watchInstead: 'Ver como espectador', changeRoom: 'Cambiar de sala',
+      look: 'Estilo', themeNamed: 'Tema: #',
+      themeStudio: 'Estudio clásico', themeMarquee: 'Noche de marquesina',
+      themeDrift: 'Deriva de señal', themeDaybreak: 'Amanecer',
+      themeDeadair: 'Aire muerto',
+      m_spectator: 'Los espectadores miran — no pueden jugar.',
       m_bilingual: 'Set bilingüe — #. Cada quien puede leerlas en su idioma.',
       m_offline: 'Set sin conexión — #. Open Trivia DB no respondió, así que estas vienen del set incluido.',
       m_noLang: '# aún no tiene preguntas en español. Elige otro género, o que todos jueguen en inglés.',
@@ -1262,6 +1721,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     name: '',
     me: null,              // {id,name}
     isHost: false,
+    spectator: false,      // watching, not playing — server-confirmed on welcome
+    watching: 0,           // how many spectators the room has (a count, never a list)
+    isPublic: false,       // whether this room is on the LIVE NOW directory
     phase: 'lobby',
     players: [],           // roster
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
@@ -1274,6 +1736,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     answered: {},          // playerId -> true, for the open question
     correctIndex: null,    // ONLY ever set from a 'reveal' message
     reveal: null,
+    nextAt: 0,             // when the server will advance past this reveal
     prevScores: {},        // scores as of the start of the current round
     lastBoardOrder: [],     // ids in the order the board is currently showing
     final: null,
@@ -1288,6 +1751,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elClock = $('clock'), elRing = $('ring'), elArc = $('arc'), elDigits = $('digits'),
       elCatChip = $('catChip'), elCatCap = $('catCap'), elCatText = $('catText'), elCatDiff = $('catDiff'),
       elLangBtn = $('langBtn'), elLangLabel = $('langLabel'),
+      elThemeBtn = $('themeBtn'), elThemeLabel = $('themeLabel'),
+      elThemeOpts = $('themeOpts'), elThemeBarLabel = $('themeBarLabel'),
       elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
       elDiffSlot = $('diffSlot'), elDiffVal = $('diffVal'),
       elQuestion = $('questionText'), elQRule = $('qRule'),
@@ -1303,7 +1768,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
       elCopyBtn = $('copyBtn'), elNameInput = $('nameInput'), elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
-      elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel');
+      elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
+      elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch');
 
   var CHOICES = [
     { letter: 'A', c: '#3D6BFF', rgb: '61,107,255',  fill: '#FFFFFF', key: '1' },
@@ -1413,7 +1879,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (name === 'lobby')  { setStage(lobbyStage()); }
     if (name === 'board')  { setStage(STAGE.board); runBoardSequence(); }
     if (name === 'final')  { runFinalSequence(); }
-    if (name === 'landing'){ setStage(STAGE.lobby); }
+    if (name === 'landing'){ setStage(STAGE.lobby); pollLiveNow(); }
+    if (name !== 'landing'){ stopLiveNow(); }
   }
 
   /* ==================================================================
@@ -1437,10 +1904,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elNetdot.dataset.net = (mode === 'dead') ? 'dead' : 'down';
     if (mode === 'busy') elNetbar.appendChild(mk('span', 'spin'));
     var s = mk('span'); s.textContent = text; elNetbar.appendChild(s);
-    if (action) {
-      var b = mk('button', 'btn btn-ghost'); b.type = 'button'; b.textContent = action.label;
-      on(b, 'click', action.fn);
-      elNetbar.appendChild(b);
+    // One action or several — "watch instead / change room" needs two.
+    var actions = !action ? [] : (Array.isArray(action) ? action : [action]);
+    for (var ai = 0; ai < actions.length; ai++) {
+      (function (ac) {
+        var b = mk('button', 'btn btn-ghost'); b.type = 'button'; b.textContent = ac.label;
+        on(b, 'click', ac.fn);
+        elNetbar.appendChild(b);
+      })(actions[ai]);
     }
   }
 
@@ -1454,8 +1925,84 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elSoundOff.style.display = audio.on ? 'none' : '';
     elSoundLabel.textContent = audio.on ? 'Sound on' : 'Sound off';
   }
+  /* ---------- theme ----------
+     Client-side only, by design. The preference lives in localStorage,
+     is validated against a known-good enum, and is never sent to the
+     server — so there is no protocol change, and one player's look can
+     never leak into anybody else's room.
+
+     The <head> script already applied the theme before first paint, so
+     this reads the attribute back instead of touching localStorage a
+     second time. Re-validated anyway: the attribute is as forgeable as
+     the storage key it came from. */
+  var THEMES = ['studio', 'marquee', 'drift', 'daybreak', 'deadair'];
+  var THEME_STR = {
+    studio: 'themeStudio', marquee: 'themeMarquee', drift: 'themeDrift',
+    daybreak: 'themeDaybreak', deadair: 'themeDeadair'
+  };
+  /* browser chrome colour per theme — each is that palette's --ink-900 */
+  var THEME_BAR = {
+    studio: '#0A0C14', marquee: '#150726', drift: '#0A0620',
+    daybreak: '#F7F4ED', deadair: '#050608'
+  };
+  var theme = document.documentElement.getAttribute('data-theme') || 'studio';
+  if (THEMES.indexOf(theme) < 0) theme = 'studio';
+
+  function themeName(t) { return T(THEME_STR[t] || 'themeStudio'); }
+
+  function applyTheme(next, announce) {
+    if (THEMES.indexOf(next) < 0) return;
+    theme = next;
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('ls:theme', theme); } catch (e) {}
+    var bar = document.querySelector('meta[name="theme-color"]');
+    if (bar) bar.setAttribute('content', THEME_BAR[theme]);
+    /* Daybreak is the only light palette; telling the UA so keeps form
+       controls and scrollbars from staying dark on a paper ground. */
+    var cs = document.querySelector('meta[name="color-scheme"]');
+    if (cs) cs.setAttribute('content', theme === 'daybreak' ? 'light' : 'dark');
+    paintTheme();
+    if (announce) toast(T('themeNamed').replace('#', themeName(theme)));
+  }
+
+  function paintTheme() {
+    var named = T('themeNamed').replace('#', themeName(theme));
+    if (elThemeBarLabel) elThemeBarLabel.textContent = T('look');
+    if (elThemeLabel) elThemeLabel.textContent = named;
+    if (elThemeBtn) {
+      elThemeBtn.setAttribute('aria-label', named);
+      elThemeBtn.setAttribute('title', named);
+    }
+    if (!elThemeOpts) return;
+    if (!elThemeOpts.childNodes.length) {
+      for (var i = 0; i < THEMES.length; i++) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'theme-dot';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('data-theme', THEMES[i]);
+        elThemeOpts.appendChild(b);
+      }
+    }
+    var dots = elThemeOpts.querySelectorAll('.theme-dot');
+    for (var j = 0; j < dots.length; j++) {
+      var t = dots[j].getAttribute('data-theme');
+      dots[j].setAttribute('aria-checked', t === theme ? 'true' : 'false');
+      dots[j].setAttribute('aria-label', themeName(t));
+      dots[j].setAttribute('title', themeName(t));
+    }
+  }
+
+  on(elThemeOpts, 'click', function (ev) {
+    var dot = ev.target && ev.target.closest ? ev.target.closest('.theme-dot') : null;
+    if (dot) applyTheme(dot.getAttribute('data-theme'), false);
+  });
+  /* the HUD chip cycles, because the HUD has no room for five dots */
+  on(elThemeBtn, 'click', function () { applyTheme(cycle(THEMES, theme, 1), true); });
+
   paintSound();
   paintLang();
+  paintTheme();
   function paintLang() {
     if (elLangLabel) elLangLabel.textContent = lang.toUpperCase();
     if (elLangBtn) {
@@ -1464,6 +2011,20 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     }
     document.documentElement.setAttribute('lang', lang);
     paintStatic();
+  }
+
+  /* Back to Menu lives in the HUD: enabled in the lobby and at the podium,
+     an amber ON AIR sign during a live round. There is no mid-game hop-out —
+     the players still in the round deserve better than a roster that shrinks
+     under them — but nobody is trapped either: the sign names the moment the
+     door reopens, and spectators (who owe the round nothing) can always go.
+     Closing the tab still disconnects exactly as before. */
+  function paintBackBtn() {
+    if (!elBackBtn) return;
+    var live = (state.phase === 'question' || state.phase === 'reveal') && !state.spectator;
+    elBackBtn.disabled = live;
+    elBackLabel.textContent = live ? T('onAirTag') : T('backToMenu');
+    elBackBtn.title = live ? T('noLeaveLive') : T('backToMenu');
   }
 
   /* Static chrome only — anything driven by game state is repainted by its own
@@ -1481,6 +2042,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var slotKs = document.querySelectorAll('.slot-k');
     if (slotKs[0]) slotKs[0].textContent = T('genre');
     if (slotKs[1]) slotKs[1].textContent = T('difficulty');
+    paintBackBtn();
+    paintTheme();
     if (curScreen === 'lobby') renderLobby();
   }
 
@@ -2093,10 +2656,46 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elWaitText.textContent = 'Waiting for host';
     }
 
+    if (elLobbyWatch) {
+      elLobbyWatch.hidden = !(state.watching > 0);
+      elLobbyWatch.textContent = state.watching > 0
+        ? T('watchingN').replace('#', state.watching) : '';
+    }
+    paintPublicToggle();
+
     if (lobbyPainted && arrivals > 0) SFX.join();
     lobbyPainted = true;
     paintCallSheet();
   }
+
+  /* The host gets the switch; everyone else gets the fact. A room being
+     listed is something the people in it are entitled to know — their code
+     is on the marquee — so the non-host view is a tag, not a blank. */
+  function paintPublicToggle() {
+    var btn = $('publicToggle'), tag = $('publicTag');
+    if (!btn || !tag) return;
+    if (state.isHost && !state.spectator) {
+      btn.hidden = false;
+      tag.hidden = true;
+      btn.setAttribute('aria-pressed', state.isPublic ? 'true' : 'false');
+      btn.textContent = T('listPublic') + ' · ' + T(state.isPublic ? 'pubOn' : 'pubOff');
+      btn.title = T('publicNote');
+      btn.disabled = !!state.starting;
+    } else {
+      btn.hidden = true;
+      tag.hidden = !state.isPublic;
+      tag.textContent = state.isPublic ? T('publicTag') : '';
+    }
+  }
+
+  on($('publicToggle'), 'click', function () {
+    if (!state.isHost || state.starting) return;
+    // Painted optimistically like the call sheet; the server's 'public'
+    // broadcast is the truth and repaints a moment later.
+    state.isPublic = !state.isPublic;
+    paintPublicToggle();
+    send({ type: 'public', on: state.isPublic });
+  });
 
   /* ==================================================================
      Question
@@ -2132,6 +2731,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function renderQuestion(q) {
+    // The board's numbers must be right BEFORE its animation is cancelled.
+    settleBoardNow();
     clearBucket('rev'); clearBucket('seq');
     // Only for a question that is genuinely starting. A reconnect replays the
     // current question through here too (catchUp), and a riser for a round
@@ -2147,14 +2748,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     q = localised(q);
     state.correctIndex = null;
     state.reveal = null;
+    state.nextAt = 0;
     state.myChoice = null;
     state.locked = false;
     state.answered = {};
 
     // A reload mid-question shouldn't lose which tile you chose. This is
     // your own pick, echoed back to you — it says nothing about the answer.
+    // Spectators have no pick to restore.
     try {
-      var saved = sessionStorage.getItem(pickKey());
+      var saved = state.spectator ? null : sessionStorage.getItem(pickKey());
       if (saved !== null) {
         var si = parseInt(saved, 10);
         if (si >= 0 && si <= 3) { state.myChoice = si; state.locked = true; }
@@ -2206,7 +2809,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       b.appendChild(txt);
 
       b.addEventListener('animationend', function () { this.classList.remove('tile-enter'); }, { once: true });
-      on(b, 'click', onTileClick);
+      // A spectator's board is a display, not a control surface.
+      if (state.spectator) b.disabled = true;
+      else on(b, 'click', onTileClick);
       elTiles.appendChild(b);
     }
 
@@ -2247,6 +2852,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function lockIn(i) {
+    if (state.spectator) return; // watching, not playing — the server would refuse anyway
     if (state.locked || !state.question || state.phase !== 'question') return;
     if (!(i >= 0 && i <= 3)) return;
     state.locked = true;
@@ -2283,6 +2889,25 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   function paintLockLine() {
     elLockLine.textContent = '';
     if (state.phase !== 'question') return;
+    if (state.spectator) {
+      // Spectators see the lock-in count from the start — they cannot be
+      // influenced into an answer, having no answer to give.
+      var wtag = mk('span', 'lock-tag muted');
+      wtag.textContent = T('youreWatching');
+      elLockLine.appendChild(wtag);
+      var totalS = 0, doneS = 0;
+      for (var si = 0; si < state.players.length; si++) {
+        if (!state.players[si].connected) continue;
+        totalS++;
+        if (state.answered[state.players[si].id]) doneS++;
+      }
+      if (totalS > 0) {
+        var cs = mk('span', 'lock-tag muted');
+        cs.textContent = doneS + ' of ' + totalS + ' locked in';
+        elLockLine.appendChild(cs);
+      }
+      return;
+    }
     if (!state.locked) {
       var hint = mk('span', 'lock-tag muted');
       hint.textContent = COARSE ? 'Tap your answer' : 'Pick one — keys 1–4 work too';
@@ -2375,12 +3000,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         }
       }
       elGridBloom.classList.add('on');
-      setStage(iWasRight ? STAGE.right : STAGE.bruise);
-      if (iWasRight) { SFX.correct(); } else { SFX.wrong(); }
+      // A spectator has no verdict, so the room stays neutral for them —
+      // the bruise light means "you missed it", and they missed nothing.
+      setStage(state.spectator ? STAGE.board : (iWasRight ? STAGE.right : STAGE.bruise));
+      if (!state.spectator) { if (iWasRight) { SFX.correct(); } else { SFX.wrong(); } }
     }, 520);
 
-    // 560ms — your verdict, 40ms after the answer so it reads as consequence
+    // 560ms — your verdict, 40ms after the answer so it reads as consequence.
+    // A spectator gets no verdict line: "no answer this round" would be a
+    // reproach aimed at someone who was never asked.
     later('rev', function () {
+      if (state.spectator) return;
       if (iWasRight) {
         confetti(40);
       } else if (state.myChoice !== null && state.myChoice !== ci) {
@@ -2485,6 +3115,40 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      ================================================================== */
   var boardRowEls = Object.create(null);
 
+  /* The truth the current board must land on, kept beside the animation
+     that is trying to get there. Auto-advance created a failure the
+     host-paced game could not have: the next question's render cancels the
+     board sequence, and in a HIDDEN tab (throttled timers, no rAF at all)
+     the flip may still be queued when that happens — leaving the board
+     wedged on last round's numbers with nothing left to correct it. Same
+     rule as countUp's landing timeout, widened to the whole board: the
+     movement is decoration, the numbers are information, and cancelling
+     decoration must never cancel information. */
+  var boardPlan = null;
+  function settleBoardNow() {
+    if (!boardPlan) return;
+    var plan = boardPlan;
+    boardPlan = null;
+    var order = sortedBy(plan.now);
+    for (var i = 0; i < order.length; i++) {
+      var p = order[i];
+      var row = boardRowEls[p.id];
+      if (!row) continue;
+      elBoardRows.appendChild(row);
+      row.style.transition = '';
+      row.style.transform = '';
+      row.style.willChange = '';
+      row.className = 'row' + (p.connected ? '' : ' off') +
+                      (i === 0 ? ' r1' : i === 1 ? ' r2' : i === 2 ? ' r3' : '');
+      row.querySelector('.row-rank').textContent = String(i + 1);
+      row.querySelector('.row-score').textContent = String(plan.now[p.id] || 0);
+      var frac = plan.leaderNow > 0 ? (plan.now[p.id] || 0) / plan.leaderNow : 0;
+      var bar = row.querySelector('.row-bar');
+      bar.style.transition = 'none';
+      bar.style.transform = 'scaleX(' + frac.toFixed(4) + ')';
+    }
+  }
+
   function sortedBy(scoreMap) {
     var arr = state.players.slice();
     arr.sort(function (a, b) {
@@ -2574,6 +3238,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     // rows land (240 + stagger) -> 400ms hold, so people can find their own
     // name before it moves -> then count-up and reorder fire together
+    boardPlan = { now: now, leaderNow: leaderNow };
     var settleIn = (REDUCED ? 120 : 240) + (REDUCED ? 0 : beforeList.length * 70) + 400;
     later('seq', function () { flipBoard(prev, now, leaderNow); }, settleIn);
   }
@@ -2583,20 +3248,43 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var q = state.question;
     var isLast = q ? (q.index + 1 >= q.total) : false;
     if (state.isHost) {
+      // The room advances itself now; this button survives as a skip. It
+      // still reads "Next question" because that is still what it does —
+      // just sooner than the six seconds everyone else is watching tick by.
       var b = mk('button', 'btn btn-primary');
       b.type = 'button';
-      b.textContent = isLast ? 'Final standings' : 'Next question';
+      b.textContent = isLast ? T('finalStandings') : T('nextQuestion');
       on(b, 'click', function () { send({ type: 'next' }); b.disabled = true; });
       elBoardActions.appendChild(b);
     } else {
+      // Nobody waits for the host any more — say what actually happens next
+      // and when. The countdown reads from the reveal's nextAt.
       var w = mk('div', 'waiting');
-      var s = mk('span'); s.textContent = 'Waiting for host';
+      var s = mk('span'); s.id = 'nextCountdown';
       w.appendChild(s);
       var dots = mk('span', 'dots');
       dots.appendChild(mk('i')); dots.appendChild(mk('i')); dots.appendChild(mk('i'));
       w.appendChild(dots);
       elBoardActions.appendChild(w);
+      paintNextCountdown(isLast);
     }
+  }
+
+  /* One handle, cleared before every re-arm, dead the moment the phase moves
+     on or the element is repainted away — the interval-stacking bug this
+     vault has paid for three times does not get a fourth invoice here. */
+  var nextCountTimer = 0;
+  function paintNextCountdown(isLast) {
+    if (nextCountTimer) { clearTimeout(nextCountTimer); nextCountTimer = 0; }
+    var el = $('nextCountdown');
+    if (!el) return;
+    if (state.phase !== 'reveal' || !state.nextAt) {
+      el.textContent = T(isLast ? 'finalStandings' : 'nextQuestion');
+      return;
+    }
+    var secs = Math.max(0, Math.ceil((state.nextAt - Date.now()) / 1000));
+    el.textContent = T(isLast ? 'finalIn' : 'nextIn').replace('#', secs + 's');
+    nextCountTimer = setTimeout(function () { paintNextCountdown(isLast); }, 250);
   }
 
   /* FLIP: measure, reorder, measure, invert, play. Transform only —
@@ -2861,7 +3549,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
            '&name=' + encodeURIComponent(name) +
            // Announced on the handshake so the room knows before anyone hits
            // Start whether it needs a source that has Spanish.
-           '&lang=' + encodeURIComponent(lang);
+           '&lang=' + encodeURIComponent(lang) +
+           // Watching is decided at the door, not negotiated after it.
+           (state.spectator ? '&role=spectator' : '');
   }
 
   function connect() {
@@ -2909,9 +3599,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.handshakeFails++;
         if (state.handshakeFails >= 4) {
           wantOpen = false;
-          netbar('dead', 'Could not join that room — it may be full, or the code may be wrong.', {
-            label: 'Change room', fn: function () { goLanding(true); }
-          });
+          // The handshake can be refused for a full room, a game already on
+          // air, or a code that never existed — the socket API cannot tell us
+          // which, so the copy names all three and the actions cover both
+          // sensible exits. Watching is not offered to someone who was
+          // already trying to watch; that door just failed.
+          var acts = [{ label: T('changeRoom'), fn: function () { goLanding(true); } }];
+          if (!state.spectator) {
+            acts.unshift({ label: T('watchInstead'), fn: function () { watchRoom(state.code); } });
+          }
+          netbar('dead', T('cantJoin'), acts);
           return;
         }
       }
@@ -3005,6 +3702,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       retryTimer = 0;
       connect();
     }
+    // The marquee resumes with the tab; a hidden tab neither polls nor cares.
+    if (document.visibilityState === 'visible' && curScreen === 'landing') pollLiveNow();
   });
 
   /* ==================================================================
@@ -3016,6 +3715,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       case 'welcome':
         state.me = msg.you || null;
         state.isHost = !!msg.isHost;
+        // The server's word beats the URL we asked with — if it seated us as
+        // a spectator, we render as one whatever we intended.
+        state.spectator = !!msg.spectator;
+        state.isPublic = !!msg.isPublic;
         state.phase = msg.phase || 'lobby';
         if (Array.isArray(msg.catalog)) state.catalog = msg.catalog;
         if (Array.isArray(msg.difficulties) && msg.difficulties.length) {
@@ -3032,6 +3735,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           resetRound();
           setScreen('lobby');
         }
+        paintBackBtn();
         // For question / reveal / final the server replays the payload right
         // behind this; the screen switches when the real data lands, so we
         // never show an empty stage.
@@ -3039,6 +3743,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
       case 'roster':
         state.players = Array.isArray(msg.players) ? msg.players : [];
+        state.watching = (msg.watching | 0) > 0 ? (msg.watching | 0) : 0;
         if (state.me) {
           for (var i = 0; i < state.players.length; i++) {
             if (state.players[i].id === state.me.id) state.isHost = !!state.players[i].isHost;
@@ -3060,6 +3765,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.phase === 'question') {
           // wait for the question payload
         }
+        paintBackBtn();
         break;
 
       case 'question': {
@@ -3089,6 +3795,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           // is silently dropped and the feature simply does not appear.
           i18n: msg.i18n
         });
+        paintBackBtn();
         break;
       }
 
@@ -3099,18 +3806,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           // are locked; we are NOT told which choice, and we do not guess.
           state.locked = true;
           applyLockVisuals(state.myChoice, true);
-        } else if (state.locked) {
+        } else if (state.locked || state.spectator) {
           paintLockLine();
         }
         break;
 
       case 'reveal':
         state.phase = 'reveal';
+        // The server advances on its own at nextAt; the client only draws
+        // the countdown. Zero (an old server, a dropped field) simply means
+        // no countdown is shown — the game still advances server-side.
+        state.nextAt = Number(msg.nextAt) || 0;
         runReveal({
           correctIndex: msg.correctIndex,
           perPlayer: Array.isArray(msg.perPlayer) ? msg.perPlayer : [],
           scores: Array.isArray(msg.scores) ? msg.scores : []
         });
+        paintBackBtn();
         break;
 
       case 'final':
@@ -3119,12 +3831,20 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         stopClockLoop();
         elDwell.classList.remove('run');
         setScreen('final');
+        paintBackBtn();
         break;
 
       case 'settings':
         if (msg.settings) state.settings = msg.settings;
         state.starting = false;
         paintCallSheet();
+        break;
+
+      case 'public':
+        // A fact about the room, told to everyone in it — the server's echo
+        // overwrites whatever the toggle painted optimistically.
+        state.isPublic = !!msg.on;
+        if (curScreen === 'lobby') paintPublicToggle();
         break;
 
       /* Not an error — the game is starting normally, it just isn't coming
@@ -3152,6 +3872,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.question = null;
     state.correctIndex = null;
     state.reveal = null;
+    state.nextAt = 0;
     state.myChoice = null;
     state.locked = false;
     state.answered = {};
@@ -3201,6 +3922,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     return ROOM_RE.test(raw) ? raw : '';
   }
 
+  function readHashWatch() {
+    return /(?:^|&)watch=1(?:&|$)/i.test(String(location.hash || '').replace(/^#/, ''));
+  }
+
   function randomCode() {
     var alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O — they read as 1 and 0
     var out = '';
@@ -3230,6 +3955,119 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elJoinNote.classList.toggle('err', !!bad);
   }
 
+  /* ==================================================================
+     LIVE NOW — the public room directory on the landing screen.
+
+     A poll, not a socket: the landing screen is the only reader, 5s is
+     fresh enough for a marquee, and a directory that misses a beat costs
+     nothing. One timer handle, armed only while the landing screen is up
+     and cleared the moment it is not — the interval-stacking bug this
+     vault keeps paying for is a chain here, not a setInterval.
+     ================================================================== */
+  var LOBBY_POLL_MS = 5000;
+  var lobbyTimer = 0;
+
+  /* Same host as the game socket, spoken over HTTP. Derived from BACKEND
+     the same way socketUrl derives the ws scheme — one address, two doors. */
+  function backendHttp() {
+    var raw = String(BACKEND || '').trim().replace(/\/+$/, '');
+    var m = raw.match(/^([a-z][a-z0-9+.\-]*):\/\/(.*)$/i);
+    var scheme = m ? m[1].toLowerCase() : '';
+    var rest = m ? m[2] : raw;
+    var secure = scheme === 'wss' || scheme === 'https' ||
+                 (!scheme && location.protocol === 'https:');
+    return (secure ? 'https://' : 'http://') + rest;
+  }
+
+  function stopLiveNow() {
+    if (lobbyTimer) { clearTimeout(lobbyTimer); lobbyTimer = 0; }
+  }
+
+  function pollLiveNow() {
+    stopLiveNow();
+    if (curScreen !== 'landing') return;
+    var again = function () {
+      stopLiveNow();
+      if (curScreen === 'landing') lobbyTimer = setTimeout(pollLiveNow, LOBBY_POLL_MS);
+    };
+    try {
+      fetch(backendHttp() + '/lobby', { mode: 'cors' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          renderLiveNow(data && Array.isArray(data.rooms) ? data.rooms : []);
+          again();
+        }, function () {
+          // A directory that cannot be reached is a directory with nothing
+          // on it — hide the section rather than show a stale marquee.
+          renderLiveNow([]);
+          again();
+        });
+    } catch (e) { renderLiveNow([]); }
+  }
+
+  function renderLiveNow(rooms) {
+    var wrap = $('liveNow'), list = $('liveList');
+    if (!wrap || !list) return;
+    list.textContent = '';
+    var shown = 0;
+    for (var i = 0; i < rooms.length && shown < 8; i++) {
+      var r = rooms[i];
+      // Directory data crossed the network, which makes it input.
+      var code = String(r && r.code || '').toUpperCase();
+      if (!ROOM_RE.test(code)) continue;
+      var players = Math.max(0, r.players | 0);
+      var watching = Math.max(0, r.watching | 0);
+      var phase = r.phase === 'lobby' ? 'lobby' : (r.phase === 'final' ? 'final' : 'live');
+      var g = genreOf(String(r.genre || 'mixed'));
+
+      var row = mk('div', 'live-row');
+      row.style.setProperty('--accent', g.accent);
+      var info = mk('div', 'live-info');
+      var codeEl = mk('div', 'live-code');
+      codeEl.textContent = code;
+      var meta = mk('div', 'live-meta');
+      var bits = [];
+      var hostName = String(r.host || '').slice(0, 16);
+      if (hostName && hostName !== 'anon') bits.push(hostName);
+      bits.push(g.label);
+      bits.push(phase === 'lobby' ? T('inLobbyTag') : (phase === 'final' ? T('podiumTag') : T('onAirTag')));
+      bits.push(T('playingN').replace('#', players));
+      if (watching > 0) bits.push(T('watchingN').replace('#', watching));
+      meta.textContent = bits.join(' · ');
+      info.appendChild(codeEl);
+      info.appendChild(meta);
+      row.appendChild(info);
+
+      var acts = mk('div', 'live-actions');
+      (function (roomCode, roomPhase, seated) {
+        var wbtn = mk('button', 'btn btn-ghost btn-small');
+        wbtn.type = 'button';
+        wbtn.textContent = T('watch');
+        on(wbtn, 'click', function () { watchRoom(roomCode); });
+        acts.appendChild(wbtn);
+        // Enter at start: Join only exists while the room is in its lobby
+        // (and has a seat left). The server enforces the same rule; this
+        // just keeps the button honest.
+        if (roomPhase === 'lobby' && seated < MAX_PLAYERS) {
+          var jbtn = mk('button', 'btn btn-primary btn-small');
+          jbtn.type = 'button';
+          jbtn.textContent = T('joinShort');
+          on(jbtn, 'click', function () {
+            elCodeInput.value = roomCode;
+            submitJoin(); // reuses the name check + its "pick a name" note
+          });
+          acts.appendChild(jbtn);
+        }
+      })(code, phase, players);
+      row.appendChild(acts);
+      list.appendChild(row);
+      shown++;
+    }
+    var t = $('liveNowTitle');
+    if (t) t.textContent = T('liveNow');
+    wrap.hidden = shown === 0;
+  }
+
   function goLanding(keepCode) {
     wantOpen = false;
     stopWatchdog();
@@ -3241,6 +4079,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     stopClockLoop();
     state.everConnected = false;
     state.handshakeFails = 0;
+    state.spectator = false;
+    state.watching = 0;
     attempt = 0;
     if (!keepCode) {
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
@@ -3251,22 +4091,35 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     note('A room is just a link. Share it and people land straight in.');
   }
 
-  function beginSession(code, name) {
+  function beginSession(code, name, asSpectator) {
+    state.spectator = !!asSpectator;
     state.code = code;
     state.name = name;
-    storeName(name);
+    if (!asSpectator) storeName(name); // don't let a watch overwrite a real name
     state.everConnected = false;
     state.handshakeFails = 0;
     attempt = 0;
     seenPlayerIds = Object.create(null);
     elHudCodeText.textContent = code;
-    if (readHashCode() !== code) {
-      try { history.replaceState(null, '', location.pathname + location.search + '#room=' + code); } catch (e) {}
+    // The watch flag rides in the hash so a spectator who reloads comes back
+    // as a spectator, not as a player knocking on a mid-game door.
+    var wantHash = '#room=' + code + (state.spectator ? '&watch=1' : '');
+    if (location.hash !== wantHash) {
+      try { history.replaceState(null, '', location.pathname + location.search + wantHash); } catch (e) {}
     }
     renderCodeTiles(code);
     setScreen('lobby');
     renderLobby();
+    paintBackBtn();
     connect();
+  }
+
+  function watchRoom(code) {
+    // A spectator still sends a name (the server never shows it), so reuse
+    // whatever is around rather than demanding one at the door.
+    var name = String(elNameInput && elNameInput.value || '').trim().slice(0, 16) ||
+               storedName() || 'viewer';
+    beginSession(code, name, true);
   }
 
   function submitJoin() {
@@ -3354,10 +4207,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
   on(elCopyBtn, 'click', copyLink);
   on(elHudCode, 'click', copyLink);
+  on(elBackBtn, 'click', function () {
+    if (elBackBtn.disabled) return;
+    goLanding(false);
+  });
 
   window.addEventListener('hashchange', function () {
     var code = readHashCode();
-    if (code && code !== state.code && state.name) beginSession(code, state.name);
+    if (code && code !== state.code && state.name) beginSession(code, state.name, readHashWatch());
     else if (!code && curScreen !== 'landing') goLanding(false);
   });
 
@@ -3368,7 +4225,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elNameInput.value = name;
     elCodeInput.value = code;
     setStage(STAGE.lobby);
-    if (code && name) {
+    if (code && readHashWatch()) {
+      // A watch link works with no name at all — the whole point is that
+      // watching asks nothing of you.
+      watchRoom(code);
+    } else if (code && name) {
       beginSession(code, name);
     } else {
       setScreen('landing');

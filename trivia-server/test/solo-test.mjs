@@ -4,8 +4,8 @@
 import fs from 'node:fs';
 import WS from 'ws';
 
-const CDP = 'http://127.0.0.1:9222';
-const PAGE = 'http://localhost:8000/trivia/';
+const CDP = process.env.LS_CDP || 'http://127.0.0.1:9222';
+const PAGE = process.env.LS_PAGE || 'http://localhost:8000/trivia/';
 const OUT = (process.env.LS_OUT || '/tmp/late-signal') + '/shots';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM = (process.argv[2] || Array.from({ length: 6 },
@@ -66,9 +66,11 @@ try {
   await A.cmd('Page.navigate', { url: PAGE });
   await sleep(1400);
   // Pin the language. localStorage persists in the shared Chrome profile, so a
-  // previous run that chose Spanish would otherwise make this a Spanish game,
-  // which is then correctly REFUSED on Mixed (no Spanish questions) and looks
-  // like the game is broken. Same class of bug as reusing room codes.
+  // previous run that chose Spanish would otherwise silently make this a
+  // Spanish game. That used to be fatal — Mixed had no Spanish and the start
+  // was correctly refused, which reads as "the game is broken". Mixed is
+  // bilingual now, so it would merely run in the wrong language; pinning is
+  // still the right call. Same class of bug as reusing room codes.
   await A.ev("try{localStorage.setItem('ls:lang','en')}catch(e){} return true;");
   await A.cmd('Page.reload');
   await sleep(1000);

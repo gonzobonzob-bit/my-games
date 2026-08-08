@@ -135,12 +135,15 @@ Before adding a new game, check whether its core mechanic is already well-covere
 ## Late Signal (`trivia/index.html` + `trivia-server/`)
 
 The only game in this vault with a server. Cloudflare Worker, one Durable
-Object per room code. Merged to `main`, so the client ships with the vault, but
-**the backend is not deployed** — `BACKEND` in the client is still
-`ws://localhost:8787`, and the game still has no portfolio card, so it is
-unreachable from the index and cannot connect for anyone but a local dev.
-Going properly live means: publish the Worker, change that one line, add the
-card.
+Object per room code. **Live since 2026-08-07**: the Worker is deployed as
+`trivia-rooms` at `wss://trivia-rooms.trivia-server.workers.dev` (Cloudflare
+account subdomain `trivia-server`, `wrangler login` under the owner's
+account), `BACKEND` in the client points at it, and the portfolio card exists.
+Redeploying after server changes is `npx wrangler deploy` from
+`trivia-server/` — the client only needs touching if that URL changes. The
+Worker's `ALLOWED_ORIGIN` pins `https://gonzobonzob-bit.github.io` (plus
+localhost for dev), so a fork or mirror of the vault cannot use the deployed
+backend without changing that constant.
 
 ### The invariant, which is the reason the project exists
 The client is a renderer and never learns the correct answer. `correctIndex`
@@ -159,6 +162,51 @@ correct tile outright. So: **write that state only inside `doReveal()`**, never
 in `onAnswer()`, whose broadcast stays playerId-only. Nothing errors if this is
 got wrong, and a human playtest cannot see it — it just looks like the
 scoreboard updating.
+
+### Themes are tokens, never markup
+Five themes ship (`studio` default, `marquee`, `drift`, `daybreak`, `deadair`).
+A theme is ONE `:root[data-theme=]` block that redefines custom properties and
+nothing else — if a theme needs a new selector, the theme is wrong; token the
+thing it wants to change instead. Three rules that cost real time when broken:
+
+- **Signal hues stay themselves.** `--mint` (correct) and `--crimson` (wrong)
+  are information. A theme that recolours them for vibe is lying to the player
+  at the only moment that matters.
+- **ink/paper are GROUND and FOREGROUND, not dark and light.** Daybreak inverts
+  what they hold. Any rule assuming ink=dark breaks in exactly one theme.
+- **Decoration animates transform/opacity only.** Both composite and cost zero
+  layout; animating a geometric property costs one layout per frame (measured:
+  236 layouts per 5s idle, against 0). `test/theme-test.mjs` gates this at <=2
+  layouts per idle theme. Add a theme, run that test.
+
+The preference is client-only: localStorage `ls:theme`, validated against a
+known-good enum, never sent to the server. An inline `<head>` script applies it
+before first paint — without it every non-default player sees a flash of Studio
+on load. `--stage-hue` is written as an INLINE style by `setStage()` from a
+fixed set of dark mood colours, so a theme cannot override it; themes go
+through `--stage-paint` to say how much of that mood they absorb.
+### The offline packs are bilingual by construction
+`PACKS` holds one deck per genre; `mixed` is served by `FALLBACK_PACK`, which
+is a separate literal further down the same file and is easy to forget — it
+shipped with no Spanish at all for months while every genre pack had it,
+because nothing read it. `test/pack-check.mjs` now validates both, statically,
+with no browser or server: every question carries its Spanish pair, no
+distractor collides with the answer in either language, no duplicates, honest
+difficulty tags, and enough depth to play a full game without repeats.
+
+Growth happens in increments (~10-15 per genre), never all at once, and every
+authored question ships as a matched EN/ES pair — parity is structural, not
+something to retrofit. Facts must be well-established and checked; a question
+nobody can verify is worse than no question. The packs live inline in
+`src/index.js`, so an increment must never run in parallel with another
+server-touching pass.
+
+Note for tests: as of increment 1 there is no untranslated pack left, so the
+"refuse a Spanish player a genre with no Spanish" path has no offline trigger.
+`i18n-test.mjs` discovers a monolingual genre from the catalog rather than
+naming one, so that behaviour starts being exercised again the moment someone
+adds an untranslated pack instead of silently passing against a genre that
+quietly stopped qualifying.
 
 ### Genre is a promise; difficulty is a preference
 If you ask for Music you get Music or you are told why not. There is no code

@@ -6,9 +6,20 @@ compatibility_date = "2026-07-01"
 name = "ROOM"
 class_name = "Room"
 
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
 # new_sqlite_classes (NOT new_classes) is what puts Durable Objects on the
 # free plan. The KV-backed variant is paid-only. Getting this wrong is the
 # single easiest way to end up unable to deploy without a card.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+# Each new class gets its own migration tag; editing a shipped tag is how
+# deploys start failing with "migration already applied". Same free-plan
+# rule as above: new_sqlite_classes, never new_classes.
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Lobby"]

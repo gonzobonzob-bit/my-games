@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 import WS from 'ws';
 
-const CDP = 'http://127.0.0.1:9222';
+const CDP = process.env.LS_CDP || 'http://127.0.0.1:9222';
 // Pull the audio engine out of the shipped client so this tests the code that
 // actually runs, rather than a copy that can silently drift from it.
 function engineSource() {
