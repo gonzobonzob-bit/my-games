@@ -1076,6 +1076,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      file:///. A file:// page sends Origin: null and will be refused.)
      ================================================================== */
   var BACKEND = 'wss://trivia-rooms.trivia-server.workers.dev';
+  /* A page served from localhost is a dev copy and talks to `wrangler dev`,
+     never to the deployed Worker. Without this, every local test run since
+     the deploy has been quietly exercising the SHIPPED backend — old server
+     code, real Durable Object storage — instead of the code under test. */
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+    BACKEND = 'ws://localhost:8787';
+  }
 
   /* ------------------------------------------------------------------
      THE INVARIANT, restated on the client side:
@@ -1095,7 +1102,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   var MAX_PLAYERS = 8;
   var MIN_PLAYERS = 1;
   var RING_C      = 351.86; // 2 * PI * 56
-  var DWELL_MS    = 4000;
+  /* How long the reveal dwells on the answer before the scoreboard. The
+     server advances 6s after the reveal broadcast, so the whole beat has a
+     budget now: 1.6s of reveal animation + this dwell = board at ~2.8s,
+     leaving ~3.2s for rows to land, scores to count up and people to find
+     their name before the next question arrives. The old 4000 was tuned for
+     a host-paced game and left the scoreboard on screen for 0.4s. */
+  var DWELL_MS    = 1200;
 
   var ROOM_RE = /^[A-Z0-9]{4,6}$/;
 
@@ -1123,6 +1136,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       needMore1: 'Need 1 more player',
       winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
       nextQuestion: 'Next question', scoreboard: 'Scoreboard',
+      nextIn: 'Next question in #', finalIn: 'Final standings in #',
       roundOf: 'Round # of #', pickOne: 'Pick one', pickOneKeys: 'Pick one — keys 1-4 work too',
       answerLocked: 'Answer locked', youGotIt: 'You got it', notThisTime: 'Not this time',
       noAnswer: 'No answer this round', fastest: 'Fastest', you: 'You',
@@ -1145,6 +1159,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       needMore1: 'Falta 1 jugador',
       winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
       nextQuestion: 'Siguiente pregunta', scoreboard: 'Marcador',
+      nextIn: 'Siguiente pregunta en #', finalIn: 'Clasificación final en #',
       roundOf: 'Ronda # de #', pickOne: 'Elige una', pickOneKeys: 'Elige una — las teclas 1-4 también sirven',
       answerLocked: 'Respuesta enviada', youGotIt: 'Correcto', notThisTime: 'Esta vez no',
       noAnswer: 'Sin respuesta', fastest: 'La más rápida', you: 'Tú',
@@ -1274,6 +1289,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     answered: {},          // playerId -> true, for the open question
     correctIndex: null,    // ONLY ever set from a 'reveal' message
     reveal: null,
+    nextAt: 0,             // when the server will advance past this reveal
     prevScores: {},        // scores as of the start of the current round
     lastBoardOrder: [],     // ids in the order the board is currently showing
     final: null,
@@ -2147,6 +2163,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     q = localised(q);
     state.correctIndex = null;
     state.reveal = null;
+    state.nextAt = 0;
     state.myChoice = null;
     state.locked = false;
     state.answered = {};
@@ -2583,20 +2600,43 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var q = state.question;
     var isLast = q ? (q.index + 1 >= q.total) : false;
     if (state.isHost) {
+      // The room advances itself now; this button survives as a skip. It
+      // still reads "Next question" because that is still what it does —
+      // just sooner than the six seconds everyone else is watching tick by.
       var b = mk('button', 'btn btn-primary');
       b.type = 'button';
-      b.textContent = isLast ? 'Final standings' : 'Next question';
+      b.textContent = isLast ? T('finalStandings') : T('nextQuestion');
       on(b, 'click', function () { send({ type: 'next' }); b.disabled = true; });
       elBoardActions.appendChild(b);
     } else {
+      // Nobody waits for the host any more — say what actually happens next
+      // and when. The countdown reads from the reveal's nextAt.
       var w = mk('div', 'waiting');
-      var s = mk('span'); s.textContent = 'Waiting for host';
+      var s = mk('span'); s.id = 'nextCountdown';
       w.appendChild(s);
       var dots = mk('span', 'dots');
       dots.appendChild(mk('i')); dots.appendChild(mk('i')); dots.appendChild(mk('i'));
       w.appendChild(dots);
       elBoardActions.appendChild(w);
+      paintNextCountdown(isLast);
     }
+  }
+
+  /* One handle, cleared before every re-arm, dead the moment the phase moves
+     on or the element is repainted away — the interval-stacking bug this
+     vault has paid for three times does not get a fourth invoice here. */
+  var nextCountTimer = 0;
+  function paintNextCountdown(isLast) {
+    if (nextCountTimer) { clearTimeout(nextCountTimer); nextCountTimer = 0; }
+    var el = $('nextCountdown');
+    if (!el) return;
+    if (state.phase !== 'reveal' || !state.nextAt) {
+      el.textContent = T(isLast ? 'finalStandings' : 'nextQuestion');
+      return;
+    }
+    var secs = Math.max(0, Math.ceil((state.nextAt - Date.now()) / 1000));
+    el.textContent = T(isLast ? 'finalIn' : 'nextIn').replace('#', secs + 's');
+    nextCountTimer = setTimeout(function () { paintNextCountdown(isLast); }, 250);
   }
 
   /* FLIP: measure, reorder, measure, invert, play. Transform only —
@@ -3106,6 +3146,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
       case 'reveal':
         state.phase = 'reveal';
+        // The server advances on its own at nextAt; the client only draws
+        // the countdown. Zero (an old server, a dropped field) simply means
+        // no countdown is shown — the game still advances server-side.
+        state.nextAt = Number(msg.nextAt) || 0;
         runReveal({
           correctIndex: msg.correctIndex,
           perPlayer: Array.isArray(msg.perPlayer) ? msg.perPlayer : [],
@@ -3152,6 +3196,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.question = null;
     state.correctIndex = null;
     state.reveal = null;
+    state.nextAt = 0;
     state.myChoice = null;
     state.locked = false;
     state.answered = {};

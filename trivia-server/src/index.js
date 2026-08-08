@@ -32,6 +32,17 @@ const MIN_PLAYERS = 1;
 
 const QUESTION_COUNT = 10;
 const QUESTION_MS = 20_000;
+/* Reveal → next question, measured from the reveal broadcast — including the
+ * early reveal when everyone has locked in, which is why solo stays brisk.
+ * Six seconds: long enough to read the answer and watch the scores move, not
+ * long enough to reach for your phone. The room advances ITSELF on this
+ * deadline; the host's Next button survives only as a way to skip the wait,
+ * so a game never again stalls on a host who tabbed away. Consequence worth
+ * knowing: a room abandoned mid-game now plays itself out to the podium
+ * (ten alarms, ~4 minutes) instead of freezing on its last reveal — that is
+ * cheaper than special-casing an empty room and risking the one bug this
+ * design exists to avoid, a phase nothing ever advances. */
+const REVEAL_MS = 6_000;
 const BASE_POINTS = 500; // flat award for a correct answer
 const SPEED_POINTS = 500; // additional, scaled linearly on time remaining
 
@@ -515,6 +526,10 @@ export class Room {
     if (this.allConnectedAnswered()) await this.doReveal();
   }
 
+  /* Since auto-advance, 'next' is a skip, not a necessity: the reveal alarm
+     advances the room on its own, and a host in a hurry may jump the queue.
+     beginQuestion re-arms the one alarm slot, so the pending reveal deadline
+     is overwritten rather than left to fire into the wrong phase. */
   async onNext(ws, me) {
     const g = this.game;
     if (me.id !== g.hostId) {
@@ -523,9 +538,7 @@ export class Room {
     if (g.phase !== 'reveal') {
       return this.send(ws, { type: 'error', message: 'nothing to advance from' });
     }
-    const next = g.qIndex + 1;
-    if (next >= g.questions.length) return await this.finish();
-    return await this.beginQuestion(next);
+    return await this.advance();
   }
 
   async onAgain(ws, me) {
@@ -541,6 +554,7 @@ export class Room {
     g.questions = [];
     g.qIndex = -1;
     g.endsAt = 0;
+    g.nextAt = 0;
     g.answers = {};
     g.lastReveal = null;
     this.pruneDisconnected();
@@ -561,6 +575,7 @@ export class Room {
     g.answers = {};
     g.lastReveal = null;
     g.endsAt = Date.now() + QUESTION_MS;
+    g.nextAt = 0;
     await this.save();
 
     // An alarm, not a timer: it survives the object being evicted while eight
@@ -601,19 +616,40 @@ export class Room {
     }
 
     g.phase = 'reveal';
-    g.lastReveal = { type: 'reveal', correctIndex: q.correctIndex, perPlayer, scores };
-    await this.ctx.storage.deleteAlarm();
+    // The one alarm slot changes hands here: the question deadline is done
+    // (or cut short by everyone answering) and the reveal deadline takes the
+    // slot. setAlarm overwrites, so no deleteAlarm is needed — and nextAt
+    // rides in the reveal so every client can draw the same countdown.
+    g.nextAt = Date.now() + REVEAL_MS;
+    g.lastReveal = {
+      type: 'reveal', correctIndex: q.correctIndex, perPlayer, scores,
+      nextAt: g.nextAt,
+    };
     await this.save();
+    await this.ctx.storage.setAlarm(g.nextAt);
 
     this.broadcast({ type: 'phase', phase: 'reveal' });
     this.broadcast(g.lastReveal);
     this.broadcastRoster();
   }
 
+  /* The one step forward from a reveal, whoever asks for it — the six-second
+     alarm or a host in a hurry. Both callers verify phase === 'reveal' is
+     still true (the alarm via its dispatch case, onNext via its guard), and
+     the check is repeated here so a third caller cannot skip it. */
+  async advance() {
+    const g = this.game;
+    if (g.phase !== 'reveal') return;
+    const next = g.qIndex + 1;
+    if (next >= g.questions.length) return await this.finish();
+    return await this.beginQuestion(next);
+  }
+
   async finish() {
     const g = this.game;
     g.phase = 'final';
     g.endsAt = 0;
+    g.nextAt = 0;
     await this.ctx.storage.deleteAlarm();
     await this.save();
 
@@ -641,6 +677,14 @@ export class Room {
           return;
         }
         return await this.doReveal();
+      case 'reveal':
+        // Same early-fire tolerance as the question clock, against the
+        // reveal's own deadline.
+        if (Date.now() < g.nextAt - 50) {
+          await this.ctx.storage.setAlarm(g.nextAt);
+          return;
+        }
+        return await this.advance();
       default:
         // A phase with no deadline holds no alarm; reaching here means one
         // outlived its phase (armed for a question that ended early, say).
@@ -815,6 +859,7 @@ function freshGame() {
     questions: [], // {text, choices[4], correctIndex, category, difficulty}
     qIndex: -1,
     endsAt: 0,
+    nextAt: 0, // reveal-phase deadline: when the room advances on its own
     answers: {}, // playerId -> {choice, at}
     lastReveal: null,
     loadingAt: 0,
@@ -978,6 +1023,10 @@ function normalizeGame(g) {
   if (!g || typeof g !== 'object') return freshGame();
   g.settings = sanitizeSettings(g.settings);
   if (!Array.isArray(g.recentTexts)) g.recentTexts = [];
+  // Rooms persisted before auto-advance come back without a reveal deadline.
+  // A stale reveal from that era has no alarm armed either — the host's Next
+  // still rescues it — but the field must at least be a number to compare.
+  if (typeof g.nextAt !== 'number' || !isFinite(g.nextAt)) g.nextAt = 0;
   return g;
 }
 
