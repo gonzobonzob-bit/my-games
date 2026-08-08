@@ -90,12 +90,13 @@ try {
     ok(byslug.film.langs.includes('es'), 'Film advertises Spanish', byslug.film.langs);
     ok(byslug.history && byslug.history.langs.includes('es'),
        'History now advertises Spanish too', byslug.history && byslug.history.langs);
-    // Mixed is still the honest no-Spanish case: it is served by the original
-    // generic FALLBACK_PACK, which was never translated.
-    ok(byslug.mixed && !byslug.mixed.langs.includes('es'),
-       'Mixed still reports no Spanish', byslug.mixed && byslug.mixed.langs);
-    ok(byslug.mixed && !byslug.mixed.langs.includes('es'),
-       'Mixed does not falsely advertise Spanish', byslug.mixed && byslug.mixed.langs);
+    // Mixed WAS the honest no-Spanish case — FALLBACK_PACK, which serves it,
+    // was never translated. The increment-1 deck growth translated it, so the
+    // assertion inverts: it must advertise Spanish, and further down it must
+    // actually deliver it. Advertising without delivering is the bug this
+    // block exists to catch, in either direction.
+    ok(byslug.mixed && byslug.mixed.langs.includes('es'),
+       'Mixed advertises Spanish', byslug.mixed && byslug.mixed.langs);
     A.close();
   }
 
@@ -157,29 +158,53 @@ try {
   }
 
   // --- a genre without Spanish degrades honestly ----------------------------
+  // Every bundled pack is bilingual as of the increment-1 deck growth, so no
+  // offline genre can trigger the refusal any more. The behaviour still
+  // matters — it is what keeps "genre is a promise" honest the moment someone
+  // adds an untranslated pack — so this discovers its own subject from the
+  // catalog instead of naming one, and says so plainly when there is nothing
+  // to exercise rather than passing vacuously against a hardcoded genre that
+  // quietly stopped qualifying.
   {
-    const room = rid();
-    const A = new C('Ana', room, 'es'); await A.connect(); await A.wait('welcome');
-    A.send({ type: 'settings', settings: { genre: 'mixed' } });
-    await A.wait('settings');
-    A.send({ type: 'start' });
-    await sleep(2500);
-    const err = A.last('error');
-    ok(!!err, 'a Spanish player is REFUSED a genre with no Spanish, not quietly given English', err);
-    ok(err && /spanish|español/i.test(err.message), 'the refusal names the actual problem', err && err.message);
-    ok(!A.last('question'), 'no game started');
-    A.close();
+    const A0 = new C('Cat', rid()); await A0.connect();
+    const w0 = await A0.wait('welcome');
+    A0.close();
+    const monolingual = (w0.catalog || []).filter((g) => !(g.langs || []).includes('es'));
 
-    // The same genre is fine in English.
+    if (!monolingual.length) {
+      ok(true, 'every bundled genre is bilingual — no offline refusal path to exercise');
+    } else {
+      const slug = monolingual[0].slug;
+      const room = rid();
+      const A = new C('Ana', room, 'es'); await A.connect(); await A.wait('welcome');
+      A.send({ type: 'settings', settings: { genre: slug } });
+      await A.wait('settings');
+      A.send({ type: 'start' });
+      await sleep(2500);
+      const err = A.last('error');
+      ok(!!err, `a Spanish player is REFUSED ${slug}, not quietly given English`, err);
+      ok(err && /spanish|español/i.test(err.message),
+         'the refusal names the actual problem', err && err.message);
+      ok(!A.last('question'), 'no game started');
+      A.close();
+    }
+
+    // The other half of the same promise: Mixed now advertises Spanish, so a
+    // Spanish player must actually be able to play it and receive Spanish.
     const room2 = rid();
-    const B = new C('Ben', room2, 'en'); await B.connect(); await B.wait('welcome');
+    const B = new C('Bea', room2, 'es'); await B.connect(); await B.wait('welcome');
     B.send({ type: 'settings', settings: { genre: 'mixed' } });
     await B.wait('settings');
     B.send({ type: 'start' });
     const q2 = await B.wait('question');
-    ok(!!q2, 'an English player can still play a genre that has no Spanish');
+    ok(!!q2, 'a Spanish player can start a Mixed game');
+    ok(!!(q2 && q2.i18n && q2.i18n.es), 'Mixed questions carry Spanish', q2 && q2.i18n);
+    ok(!!(q2 && q2.i18n && q2.i18n.es && q2.i18n.es.choices.length === 4),
+       'the Spanish Mixed board has four options',
+       q2 && q2.i18n && q2.i18n.es && q2.i18n.es.choices);
     B.close();
   }
+
   // --- the actual feature: two people, one room, two languages -------------
   {
     const room = rid();
