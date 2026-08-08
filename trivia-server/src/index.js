@@ -621,16 +621,33 @@ export class Room {
     this.broadcast(this.finalMessage());
   }
 
+  /* A Durable Object has exactly ONE alarm slot, and several phases may need
+   * a deadline, so the slot has to be dispatched by phase rather than guarded
+   * by one. The previous shape — `if (g.phase !== 'question') return;` — was
+   * correct while the question clock was the only deadline in the game, and a
+   * trap the moment any other phase armed the slot: the alarm fires, the guard
+   * eats it silently, and the room wedges forever in a phase nobody can leave.
+   * No error, no log, no toast — just a game that stops. So every phase that
+   * can own the alarm slot gets a case here, and adding a deadline to a new
+   * phase means adding its case, not editing a guard. */
   async alarm() {
     const g = await this.ensure();
-    if (g.phase !== 'question') return;
-    // Alarms can fire a little early after a rescheduling; re-arm rather than
-    // cutting a question short.
-    if (Date.now() < g.endsAt - 50) {
-      await this.ctx.storage.setAlarm(g.endsAt);
-      return;
+    switch (g.phase) {
+      case 'question':
+        // Alarms can fire a little early after a rescheduling; re-arm rather than
+        // cutting a question short.
+        if (Date.now() < g.endsAt - 50) {
+          await this.ctx.storage.setAlarm(g.endsAt);
+          return;
+        }
+        return await this.doReveal();
+      default:
+        // A phase with no deadline holds no alarm; reaching here means one
+        // outlived its phase (armed for a question that ended early, say).
+        // Dropping it is the right move BECAUSE it is now an explicit case,
+        // not the accidental fate of every alarm from a phase yet to exist.
+        return;
     }
-    await this.doReveal();
   }
 
   /* ---------------- disconnects ---------------- */
