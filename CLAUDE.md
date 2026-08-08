@@ -163,6 +163,29 @@ in `onAnswer()`, whose broadcast stays playerId-only. Nothing errors if this is
 got wrong, and a human playtest cannot see it — it just looks like the
 scoreboard updating.
 
+### Themes are tokens, never markup
+Five themes ship (`studio` default, `marquee`, `drift`, `daybreak`, `deadair`).
+A theme is ONE `:root[data-theme=]` block that redefines custom properties and
+nothing else — if a theme needs a new selector, the theme is wrong; token the
+thing it wants to change instead. Three rules that cost real time when broken:
+
+- **Signal hues stay themselves.** `--mint` (correct) and `--crimson` (wrong)
+  are information. A theme that recolours them for vibe is lying to the player
+  at the only moment that matters.
+- **ink/paper are GROUND and FOREGROUND, not dark and light.** Daybreak inverts
+  what they hold. Any rule assuming ink=dark breaks in exactly one theme.
+- **Decoration animates transform/opacity only.** Both composite and cost zero
+  layout; animating a geometric property costs one layout per frame (measured:
+  236 layouts per 5s idle, against 0). `test/theme-test.mjs` gates this at <=2
+  layouts per idle theme. Add a theme, run that test.
+
+The preference is client-only: localStorage `ls:theme`, validated against a
+known-good enum, never sent to the server. An inline `<head>` script applies it
+before first paint — without it every non-default player sees a flash of Studio
+on load. `--stage-hue` is written as an INLINE style by `setStage()` from a
+fixed set of dark mood colours, so a theme cannot override it; themes go
+through `--stage-paint` to say how much of that mood they absorb.
+
 ### Genre is a promise; difficulty is a preference
 If you ask for Music you get Music or you are told why not. There is no code
 path that mixes genres. Degradation is live OpenTDB → that same genre's bundled
