@@ -577,7 +577,12 @@ const SEGMENTS = {
     icon: '🌃', medium: 'radio',
     pop:  { morning: 6000, midday: 4200, evening: 5200, night: 1800 },
     comp: { base: 2000, dayAmp: 0.20 },
-    leaseMul: 1.30,
+    // 1.00, not a downtown premium: citywide is the DEFAULT segment and the
+    // design proof's minute-5 arithmetic ($60 lease vs $60.9 automated gross,
+    // quoted above) is anchored to the BASE_LEASE line unmultiplied. A
+    // premium here silently falsifies that promise for every new game.
+    // Segment lease character belongs to the non-default rows.
+    leaseMul: 1.00,
     fit:  { music: 1.05, talk: 0.95, news: 0.95, ads: 0.90 },
     staffRules: {}
   },
