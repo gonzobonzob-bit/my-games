@@ -185,6 +185,28 @@ before first paint — without it every non-default player sees a flash of Studi
 on load. `--stage-hue` is written as an INLINE style by `setStage()` from a
 fixed set of dark mood colours, so a theme cannot override it; themes go
 through `--stage-paint` to say how much of that mood they absorb.
+### The offline packs are bilingual by construction
+`PACKS` holds one deck per genre; `mixed` is served by `FALLBACK_PACK`, which
+is a separate literal further down the same file and is easy to forget — it
+shipped with no Spanish at all for months while every genre pack had it,
+because nothing read it. `test/pack-check.mjs` now validates both, statically,
+with no browser or server: every question carries its Spanish pair, no
+distractor collides with the answer in either language, no duplicates, honest
+difficulty tags, and enough depth to play a full game without repeats.
+
+Growth happens in increments (~10-15 per genre), never all at once, and every
+authored question ships as a matched EN/ES pair — parity is structural, not
+something to retrofit. Facts must be well-established and checked; a question
+nobody can verify is worse than no question. The packs live inline in
+`src/index.js`, so an increment must never run in parallel with another
+server-touching pass.
+
+Note for tests: as of increment 1 there is no untranslated pack left, so the
+"refuse a Spanish player a genre with no Spanish" path has no offline trigger.
+`i18n-test.mjs` discovers a monolingual genre from the catalog rather than
+naming one, so that behaviour starts being exercised again the moment someone
+adds an untranslated pack instead of silently passing against a genre that
+quietly stopped qualifying.
 
 ### Genre is a promise; difficulty is a preference
 If you ask for Music you get Music or you are told why not. There is no code
