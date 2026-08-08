@@ -2288,6 +2288,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function renderQuestion(q) {
+    // The board's numbers must be right BEFORE its animation is cancelled.
+    settleBoardNow();
     clearBucket('rev'); clearBucket('seq');
     // Only for a question that is genuinely starting. A reconnect replays the
     // current question through here too (catchUp), and a riser for a round
@@ -2670,6 +2672,40 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      ================================================================== */
   var boardRowEls = Object.create(null);
 
+  /* The truth the current board must land on, kept beside the animation
+     that is trying to get there. Auto-advance created a failure the
+     host-paced game could not have: the next question's render cancels the
+     board sequence, and in a HIDDEN tab (throttled timers, no rAF at all)
+     the flip may still be queued when that happens — leaving the board
+     wedged on last round's numbers with nothing left to correct it. Same
+     rule as countUp's landing timeout, widened to the whole board: the
+     movement is decoration, the numbers are information, and cancelling
+     decoration must never cancel information. */
+  var boardPlan = null;
+  function settleBoardNow() {
+    if (!boardPlan) return;
+    var plan = boardPlan;
+    boardPlan = null;
+    var order = sortedBy(plan.now);
+    for (var i = 0; i < order.length; i++) {
+      var p = order[i];
+      var row = boardRowEls[p.id];
+      if (!row) continue;
+      elBoardRows.appendChild(row);
+      row.style.transition = '';
+      row.style.transform = '';
+      row.style.willChange = '';
+      row.className = 'row' + (p.connected ? '' : ' off') +
+                      (i === 0 ? ' r1' : i === 1 ? ' r2' : i === 2 ? ' r3' : '');
+      row.querySelector('.row-rank').textContent = String(i + 1);
+      row.querySelector('.row-score').textContent = String(plan.now[p.id] || 0);
+      var frac = plan.leaderNow > 0 ? (plan.now[p.id] || 0) / plan.leaderNow : 0;
+      var bar = row.querySelector('.row-bar');
+      bar.style.transition = 'none';
+      bar.style.transform = 'scaleX(' + frac.toFixed(4) + ')';
+    }
+  }
+
   function sortedBy(scoreMap) {
     var arr = state.players.slice();
     arr.sort(function (a, b) {
@@ -2759,6 +2795,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     // rows land (240 + stagger) -> 400ms hold, so people can find their own
     // name before it moves -> then count-up and reorder fire together
+    boardPlan = { now: now, leaderNow: leaderNow };
     var settleIn = (REDUCED ? 120 : 240) + (REDUCED ? 0 : beforeList.length * 70) + 400;
     later('seq', function () { flipBoard(prev, now, leaderNow); }, settleIn);
   }
