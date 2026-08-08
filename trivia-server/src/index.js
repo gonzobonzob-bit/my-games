@@ -26,12 +26,31 @@ const MAX_PLAYERS = 8;
 // runs the identical loop: the reveal fires as soon as every CONNECTED player
 // has answered, and with one player that is immediate — no waiting out the
 // clock, which makes solo the fastest version of the game rather than the
-// most tedious. Others can still join a room that started alone; catchUp()
-// brings them in mid-question.
+// most tedious. Players enter at the start: a new name knocking mid-game is
+// turned away (a reconnect under a known name still gets back in, and
+// catchUp() drops them into the current phase). Anyone else can still watch.
 const MIN_PLAYERS = 1;
+// Spectators ride the same broadcasts as players — question, reveal, roster,
+// podium — and THE INVARIANT covers them identically because those frames
+// already carry nothing answer-shaped before the reveal. They hold no player
+// record, no score, no vote in allConnectedAnswered(), and no seat against
+// MAX_PLAYERS; they are sockets with a flag. The cap is only so a room
+// cannot be used as free fan-out infrastructure.
+const MAX_SPECTATORS = 20;
 
 const QUESTION_COUNT = 10;
 const QUESTION_MS = 20_000;
+/* Reveal → next question, measured from the reveal broadcast — including the
+ * early reveal when everyone has locked in, which is why solo stays brisk.
+ * Six seconds: long enough to read the answer and watch the scores move, not
+ * long enough to reach for your phone. The room advances ITSELF on this
+ * deadline; the host's Next button survives only as a way to skip the wait,
+ * so a game never again stalls on a host who tabbed away. Consequence worth
+ * knowing: a room abandoned mid-game now plays itself out to the podium
+ * (ten alarms, ~4 minutes) instead of freezing on its last reveal — that is
+ * cheaper than special-casing an empty room and risking the one bug this
+ * design exists to avoid, a phase nothing ever advances. */
+const REVEAL_MS = 6_000;
 const BASE_POINTS = 500; // flat award for a correct answer
 const SPEED_POINTS = 500; // additional, scaled linearly on time remaining
 
@@ -52,6 +71,30 @@ export default {
 
     if (url.pathname === '/health') {
       return new Response('ok', { headers: { 'content-type': 'text/plain' } });
+    }
+
+    // The public room directory. Read-only from a browser's point of view:
+    // writes only ever arrive at the Lobby object through the Room binding,
+    // because this router never forwards anything but the list.
+    if (url.pathname === '/lobby') {
+      const origin = request.headers.get('Origin');
+      if (!originAllowed(origin)) {
+        return new Response('forbidden origin', { status: 403 });
+      }
+      const id = env.LOBBY.idFromName(LOBBY_SINGLETON);
+      const res = await env.LOBBY.get(id).fetch('https://lobby/list');
+      // The game page and this Worker live on different origins, and unlike
+      // the WebSocket handshake a plain GET needs CORS to be readable. The
+      // origin is echoed only after passing the same allowlist as everything
+      // else.
+      return new Response(res.body, {
+        status: res.status,
+        headers: {
+          'content-type': 'application/json',
+          'access-control-allow-origin': origin,
+          'cache-control': 'no-store',
+        },
+      });
     }
 
     if (url.pathname !== '/room') {
@@ -128,8 +171,42 @@ export class Room {
 
     const g = await this.ensure();
     const url = new URL(request.url);
+    // idFromName(code) routes every socket here, but the object is never told
+    // its own name — so the code is learned from the handshake and kept. It is
+    // what lets the room introduce itself to the lobby directory.
+    const code = (url.searchParams.get('code') || '').toUpperCase();
+    if (ROOM_CODE.test(code) && g.code !== code) g.code = code;
     const name = sanitizeName(url.searchParams.get('name'));
     const key = name.toLowerCase();
+
+    // Spectators: same room, same broadcasts, no seat and no say. Accepted in
+    // any phase — that is the watch party — and attached with a flag instead
+    // of a player record, which is what keeps them out of the roster, the
+    // reveal maths and the all-answered count without a guard at every site:
+    // every one of those walks g.players, and a spectator is never in it.
+    if (url.searchParams.get('role') === 'spectator') {
+      if (this.spectatorCount() >= MAX_SPECTATORS) {
+        return new Response('room full', { status: 403 });
+      }
+      const [client, server] = Object.values(new WebSocketPair());
+      this.ctx.acceptWebSocket(server);
+      server.serializeAttachment({ spectator: true });
+      this.send(server, {
+        type: 'welcome',
+        you: null,
+        isHost: false,
+        spectator: true,
+        phase: g.phase,
+        settings: g.settings,
+        isPublic: g.public === true,
+        catalog: catalog(),
+        difficulties: DIFFICULTIES.slice(),
+      });
+      this.broadcastRoster(); // the watching count just changed
+      this.catchUp(server);
+      this.reportToLobby();
+      return new Response(null, { status: 101, webSocket: client });
+    }
 
     // Ghost records only earn their keep once a game is running (they hold a
     // score for a reconnect). In the lobby they are just clutter blocking seats.
@@ -139,6 +216,13 @@ export class Room {
     const rejoin = Boolean(player);
 
     if (!player) {
+      // Enter at start. A live round is not joinable as a player — a fresh
+      // name landing mid-question would sit through a game it cannot win —
+      // but a reconnect under a known name (the rejoin path below) is not a
+      // join and still works. The turned-away can watch instead.
+      if (g.phase !== 'lobby') {
+        return new Response('game in progress', { status: 403 });
+      }
       if (Object.keys(g.players).length >= MAX_PLAYERS) {
         return new Response('room full', { status: 403 });
       }
@@ -195,11 +279,13 @@ export class Room {
       isHost: g.hostId === player.id,
       phase: g.phase,
       settings: g.settings,
+      isPublic: g.public === true,
       catalog: catalog(),
       difficulties: DIFFICULTIES.slice(),
     });
     this.broadcastRoster();
     this.catchUp(server);
+    this.reportToLobby();
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -250,6 +336,15 @@ export class Room {
     return set;
   }
 
+  spectatorCount(sockets = null) {
+    let n = 0;
+    for (const ws of sockets || this.ctx.getWebSockets()) {
+      const a = ws.deserializeAttachment() || {};
+      if (a.spectator) n++;
+    }
+    return n;
+  }
+
   roster(sockets = null) {
     const g = this.game;
     const connected = this.connectedPids(sockets);
@@ -265,7 +360,48 @@ export class Room {
   }
 
   broadcastRoster(sockets = null) {
-    this.broadcast({ type: 'roster', players: this.roster(sockets) }, sockets);
+    // `watching` is a count, deliberately not a list: spectators have no
+    // identity worth broadcasting, and a headcount can't leak one.
+    this.broadcast({
+      type: 'roster',
+      players: this.roster(sockets),
+      watching: this.spectatorCount(sockets),
+    }, sockets);
+  }
+
+  /* The room tells the directory about itself: on join, on leave, on the
+     coarse phase changes, and on the toggle. Fire-and-forget through
+     waitUntil — the directory is decoration, and the game must never block
+     on it, fail with it, or wait for it. `listed` carries the whole
+     register/deregister decision, so going private and going empty are the
+     same message as being listed, just with the flag down. */
+  reportToLobby(sockets = null) {
+    // `sockets` matters in a close handler, where getWebSockets() still
+    // includes the socket that is leaving — same reason roster() takes it.
+    const g = this.game;
+    if (!this.env.LOBBY || !g.code) return; // unbound in old configs; unknowable pre-handshake
+    const players = this.connectedPids(sockets).size;
+    const host = g.players[g.hostId] ? g.players[g.hostId].name : '';
+    const body = JSON.stringify({
+      code: g.code,
+      listed: g.public === true && players > 0,
+      host,
+      players,
+      watching: this.spectatorCount(sockets),
+      phase: g.phase === 'lobby' ? 'lobby' : (g.phase === 'final' ? 'final' : 'live'),
+      genre: g.settings.genre,
+      difficulty: g.settings.difficulty,
+    });
+    const id = this.env.LOBBY.idFromName(LOBBY_SINGLETON);
+    this.ctx.waitUntil(
+      this.env.LOBBY.get(id)
+        .fetch('https://lobby/report', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body,
+        })
+        .catch(() => { /* the directory being down is nobody's game over */ })
+    );
   }
 
   pruneDisconnected() {
@@ -314,6 +450,16 @@ export class Room {
     try {
       const g = await this.ensure();
       const a = ws.deserializeAttachment() || {};
+      // Said out loud rather than silently dropped: a spectator whose click
+      // does nothing files a bug report; one who is told they are watching
+      // does not. No game verb is spectator-legal, so this covers them all.
+      if (a.spectator) {
+        return this.send(ws, {
+          type: 'error',
+          code: 'spectator',
+          message: 'Spectators watch — they cannot play.',
+        });
+      }
       const me = g.players[a.pid];
       if (!me) return;
 
@@ -330,6 +476,8 @@ export class Room {
           return await this.onLang(ws, me, data);
         case 'settings':
           return await this.onSettings(ws, me, data);
+        case 'public':
+          return await this.onPublic(ws, me, data);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -392,6 +540,30 @@ export class Room {
     // Everyone sees the choice, not just the host — a lobby where only one
     // person can see what is about to be played is a dead screen for the rest.
     this.broadcast({ type: 'settings', settings: g.settings });
+  }
+
+  /* "List publicly" — DEFAULT OFF, and the default is the security model:
+     room codes are the only access control this game has, and listing a room
+     publishes its code. The host opts in from the room lobby, same authority
+     and same phase rules as the call sheet. The flag persists across games in
+     the room (a watch party that replays stays a watch party) and the strict
+     `=== true` on the wire value means nothing truthy-but-wrong can flip it. */
+  async onPublic(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can list the room' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'the game has already started' });
+    }
+    const on = data.on === true;
+    if (g.public === on) return;
+    g.public = on;
+    await this.save();
+    // Everyone in the room is told — being listed is a fact about the room,
+    // and the people in it should not need to be host to know it.
+    this.broadcast({ type: 'public', on });
+    this.reportToLobby();
   }
 
   async onStart(ws, me) {
@@ -463,6 +635,7 @@ export class Room {
     await this.save();
 
     await this.beginQuestion(0);
+    this.reportToLobby(); // the directory's coarse phase just moved to 'live'
 
     // Said plainly, once, and only when the whole set came from the bundled
     // pack. A partly-topped-up game is still entirely the right genre, so it
@@ -515,6 +688,10 @@ export class Room {
     if (this.allConnectedAnswered()) await this.doReveal();
   }
 
+  /* Since auto-advance, 'next' is a skip, not a necessity: the reveal alarm
+     advances the room on its own, and a host in a hurry may jump the queue.
+     beginQuestion re-arms the one alarm slot, so the pending reveal deadline
+     is overwritten rather than left to fire into the wrong phase. */
   async onNext(ws, me) {
     const g = this.game;
     if (me.id !== g.hostId) {
@@ -523,9 +700,7 @@ export class Room {
     if (g.phase !== 'reveal') {
       return this.send(ws, { type: 'error', message: 'nothing to advance from' });
     }
-    const next = g.qIndex + 1;
-    if (next >= g.questions.length) return await this.finish();
-    return await this.beginQuestion(next);
+    return await this.advance();
   }
 
   async onAgain(ws, me) {
@@ -541,6 +716,7 @@ export class Room {
     g.questions = [];
     g.qIndex = -1;
     g.endsAt = 0;
+    g.nextAt = 0;
     g.answers = {};
     g.lastReveal = null;
     this.pruneDisconnected();
@@ -550,6 +726,7 @@ export class Room {
 
     this.broadcast({ type: 'phase', phase: 'lobby' });
     this.broadcastRoster();
+    this.reportToLobby();
   }
 
   /* ---------------- state machine ---------------- */
@@ -561,6 +738,7 @@ export class Room {
     g.answers = {};
     g.lastReveal = null;
     g.endsAt = Date.now() + QUESTION_MS;
+    g.nextAt = 0;
     await this.save();
 
     // An alarm, not a timer: it survives the object being evicted while eight
@@ -601,36 +779,83 @@ export class Room {
     }
 
     g.phase = 'reveal';
-    g.lastReveal = { type: 'reveal', correctIndex: q.correctIndex, perPlayer, scores };
-    await this.ctx.storage.deleteAlarm();
+    // The one alarm slot changes hands here: the question deadline is done
+    // (or cut short by everyone answering) and the reveal deadline takes the
+    // slot. setAlarm overwrites, so no deleteAlarm is needed — and nextAt
+    // rides in the reveal so every client can draw the same countdown.
+    g.nextAt = Date.now() + REVEAL_MS;
+    g.lastReveal = {
+      type: 'reveal', correctIndex: q.correctIndex, perPlayer, scores,
+      nextAt: g.nextAt,
+    };
     await this.save();
+    await this.ctx.storage.setAlarm(g.nextAt);
 
     this.broadcast({ type: 'phase', phase: 'reveal' });
     this.broadcast(g.lastReveal);
     this.broadcastRoster();
   }
 
+  /* The one step forward from a reveal, whoever asks for it — the six-second
+     alarm or a host in a hurry. Both callers verify phase === 'reveal' is
+     still true (the alarm via its dispatch case, onNext via its guard), and
+     the check is repeated here so a third caller cannot skip it. */
+  async advance() {
+    const g = this.game;
+    if (g.phase !== 'reveal') return;
+    const next = g.qIndex + 1;
+    if (next >= g.questions.length) return await this.finish();
+    return await this.beginQuestion(next);
+  }
+
   async finish() {
     const g = this.game;
     g.phase = 'final';
     g.endsAt = 0;
+    g.nextAt = 0;
     await this.ctx.storage.deleteAlarm();
     await this.save();
 
     this.broadcast({ type: 'phase', phase: 'final' });
     this.broadcast(this.finalMessage());
+    this.reportToLobby();
   }
 
+  /* A Durable Object has exactly ONE alarm slot, and several phases may need
+   * a deadline, so the slot has to be dispatched by phase rather than guarded
+   * by one. The previous shape — `if (g.phase !== 'question') return;` — was
+   * correct while the question clock was the only deadline in the game, and a
+   * trap the moment any other phase armed the slot: the alarm fires, the guard
+   * eats it silently, and the room wedges forever in a phase nobody can leave.
+   * No error, no log, no toast — just a game that stops. So every phase that
+   * can own the alarm slot gets a case here, and adding a deadline to a new
+   * phase means adding its case, not editing a guard. */
   async alarm() {
     const g = await this.ensure();
-    if (g.phase !== 'question') return;
-    // Alarms can fire a little early after a rescheduling; re-arm rather than
-    // cutting a question short.
-    if (Date.now() < g.endsAt - 50) {
-      await this.ctx.storage.setAlarm(g.endsAt);
-      return;
+    switch (g.phase) {
+      case 'question':
+        // Alarms can fire a little early after a rescheduling; re-arm rather than
+        // cutting a question short.
+        if (Date.now() < g.endsAt - 50) {
+          await this.ctx.storage.setAlarm(g.endsAt);
+          return;
+        }
+        return await this.doReveal();
+      case 'reveal':
+        // Same early-fire tolerance as the question clock, against the
+        // reveal's own deadline.
+        if (Date.now() < g.nextAt - 50) {
+          await this.ctx.storage.setAlarm(g.nextAt);
+          return;
+        }
+        return await this.advance();
+      default:
+        // A phase with no deadline holds no alarm; reaching here means one
+        // outlived its phase (armed for a question that ended early, say).
+        // Dropping it is the right move BECAUSE it is now an explicit case,
+        // not the accidental fate of every alarm from a phase yet to exist.
+        return;
     }
-    await this.doReveal();
   }
 
   /* ---------------- disconnects ---------------- */
@@ -641,6 +866,16 @@ export class Room {
     // getWebSockets() still includes this socket during the close handler,
     // so filter it out rather than trusting the raw list.
     const remaining = this.ctx.getWebSockets().filter((s) => s !== ws);
+
+    // A spectator leaving changes the watching count and nothing else — no
+    // host to reassign, no seat to prune, no answer anyone was waiting on.
+    const att = ws.deserializeAttachment() || {};
+    if (att.spectator) {
+      this.broadcastRoster(remaining);
+      this.reportToLobby(remaining);
+      return;
+    }
+
     const connected = this.connectedPids(remaining);
 
     // Host left: promote the player who has been connected the longest.
@@ -665,6 +900,7 @@ export class Room {
 
     await this.save();
     this.broadcastRoster(remaining);
+    this.reportToLobby(remaining);
 
     // The player who just left may have been the last one still thinking.
     if (g.phase === 'question') {
@@ -787,17 +1023,139 @@ export class Room {
 }
 
 /* ------------------------------------------------------------------ *
+ * Lobby — the public room directory. One singleton object.
+ *
+ * Room codes are the ONLY access control this game has, so the directory
+ * is strictly opt-in: a room appears here only while its host has switched
+ * "list publicly" on, and listing a room IS publishing its code — that is
+ * the feature, not a leak, but it must never happen by default. Rooms
+ * deregister themselves on going private and on going empty.
+ * ------------------------------------------------------------------ */
+
+const LOBBY_SINGLETON = 'directory';
+/* Listed rooms re-report on every join, leave and phase change, so an entry
+ * this stale belongs to a room that died without saying goodbye (isolate
+ * killed before its close events ran). This is garbage collection, not a
+ * liveness heartbeat — a quiet room full of people mid-game reports far
+ * more often than this. */
+const LOBBY_TTL_MS = 30 * 60_000;
+/* A directory, not a database. The cap bounds what a bad actor scripting
+ * room creation can park in it. */
+const LOBBY_MAX = 100;
+
+export class Lobby {
+  constructor(ctx) {
+    this.ctx = ctx;
+    this.rooms = null; // code -> listing; keys are validated codes (A-Z0-9)
+    ctx.blockConcurrencyWhile(async () => {
+      this.rooms = (await ctx.storage.get('rooms')) || {};
+    });
+  }
+
+  async fetch(request) {
+    if (!this.rooms) this.rooms = (await this.ctx.storage.get('rooms')) || {};
+    const url = new URL(request.url);
+
+    // Room -> directory. Reachable only through the LOBBY binding: the
+    // Worker's router never forwards /report, so a browser cannot write
+    // here no matter what it sends.
+    if (url.pathname === '/report' && request.method === 'POST') {
+      let raw = null;
+      try { raw = await request.json(); } catch { /* rejected below */ }
+      const entry = sanitizeListing(raw);
+      if (!entry) return new Response('bad listing', { status: 400 });
+      if (!entry.listed) {
+        delete this.rooms[entry.code];
+      } else if (this.rooms[entry.code] || Object.keys(this.rooms).length < LOBBY_MAX) {
+        this.rooms[entry.code] = {
+          code: entry.code,
+          host: entry.host,
+          players: entry.players,
+          watching: entry.watching,
+          phase: entry.phase,
+          genre: entry.genre,
+          difficulty: entry.difficulty,
+          updatedAt: Date.now(),
+        };
+      }
+      await this.ctx.storage.put('rooms', this.rooms);
+      return new Response('ok');
+    }
+
+    if (url.pathname === '/list') {
+      const now = Date.now();
+      let dirty = false;
+      for (const code of Object.keys(this.rooms)) {
+        if (now - this.rooms[code].updatedAt > LOBBY_TTL_MS) {
+          delete this.rooms[code];
+          dirty = true;
+        }
+      }
+      if (dirty) await this.ctx.storage.put('rooms', this.rooms);
+      const rooms = Object.values(this.rooms)
+        .sort((a, b) =>
+          (b.players + b.watching) - (a.players + a.watching) || b.updatedAt - a.updatedAt)
+        .map((r) => ({
+          code: r.code,
+          host: r.host,
+          players: r.players,
+          watching: r.watching,
+          phase: r.phase,
+          genre: r.genre,
+          difficulty: r.difficulty,
+        }));
+      return new Response(JSON.stringify({ type: 'lobby', rooms }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response('not found', { status: 404 });
+  }
+}
+
+/* A listing arrives from another Durable Object, which is still input:
+ * validated field by field against the same enums as everything else, same
+ * rules as sanitizeSettings (hasOwnProperty, no spread). The map key is the
+ * validated room code — A-Z0-9 only — which is what makes the plain-object
+ * map safe from a __proto__ key. */
+function sanitizeListing(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (typeof raw.code !== 'string' || !ROOM_CODE.test(raw.code)) return null;
+  const count = (v) => (Number.isInteger(v) && v >= 0 && v <= 99 ? v : 0);
+  return {
+    code: raw.code,
+    listed: raw.listed === true,
+    host: sanitizeName(raw.host),
+    players: count(raw.players),
+    watching: count(raw.watching),
+    phase: LOBBY_PHASES.includes(raw.phase) ? raw.phase : 'lobby',
+    genre: typeof raw.genre === 'string' &&
+           Object.prototype.hasOwnProperty.call(GENRES, raw.genre)
+      ? raw.genre : 'mixed',
+    difficulty: DIFFICULTIES.includes(raw.difficulty) ? raw.difficulty : 'any',
+  };
+}
+
+/* Coarser than the room's own phase on purpose: the directory only needs to
+ * answer "can I still join?" (lobby) and "what would I be walking into?"
+ * (live / final). Question-vs-reveal chatter has no business on this wire. */
+const LOBBY_PHASES = ['lobby', 'live', 'final'];
+
+/* ------------------------------------------------------------------ *
  * helpers
  * ------------------------------------------------------------------ */
 
 function freshGame() {
   return {
     phase: 'lobby',
+    code: '', // learned from the first handshake; the object is never told its name
+    public: false, // "list publicly" — OFF is the security model, not a preference
     players: {}, // id -> {id, key, name, score, joinedAt, connectedAt}
     hostId: null,
     questions: [], // {text, choices[4], correctIndex, category, difficulty}
     qIndex: -1,
     endsAt: 0,
+    nextAt: 0, // reveal-phase deadline: when the room advances on its own
     answers: {}, // playerId -> {choice, at}
     lastReveal: null,
     loadingAt: 0,
@@ -961,6 +1319,14 @@ function normalizeGame(g) {
   if (!g || typeof g !== 'object') return freshGame();
   g.settings = sanitizeSettings(g.settings);
   if (!Array.isArray(g.recentTexts)) g.recentTexts = [];
+  // Rooms persisted before auto-advance come back without a reveal deadline.
+  // A stale reveal from that era has no alarm armed either — the host's Next
+  // still rescues it — but the field must at least be a number to compare.
+  if (typeof g.nextAt !== 'number' || !isFinite(g.nextAt)) g.nextAt = 0;
+  // Pre-directory rooms come back without these; both must fail CLOSED —
+  // an invalid code means "never report", an invalid flag means "private".
+  if (typeof g.code !== 'string' || !ROOM_CODE.test(g.code)) g.code = '';
+  g.public = g.public === true;
   return g;
 }
 

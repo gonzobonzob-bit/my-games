@@ -201,6 +201,15 @@ body[data-screen="landing"] .hud{ display:none; }
 .chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
 /* Fixed width so switching EN/ES does not shuffle the header controls. */
 #langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
+/* Back to Menu, disabled while a round is live. The disabled state borrows
+   the ON AIR sign's amber rather than greying out — a studio door with the
+   light on, not a broken control. cursor:default, not not-allowed: nothing
+   is forbidden, it is just not yet. */
+#backBtn[disabled]{
+  cursor:default; color:var(--amber);
+  border-color:rgba(var(--amber-rgb),.35); background:rgba(var(--amber-rgb),.08);
+}
+#backBtn[disabled] .icon{ display:none; }
 .icon{ width:14px; height:14px; display:block; }
 .netdot{ width:8px; height:8px; border-radius:var(--r-pill); background:var(--mint); flex:0 0 auto; }
 .netdot[data-net="down"]{ background:var(--amber); animation:pillPulse 1s ease-in-out infinite; }
@@ -313,9 +322,38 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .btn-ghost{ background:transparent; color:var(--slate-300); border-color:var(--hair); }
 .btn-ghost:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
 
+/* --- LIVE NOW — the watch-party marquee on the landing screen.
+   Rows only exist while somebody's room is listed, so the section hides
+   itself rather than showing an empty stage door. --- */
+.livenow{ width:100%; display:flex; flex-direction:column; gap:var(--sp-3); text-align:left; }
+.livenow-head{ display:flex; align-items:center; gap:var(--sp-2); }
+.live-list{ display:flex; flex-direction:column; gap:var(--sp-2); }
+.live-row{
+  display:flex; align-items:center; gap:var(--sp-3);
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-lg);
+  border-left:3px solid var(--accent, var(--slate-300));
+  padding:var(--sp-3) var(--sp-4);
+}
+.live-info{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.live-code{ font-family:var(--font-num); font-weight:700; letter-spacing:.18em;
+            color:var(--paper-100); }
+.live-meta{ font-size:14px; color:var(--slate-300);
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.live-actions{ flex:0 0 auto; display:flex; gap:var(--sp-2); }
+/* Smaller than the stage buttons but still a 44px touch target. */
+.btn.btn-small{ font-size:13px; padding:10px 16px; min-height:44px; }
+
 /* --- lobby --- */
 .lobby{ margin:auto; width:100%; max-width:960px; display:flex; flex-direction:column;
         align-items:center; gap:var(--sp-6); }
+/* The "list publicly" toggle. Amber only while ON — a listed room is a
+   published room code, and the state should read from across the table. */
+.pub-row{ display:flex; align-items:center; justify-content:center; gap:var(--sp-3); }
+#publicToggle[aria-pressed="true"]{
+  color:var(--amber); border-color:rgba(var(--amber-rgb),.45);
+  background:rgba(var(--amber-rgb),.08);
+}
+.pub-tag{ color:var(--amber); }
 
 /* --- The call sheet.
    What is on tonight, stated once. The lobby is the calm screen in this
@@ -405,6 +443,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   animation:slotPulse 2.4s ease-in-out infinite;
 }
 @keyframes slotPulse{ 0%,100%{opacity:.28} 50%{opacity:.48} }
+
+/* "N watching" — a headcount, not a roster. Kept quiet on purpose: the
+   audience is atmosphere, the players are the show. */
+.watch-count{ color:var(--slate-400); }
 
 .waiting{ display:flex; align-items:center; gap:var(--sp-2);
           font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
@@ -919,6 +961,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   </div>
   <div class="hud-mid"><div class="pills" id="hudPills" aria-hidden="true"></div></div>
   <div class="hud-right">
+    <button type="button" class="chip-btn" id="backBtn" title="Back to menu">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="backLabel">Menu</span>
+    </button>
     <button type="button" class="chip-btn" id="hudCode" title="Copy the room link">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 5H4v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <span class="code" id="hudCodeText">----</span>
@@ -962,6 +1008,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         </div>
         <p class="field-note" id="joinNote">A room is just a link. Share it and people land straight in.</p>
       </form>
+      <div class="livenow" id="liveNow" hidden>
+        <div class="livenow-head">
+          <span class="onair" aria-hidden="true"></span>
+          <h2 class="micro livenow-title" id="liveNowTitle">Live now</h2>
+        </div>
+        <div class="live-list" id="liveList"></div>
+      </div>
     </div>
   </section>
 
@@ -984,6 +1037,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         </button>
       </div>
       <div class="players" id="lobbyPlayers"></div>
+      <div class="micro watch-count" id="lobbyWatch" hidden></div>
+      <div class="pub-row">
+        <button type="button" class="chip-btn" id="publicToggle" aria-pressed="false" hidden></button>
+        <span class="micro pub-tag" id="publicTag" hidden></span>
+      </div>
       <div class="board-actions">
         <button type="button" class="btn btn-primary" id="startBtn" hidden>Start game</button>
         <div class="waiting" id="waitLine" hidden>
@@ -1076,6 +1134,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      file:///. A file:// page sends Origin: null and will be refused.)
      ================================================================== */
   var BACKEND = 'wss://trivia-rooms.trivia-server.workers.dev';
+  /* A page served from localhost is a dev copy and talks to `wrangler dev`,
+     never to the deployed Worker. Without this, every local test run since
+     the deploy has been quietly exercising the SHIPPED backend — old server
+     code, real Durable Object storage — instead of the code under test. */
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+    BACKEND = 'ws://localhost:8787';
+  }
 
   /* ------------------------------------------------------------------
      THE INVARIANT, restated on the client side:
@@ -1095,7 +1160,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   var MAX_PLAYERS = 8;
   var MIN_PLAYERS = 1;
   var RING_C      = 351.86; // 2 * PI * 56
-  var DWELL_MS    = 4000;
+  /* How long the reveal dwells on the answer before the scoreboard. The
+     server advances 6s after the reveal broadcast, so the whole beat has a
+     budget now: 1.6s of reveal animation + this dwell = board at ~2.8s,
+     leaving ~3.2s for rows to land, scores to count up and people to find
+     their name before the next question arrives. The old 4000 was tuned for
+     a host-paced game and left the scoreboard on screen for 0.4s. */
+  var DWELL_MS    = 1200;
 
   var ROOM_RE = /^[A-Z0-9]{4,6}$/;
 
@@ -1123,6 +1194,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       needMore1: 'Need 1 more player',
       winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
       nextQuestion: 'Next question', scoreboard: 'Scoreboard',
+      nextIn: 'Next question in #', finalIn: 'Final standings in #',
       roundOf: 'Round # of #', pickOne: 'Pick one', pickOneKeys: 'Pick one — keys 1-4 work too',
       answerLocked: 'Answer locked', youGotIt: 'You got it', notThisTime: 'Not this time',
       noAnswer: 'No answer this round', fastest: 'Fastest', you: 'You',
@@ -1130,6 +1202,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       lede: 'Live trivia for one to eight people. Ten questions, twenty seconds each — and a server that flatly refuses to tell your browser the answer until the clock is done.',
       inviteNote: 'A room is just a link. Share it and people land straight in.',
       noSpanish: 'No Spanish questions yet',
+      watchingN: '# watching', youreWatching: 'You’re watching',
+      liveNow: 'Live now', watch: 'Watch', joinShort: 'Join',
+      playingN: '# playing', inLobbyTag: 'In the lobby', podiumTag: 'Podium',
+      listPublic: 'List publicly', pubOn: 'On', pubOff: 'Off',
+      publicTag: 'Listed publicly',
+      publicNote: 'A listed room appears on the main screen with its code — anyone can watch, and anyone can join while you are in the lobby.',
+      backToMenu: 'Menu', onAirTag: 'On air',
+      noLeaveLive: 'The round is live — you can leave between rounds.',
+      cantJoin: 'Could not join that room — it may be full, already on air, or the code may be wrong.',
+      watchInstead: 'Watch instead', changeRoom: 'Change room',
+      m_spectator: 'Spectators watch — they cannot play.',
       m_bilingual: 'Bilingual set — #. Everyone can read these in their own language.',
       m_offline: 'Offline pack — #. Open Trivia DB did not answer, so these are from the built-in set.',
       m_noLang: '# has no Spanish questions yet. Pick another genre, or switch everyone to English.',
@@ -1145,6 +1228,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       needMore1: 'Falta 1 jugador',
       winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
       nextQuestion: 'Siguiente pregunta', scoreboard: 'Marcador',
+      nextIn: 'Siguiente pregunta en #', finalIn: 'Clasificación final en #',
       roundOf: 'Ronda # de #', pickOne: 'Elige una', pickOneKeys: 'Elige una — las teclas 1-4 también sirven',
       answerLocked: 'Respuesta enviada', youGotIt: 'Correcto', notThisTime: 'Esta vez no',
       noAnswer: 'Sin respuesta', fastest: 'La más rápida', you: 'Tú',
@@ -1152,6 +1236,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       lede: 'Trivia en directo para una a ocho personas. Diez preguntas, veinte segundos cada una — y un servidor que se niega en redondo a decirle la respuesta a tu navegador hasta que el reloj termine.',
       inviteNote: 'Una sala es solo un enlace. Compártelo y entran directamente.',
       noSpanish: 'Aún sin preguntas en español',
+      watchingN: '# viendo', youreWatching: 'Estás viendo',
+      liveNow: 'En directo', watch: 'Ver', joinShort: 'Entrar',
+      playingN: '# jugando', inLobbyTag: 'En la sala', podiumTag: 'Podio',
+      listPublic: 'Listar en público', pubOn: 'Sí', pubOff: 'No',
+      publicTag: 'Sala listada en público',
+      publicNote: 'Una sala listada aparece en la pantalla principal con su código — cualquiera puede verla, y cualquiera puede entrar mientras estén en la sala de espera.',
+      backToMenu: 'Menú', onAirTag: 'En el aire',
+      noLeaveLive: 'La ronda está en directo — puedes salir entre rondas.',
+      cantJoin: 'No se pudo entrar en esa sala — puede estar llena, ya en el aire, o el código puede estar mal.',
+      watchInstead: 'Ver como espectador', changeRoom: 'Cambiar de sala',
+      m_spectator: 'Los espectadores miran — no pueden jugar.',
       m_bilingual: 'Set bilingüe — #. Cada quien puede leerlas en su idioma.',
       m_offline: 'Set sin conexión — #. Open Trivia DB no respondió, así que estas vienen del set incluido.',
       m_noLang: '# aún no tiene preguntas en español. Elige otro género, o que todos jueguen en inglés.',
@@ -1262,6 +1357,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     name: '',
     me: null,              // {id,name}
     isHost: false,
+    spectator: false,      // watching, not playing — server-confirmed on welcome
+    watching: 0,           // how many spectators the room has (a count, never a list)
+    isPublic: false,       // whether this room is on the LIVE NOW directory
     phase: 'lobby',
     players: [],           // roster
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
@@ -1274,6 +1372,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     answered: {},          // playerId -> true, for the open question
     correctIndex: null,    // ONLY ever set from a 'reveal' message
     reveal: null,
+    nextAt: 0,             // when the server will advance past this reveal
     prevScores: {},        // scores as of the start of the current round
     lastBoardOrder: [],     // ids in the order the board is currently showing
     final: null,
@@ -1303,7 +1402,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
       elCopyBtn = $('copyBtn'), elNameInput = $('nameInput'), elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
-      elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel');
+      elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
+      elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch');
 
   var CHOICES = [
     { letter: 'A', c: '#3D6BFF', rgb: '61,107,255',  fill: '#FFFFFF', key: '1' },
@@ -1413,7 +1513,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (name === 'lobby')  { setStage(lobbyStage()); }
     if (name === 'board')  { setStage(STAGE.board); runBoardSequence(); }
     if (name === 'final')  { runFinalSequence(); }
-    if (name === 'landing'){ setStage(STAGE.lobby); }
+    if (name === 'landing'){ setStage(STAGE.lobby); pollLiveNow(); }
+    if (name !== 'landing'){ stopLiveNow(); }
   }
 
   /* ==================================================================
@@ -1437,10 +1538,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elNetdot.dataset.net = (mode === 'dead') ? 'dead' : 'down';
     if (mode === 'busy') elNetbar.appendChild(mk('span', 'spin'));
     var s = mk('span'); s.textContent = text; elNetbar.appendChild(s);
-    if (action) {
-      var b = mk('button', 'btn btn-ghost'); b.type = 'button'; b.textContent = action.label;
-      on(b, 'click', action.fn);
-      elNetbar.appendChild(b);
+    // One action or several — "watch instead / change room" needs two.
+    var actions = !action ? [] : (Array.isArray(action) ? action : [action]);
+    for (var ai = 0; ai < actions.length; ai++) {
+      (function (ac) {
+        var b = mk('button', 'btn btn-ghost'); b.type = 'button'; b.textContent = ac.label;
+        on(b, 'click', ac.fn);
+        elNetbar.appendChild(b);
+      })(actions[ai]);
     }
   }
 
@@ -1466,6 +1571,20 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     paintStatic();
   }
 
+  /* Back to Menu lives in the HUD: enabled in the lobby and at the podium,
+     an amber ON AIR sign during a live round. There is no mid-game hop-out —
+     the players still in the round deserve better than a roster that shrinks
+     under them — but nobody is trapped either: the sign names the moment the
+     door reopens, and spectators (who owe the round nothing) can always go.
+     Closing the tab still disconnects exactly as before. */
+  function paintBackBtn() {
+    if (!elBackBtn) return;
+    var live = (state.phase === 'question' || state.phase === 'reveal') && !state.spectator;
+    elBackBtn.disabled = live;
+    elBackLabel.textContent = live ? T('onAirTag') : T('backToMenu');
+    elBackBtn.title = live ? T('noLeaveLive') : T('backToMenu');
+  }
+
   /* Static chrome only — anything driven by game state is repainted by its own
      renderer on the next tick. */
   function paintStatic() {
@@ -1481,6 +1600,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var slotKs = document.querySelectorAll('.slot-k');
     if (slotKs[0]) slotKs[0].textContent = T('genre');
     if (slotKs[1]) slotKs[1].textContent = T('difficulty');
+    paintBackBtn();
     if (curScreen === 'lobby') renderLobby();
   }
 
@@ -2093,10 +2213,46 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elWaitText.textContent = 'Waiting for host';
     }
 
+    if (elLobbyWatch) {
+      elLobbyWatch.hidden = !(state.watching > 0);
+      elLobbyWatch.textContent = state.watching > 0
+        ? T('watchingN').replace('#', state.watching) : '';
+    }
+    paintPublicToggle();
+
     if (lobbyPainted && arrivals > 0) SFX.join();
     lobbyPainted = true;
     paintCallSheet();
   }
+
+  /* The host gets the switch; everyone else gets the fact. A room being
+     listed is something the people in it are entitled to know — their code
+     is on the marquee — so the non-host view is a tag, not a blank. */
+  function paintPublicToggle() {
+    var btn = $('publicToggle'), tag = $('publicTag');
+    if (!btn || !tag) return;
+    if (state.isHost && !state.spectator) {
+      btn.hidden = false;
+      tag.hidden = true;
+      btn.setAttribute('aria-pressed', state.isPublic ? 'true' : 'false');
+      btn.textContent = T('listPublic') + ' · ' + T(state.isPublic ? 'pubOn' : 'pubOff');
+      btn.title = T('publicNote');
+      btn.disabled = !!state.starting;
+    } else {
+      btn.hidden = true;
+      tag.hidden = !state.isPublic;
+      tag.textContent = state.isPublic ? T('publicTag') : '';
+    }
+  }
+
+  on($('publicToggle'), 'click', function () {
+    if (!state.isHost || state.starting) return;
+    // Painted optimistically like the call sheet; the server's 'public'
+    // broadcast is the truth and repaints a moment later.
+    state.isPublic = !state.isPublic;
+    paintPublicToggle();
+    send({ type: 'public', on: state.isPublic });
+  });
 
   /* ==================================================================
      Question
@@ -2132,6 +2288,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function renderQuestion(q) {
+    // The board's numbers must be right BEFORE its animation is cancelled.
+    settleBoardNow();
     clearBucket('rev'); clearBucket('seq');
     // Only for a question that is genuinely starting. A reconnect replays the
     // current question through here too (catchUp), and a riser for a round
@@ -2147,14 +2305,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     q = localised(q);
     state.correctIndex = null;
     state.reveal = null;
+    state.nextAt = 0;
     state.myChoice = null;
     state.locked = false;
     state.answered = {};
 
     // A reload mid-question shouldn't lose which tile you chose. This is
     // your own pick, echoed back to you — it says nothing about the answer.
+    // Spectators have no pick to restore.
     try {
-      var saved = sessionStorage.getItem(pickKey());
+      var saved = state.spectator ? null : sessionStorage.getItem(pickKey());
       if (saved !== null) {
         var si = parseInt(saved, 10);
         if (si >= 0 && si <= 3) { state.myChoice = si; state.locked = true; }
@@ -2206,7 +2366,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       b.appendChild(txt);
 
       b.addEventListener('animationend', function () { this.classList.remove('tile-enter'); }, { once: true });
-      on(b, 'click', onTileClick);
+      // A spectator's board is a display, not a control surface.
+      if (state.spectator) b.disabled = true;
+      else on(b, 'click', onTileClick);
       elTiles.appendChild(b);
     }
 
@@ -2247,6 +2409,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function lockIn(i) {
+    if (state.spectator) return; // watching, not playing — the server would refuse anyway
     if (state.locked || !state.question || state.phase !== 'question') return;
     if (!(i >= 0 && i <= 3)) return;
     state.locked = true;
@@ -2283,6 +2446,25 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   function paintLockLine() {
     elLockLine.textContent = '';
     if (state.phase !== 'question') return;
+    if (state.spectator) {
+      // Spectators see the lock-in count from the start — they cannot be
+      // influenced into an answer, having no answer to give.
+      var wtag = mk('span', 'lock-tag muted');
+      wtag.textContent = T('youreWatching');
+      elLockLine.appendChild(wtag);
+      var totalS = 0, doneS = 0;
+      for (var si = 0; si < state.players.length; si++) {
+        if (!state.players[si].connected) continue;
+        totalS++;
+        if (state.answered[state.players[si].id]) doneS++;
+      }
+      if (totalS > 0) {
+        var cs = mk('span', 'lock-tag muted');
+        cs.textContent = doneS + ' of ' + totalS + ' locked in';
+        elLockLine.appendChild(cs);
+      }
+      return;
+    }
     if (!state.locked) {
       var hint = mk('span', 'lock-tag muted');
       hint.textContent = COARSE ? 'Tap your answer' : 'Pick one — keys 1–4 work too';
@@ -2375,12 +2557,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         }
       }
       elGridBloom.classList.add('on');
-      setStage(iWasRight ? STAGE.right : STAGE.bruise);
-      if (iWasRight) { SFX.correct(); } else { SFX.wrong(); }
+      // A spectator has no verdict, so the room stays neutral for them —
+      // the bruise light means "you missed it", and they missed nothing.
+      setStage(state.spectator ? STAGE.board : (iWasRight ? STAGE.right : STAGE.bruise));
+      if (!state.spectator) { if (iWasRight) { SFX.correct(); } else { SFX.wrong(); } }
     }, 520);
 
-    // 560ms — your verdict, 40ms after the answer so it reads as consequence
+    // 560ms — your verdict, 40ms after the answer so it reads as consequence.
+    // A spectator gets no verdict line: "no answer this round" would be a
+    // reproach aimed at someone who was never asked.
     later('rev', function () {
+      if (state.spectator) return;
       if (iWasRight) {
         confetti(40);
       } else if (state.myChoice !== null && state.myChoice !== ci) {
@@ -2485,6 +2672,40 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      ================================================================== */
   var boardRowEls = Object.create(null);
 
+  /* The truth the current board must land on, kept beside the animation
+     that is trying to get there. Auto-advance created a failure the
+     host-paced game could not have: the next question's render cancels the
+     board sequence, and in a HIDDEN tab (throttled timers, no rAF at all)
+     the flip may still be queued when that happens — leaving the board
+     wedged on last round's numbers with nothing left to correct it. Same
+     rule as countUp's landing timeout, widened to the whole board: the
+     movement is decoration, the numbers are information, and cancelling
+     decoration must never cancel information. */
+  var boardPlan = null;
+  function settleBoardNow() {
+    if (!boardPlan) return;
+    var plan = boardPlan;
+    boardPlan = null;
+    var order = sortedBy(plan.now);
+    for (var i = 0; i < order.length; i++) {
+      var p = order[i];
+      var row = boardRowEls[p.id];
+      if (!row) continue;
+      elBoardRows.appendChild(row);
+      row.style.transition = '';
+      row.style.transform = '';
+      row.style.willChange = '';
+      row.className = 'row' + (p.connected ? '' : ' off') +
+                      (i === 0 ? ' r1' : i === 1 ? ' r2' : i === 2 ? ' r3' : '');
+      row.querySelector('.row-rank').textContent = String(i + 1);
+      row.querySelector('.row-score').textContent = String(plan.now[p.id] || 0);
+      var frac = plan.leaderNow > 0 ? (plan.now[p.id] || 0) / plan.leaderNow : 0;
+      var bar = row.querySelector('.row-bar');
+      bar.style.transition = 'none';
+      bar.style.transform = 'scaleX(' + frac.toFixed(4) + ')';
+    }
+  }
+
   function sortedBy(scoreMap) {
     var arr = state.players.slice();
     arr.sort(function (a, b) {
@@ -2574,6 +2795,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     // rows land (240 + stagger) -> 400ms hold, so people can find their own
     // name before it moves -> then count-up and reorder fire together
+    boardPlan = { now: now, leaderNow: leaderNow };
     var settleIn = (REDUCED ? 120 : 240) + (REDUCED ? 0 : beforeList.length * 70) + 400;
     later('seq', function () { flipBoard(prev, now, leaderNow); }, settleIn);
   }
@@ -2583,20 +2805,43 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var q = state.question;
     var isLast = q ? (q.index + 1 >= q.total) : false;
     if (state.isHost) {
+      // The room advances itself now; this button survives as a skip. It
+      // still reads "Next question" because that is still what it does —
+      // just sooner than the six seconds everyone else is watching tick by.
       var b = mk('button', 'btn btn-primary');
       b.type = 'button';
-      b.textContent = isLast ? 'Final standings' : 'Next question';
+      b.textContent = isLast ? T('finalStandings') : T('nextQuestion');
       on(b, 'click', function () { send({ type: 'next' }); b.disabled = true; });
       elBoardActions.appendChild(b);
     } else {
+      // Nobody waits for the host any more — say what actually happens next
+      // and when. The countdown reads from the reveal's nextAt.
       var w = mk('div', 'waiting');
-      var s = mk('span'); s.textContent = 'Waiting for host';
+      var s = mk('span'); s.id = 'nextCountdown';
       w.appendChild(s);
       var dots = mk('span', 'dots');
       dots.appendChild(mk('i')); dots.appendChild(mk('i')); dots.appendChild(mk('i'));
       w.appendChild(dots);
       elBoardActions.appendChild(w);
+      paintNextCountdown(isLast);
     }
+  }
+
+  /* One handle, cleared before every re-arm, dead the moment the phase moves
+     on or the element is repainted away — the interval-stacking bug this
+     vault has paid for three times does not get a fourth invoice here. */
+  var nextCountTimer = 0;
+  function paintNextCountdown(isLast) {
+    if (nextCountTimer) { clearTimeout(nextCountTimer); nextCountTimer = 0; }
+    var el = $('nextCountdown');
+    if (!el) return;
+    if (state.phase !== 'reveal' || !state.nextAt) {
+      el.textContent = T(isLast ? 'finalStandings' : 'nextQuestion');
+      return;
+    }
+    var secs = Math.max(0, Math.ceil((state.nextAt - Date.now()) / 1000));
+    el.textContent = T(isLast ? 'finalIn' : 'nextIn').replace('#', secs + 's');
+    nextCountTimer = setTimeout(function () { paintNextCountdown(isLast); }, 250);
   }
 
   /* FLIP: measure, reorder, measure, invert, play. Transform only —
@@ -2861,7 +3106,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
            '&name=' + encodeURIComponent(name) +
            // Announced on the handshake so the room knows before anyone hits
            // Start whether it needs a source that has Spanish.
-           '&lang=' + encodeURIComponent(lang);
+           '&lang=' + encodeURIComponent(lang) +
+           // Watching is decided at the door, not negotiated after it.
+           (state.spectator ? '&role=spectator' : '');
   }
 
   function connect() {
@@ -2909,9 +3156,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.handshakeFails++;
         if (state.handshakeFails >= 4) {
           wantOpen = false;
-          netbar('dead', 'Could not join that room — it may be full, or the code may be wrong.', {
-            label: 'Change room', fn: function () { goLanding(true); }
-          });
+          // The handshake can be refused for a full room, a game already on
+          // air, or a code that never existed — the socket API cannot tell us
+          // which, so the copy names all three and the actions cover both
+          // sensible exits. Watching is not offered to someone who was
+          // already trying to watch; that door just failed.
+          var acts = [{ label: T('changeRoom'), fn: function () { goLanding(true); } }];
+          if (!state.spectator) {
+            acts.unshift({ label: T('watchInstead'), fn: function () { watchRoom(state.code); } });
+          }
+          netbar('dead', T('cantJoin'), acts);
           return;
         }
       }
@@ -3005,6 +3259,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       retryTimer = 0;
       connect();
     }
+    // The marquee resumes with the tab; a hidden tab neither polls nor cares.
+    if (document.visibilityState === 'visible' && curScreen === 'landing') pollLiveNow();
   });
 
   /* ==================================================================
@@ -3016,6 +3272,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       case 'welcome':
         state.me = msg.you || null;
         state.isHost = !!msg.isHost;
+        // The server's word beats the URL we asked with — if it seated us as
+        // a spectator, we render as one whatever we intended.
+        state.spectator = !!msg.spectator;
+        state.isPublic = !!msg.isPublic;
         state.phase = msg.phase || 'lobby';
         if (Array.isArray(msg.catalog)) state.catalog = msg.catalog;
         if (Array.isArray(msg.difficulties) && msg.difficulties.length) {
@@ -3032,6 +3292,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           resetRound();
           setScreen('lobby');
         }
+        paintBackBtn();
         // For question / reveal / final the server replays the payload right
         // behind this; the screen switches when the real data lands, so we
         // never show an empty stage.
@@ -3039,6 +3300,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
       case 'roster':
         state.players = Array.isArray(msg.players) ? msg.players : [];
+        state.watching = (msg.watching | 0) > 0 ? (msg.watching | 0) : 0;
         if (state.me) {
           for (var i = 0; i < state.players.length; i++) {
             if (state.players[i].id === state.me.id) state.isHost = !!state.players[i].isHost;
@@ -3060,6 +3322,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.phase === 'question') {
           // wait for the question payload
         }
+        paintBackBtn();
         break;
 
       case 'question': {
@@ -3089,6 +3352,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           // is silently dropped and the feature simply does not appear.
           i18n: msg.i18n
         });
+        paintBackBtn();
         break;
       }
 
@@ -3099,18 +3363,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           // are locked; we are NOT told which choice, and we do not guess.
           state.locked = true;
           applyLockVisuals(state.myChoice, true);
-        } else if (state.locked) {
+        } else if (state.locked || state.spectator) {
           paintLockLine();
         }
         break;
 
       case 'reveal':
         state.phase = 'reveal';
+        // The server advances on its own at nextAt; the client only draws
+        // the countdown. Zero (an old server, a dropped field) simply means
+        // no countdown is shown — the game still advances server-side.
+        state.nextAt = Number(msg.nextAt) || 0;
         runReveal({
           correctIndex: msg.correctIndex,
           perPlayer: Array.isArray(msg.perPlayer) ? msg.perPlayer : [],
           scores: Array.isArray(msg.scores) ? msg.scores : []
         });
+        paintBackBtn();
         break;
 
       case 'final':
@@ -3119,12 +3388,20 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         stopClockLoop();
         elDwell.classList.remove('run');
         setScreen('final');
+        paintBackBtn();
         break;
 
       case 'settings':
         if (msg.settings) state.settings = msg.settings;
         state.starting = false;
         paintCallSheet();
+        break;
+
+      case 'public':
+        // A fact about the room, told to everyone in it — the server's echo
+        // overwrites whatever the toggle painted optimistically.
+        state.isPublic = !!msg.on;
+        if (curScreen === 'lobby') paintPublicToggle();
         break;
 
       /* Not an error — the game is starting normally, it just isn't coming
@@ -3152,6 +3429,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.question = null;
     state.correctIndex = null;
     state.reveal = null;
+    state.nextAt = 0;
     state.myChoice = null;
     state.locked = false;
     state.answered = {};
@@ -3201,6 +3479,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     return ROOM_RE.test(raw) ? raw : '';
   }
 
+  function readHashWatch() {
+    return /(?:^|&)watch=1(?:&|$)/i.test(String(location.hash || '').replace(/^#/, ''));
+  }
+
   function randomCode() {
     var alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O — they read as 1 and 0
     var out = '';
@@ -3230,6 +3512,119 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elJoinNote.classList.toggle('err', !!bad);
   }
 
+  /* ==================================================================
+     LIVE NOW — the public room directory on the landing screen.
+
+     A poll, not a socket: the landing screen is the only reader, 5s is
+     fresh enough for a marquee, and a directory that misses a beat costs
+     nothing. One timer handle, armed only while the landing screen is up
+     and cleared the moment it is not — the interval-stacking bug this
+     vault keeps paying for is a chain here, not a setInterval.
+     ================================================================== */
+  var LOBBY_POLL_MS = 5000;
+  var lobbyTimer = 0;
+
+  /* Same host as the game socket, spoken over HTTP. Derived from BACKEND
+     the same way socketUrl derives the ws scheme — one address, two doors. */
+  function backendHttp() {
+    var raw = String(BACKEND || '').trim().replace(/\/+$/, '');
+    var m = raw.match(/^([a-z][a-z0-9+.\-]*):\/\/(.*)$/i);
+    var scheme = m ? m[1].toLowerCase() : '';
+    var rest = m ? m[2] : raw;
+    var secure = scheme === 'wss' || scheme === 'https' ||
+                 (!scheme && location.protocol === 'https:');
+    return (secure ? 'https://' : 'http://') + rest;
+  }
+
+  function stopLiveNow() {
+    if (lobbyTimer) { clearTimeout(lobbyTimer); lobbyTimer = 0; }
+  }
+
+  function pollLiveNow() {
+    stopLiveNow();
+    if (curScreen !== 'landing') return;
+    var again = function () {
+      stopLiveNow();
+      if (curScreen === 'landing') lobbyTimer = setTimeout(pollLiveNow, LOBBY_POLL_MS);
+    };
+    try {
+      fetch(backendHttp() + '/lobby', { mode: 'cors' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          renderLiveNow(data && Array.isArray(data.rooms) ? data.rooms : []);
+          again();
+        }, function () {
+          // A directory that cannot be reached is a directory with nothing
+          // on it — hide the section rather than show a stale marquee.
+          renderLiveNow([]);
+          again();
+        });
+    } catch (e) { renderLiveNow([]); }
+  }
+
+  function renderLiveNow(rooms) {
+    var wrap = $('liveNow'), list = $('liveList');
+    if (!wrap || !list) return;
+    list.textContent = '';
+    var shown = 0;
+    for (var i = 0; i < rooms.length && shown < 8; i++) {
+      var r = rooms[i];
+      // Directory data crossed the network, which makes it input.
+      var code = String(r && r.code || '').toUpperCase();
+      if (!ROOM_RE.test(code)) continue;
+      var players = Math.max(0, r.players | 0);
+      var watching = Math.max(0, r.watching | 0);
+      var phase = r.phase === 'lobby' ? 'lobby' : (r.phase === 'final' ? 'final' : 'live');
+      var g = genreOf(String(r.genre || 'mixed'));
+
+      var row = mk('div', 'live-row');
+      row.style.setProperty('--accent', g.accent);
+      var info = mk('div', 'live-info');
+      var codeEl = mk('div', 'live-code');
+      codeEl.textContent = code;
+      var meta = mk('div', 'live-meta');
+      var bits = [];
+      var hostName = String(r.host || '').slice(0, 16);
+      if (hostName && hostName !== 'anon') bits.push(hostName);
+      bits.push(g.label);
+      bits.push(phase === 'lobby' ? T('inLobbyTag') : (phase === 'final' ? T('podiumTag') : T('onAirTag')));
+      bits.push(T('playingN').replace('#', players));
+      if (watching > 0) bits.push(T('watchingN').replace('#', watching));
+      meta.textContent = bits.join(' · ');
+      info.appendChild(codeEl);
+      info.appendChild(meta);
+      row.appendChild(info);
+
+      var acts = mk('div', 'live-actions');
+      (function (roomCode, roomPhase, seated) {
+        var wbtn = mk('button', 'btn btn-ghost btn-small');
+        wbtn.type = 'button';
+        wbtn.textContent = T('watch');
+        on(wbtn, 'click', function () { watchRoom(roomCode); });
+        acts.appendChild(wbtn);
+        // Enter at start: Join only exists while the room is in its lobby
+        // (and has a seat left). The server enforces the same rule; this
+        // just keeps the button honest.
+        if (roomPhase === 'lobby' && seated < MAX_PLAYERS) {
+          var jbtn = mk('button', 'btn btn-primary btn-small');
+          jbtn.type = 'button';
+          jbtn.textContent = T('joinShort');
+          on(jbtn, 'click', function () {
+            elCodeInput.value = roomCode;
+            submitJoin(); // reuses the name check + its "pick a name" note
+          });
+          acts.appendChild(jbtn);
+        }
+      })(code, phase, players);
+      row.appendChild(acts);
+      list.appendChild(row);
+      shown++;
+    }
+    var t = $('liveNowTitle');
+    if (t) t.textContent = T('liveNow');
+    wrap.hidden = shown === 0;
+  }
+
   function goLanding(keepCode) {
     wantOpen = false;
     stopWatchdog();
@@ -3241,6 +3636,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     stopClockLoop();
     state.everConnected = false;
     state.handshakeFails = 0;
+    state.spectator = false;
+    state.watching = 0;
     attempt = 0;
     if (!keepCode) {
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
@@ -3251,22 +3648,35 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     note('A room is just a link. Share it and people land straight in.');
   }
 
-  function beginSession(code, name) {
+  function beginSession(code, name, asSpectator) {
+    state.spectator = !!asSpectator;
     state.code = code;
     state.name = name;
-    storeName(name);
+    if (!asSpectator) storeName(name); // don't let a watch overwrite a real name
     state.everConnected = false;
     state.handshakeFails = 0;
     attempt = 0;
     seenPlayerIds = Object.create(null);
     elHudCodeText.textContent = code;
-    if (readHashCode() !== code) {
-      try { history.replaceState(null, '', location.pathname + location.search + '#room=' + code); } catch (e) {}
+    // The watch flag rides in the hash so a spectator who reloads comes back
+    // as a spectator, not as a player knocking on a mid-game door.
+    var wantHash = '#room=' + code + (state.spectator ? '&watch=1' : '');
+    if (location.hash !== wantHash) {
+      try { history.replaceState(null, '', location.pathname + location.search + wantHash); } catch (e) {}
     }
     renderCodeTiles(code);
     setScreen('lobby');
     renderLobby();
+    paintBackBtn();
     connect();
+  }
+
+  function watchRoom(code) {
+    // A spectator still sends a name (the server never shows it), so reuse
+    // whatever is around rather than demanding one at the door.
+    var name = String(elNameInput && elNameInput.value || '').trim().slice(0, 16) ||
+               storedName() || 'viewer';
+    beginSession(code, name, true);
   }
 
   function submitJoin() {
@@ -3354,10 +3764,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
   on(elCopyBtn, 'click', copyLink);
   on(elHudCode, 'click', copyLink);
+  on(elBackBtn, 'click', function () {
+    if (elBackBtn.disabled) return;
+    goLanding(false);
+  });
 
   window.addEventListener('hashchange', function () {
     var code = readHashCode();
-    if (code && code !== state.code && state.name) beginSession(code, state.name);
+    if (code && code !== state.code && state.name) beginSession(code, state.name, readHashWatch());
     else if (!code && curScreen !== 'landing') goLanding(false);
   });
 
@@ -3368,7 +3782,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elNameInput.value = name;
     elCodeInput.value = code;
     setStage(STAGE.lobby);
-    if (code && name) {
+    if (code && readHashWatch()) {
+      // A watch link works with no name at all — the whole point is that
+      // watching asks nothing of you.
+      watchRoom(code);
+    } else if (code && name) {
       beginSession(code, name);
     } else {
       setScreen('landing');
