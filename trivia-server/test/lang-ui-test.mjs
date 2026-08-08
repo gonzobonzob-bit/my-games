@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 import WS from 'ws';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const CDP = 'http://127.0.0.1:9222';
-const PAGE = 'http://localhost:8000/trivia/';
+const CDP = process.env.LS_CDP || 'http://127.0.0.1:9222';
+const PAGE = process.env.LS_PAGE || 'http://localhost:8000/trivia/';
 const OUT = (process.env.LS_OUT || '/tmp/late-signal') + '/shots';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM = (process.argv[2] || Array.from({ length: 6 }, () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('')).toUpperCase();

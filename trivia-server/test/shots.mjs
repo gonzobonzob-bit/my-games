@@ -7,8 +7,8 @@
 import fs from 'node:fs';
 import WS from 'ws';
 
-const CDP = 'http://127.0.0.1:9222';
-const PAGE = 'http://localhost:8000/trivia/';
+const CDP = process.env.LS_CDP || 'http://127.0.0.1:9222';
+const PAGE = process.env.LS_PAGE || 'http://localhost:8000/trivia/';
 const OUT = (process.env.LS_OUT || '/tmp/late-signal') + '/shots';
 const ROOM = (process.argv[2] || 'SHOT01').toUpperCase();
 const VIEW = { width: 1366, height: 768, deviceScaleFactor: 1, mobile: false };

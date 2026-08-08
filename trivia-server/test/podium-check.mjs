@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 import WS from 'ws';
 
-const CDP = 'http://127.0.0.1:9222';
-const PAGE = 'http://localhost:8000/trivia/';
+const CDP = process.env.LS_CDP || 'http://127.0.0.1:9222';
+const PAGE = process.env.LS_PAGE || 'http://localhost:8000/trivia/';
 const ROOM = process.argv[2] || 'POD1';
 const SHOTS = (process.env.LS_OUT || '/tmp/late-signal') + '/shots';
 fs.mkdirSync(SHOTS, { recursive: true });
