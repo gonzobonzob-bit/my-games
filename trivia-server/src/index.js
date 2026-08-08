@@ -26,9 +26,17 @@ const MAX_PLAYERS = 8;
 // runs the identical loop: the reveal fires as soon as every CONNECTED player
 // has answered, and with one player that is immediate — no waiting out the
 // clock, which makes solo the fastest version of the game rather than the
-// most tedious. Others can still join a room that started alone; catchUp()
-// brings them in mid-question.
+// most tedious. Players enter at the start: a new name knocking mid-game is
+// turned away (a reconnect under a known name still gets back in, and
+// catchUp() drops them into the current phase). Anyone else can still watch.
 const MIN_PLAYERS = 1;
+// Spectators ride the same broadcasts as players — question, reveal, roster,
+// podium — and THE INVARIANT covers them identically because those frames
+// already carry nothing answer-shaped before the reveal. They hold no player
+// record, no score, no vote in allConnectedAnswered(), and no seat against
+// MAX_PLAYERS; they are sockets with a flag. The cap is only so a room
+// cannot be used as free fan-out infrastructure.
+const MAX_SPECTATORS = 20;
 
 const QUESTION_COUNT = 10;
 const QUESTION_MS = 20_000;
@@ -142,6 +150,33 @@ export class Room {
     const name = sanitizeName(url.searchParams.get('name'));
     const key = name.toLowerCase();
 
+    // Spectators: same room, same broadcasts, no seat and no say. Accepted in
+    // any phase — that is the watch party — and attached with a flag instead
+    // of a player record, which is what keeps them out of the roster, the
+    // reveal maths and the all-answered count without a guard at every site:
+    // every one of those walks g.players, and a spectator is never in it.
+    if (url.searchParams.get('role') === 'spectator') {
+      if (this.spectatorCount() >= MAX_SPECTATORS) {
+        return new Response('room full', { status: 403 });
+      }
+      const [client, server] = Object.values(new WebSocketPair());
+      this.ctx.acceptWebSocket(server);
+      server.serializeAttachment({ spectator: true });
+      this.send(server, {
+        type: 'welcome',
+        you: null,
+        isHost: false,
+        spectator: true,
+        phase: g.phase,
+        settings: g.settings,
+        catalog: catalog(),
+        difficulties: DIFFICULTIES.slice(),
+      });
+      this.broadcastRoster(); // the watching count just changed
+      this.catchUp(server);
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
     // Ghost records only earn their keep once a game is running (they hold a
     // score for a reconnect). In the lobby they are just clutter blocking seats.
     if (g.phase === 'lobby') this.pruneDisconnected();
@@ -150,6 +185,13 @@ export class Room {
     const rejoin = Boolean(player);
 
     if (!player) {
+      // Enter at start. A live round is not joinable as a player — a fresh
+      // name landing mid-question would sit through a game it cannot win —
+      // but a reconnect under a known name (the rejoin path below) is not a
+      // join and still works. The turned-away can watch instead.
+      if (g.phase !== 'lobby') {
+        return new Response('game in progress', { status: 403 });
+      }
       if (Object.keys(g.players).length >= MAX_PLAYERS) {
         return new Response('room full', { status: 403 });
       }
@@ -261,6 +303,15 @@ export class Room {
     return set;
   }
 
+  spectatorCount(sockets = null) {
+    let n = 0;
+    for (const ws of sockets || this.ctx.getWebSockets()) {
+      const a = ws.deserializeAttachment() || {};
+      if (a.spectator) n++;
+    }
+    return n;
+  }
+
   roster(sockets = null) {
     const g = this.game;
     const connected = this.connectedPids(sockets);
@@ -276,7 +327,13 @@ export class Room {
   }
 
   broadcastRoster(sockets = null) {
-    this.broadcast({ type: 'roster', players: this.roster(sockets) }, sockets);
+    // `watching` is a count, deliberately not a list: spectators have no
+    // identity worth broadcasting, and a headcount can't leak one.
+    this.broadcast({
+      type: 'roster',
+      players: this.roster(sockets),
+      watching: this.spectatorCount(sockets),
+    }, sockets);
   }
 
   pruneDisconnected() {
@@ -325,6 +382,16 @@ export class Room {
     try {
       const g = await this.ensure();
       const a = ws.deserializeAttachment() || {};
+      // Said out loud rather than silently dropped: a spectator whose click
+      // does nothing files a bug report; one who is told they are watching
+      // does not. No game verb is spectator-legal, so this covers them all.
+      if (a.spectator) {
+        return this.send(ws, {
+          type: 'error',
+          code: 'spectator',
+          message: 'Spectators watch — they cannot play.',
+        });
+      }
       const me = g.players[a.pid];
       if (!me) return;
 
@@ -702,6 +769,15 @@ export class Room {
     // getWebSockets() still includes this socket during the close handler,
     // so filter it out rather than trusting the raw list.
     const remaining = this.ctx.getWebSockets().filter((s) => s !== ws);
+
+    // A spectator leaving changes the watching count and nothing else — no
+    // host to reassign, no seat to prune, no answer anyone was waiting on.
+    const att = ws.deserializeAttachment() || {};
+    if (att.spectator) {
+      this.broadcastRoster(remaining);
+      return;
+    }
+
     const connected = this.connectedPids(remaining);
 
     // Host left: promote the player who has been connected the longest.
