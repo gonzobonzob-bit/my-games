@@ -18,11 +18,27 @@
   --magenta:#ec4899; --cyan:#22d3ee; --green:#34d399; --red:#f87171;
   /* --dim used to be #5d6598, which measured ~3.0:1 on --panel and ~2.6:1 on
      --panel2 — under WCAG AA for the 9-12px labels it is used on, including
-     the only "tap a slot" instruction in the game. This clears 4.5:1. */
-  --text:#e8ecff; --muted:#8b93c4; --dim:#7b83b4;
+     the only "tap a slot" instruction in the game. This clears 4.5:1.
+     Second pass, measured rather than eyeballed: #7b83b4 clears AA on --night
+     (5.20:1) and on --panel (4.47:1 — already short) but only reaches 4.00:1
+     on --panel2, which is the background of every .row, .slot and .seg-btn in
+     the game. #868ec0 measures 6.01:1 on --night, 5.17:1 on --panel and
+     4.63:1 on --panel2, so the worst case in the game now passes. The 9px
+     type it was being used at was the other half of the problem — see the
+     size bumps on .slot-meta/.slot-dj/.log-day/.pill/.delta below. */
+  --text:#e8ecff; --muted:#8b93c4; --dim:#868ec0;
   --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
   --r:14px; --r-sm:9px;
   --safe-b:env(safe-area-inset-bottom,0px);
+  /* Explicit stacking layers. Every overlay in this file names one of these
+     and nothing else sets a bare z-index, because the alternative is DOM
+     order silently deciding which of two open overlays the player can see —
+     the failure mode where a Help sheet opens *behind* a pause sheet,
+     survives Resume and becomes a full-screen click trap over a running
+     clock. There is deliberately only ONE modal host (#modal-back) and a
+     queue behind it (see openModal), so two modals cannot be open at once at
+     all; if a second host is ever added it takes its own --z var here. */
+  --z-scene:0; --z-screen:1; --z-chrome:5; --z-modal:50; --z-toast:70;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
@@ -33,7 +49,7 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 body::before{
-  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:var(--z-scene);
   background:
     radial-gradient(ellipse 70% 50% at 15% 0%,rgba(236,72,153,.10),transparent 60%),
     radial-gradient(ellipse 70% 50% at 85% 100%,rgba(34,211,238,.09),transparent 60%);
@@ -44,7 +60,7 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 ::-webkit-scrollbar-track{background:transparent;}
 
 /* ---------- screen router ---------- */
-.screen{position:fixed;inset:0;z-index:1;display:none;flex-direction:column;}
+.screen{position:fixed;inset:0;z-index:var(--z-screen);display:none;flex-direction:column;}
 .screen.active{display:flex;}
 
 /* ---------- main menu ---------- */
@@ -108,11 +124,15 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   border-bottom:1px solid var(--border);
   padding-top:env(safe-area-inset-top,0px);
 }
-.hud-row{display:flex;align-items:center;gap:10px;padding:9px 12px;}
+.hud-row{display:flex;align-items:center;gap:10px;padding:7px 12px;}
+/* 38x38 shipped here and 38 is not a touch target — the ☰ button is the ONLY
+   pointer route to Save / Settings / Main Menu, so it was the single most
+   expensive under-sized control in the game. 44x44 exactly, which is also the
+   height of the station chips beside it. */
 .hud-btn{
-  flex-shrink:0;width:38px;height:38px;border-radius:10px;
+  flex-shrink:0;width:44px;height:44px;border-radius:11px;
   background:var(--panel);border:1px solid var(--border);
-  display:grid;place-items:center;font-size:17px;
+  display:grid;place-items:center;font-size:18px;
   transition:background .15s,border-color .15s;
 }
 .hud-btn:hover,.hud-btn:active{background:var(--panel2);border-color:var(--border-lit);}
@@ -132,6 +152,63 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);
   border-radius:8px;padding:4px 9px;
 }
+/* ---------- station switcher ----------
+   The empire caps at 4 stations (DESIGN.md, owner scope: DEEP), so this is a
+   fixed strip rather than a dropdown: a picker that hides three of four
+   callsigns behind a tap would bury the thing the whole overhaul is about.
+   It still scrolls horizontally, because the "+ Found" chip makes five boxes
+   at 320px and a scroll is better than four illegible ones.
+   The exposure badge is the point of the strip — a live count of uncovered
+   slots per station, in colour, so "which station is bleeding" is answered
+   without switching to it. Text alone would make the player read four chips
+   instead of glancing at one. */
+.st-bar{
+  display:flex;gap:6px;padding:0 10px 8px;overflow-x:auto;overscroll-behavior-x:contain;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.st-bar::-webkit-scrollbar{display:none;}
+.st-bar:empty{display:none;}
+.st-chip{
+  flex:1 0 auto;min-width:74px;min-height:44px;padding:5px 10px;border-radius:11px;
+  background:var(--panel);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  position:relative;transition:border-color .15s,background .15s;
+}
+.st-chip.on{background:var(--panel2);border-color:var(--amber);}
+.st-chip-call{font-size:13px;font-weight:900;letter-spacing:.6px;line-height:1.1;}
+.st-chip.on .st-chip-call{color:var(--amber);}
+.st-chip-sub{font-size:10px;color:var(--dim);line-height:1.1;}
+.st-chip-dot{
+  position:absolute;top:4px;right:5px;min-width:16px;height:16px;padding:0 4px;
+  border-radius:9px;font-size:10px;font-weight:800;line-height:16px;text-align:center;
+}
+.st-chip-dot.exposed{background:var(--red);color:#2a0808;}
+.st-chip-dot.risk{background:var(--amber);color:#2a1c00;}
+.st-chip-dot.ok{background:var(--green);color:#062018;}
+.st-chip.add{border-style:dashed;min-width:62px;color:var(--cyan);}
+.st-chip.add .st-chip-call{color:var(--cyan);font-size:17px;}
+
+/* ---------- pre-cliff warning bar ----------
+   "Am I about to run out of money" and "what is blocking me" are the two
+   questions this game's player actually has, and both used to be answered by
+   11px prose one scroll down inside the Studio tab. This lives in the HUD,
+   above the fold, on every tab, and it fires on RUNWAY — days of cash left at
+   the current burn — not on the sign of the balance. A readout that turns red
+   once cash is already negative is reporting a decision the player can no
+   longer make. */
+/* It is a button — it jumps to the tab that answers it — so it is 44px like
+   every other control, not the 38px strip it looked like it wanted to be. */
+.hud-warn{
+  display:flex;align-items:center;gap:8px;padding:7px 12px;
+  border-top:1px solid var(--border);font-size:12px;font-weight:700;
+  text-align:left;width:100%;min-height:44px;
+}
+.hud-warn[hidden]{display:none;}
+.hud-warn.warn{background:rgba(251,191,36,.11);color:var(--amber);}
+.hud-warn.bad{background:rgba(248,113,113,.13);color:var(--red);}
+.hud-warn .hw-ico{font-size:14px;flex-shrink:0;}
+.hud-warn .hw-txt{flex:1;min-width:0;}
+
 .stats-strip{display:flex;border-top:1px solid var(--border);}
 .stat{
   flex:1;min-width:0;padding:8px 6px;text-align:center;
@@ -147,7 +224,17 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .stat.cash .stat-val{color:var(--green);}
 .stat.listeners .stat-val{color:var(--cyan);}
 .stat.rep .stat-val{color:var(--amber);}
-.delta{font-size:9px;font-weight:700;margin-left:3px;}
+/* Cash is the number the player is actually asking about, so it is the only
+   stat that gets a second line: how many days of it are left. The colour is
+   driven by runway, not by sign. */
+.stat.cash .stat-val.warn{color:var(--amber);}
+.stat.cash .stat-val.bad{color:var(--red);}
+.stat-lbl .runway{font-weight:800;letter-spacing:.4px;}
+.stat-lbl .runway.warn{color:var(--amber);}
+.stat-lbl .runway.bad{color:var(--red);}
+/* 9px was under every readable floor for a two-character number with a sign
+   glyph in front of it. */
+.delta{font-size:10px;font-weight:700;margin-left:3px;}
 .delta.up{color:var(--green);} .delta.down{color:var(--red);}
 
 /* ---------- content area ---------- */
@@ -193,11 +280,73 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 }
 .slot:hover,.slot:active{border-color:var(--border-lit);}
 .slot:active{transform:scale(.98);}
+/* Slot state is a border colour and a corner badge as well as words. Four
+   toasts with different border colours is the player reading; a slot that is
+   visibly red because nobody is in the booth is the player playing. */
+.slot.exposed{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.06);}
+.slot.risky{border-color:rgba(251,191,36,.5);}
 .slot-part{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
-.slot-icon{font-size:26px;line-height:1;}
+.slot-icon{font-size:24px;line-height:1;}
 .slot-show{font-size:12px;font-weight:800;}
-.slot-meta{font-size:9px;color:var(--muted);}
-.slot-dj{font-size:9px;color:var(--cyan);}
+/* 9px on --muted was the smallest information text in the game and it carried
+   the DJ name. 11px; the colour was never the problem here. */
+.slot-meta{font-size:11px;color:var(--muted);line-height:1.25;}
+.slot-dj{font-size:11px;color:var(--cyan);line-height:1.25;}
+.slot-load{
+  font-size:10px;font-weight:800;letter-spacing:.4px;
+  display:inline-flex;align-items:center;gap:4px;
+}
+.slot-load.ok{color:var(--green);} .slot-load.warn{color:var(--amber);} .slot-load.bad{color:var(--red);}
+.slot-badge{
+  position:absolute;top:6px;right:6px;font-size:11px;line-height:1;
+}
+.slot{position:relative;}
+
+/* ---------- empire coverage matrix ----------
+   The core decision surface, and the reason the switcher above is not enough:
+   morning drive happens at 6 AM on every station at once, so "who is exposed
+   right now" is a question about a grid, not about the station you happen to
+   be looking at. Rows are stations, columns are dayparts, one glance. Every
+   cell is a button that jumps straight into that slot's editor, so the
+   overview is also the control surface.
+   Cells are 44px tall; at 4 stations x 4 dayparts that is 176px of grid,
+   which is the whole point of the 4-station cap. */
+.cov{display:grid;gap:4px;}
+.cov-head{
+  display:grid;gap:4px;grid-template-columns:52px repeat(4,1fr);
+  font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;font-weight:700;
+}
+.cov-head span{text-align:center;padding-bottom:2px;}
+.cov-head span:first-child{text-align:left;}
+.cov-row{display:grid;gap:4px;grid-template-columns:52px repeat(4,1fr);align-items:stretch;}
+.cov-call{
+  display:flex;align-items:center;font-size:11px;font-weight:900;letter-spacing:.4px;
+  color:var(--muted);white-space:nowrap;overflow:hidden;
+}
+.cov-row.on .cov-call{color:var(--amber);}
+.cov-cell{
+  min-height:44px;border-radius:8px;border:1px solid var(--border);
+  background:var(--panel2);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;
+  font:inherit;color:inherit;padding:2px;
+}
+.cov-cell .cc-ico{font-size:14px;line-height:1;}
+.cov-cell .cc-sub{font-size:9px;font-weight:800;letter-spacing:.3px;line-height:1;}
+.cov-cell.covered{border-color:rgba(52,211,153,.45);}
+.cov-cell.covered .cc-sub{color:var(--green);}
+.cov-cell.risky{border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.08);}
+.cov-cell.risky .cc-sub{color:var(--amber);}
+.cov-cell.exposed{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.09);}
+.cov-cell.exposed .cc-sub{color:var(--red);}
+.cov-legend{
+  display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--muted);
+}
+.cov-legend i{
+  display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;
+}
+.cov-legend i.covered{background:var(--green);}
+.cov-legend i.risky{background:var(--amber);}
+.cov-legend i.exposed{background:var(--red);}
 
 /* ---------- generic list rows ---------- */
 .row{
@@ -219,10 +368,14 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
    between a 40px-tall pair is a mis-tap waiting to happen. */
 .row-act{flex-shrink:0;display:flex;flex-direction:column;gap:10px;align-items:stretch;}
 
+/* 36px was under the floor and .btn is the most-used control class in the
+   file — Upgrade, Hire, Train, Fire, every modal action. 44px, and .btn.sm is
+   44px too: "sm" now means narrower and quieter, never shorter. */
 .btn{
-  padding:8px 13px;border-radius:8px;font-size:12px;font-weight:700;
+  padding:9px 13px;border-radius:8px;font-size:12px;font-weight:700;
   background:var(--panel);border:1px solid var(--border-lit);color:var(--text);
-  white-space:nowrap;transition:filter .15s,transform .1s;min-height:36px;
+  white-space:nowrap;transition:filter .15s,transform .1s;min-height:44px;
+  display:inline-flex;align-items:center;justify-content:center;
 }
 .btn:active:not(:disabled){transform:scale(.96);}
 .btn:disabled{opacity:.35;cursor:not-allowed;}
@@ -230,7 +383,17 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .btn.buy:hover:not(:disabled){filter:brightness(1.12);}
 .btn.danger{border-color:rgba(248,113,113,.45);color:var(--red);}
 .btn.ghost{background:transparent;}
-.btn.sm{padding:5px 10px;font-size:11px;min-height:40px;}
+.btn.sm{padding:5px 10px;font-size:11px;min-height:44px;}
+/* The only place density genuinely forbids a 44px box: the ± stepper beside a
+   co-host's name inside the crew list, where two of them sit 10px apart in a
+   56px row. The painted box stays 34px and an ::after pushes the hit area out
+   to 44 — 5px of overhang per side, against a 10px gap, so the two targets
+   still cannot collide. Nothing else in the file uses this. */
+.btn.icon{
+  width:34px;min-width:34px;height:34px;min-height:34px;padding:0;
+  font-size:16px;position:relative;
+}
+.btn.icon::after{content:'';position:absolute;left:-5px;right:-5px;top:-5px;bottom:-5px;}
 
 /* ---------- meters ---------- */
 .meter{height:6px;background:rgba(0,0,0,.35);border-radius:3px;overflow:hidden;margin-top:5px;}
@@ -239,13 +402,16 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .meter-fill.cyan{background:linear-gradient(90deg,#0891b2,var(--cyan));}
 .meter-fill.magenta{background:linear-gradient(90deg,#be185d,var(--magenta));}
 
+/* 9px uppercase with .8px tracking is a texture, not a word. 10px. */
 .pill{
-  display:inline-block;font-size:9px;font-weight:800;letter-spacing:.8px;
-  padding:2px 7px;border-radius:20px;text-transform:uppercase;
+  display:inline-block;font-size:10px;font-weight:800;letter-spacing:.8px;
+  padding:3px 8px;border-radius:20px;text-transform:uppercase;
 }
 .pill.locked{background:rgba(248,113,113,.14);color:var(--red);border:1px solid rgba(248,113,113,.3);}
 .pill.max{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.3);}
 .pill.new{background:rgba(34,211,238,.14);color:var(--cyan);border:1px solid rgba(34,211,238,.3);}
+.pill.warn{background:rgba(251,191,36,.14);color:var(--amber);border:1px solid rgba(251,191,36,.32);}
+.pill.lead{background:rgba(34,211,238,.14);color:var(--cyan);border:1px solid rgba(34,211,238,.3);}
 
 /* ---------- log ---------- */
 .log-item{
@@ -256,7 +422,7 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .log-item.good{border-left-color:var(--green);}
 .log-item.bad{border-left-color:var(--red);}
 .log-item.big{border-left-color:var(--amber);}
-.log-day{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
+.log-day{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
 
 /* ---------- bottom tab bar ---------- */
 .tabbar{
@@ -273,7 +439,7 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   background:var(--amber);border-radius:0 0 3px 3px;
 }
 .tab-icon{font-size:19px;line-height:1;}
-.tab-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;}
+.tab-lbl{font-size:10px;font-weight:700;letter-spacing:.3px;}
 /* The badge is a class toggle rather than an injected span, so render() can
    update the tab bar without rebuilding it (and restarting its transitions). */
 .tab.has-badge::after{
@@ -283,33 +449,169 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 
 /* ---------- modal ---------- */
 .modal-back{
-  position:fixed;inset:0;z-index:50;background:rgba(5,7,20,.78);backdrop-filter:blur(4px);
+  position:fixed;inset:0;z-index:var(--z-modal);background:rgba(5,7,20,.78);backdrop-filter:blur(4px);
   display:none;align-items:center;justify-content:center;padding:18px;
 }
 .modal-back.open{display:flex;}
 .modal{
-  width:100%;max-width:440px;max-height:86vh;overflow-y:auto;
+  width:100%;max-width:440px;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;
   background:var(--panel);border:1px solid var(--border-lit);border-radius:var(--r);
-  padding:18px;
+  /* No bottom padding: the sticky action bar below supplies it. The sheet used
+     to carry 18px here and the bar compensated with `bottom:-18px`, which is
+     sticky for "park 18px BELOW the scrollport" — so the bottom of Close/Done
+     sat off-screen on a short viewport. Measured at 320x760: actions clipped.
+     bottom:0 and no padding is the same look and actually stays on screen. */
+  padding:0 18px 0;
+  display:flex;flex-direction:column;
 }
-.modal-title{font-size:18px;font-weight:800;margin-bottom:5px;}
-.modal-sub{font-size:12px;color:var(--muted);margin-bottom:15px;}
-.modal-btns{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;}
+/* The slot editor is a scroller with its actions at the bottom, which is the
+   exact shape that loses its buttons in landscape — 360px of viewport, a
+   four-show picker plus a crew list plus an engineer list above them. Both
+   ends are sticky instead: the title stays so you always know which station's
+   morning drive you are editing, and Close/Done is always one thumb away.
+   The negative margins put the sticky bars edge-to-edge inside the padded
+   sheet so nothing shows through beside them while scrolling. */
+.modal-title{
+  font-size:18px;font-weight:800;padding:16px 0 5px;
+  position:sticky;top:0;z-index:2;background:var(--panel);
+  margin:0 -18px;padding-left:18px;padding-right:18px;
+}
+.modal-sub{
+  font-size:12px;color:var(--muted);margin:0 -18px 13px;padding:0 18px 10px;
+  position:sticky;top:44px;z-index:2;background:var(--panel);
+  border-bottom:1px solid var(--border);
+}
+.modal-btns{
+  display:flex;gap:9px;margin:16px -18px 0;padding:12px 18px calc(14px + var(--safe-b));
+  flex-wrap:wrap;position:sticky;bottom:0;z-index:2;
+  background:var(--panel);border-top:1px solid var(--border);
+}
 .modal-btns .btn{flex:1;min-width:110px;justify-content:center;}
 @media (prefers-reduced-motion:no-preference){
   .modal-back.open .modal{animation:modalIn .22s cubic-bezier(.2,.9,.3,1.2);}
   @keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
 }
+/* Phone portrait: the sheet is the screen, docked to the bottom where thumbs
+   are, rather than a floating card with 18px of dead backdrop around it. */
+@media (max-width:560px){
+  .modal-back{padding:0;align-items:flex-end;}
+  .modal{max-width:none;max-height:92vh;border-radius:var(--r) var(--r) 0 0;border-bottom:none;}
+}
 
-/* ---------- toast ---------- */
-/* The 74px lift exists to clear the tab bar, which only exists in-game — on
-   the menu and Settings screens it left toasts floating in mid-air. */
+/* ---------- live readout (slot editor) ----------
+   Outputs ABOVE controls, and sticky, because the controls under it are the
+   thing the player is dragging their thumb over. A load/risk readout printed
+   below the crew list would be covered by the hand changing the crew — which
+   is exactly the number they changed the crew to watch. */
+.readout{
+  position:sticky;top:78px;z-index:1;
+  background:var(--panel2);border:1px solid var(--border-lit);border-radius:var(--r-sm);
+  padding:10px;margin-bottom:12px;
+}
+.readout-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.ro{text-align:center;}
+.ro-val{font-size:16px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums;}
+.ro-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-top:1px;}
+.ro.ok .ro-val{color:var(--green);} .ro.warn .ro-val{color:var(--amber);} .ro.bad .ro-val{color:var(--red);}
+.ro.neutral .ro-val{color:var(--cyan);}
+.readout-note{
+  margin-top:9px;padding-top:8px;border-top:1px solid var(--border);
+  font-size:11px;color:var(--muted);line-height:1.4;
+}
+.readout-note b{color:var(--amber);}
+/* The load bar is the crossover made visible: L* = 1.616 is where the
+   engineer stops being worth more on the big-revenue slot and starts being
+   worth more here. DESIGN.md calls the crossover "discoverable, not hidden
+   math", and a tick mark on a bar is the cheapest honest way to say it. */
+.loadbar{position:relative;height:8px;border-radius:4px;background:rgba(0,0,0,.4);margin-top:9px;overflow:visible;}
+.loadbar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green),var(--amber) 62%,var(--red));}
+.loadbar-mark{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--cyan);border-radius:1px;}
+.loadbar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px;}
+
+/* ---------- crew / engineer pickers ---------- */
+.pick-head{
+  font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;
+  margin:16px 0 4px;
+}
+.pick-sub{font-size:11px;color:var(--muted);margin:0 0 8px;line-height:1.4;}
+.row.on{border-color:var(--amber);}
+.row.warnrow{border-color:rgba(251,191,36,.5);}
+.delta-tag{font-size:11px;font-weight:800;white-space:nowrap;}
+.delta-tag.up{color:var(--green);} .delta-tag.down{color:var(--red);}
+
+/* ---------- founding flow ---------- */
+.seg-grid{display:grid;gap:8px;}
+.seg-card{
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:11px;text-align:left;width:100%;font:inherit;color:inherit;min-height:44px;
+}
+.seg-card.on{border-color:var(--amber);}
+.seg-card-top{display:flex;align-items:center;gap:9px;}
+.seg-card-name{font-weight:800;font-size:14px;flex:1;min-width:0;}
+.seg-pops{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;}
+.seg-pop{text-align:center;}
+.seg-pop-bar{height:26px;display:flex;align-items:flex-end;justify-content:center;}
+.seg-pop-bar i{display:block;width:14px;border-radius:2px 2px 0 0;background:var(--cyan);opacity:.8;}
+.seg-pop-lbl{font-size:10px;color:var(--dim);margin-top:2px;}
+/* The lease commitment, spelled out before the money leaves. A $120,000
+   buildout used to be a single button; the recurring bill it signs you up for
+   was invisible until it started arriving. */
+.commit{
+  background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);
+  border-radius:var(--r-sm);padding:11px;margin-top:12px;
+}
+.commit-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:12px;}
+.commit-row span:first-child{color:var(--muted);}
+.commit-row span:last-child{font-weight:800;font-variant-numeric:tabular-nums;}
+.commit-row.total{border-top:1px solid rgba(248,113,113,.3);margin-top:5px;padding-top:8px;}
+
+/* ---------- first-days coach ----------
+   NOT a modal. The three-paragraph intro wall it replaces stopped the clock,
+   said everything at once on the one day the player had no context for any of
+   it, and was never seen again. This sits in the content flow above the
+   schedule, says exactly one thing, and its button performs the decision it
+   is talking about. It advances when the player does the thing, so reading it
+   is optional and doing it is the tutorial. */
+.coach{
+  display:flex;gap:11px;align-items:flex-start;
+  background:linear-gradient(135deg,rgba(251,191,36,.10),rgba(236,72,153,.07));
+  border:1px solid rgba(251,191,36,.34);border-radius:var(--r);
+  padding:12px;margin-bottom:12px;
+}
+.coach-ico{font-size:22px;line-height:1.1;flex-shrink:0;}
+.coach-body{flex:1;min-width:0;}
+.coach-step{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--amber);}
+.coach-txt{font-size:13px;line-height:1.45;margin-top:3px;}
+.coach-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.coach-btns .btn{flex:1 1 auto;min-width:96px;}
+
+/* ---------- toast ----------
+   Two hosts, deliberately. #toasts is the floating one and is only ever used
+   off the game screen (save failures on the menu, "no save found"), where
+   there is nothing behind it to occlude.
+   In game, toasts go into #toasts-game, which is a flex child between the
+   content area and the tab bar — IN FLOW, so a full stack shrinks the content
+   instead of covering it. The old floating stack was fine at 1x and a
+   permanent 120px blindfold at 3x: a day passes every 1.4 seconds there,
+   toasts live 3.4 seconds, and a breakdown plus an event plus an autosave
+   notice means the queue never drains. What it covered was the bottom of the
+   schedule grid — the controls.
+   Capped in CSS as well as in JS: 33vh is the most of the screen a run of bad
+   news is allowed to take, and the rail scrolls past that. */
 .toasts{
-  position:fixed;z-index:60;left:50%;transform:translateX(-50%);
+  position:fixed;z-index:var(--z-toast);left:50%;transform:translateX(-50%);
   bottom:calc(20px + var(--safe-b));display:flex;flex-direction:column;gap:7px;
   pointer-events:none;width:calc(100% - 28px);max-width:400px;
 }
-body.in-game .toasts{bottom:calc(74px + var(--safe-b));}
+.toast-rail{
+  flex-shrink:0;display:flex;flex-direction:column;gap:6px;
+  padding:0 12px;max-height:33vh;overflow-y:auto;overscroll-behavior:contain;
+  pointer-events:none;
+}
+.toast-rail:empty{display:none;}
+.toast-rail .toast{width:100%;max-width:940px;margin:0 auto;}
+.toast-rail > :first-child{margin-top:8px;}
+.toast-rail > :last-child{margin-bottom:2px;}
 .toast{
   background:var(--panel2);border:1px solid var(--border-lit);border-radius:10px;
   padding:9px 13px;font-size:12px;font-weight:600;
@@ -344,10 +646,13 @@ body.in-game .toasts{bottom:calc(74px + var(--safe-b));}
   border-radius:50%;background:#fff;transition:transform .2s;
 }
 .switch.on::after{transform:translateX(20px);}
-.seg{display:flex;gap:5px;flex-shrink:0;}
+.seg{display:flex;gap:8px;flex-shrink:0;}
+/* min-height was already 44 and min-width was not: "1×" at 12px inside 12px
+   of side padding is a 38px-wide box. A target is two dimensions. */
 .seg-btn{
-  padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;
-  background:var(--panel2);border:1px solid var(--border);min-height:44px;
+  padding:6px 12px;border-radius:8px;font-size:13px;font-weight:700;
+  background:var(--panel2);border:1px solid var(--border);
+  min-height:44px;min-width:48px;
 }
 .seg-btn.on{background:var(--amber-dk);border-color:transparent;color:#fff;}
 
@@ -385,6 +690,81 @@ body.pad-on .pad-hint{display:flex;}
   .content{padding:18px 20px 26px;}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
   .two-col .card{margin-bottom:0;}
+  .cov-head,.cov-row{grid-template-columns:88px repeat(4,1fr);}
+}
+
+/* ---------- 320px ----------
+   The narrowest phone still in circulation, and the width where a four-chip
+   station switcher, a 52px coverage gutter and a 2-up schedule grid all want
+   the same pixels. Everything here shrinks type or gutters; nothing here
+   shrinks a touch target. */
+@media (max-width:359px){
+  .content{padding:12px 8px 18px;}
+  .hud-row{gap:8px;padding:6px 8px;}
+  .st-bar{padding:0 8px 7px;gap:5px;}
+  .st-chip{min-width:66px;padding:5px 7px;}
+  .st-chip-call{font-size:12px;}
+  .card{padding:12px 10px;}
+  .cov-head,.cov-row{grid-template-columns:42px repeat(4,1fr);gap:3px;}
+  .cov-call{font-size:10px;}
+  .slot{padding:9px 5px;min-height:104px;}
+  .stat-val{font-size:15px;}
+  .readout-grid{gap:4px;}
+  .ro-val{font-size:15px;}
+  /* Two 110px buttons plus a 9px gap is 229px inside a 320px sheet with
+     36px of padding — it fits, but only just, and a third action wraps. Let
+     it wrap onto full-width rows rather than squeezing below 44px. */
+  .modal-btns .btn{min-width:100%;}
+}
+
+/* ---------- landscape / short viewports ----------
+   640x360 is the reference. The HUD is four stacked strips (row, switcher,
+   warning, stats) and the tab bar is 56 more, which leaves ~150px of content
+   if nothing gives. The scene banner is the first thing to go — it is
+   decoration and it is 16:5 of pure height — then every vertical padding
+   halves. The schedule goes 4-across so the grid stays one screen. */
+@media (max-height:520px) and (orientation:landscape){
+  /* 360px of height against four stacked HUD strips, a toast rail and a tab
+     bar. Every number below was measured at 640x360 with four stations and a
+     warning showing — the worst case — and the budget is: nothing that is a
+     touch target shrinks, everything that is padding does.
+       hud-row 54 -> 50   (the 44px ☰ is the floor; the padding went)
+       st-bar  48 -> 46
+       stats   50 -> 36   (labels stay: the cash runway lives in one)
+       rail    47 -> 44   (and the JS stack caps at 1 here, see toast())
+       tabbar  47 -> 45
+     which buys back ~65px of content. */
+  .hud-row{padding:3px 12px;}
+  .station-sub{display:none;}
+  .station-call{font-size:15px;}
+  .st-bar{padding:0 10px 4px;}
+  .stat{padding:3px 6px;}
+  .stat-val{font-size:13px;}
+  /* The padding goes, the 44px does not — this is the one control that tells
+     a landscape player the run is about to end. */
+  .hud-warn{padding:4px 12px;font-size:11px;}
+  .st-chip{min-height:44px;padding:3px 9px;}
+  .st-chip-sub{display:none;}
+  .toast{padding:6px 11px;font-size:11px;}
+  .content{padding:10px 12px 14px;}
+  .scene-wrap{display:none;}
+  .sched{grid-template-columns:repeat(4,1fr);}
+  .slot{min-height:96px;padding:8px 5px;}
+  .slot-icon{font-size:20px;}
+  .card{padding:11px;margin-bottom:9px;}
+  .tab{min-height:46px;padding:5px 4px;}
+  .tab-icon{font-size:16px;}
+  .modal-back{padding:0;align-items:stretch;}
+  .modal{max-height:100vh;max-width:none;border-radius:0;}
+  .modal-title{padding-top:10px;font-size:16px;}
+  .modal-sub{top:36px;}
+  .readout{top:66px;}
+  /* One toast tall. The rail is in flow on purpose — it must never cover the
+     schedule — but 33vh of a 360px screen is a third of the game, so in
+     landscape the stack caps at one and the rail caps with it. */
+  .toast-rail{max-height:44px;}
+  .tab{min-height:44px;}
+  .pad-hint{padding:4px 10px;}
 }
 
 /* ---------- reduced motion (in-game toggle) ----------
@@ -430,6 +810,14 @@ body.no-motion *::after{
       <span class="pause-chip" id="hud-paused" hidden>⏸ PAUSED</span>
       <div class="day-chip" id="hud-day">DAY 1</div>
     </div>
+    <!-- Station switcher. Empty (and display:none) on a one-station empire
+         that has not unlocked expansion, so a fresh run looks exactly like it
+         used to until there is something to switch between. -->
+    <div class="st-bar" id="station-bar" role="tablist" aria-label="Stations"></div>
+    <!-- The one always-visible answer to "am I about to run out of money" and
+         "what is blocking me". A button, because both answers are somewhere
+         the player needs to get to. -->
+    <button class="hud-warn" id="hud-warn" hidden></button>
     <div class="stats-strip">
       <div class="stat cash"><span class="stat-val" id="stat-cash">$0</span><span class="stat-lbl" id="lbl-cash"></span></div>
       <div class="stat listeners"><span class="stat-val" id="stat-listeners">0</span><span class="stat-lbl" id="lbl-listeners"></span></div>
@@ -440,8 +828,18 @@ body.no-motion *::after{
   <div class="content" id="game-content">
     <div class="wrap">
       <!-- The scene is its own host so render() can leave it alone: rebuilding
-           it every tick restarted all twelve of its infinite animations. -->
-      <div class="tabpane active" id="pane-studio"><div id="scene-host"></div><div id="studio-body"></div></div>
+           it every tick restarted all twelve of its infinite animations.
+           Studio is split three ways for the same reason one level down: the
+           brief is the only part whose numbers move every tick, so the coach
+           card and the schedule grid (which own the taps) are rebuilt only
+           when their own HTML actually changes. Re-writing a container's
+           innerHTML under a thumb cancels the tap that was in flight. -->
+      <div class="tabpane active" id="pane-studio">
+        <div id="scene-host"></div>
+        <div id="studio-coach"></div>
+        <div id="studio-brief"></div>
+        <div id="studio-grid"></div>
+      </div>
       <div class="tabpane" id="pane-gear"></div>
       <div class="tabpane" id="pane-staff"></div>
       <div class="tabpane" id="pane-empire"></div>
@@ -449,10 +847,14 @@ body.no-motion *::after{
     </div>
   </div>
 
+  <!-- In-flow toast rail: see the .toast-rail comment in the stylesheet. -->
+  <div class="toast-rail" id="toasts-game" aria-live="polite"></div>
+
   <div class="pad-hint">
     <span><b>A</b> Select</span><span><b>B</b> Back</span>
     <span><b>X</b> Pause</span><span><b>Y</b> Save</span>
-    <span><b>LB/RB</b> Tabs</span><span><b>☰</b> Menu</span>
+    <span><b>LB/RB</b> Tabs</span><span><b>LT/RT</b> Station</span>
+    <span><b>☰</b> Menu</span>
   </div>
   <nav class="tabbar" id="tabbar"></nav>
 </div>
