@@ -279,7 +279,9 @@ function chemTags(){ return Object.keys(chemTable()); }
 // was bumped alongside; the payload's `v` field is this one, and migrate()
 // checks it. Embedding the version IN the payload is the rule — a key-name
 // bump alone does not migrate anything, it just crashes older saves.
-const STATE_VER = 3;
+// v4: a slot carries `engs` (up to MAX_ENG ids) instead of a single `eng`.
+// migrate() lifts a v3 `eng` string into a one-element array; see loadSlots.
+const STATE_VER = 4;
 
 // Producer condition #2: the assignment surface has to stay sub-linear in
 // stations. Four is the accepted hard cap for this overhaul.
@@ -311,6 +313,23 @@ const RIVAL_PERIOD = 34;     // days per competition cycle
 // Mechanic 2: crewSkill = s1 + 0.55*s2 + 0.30*s3, cap three to a slot.
 const CREW_WEIGHTS = [1, 0.55, 0.30];
 const MAX_CREW = CREW_WEIGHTS.length;
+
+/* Engineers per slot. v3 allowed exactly one; v4 allows two, at the owner's
+   direction, and stops there deliberately.
+
+   The weights are the whole design. A flat second engineer would make the
+   answer "put two on everything and stop thinking" — the same solved-loop
+   failure the design gate exists to catch. At 0.45 the second engineer is
+   worth less than the first, so the real question stays "is this slot's LOAD
+   worth a second body, or does that body cover a bare slot somewhere else?"
+   which is a comparison against the rest of the empire rather than a local
+   yes.
+
+   Three is not a slider we left off: with ENG_WEIGHTS[2] small enough to be
+   honest it would never beat covering a third slot, and with it large enough
+   to matter the one-engineer-per-daypart scarcity stops binding at all. */
+const ENG_WEIGHTS = [1, 0.45];
+const MAX_ENG = ENG_WEIGHTS.length;
 const CHEM_LIKE = 0.10, CHEM_CLASH = 0.12, CHEM_MIN = 0.76, CHEM_MAX = 1.24;
 
 // Mechanic 3. BASE_RISK is pinned by DESIGN's own arithmetic and is not free:
@@ -387,10 +406,10 @@ let gOpts = readOpts();
     rather than an inline literal in two places that can drift apart. */
 function defaultSchedule(){
   return {
-    morning: { show: 'music', djs: [], eng: null },
-    midday:  { show: 'music', djs: [], eng: null },
-    evening: { show: 'talk',  djs: [], eng: null },
-    night:   { show: 'music', djs: [], eng: null }
+    morning: { show: 'music', djs: [], engs: [] },
+    midday:  { show: 'music', djs: [], engs: [] },
+    evening: { show: 'talk',  djs: [], engs: [] },
+    night:   { show: 'music', djs: [], engs: [] }
   };
 }
 
@@ -657,9 +676,42 @@ function loadFactor(slot){
 }
 /** slotRisk = BASE_RISK * load / (1 + 0.30*engSkill), times the segment's own
     risk multiplier. An engineer divides the risk down; nothing removes it. */
+/** The engineer ids on a slot, tolerant of a v3 `eng` string that has not been
+    through migrate() yet (a live save loaded by an older tab, a fixture written
+    by hand). Always returns an array, never null. */
+function engIdsOf(slot){
+  if (!slot) return [];
+  if (Array.isArray(slot.engs)) {
+    // Filter before testing length: a malformed save (or a caller writing
+    // `engs: [null]` for "nobody") would otherwise report an engineer that is
+    // not there, which silently suppresses the no-engineer post-mortem and the
+    // uncovered-slots strip — a wrong ANSWER, not a crash, so nothing catches it.
+    const ids = slot.engs.filter(id => typeof id === 'string' && id);
+    if (ids.length) return ids.slice(0, MAX_ENG);
+  }
+  // Fall through to the v3 field when `engs` is absent OR present-but-empty. A
+  // v4-shaped slot starts life as `engs: []`, so preferring the array whenever
+  // it merely EXISTS would silently swallow any `slot.eng = id` write — which
+  // is exactly what a v3-era caller, an old save loaded by a stale tab, or a
+  // test that pokes state directly still does.
+  return (typeof slot.eng === 'string' && slot.eng) ? [slot.eng] : [];
+}
+
+/** Combined engineer skill on a slot: best engineer at full weight, second at
+    ENG_WEIGHTS[1]. Mirrors crewSkill()'s shape so the two staffing decisions
+    read the same way. */
+function engSkill(slot){
+  const people = engIdsOf(slot)
+    .map(id => personById(id))
+    .filter(p => p && p.role === 'eng')
+    .sort((a, b) => b.skill - a.skill);
+  let sum = 0;
+  for (let i = 0; i < people.length && i < MAX_ENG; i++) sum += ENG_WEIGHTS[i] * people[i].skill;
+  return sum;
+}
+
 function slotRisk(slot, seg){
-  const eng = slot.eng ? personById(slot.eng) : null;
-  const skill = (eng && eng.role === 'eng') ? eng.skill : 0;
+  const skill = engSkill(slot);
   const mul = seg ? segRiskMul(seg) : 1;
   return clamp(BASE_RISK * loadFactor(slot) * mul / (1 + ENG_RISK_DIVISOR * skill), 0.002, 0.45);
 }
@@ -1085,21 +1137,50 @@ function removeDj(stationIdx, partId, staffId){
   slot.djs.splice(at, 1);
   return true;
 }
-/** Assign or clear the slot engineer. Passing null clears. */
+/** Add an engineer to a slot, up to MAX_ENG. Returns { ok, stole } where stole
+    is { call, part } if they were pulled off another station's slot in the same
+    daypart — the one-person-one-daypart rule is unchanged by v4, only the
+    number of engineers a single slot may hold. */
+function addEngineer(stationIdx, partId, staffId){
+  const slot = slotAt(stationIdx, partId);
+  const p = personById(staffId);
+  if (!slot) return { ok: false, reason: 'slot' };
+  if (!p || p.role !== 'eng') return { ok: false, reason: 'role' };
+  if (!Array.isArray(slot.engs)) slot.engs = engIdsOf(slot);
+  if (slot.engs.indexOf(staffId) >= 0) return { ok: false, reason: 'already' };
+  if (slot.engs.length >= MAX_ENG) return { ok: false, reason: 'full' };
+  let stole = null;
+  for (let i = 0; i < S.stations.length; i++) {
+    if (i === stationIdx) continue;
+    const other = S.stations[i].schedule[partId];
+    if (!other) continue;
+    if (!Array.isArray(other.engs)) other.engs = engIdsOf(other);
+    const at = other.engs.indexOf(staffId);
+    if (at >= 0) { other.engs.splice(at, 1); stole = { call: S.stations[i].call, part: partId }; }
+  }
+  slot.engs.push(staffId);
+  return { ok: true, stole };
+}
+
+/** Remove one engineer from a slot. */
+function removeEngineer(stationIdx, partId, staffId){
+  const slot = slotAt(stationIdx, partId);
+  if (!slot) return false;
+  if (!Array.isArray(slot.engs)) slot.engs = engIdsOf(slot);
+  const at = slot.engs.indexOf(staffId);
+  if (at < 0) return false;
+  slot.engs.splice(at, 1);
+  return true;
+}
+
+/** v3 entry point, kept so an older ui.js cannot silently no-op: passing null
+    clears the slot, passing an id makes them the ONLY engineer on it. */
 function setSlotEngineer(stationIdx, partId, staffId){
   const slot = slotAt(stationIdx, partId);
   if (!slot) return { ok: false, reason: 'slot' };
-  if (!staffId) { slot.eng = null; return { ok: true, stole: null }; }
-  const p = personById(staffId);
-  if (!p || p.role !== 'eng') return { ok: false, reason: 'role' };
-  let stole = null;
-  for (let i = 0; i < S.stations.length; i++) {
-    const other = S.stations[i].schedule[partId];
-    if (!other || other === slot) continue;
-    if (other.eng === staffId) { other.eng = null; stole = { call: S.stations[i].call, part: partId }; }
-  }
-  slot.eng = staffId;
-  return { ok: true, stole };
+  if (!staffId) { slot.engs = []; return { ok: true, stole: null }; }
+  slot.engs = [];
+  return addEngineer(stationIdx, partId, staffId);
 }
 /** Scrub someone off every schedule in the empire. firePerson() in ui.js must
     call this — a v2-shaped scrub over one station leaves a fired DJ counting
@@ -1110,7 +1191,9 @@ function scrubStaffFromSchedules(id){
       const slot = st.schedule[part.id];
       const at = slot.djs.indexOf(id);
       if (at >= 0) slot.djs.splice(at, 1);
-      if (slot.eng === id) slot.eng = null;
+      if (!Array.isArray(slot.engs)) slot.engs = engIdsOf(slot);
+      const ea = slot.engs.indexOf(id);
+      if (ea >= 0) slot.engs.splice(ea, 1);
     }
   }
 }
@@ -1123,7 +1206,7 @@ function uncoveredSlots(){
     const st = S.stations[i];
     for (const part of DAYPARTS) {
       const slot = st.schedule[part.id];
-      if (!slot.eng) out.push({ station: i, call: st.call, part: part.id, load: loadFactor(slot), risk: slotRisk(slot, segmentOf(st.segment)) });
+      if (!engIdsOf(slot).length) out.push({ station: i, call: st.call, part: part.id, load: loadFactor(slot), risk: slotRisk(slot, segmentOf(st.segment)) });
     }
   }
   // Worst exposure first — that is the decision the strip exists to inform.
@@ -1238,7 +1321,7 @@ function bankruptCause(){
       const sl = st.schedule && st.schedule[p.id];
       if (!sl) return;
       if (sl.djs && sl.djs.length) n++;
-      if (sl.eng) engAssigned++;
+      engAssigned += engIdsOf(sl).length;
       if (sl.show === 'ads') adsSlots++;
     });
     maxTx = Math.max(maxTx, st.tx || 0);
@@ -1685,10 +1768,22 @@ function sanitize(s){
         djUsed[p.id].add(id);
         djs.push(id);
       }
-      let eng = typeof src.eng === 'string' && engIds.has(src.eng) ? src.eng : null;
-      if (eng && engUsed[p.id].has(eng)) eng = null;
-      if (eng) engUsed[p.id].add(eng);
-      out.schedule[p.id] = { show: SHOWS[src.show] ? src.show : base[p.id].show, djs, eng };
+      /* v3 -> v4: `eng` was a single id, `engs` is up to MAX_ENG of them.
+         Accept either shape so a save written before the bump still loads, and
+         apply the same same-daypart uniqueness the DJ list gets — a v3 save
+         cannot hold a duplicate, but a hand-edited or future one can. */
+      const rawEngs = Array.isArray(src.engs) ? src.engs
+                    : (typeof src.eng === 'string' ? [src.eng] : []);
+      const engs = [];
+      for (const id of rawEngs) {
+        if (typeof id !== 'string' || !engIds.has(id)) continue;
+        if (engs.indexOf(id) >= 0) continue;       // same person twice on one slot
+        if (engUsed[p.id].has(id)) continue;       // same person, same hour, elsewhere
+        if (engs.length >= MAX_ENG) break;
+        engUsed[p.id].add(id);
+        engs.push(id);
+      }
+      out.schedule[p.id] = { show: SHOWS[src.show] ? src.show : base[p.id].show, djs, engs };
     }
     out.lease = 0;   // recomputed by simulateDay before it is ever charged
     return out;

@@ -228,12 +228,12 @@ async function main(){
       tx: S.stations[0].tx, ant: S.stations[0].ant,
       slots: Object.keys(S.stations[0].schedule).join(','),
       slotShape: (function(){ const m = S.stations[0].schedule.morning;
-        return Array.isArray(m.djs) && m.eng === null && !('dj' in m); })(),
+        return Array.isArray(m.djs) && Array.isArray(m.engs) && !('dj' in m); })(),
       staffIsArray: Array.isArray(S.staff), perStationStaff: 'staff' in S.stations[0],
       lease: leaseFor(S.stations[0]),
       legacySecondStation: 'secondStation' in S
     })`);
-    assert('save schema is v3 under the same key', s0.v === 3 && s0.key === 'callsigns.save', JSON.stringify(s0));
+    assert('save schema is v4 under the same key', s0.v === 4 && s0.key === 'callsigns.save', JSON.stringify(s0));
     assert('new game: starting cash 800', s0.cash === 800, s0.cash);
     // The v3 shape, field by field — this is the assertion CONTRACT.md asks
     // for, and it is the one that fails loudly if anyone reintroduces a flat
@@ -243,7 +243,7 @@ async function main(){
       JSON.stringify(s0));
     assert('state shape: flat daypart schedule per station',
       s0.slots === 'morning,midday,evening,night', s0.slots);
-    assert('state shape: slot carries djs[] + eng, not a single dj', s0.slotShape === true);
+    assert('state shape: slot carries djs[] + engs[], not a single dj', s0.slotShape === true);
     assert('state shape: staff is GLOBAL, never per-station',
       s0.staffIsArray && s0.perStationStaff === false, JSON.stringify(s0));
     assert('the v2 secondStation decoration is gone', s0.legacySecondStation === false);
@@ -301,7 +301,7 @@ async function main(){
     })()`);
     assert('saveGame() writes the save', saved.ok === true && saved.hasRaw, JSON.stringify(saved));
     assert('saved day/version match live state',
-      saved.day === saved.live && saved.v === 3, JSON.stringify(saved));
+      saved.day === saved.live && saved.v === 4, JSON.stringify(saved));
     assert('v3 payload carries the callsign inside stations[0]',
       typeof saved.call === 'string' && saved.call.length === 4 && saved.topLevelCall === undefined, JSON.stringify(saved));
     assert('saveHeadline() reads an unloaded save', saved.headline && saved.headline.call === saved.call, JSON.stringify(saved));
@@ -317,7 +317,7 @@ async function main(){
     // trigger catchUp() and advance the day. Same-run reloads are < 60s so it
     // is === in practice, but the assertion shouldn't depend on test speed.
     assert('reloaded save resumes same station',
-      s1.call === saved.call && s1.day >= saved.day && s1.v === 3 && s1.stations === 1, JSON.stringify(s1));
+      s1.call === saved.call && s1.day >= saved.day && s1.v === 4 && s1.stations === 1, JSON.stringify(s1));
 
     /* ---- 6. the empire invariants, through the real mutators ----
        Last, and deliberately so: this block funds itself with test money and
@@ -339,7 +339,7 @@ async function main(){
       let sum = 0; for (let i = 0; i < 40; i++) { refreshCandidates(); sum += S.candidates.length; }
       return {
         founded: !!founded.ok, stations: S.stations.length, cost: founded.cost,
-        engCount: S.stations.filter(s => s.schedule.morning.eng === eng.id).length,
+        engCount: S.stations.filter(s => (s.schedule.morning.engs||[]).indexOf(eng.id) >= 0).length,
         djCount:  S.stations.filter(s => s.schedule.morning.djs.indexOf(dj.id) >= 0).length,
         engSteal: !!(steal && steal.stole), djStolen: !!(djSteal && djSteal.stole),
         capMsg: (function(){
@@ -409,7 +409,7 @@ async function main(){
       const parts = Object.keys(one.schedule);
       const setAll = (show, eng, djs) => parts.forEach(p => {
         one.schedule[p].show = show;
-        one.schedule[p].eng = eng;
+        one.schedule[p].engs = eng ? [eng] : [];
         one.schedule[p].djs = djs.slice();
       });
       const solo = () => { S.stations = [one]; };
@@ -417,7 +417,7 @@ async function main(){
 
       // over-expanded: two signals, the second airing nothing at all.
       const ghost = JSON.parse(JSON.stringify(one));
-      Object.keys(ghost.schedule).forEach(p => { ghost.schedule[p].djs = []; ghost.schedule[p].eng = null; });
+      Object.keys(ghost.schedule).forEach(p => { ghost.schedule[p].djs = []; ghost.schedule[p].engs = []; });
       S.stations = [one, ghost];
       setAll('music', 'e1', ['d1']);
       got.over = bankruptCause().key;
