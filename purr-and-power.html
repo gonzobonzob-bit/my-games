@@ -306,7 +306,9 @@ table.pl tr.tot td{border-top:1px solid var(--border);border-bottom:none;font-we
    ════════════════════════════════════════════════════════════ */
 
 const SK='pnp_tycoon_v1';
-const SAVE_V=1;                 // bump when the state shape changes incompatibly
+const SAVE_V=2;                 // bump when the state shape changes incompatibly
+// v2 adds S.sales — the sales desk policy. A v1 save loads with the desk off
+// and the default floor, which is exactly the old behaviour, so nothing breaks.
 const OLD_KEYS=['pnp_v5','pnp_v4','pnp_v3'];
 
 // Every state-derived string that reaches innerHTML goes through this. There is
@@ -454,6 +456,9 @@ function blankState(){
     inv:{panel:0,opt:0,rail:0,inv:0},
     invest:{}, trucks:1, office:0,
     marketing:800, autoBuy:true,
+    // The sales desk: one flag, deliberately. See runSalesDesk() for why there
+    // is no aggression dial here.
+    sales:{auto:false},
     loan:0, loanRate:0.11,
     ledger:blankLedger(), history:[], cashHist:[],
     mod:{}, priceMod:{}, pendingLeads:0, moraleDrift:0,
@@ -624,6 +629,11 @@ function advanceDay(){
 
   dailyCosts();
   generateLeads();
+  // The desk works the fresh leads before they age, and before yesterday's
+  // bids resolve — so a rep never fills a slot that today's win is about to
+  // claim. Ordering matters: run it after tickBids and the desk would bid
+  // against capacity that no longer exists.
+  runSalesDesk();
   tickBids();
   tickJobs();
   tickMorale();
@@ -673,6 +683,79 @@ function addLead(){
     days: quality==='hot'?ri(5,8): quality==='cold'?ri(10,16):ri(7,12),
   });
   bdg('sales');
+}
+
+/* ── the sales desk ──────────────────────────────────────────────────────
+   A Solar Rep used to only GENERATE leads; closing them was always the
+   owner's hand on a slider. That slider is this game's documented design
+   defect: its optimum is a fixed win probability for every lead, independent
+   of cash, crew load or pipeline (see CLAUDE.md). Automating it removes a
+   decision that was never really a decision.
+
+   There is deliberately NO aggression knob. The design gate checked for one
+   and found it would be decorative: submitBid() already refuses at
+   jobs+bids >= jobCap(), and jobCap() = 3 + crewCount() + coord*2, so intake
+   is ALREADY capped as a function of your crews. A desk inheriting that guard
+   cannot over-win by construction, which makes any "how hard should they push"
+   dial solve to "always max" — a second constant slider, in the one game whose
+   documented defect is a constant slider.
+
+   What the desk leaves as a real choice is hiring: each rep closes one lead a
+   day, so sales throughput competes with crew hiring for the same wage budget,
+   and the board only widens with crews and coordinators.
+
+   The deeper decision the gate identified — bottleneck-DAYS rather than job
+   counts, where designer-days are flat per job and crew-days scale with panels,
+   so the right job SIZE inverts with staffing — needs marketPrice made
+   exogenous, the count cap softened and the late penalty scaled. That is a
+   separate pass; it re-baselines every balance number in the game.
+
+   The desk prices by SEARCHING for the expected-value peak rather than solving
+   for it in closed form. The algebra (w* = 1 + k/2 - cost/mp) is only correct
+   while winChance stays linear in price; a search stays correct if someone
+   later adds a term, and costs a few dozen multiplications a day. */
+function bestBidFor(lead){
+  const cb=costBasis(lead.panels).total;
+  // No floor parameter: the expected-value peak already refuses to bid below
+  // cost, because ev = w*(price-cb) is negative there. A player-set floor
+  // would only ever move the desk AWAY from its best play.
+  let best=null;
+  for(let m=0; m<=90; m+=1){
+    const price=Math.round(cb*(1+m/100));
+    const w=winChance(lead,price);
+    const ev=w*(price-cb);
+    if(!best||ev>best.ev) best={m,price,w,ev};
+  }
+  return best;
+}
+/* The desk stops where a manual bid stops — submitBid()'s own guard. This is
+   the game's existing cap, not a dial: jobCap() = 3 + crewCount() + coord*2,
+   so intake is already a function of your crews. */
+function salesDeskRoom(){
+  return jobCap()-(S.jobs.length+S.bids.length);
+}
+function runSalesDesk(){
+  if(!S.sales||!S.sales.auto)return;
+  const reps=nStaff('rep');
+  if(!reps||!S.leads.length)return;
+  // One close per rep per day. Setters warm leads, they do not close them.
+  let closes=reps;
+  while(closes>0 && S.leads.length && salesDeskRoom()>0){
+    // Chase the lead with the best expected profit, not the biggest one — a
+    // 40-module job at a thin margin loses to a 12-module job at a fat one.
+    let pickIdx=-1, pickBid=null;
+    for(let i=0;i<S.leads.length;i++){
+      const b=bestBidFor(S.leads[i]);
+      if(!b||b.ev<=0)continue;
+      if(!pickBid||b.ev>pickBid.ev){ pickBid=b; pickIdx=i; }
+    }
+    if(pickIdx<0)break;                       // nothing clears the floor today
+    const l=S.leads[pickIdx];
+    S.bids.push({leadId:l.id,client:l.client,type:l.type,icon:l.icon,panels:l.panels,nm:!!l.nm,
+                 price:pickBid.price,chance:pickBid.w,wait:ri(2,5),desk:true});
+    S.leads.splice(pickIdx,1);
+    closes--;
+  }
 }
 
 function tickBids(){
@@ -1014,6 +1097,7 @@ function paintMarketing(){
 }
 function commitMarketing(){ renderFinance(); }
 function toggleAuto(){ S.autoBuy=!S.autoBuy; renderFinance(); }
+function toggleSalesDesk(){ S.sales.auto=!S.sales.auto; renderSales(); }
 
 function buyStock(k,qty){
   const cost=Math.round(qty*unitPrice(k)*matDiscount());
@@ -1322,6 +1406,31 @@ function renderSales(){
      '<div class="ff" style="font-size:15px">'+leadRate().toFixed(1)+'/day</div></div></div>'+
      '<div class="mini" style="margin-top:5px">Set the budget on the Finance tab. Reps and Appointment Setters '+
      'multiply it; reputation ('+Math.round(S.rep)+') tilts both flow and win rate.</div></div>';
+
+  /* The sales desk. One switch on purpose.
+
+     A margin dial belongs here about as much as a "play well?" checkbox: this
+     game's recorded design defect is that the bid optimum is a constant, so a
+     slider next to it would just be that constant wearing a hat. The desk
+     simply plays the peak of the expected-value curve. What the panel DOES
+     show is the thing the player can actually act on — how much board is left,
+     and that crews and coordinators are what widen it. */
+  {
+    const reps=nStaff('rep');
+    const room=salesDeskRoom();
+    const on=!!(S.sales&&S.sales.auto);
+    h+='<div class="sec ff">Sales Desk <span class="hint">'+(reps?reps+' rep'+(reps>1?'s':''):'no reps hired')+'</span></div>';
+    h+='<div class="box">'+
+       '<div class="row"><div class="grow"><div class="ff" style="font-size:12px">Let reps close deals</div>'+
+       '<div class="mini">Each rep prices and submits one bid a day, at the best expected profit. You keep the quote screen for any lead you want to price yourself.</div></div>'+
+       '<button class="btn '+(on?'g':'')+' sm" onclick="toggleSalesDesk()">'+(on?'ON':'OFF')+'</button></div>'+
+       '<div class="mini" style="margin-top:6px">'+
+         (!reps ? 'Hire a Solar Rep to open the desk.'
+          : !on ? 'Desk is off - you are pricing every lead by hand.'
+          : room>0 ? 'Board holds <b>'+(S.jobs.length+S.bids.length)+'</b> of '+jobCap()+'. The desk stops when it is full - crews and a Project Coordinator widen it.'
+          : 'Desk is holding - board full at '+(S.jobs.length+S.bids.length)+' of '+jobCap()+'. Hire crew or a Project Coordinator to take more work.')+
+       '</div></div>';
+  }
 
   if(S.bids.length){
     h+='<div class="sec ff">Bids Out <span class="hint">'+S.bids.length+' awaiting decision</span></div>';
@@ -1781,6 +1890,13 @@ function sanitize(d){
   S2.trucks=num(d.trucks,1,0,50)|0;
   S2.office=num(d.office,0,0,OFFICES.length-1)|0;
   S2.marketing=num(d.marketing,800,0,12000);
+  // Sales desk policy — one boolean, coerced rather than trusted. A v1 save has
+  // no `sales` at all and gets the default, which is the desk switched off:
+  // identical to the old behaviour.
+  {
+    const sd=(d&&typeof d.sales==='object'&&d.sales)||{};
+    S2.sales={ auto:!!sd.auto };
+  }
   S2.loan =num(d.loan,0,0,1e9);
   S2.loanRate=num(d.loanRate,0.11,0,1);
   S2.wageIndex=num(d.wageIndex,1,0.1,100);
