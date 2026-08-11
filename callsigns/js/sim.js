@@ -281,7 +281,10 @@ function chemTags(){ return Object.keys(chemTable()); }
 // bump alone does not migrate anything, it just crashes older saves.
 // v4: a slot carries `engs` (up to MAX_ENG ids) instead of a single `eng`.
 // migrate() lifts a v3 `eng` string into a one-element array; see loadSlots.
-const STATE_VER = 4;
+// v5: S.rivalNets holds per-segment, per-network rival capacity. A v4 save has
+// none, and rivalK() seeds each network at its opening size on first read — so
+// an in-flight run resumes with exactly the competition it had.
+const STATE_VER = 5;
 
 // Producer condition #2: the assignment surface has to stay sub-linear in
 // stations. Four is the accepted hard cap for this overhaul.
@@ -306,9 +309,65 @@ const PULL_SCALE = 92;
 // dimensionless audience ratio in [0,1], so rival pull tops out at 1.9x base
 // no matter how big the empire gets, while YOUR pull keeps climbing with gear
 // and talent. That asymmetry is the counterbalance.
-const RIVAL_GAIN   = 0.90;
+const RIVAL_GAIN   = 0.90;   // v4 and earlier; retained for save migration only
 const RIVAL_ADAPT  = 0.06;   // ~17-day memory; slow enough to out-run briefly
 const RIVAL_PERIOD = 34;     // days per competition cycle
+
+/* ── v5: rivals own capacity ─────────────────────────────────────────────
+   Through v4 the rival denominator was a wave times a bounded response to the
+   share you were CURRENTLY taking. That is a negative feedback loop pointed
+   the wrong way: stop competing and takenShare -> 0, so pressure -> 0, so C
+   falls to its floor. The competition got weaker the less you played, which is
+   the mechanical reason `LOSABLE: doing nothing eventually goes broke` failed
+   and an idle run finished ~$33k up over 540 days.
+
+   Now each rival network owns a persistent capacity K per segment. K compounds
+   into markets you leave empty and erodes in markets you hold, so absence is
+   punished and presence pays. Nothing in K reads revenue, cash or payroll —
+   the day the denominator learns what the player earns, the game is solved.
+
+   Rates are the ones the design proof's arithmetic used (docs/DESIGN_PROOF_RIVALS.md):
+   at GROWTH a fully vacant segment's rival roughly doubles in ~70 days, which
+   is slow enough to notice and fast enough to matter inside one run.
+   ONE rate and ONE target, deliberately, because the obvious two-rate form
+   (grow by A*(1-h), shrink by B*h) couples speed to balance point: its
+   equilibrium is A/(A+B), so pinning the balance where it belongs forces the
+   speed to be glacial.
+
+       K <- K * (1 + RATE * (1 - h/TARGET))
+
+   RATE is how fast a market moves, TARGET is the share you must hold to keep
+   it still, and they are independent.
+
+   TARGET is MEASURED, not guessed. One station takes 1.85% of its segment pool
+   running on automation and 5.25% competently staffed — the whole live range is
+   a couple of percent, because a segment pool is four dayparts wide and the
+   rivals are most of it. The first two tunings used 30% and 18%, which put
+   every possible player below the threshold, so rivals grew at the same rate
+   for an idle station and a well-run one and the harness reported idle and
+   careful finishing within $340 of each other. 3.2% sits between the two
+   measured figures: automation drifts backwards, a staffed schedule pushes
+   forward. */
+const RIVAL_RATE   = 0.006;   // per day at zero share; ~116 days to double
+const RIVAL_TARGET = 0.032;   // the held share at which a market stops moving
+const RIVAL_K_MIN  = 0.30;    // floor, as a multiple of the network's opening size
+const RIVAL_K_MAX  = 2.20;    // ceiling, so a runaway cannot lock you out forever
+
+/* Fallback roster, same contract as SEG_FALLBACK: content.js owns the real
+   table and this keeps sim runnable on its own. `w` is the network's share of
+   a segment's opening comp base, so the sum of w across a segment is 1.0 and
+   day-one competition is IDENTICAL to v4 — the minute-5 founding arithmetic in
+   DESIGN.md must not move, and it does not. */
+const RIVAL_NETS_FALLBACK = [
+  { id: 'sunbelt',  name: 'Sunbelt Media',   icon: '📡', w: 0.45 },
+  { id: 'lantern',  name: 'Lantern Group',   icon: '🏮', w: 0.35 },
+  { id: 'ridgeway', name: 'Ridgeway Family', icon: '🌾', w: 0.20 },
+];
+function rivalNets(){
+  const t = (typeof RIVAL_NETS !== 'undefined' && Array.isArray(RIVAL_NETS) && RIVAL_NETS.length)
+    ? RIVAL_NETS : RIVAL_NETS_FALLBACK;
+  return t;
+}
 
 // Mechanic 2: crewSkill = s1 + 0.55*s2 + 0.30*s3, cap three to a slot.
 const CREW_WEIGHTS = [1, 0.55, 0.30];
@@ -460,6 +519,7 @@ function newState(call){
     // been taking, which is what the rivals respond to. An audience ratio, not
     // money: the moment this reads revenue it is the P&P self-reference trap.
     rivals: {},
+    rivalNets: {},
     log: [],
     unlockedExpansion: false,
     // Acknowledgement flags. Without seenExpansion the Empire tab badge stayed
@@ -718,20 +778,66 @@ function slotRisk(slot, seg){
 
 /* ---------------- mechanic 1: market share ---------------- */
 
-/** Rival pull for a segment/daypart. Two terms and no third:
-      - a day-indexed wave, deterministic in S.day, so competition has a
-        rhythm you can read and plan against rather than dice;
-      - a BOUNDED response to the share you have been taking off them.
-    Neither reads revenue, cash, payroll or any other player-cost quantity. The
-    day the denominator learns what the player earns, the game is solved. */
-function rivalPull(segId, partId){
+/** The capacity a rival network currently holds in a segment, in pull units.
+    Lazily seeded from the segment's opening comp base so a save that predates
+    v5 — or a segment founded later — starts exactly where v4 had it. */
+function rivalK(segId, netId){
   const seg = segmentOf(segId);
   const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+  const net = rivalNets().find(n => n.id === netId);
+  const open = base * (net ? readNum(net, 'w', 0) : 0);
+  if (!S.rivalNets || typeof S.rivalNets !== 'object') S.rivalNets = {};
+  if (!S.rivalNets[segId] || typeof S.rivalNets[segId] !== 'object') S.rivalNets[segId] = {};
+  const cur = S.rivalNets[segId][netId];
+  if (typeof cur !== 'number' || !isFinite(cur)) { S.rivalNets[segId][netId] = open; return open; }
+  return cur;
+}
+
+/** Rival pull for a segment/daypart: the sum of what the networks in that
+    market actually hold, each riding the same day-indexed wave v4 used so the
+    competition still has a rhythm you can read rather than dice.
+
+    The v4 term this replaces responded to the share you were CURRENTLY taking,
+    which meant idling relaxed the competition. Capacity is remembered instead,
+    so a market you walk away from is a market someone else compounds into.
+
+    Reads nothing about revenue, cash or payroll — unchanged and load-bearing. */
+function rivalPull(segId, partId){
+  const seg = segmentOf(segId);
   const amp  = clamp(readNum(seg.comp, 'dayAmp', 0.2), 0, 0.6);
-  const phase = hashPhase(segId) + hashPhase(partId);
-  const wave = 1 + amp * Math.sin((S.day / RIVAL_PERIOD) * Math.PI * 2 + phase);
-  const pressure = clamp(readNum(S.rivals, segId, 0), 0, 1);
-  return base * wave * (1 + RIVAL_GAIN * pressure);
+  let sum = 0;
+  for (const net of rivalNets()) {
+    // Per-network phase, so the networks do not all peak on the same day and
+    // a market has a texture rather than one shared sine.
+    const phase = hashPhase(segId) + hashPhase(partId) + hashPhase(net.id);
+    const wave = 1 + amp * Math.sin((S.day / RIVAL_PERIOD) * Math.PI * 2 + phase);
+    sum += rivalK(segId, net.id) * wave;
+  }
+  return Math.max(1, sum);
+}
+
+/** Move every network's capacity one day. Growth is scaled by how VACANT the
+    segment is and erosion by how much of it you actually hold, which is what
+    turns absence into a cost. Bounded both ways: the floor stops a market you
+    dominate from becoming free forever, and the ceiling stops a market you
+    ignored from locking you out permanently. */
+function tickRivalCapacity(sharesBySeg){
+  for (const segId of segmentIds()) {
+    const held = clamp(readNum(sharesBySeg, segId, 0), 0, 1);
+    const seg = segmentOf(segId);
+    const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+    for (const net of rivalNets()) {
+      const open = base * readNum(net, 'w', 0);
+      if (open <= 0) continue;
+      const k = rivalK(segId, net.id);
+      // Clamped drift: a market you have utterly abandoned should not move
+      // faster than one you merely under-serve, and a runaway share should not
+      // collapse a rival in a fortnight.
+      const drift = clamp(1 - held / RIVAL_TARGET, -1.5, 1);
+      const next = k * (1 + RIVAL_RATE * drift);
+      S.rivalNets[segId][net.id] = clamp(next, open * RIVAL_K_MIN, open * RIVAL_K_MAX);
+    }
+  }
 }
 
 /** pull(s,p) = PULL_SCALE · quality · reach · fidelity · segmentFit · rep · buzz.
@@ -880,14 +986,20 @@ function simulateDay(){
   const avgQuality = slotCount ? qualitySum / slotCount : 0;
   const avgPressure = slotCount ? repPressure / slotCount : 0;
 
-  // Rivals respond to the SHARE you took, smoothed, and bounded into [0,1] on
-  // the way in — an unbounded response is a death spiral, which the design
-  // proof's negative-feedback check explicitly forbids.
+  // v5: rivals now own capacity that remembers. S.rivals is still maintained
+  // as the smoothed share you hold — the UI and the old save shape both read
+  // it — but it no longer drives the denominator; tickRivalCapacity() does.
+  const heldBySeg = {};
   for (const segId of segmentIds()) {
     const taken = poolBySeg[segId] ? clamp(takenBySeg[segId] / poolBySeg[segId], 0, 1) : 0;
     const cur = clamp(readNum(S.rivals, segId, 0), 0, 1);
     S.rivals[segId] = clamp(cur + (taken - cur) * RIVAL_ADAPT, 0, 1);
+    heldBySeg[segId] = taken;
   }
+  // Fed the RAW share, not the smoothed one: capacity is already slow, and
+  // stacking a 17-day EMA in front of it would make a market you abandoned take
+  // most of a month to notice.
+  tickRivalCapacity(heldBySeg);
 
   // Performing-rights royalties: the recurring bill every music station pays.
   // It scales with revenue and with how much of the empire's day is music,
@@ -1548,6 +1660,28 @@ function migrate(data){
   // into a divisor.
   s.rivals = {};
   for (const id of segmentIds()) s.rivals[id] = clamp(readNum(data.rivals, id, 0), 0, 1);
+  // Rival CAPACITY (v5): known segments and known networks only, each clamped
+  // into the band its opening size defines. A stale content row or a
+  // hand-edited save must not be able to plant an unbounded divisor — that is
+  // the same class of hole the [0,1] clamp closes for pressure.
+  {
+    const src = (data.rivalNets && typeof data.rivalNets === 'object') ? data.rivalNets : {};
+    const out = {};
+    for (const id of segmentIds()) {
+      const seg = segmentOf(id);
+      const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+      const row = (src[id] && typeof src[id] === 'object') ? src[id] : {};
+      out[id] = {};
+      for (const net of rivalNets()) {
+        const open = base * readNum(net, 'w', 0);
+        if (open <= 0) continue;
+        const raw = row[net.id];
+        out[id][net.id] = (typeof raw === 'number' && isFinite(raw))
+          ? clamp(raw, open * RIVAL_K_MIN, open * RIVAL_K_MAX) : open;
+      }
+    }
+    s.rivalNets = out;
+  }
 
   if (v >= 3) {
     // v3 -> v3: read the stations array field by field.
@@ -1727,6 +1861,28 @@ function sanitize(s){
   const rv = (s.rivals && typeof s.rivals === 'object') ? s.rivals : {};
   s.rivals = {};
   for (const id of segmentIds()) s.rivals[id] = clamp(n(rv[id], 0), 0, 1);
+  // Rival CAPACITY (v5): known segments and known networks only, each clamped
+  // into the band its opening size defines. A stale content row or a
+  // hand-edited save must not be able to plant an unbounded divisor — that is
+  // the same class of hole the [0,1] clamp closes for pressure.
+  {
+    const src = (s.rivalNets && typeof s.rivalNets === 'object') ? s.rivalNets : {};
+    const out = {};
+    for (const id of segmentIds()) {
+      const seg = segmentOf(id);
+      const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+      const row = (src[id] && typeof src[id] === 'object') ? src[id] : {};
+      out[id] = {};
+      for (const net of rivalNets()) {
+        const open = base * readNum(net, 'w', 0);
+        if (open <= 0) continue;
+        const raw = row[net.id];
+        out[id][net.id] = (typeof raw === 'number' && isFinite(raw))
+          ? clamp(raw, open * RIVAL_K_MIN, open * RIVAL_K_MAX) : open;
+      }
+    }
+    s.rivalNets = out;
+  }
 
   /* ---- stations ---- */
   if (!Array.isArray(s.stations) || !s.stations.length) s.stations = [ newStation(undefined, DEFAULT_SEGMENT, s.day) ];

@@ -233,7 +233,7 @@ async function main(){
       lease: leaseFor(S.stations[0]),
       legacySecondStation: 'secondStation' in S
     })`);
-    assert('save schema is v4 under the same key', s0.v === 4 && s0.key === 'callsigns.save', JSON.stringify(s0));
+    assert('save schema is v5 under the same key', s0.v === 5 && s0.key === 'callsigns.save', JSON.stringify(s0));
     assert('new game: starting cash 800', s0.cash === 800, s0.cash);
     // The v3 shape, field by field — this is the assertion CONTRACT.md asks
     // for, and it is the one that fails loudly if anyone reintroduces a flat
@@ -301,7 +301,7 @@ async function main(){
     })()`);
     assert('saveGame() writes the save', saved.ok === true && saved.hasRaw, JSON.stringify(saved));
     assert('saved day/version match live state',
-      saved.day === saved.live && saved.v === 4, JSON.stringify(saved));
+      saved.day === saved.live && saved.v === 5, JSON.stringify(saved));
     assert('v3 payload carries the callsign inside stations[0]',
       typeof saved.call === 'string' && saved.call.length === 4 && saved.topLevelCall === undefined, JSON.stringify(saved));
     assert('saveHeadline() reads an unloaded save', saved.headline && saved.headline.call === saved.call, JSON.stringify(saved));
@@ -317,7 +317,7 @@ async function main(){
     // trigger catchUp() and advance the day. Same-run reloads are < 60s so it
     // is === in practice, but the assertion shouldn't depend on test speed.
     assert('reloaded save resumes same station',
-      s1.call === saved.call && s1.day >= saved.day && s1.v === 4 && s1.stations === 1, JSON.stringify(s1));
+      s1.call === saved.call && s1.day >= saved.day && s1.v === 5 && s1.stations === 1, JSON.stringify(s1));
 
     /* ---- 6. the empire invariants, through the real mutators ----
        Last, and deliberately so: this block funds itself with test money and
