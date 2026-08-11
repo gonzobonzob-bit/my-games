@@ -83,6 +83,9 @@ const LOAD_CROSSOVER = 1.616;
 const LOAD_BAR_MAX = 2.55;
 
 function uiMaxCrew(){ return (typeof MAX_CREW !== 'undefined') ? MAX_CREW : 3; }
+/** v4: a slot may carry two engineers. Mirrors sim's MAX_ENG so a bridge miss
+    degrades to the old single-engineer behaviour rather than throwing. */
+function uiMaxEng(){ return (typeof MAX_ENG !== 'undefined') ? MAX_ENG : 1; }
 function uiMaxStations(){ return (typeof MAX_STATIONS !== 'undefined') ? MAX_STATIONS : 4; }
 function uiShowTech(showKey){
   if (typeof showTech === 'function') return showTech(showKey);
@@ -131,8 +134,11 @@ function simSlotRisk(st, slot){
     return slotRisk(slot, (typeof segmentOf === 'function' && st) ? segmentOf(st.segment) : null);
   }
   bridgeMiss('slotRisk');
-  const eng = slot.eng ? staffById(slot.eng) : null;
-  return 0.06 * simLoadFactor(slot) / (1 + 0.30 * (eng ? eng.skill : 0));
+  const w = (typeof ENG_WEIGHTS !== 'undefined') ? ENG_WEIGHTS : [1, 0.45];
+  const skill = slotEngs(slot).map(staffById).filter(Boolean)
+    .sort((a, b) => b.skill - a.skill)
+    .reduce((sum, p, i) => sum + (w[i] || 0) * p.skill, 0);
+  return 0.06 * simLoadFactor(slot) / (1 + 0.30 * skill);
 }
 function simCrewSkill(slot){
   if (typeof crewSkill === 'function') return crewSkill(slot);
@@ -193,14 +199,15 @@ function uiTotalLease(){
 function withSlot(st, partId, ov, fn){
   const slot = stSlot(st, partId);
   if (!ov || !st || !st.schedule || !st.schedule[partId]) return fn(slot);
-  const keep = { show: slot.show, djs: slot.djs, eng: slot.eng };
+  const keep = { show: slot.show, djs: slot.djs, eng: slot.eng, engs: slot.engs };
   try {
     if (ov.show !== undefined) slot.show = ov.show;
     if (ov.djs  !== undefined) slot.djs  = ov.djs.slice();
     if (ov.eng  !== undefined) slot.eng  = ov.eng;
+    if (ov.engs !== undefined) slot.engs = ov.engs.slice();
     return fn(slot);
   } finally {
-    slot.show = keep.show; slot.djs = keep.djs; slot.eng = keep.eng;
+    slot.show = keep.show; slot.djs = keep.djs; slot.eng = keep.eng; slot.engs = keep.engs;
   }
 }
 
@@ -359,10 +366,22 @@ function curIndex(){
 }
 function stSlot(st, partId){
   if (st && st.schedule && st.schedule[partId]) return st.schedule[partId];
-  return { show: 'music', djs: [], eng: null };
+  return { show: 'music', djs: [], engs: [] };
 }
 function slotDjs(slot){
   return (slot && Array.isArray(slot.djs)) ? slot.djs.filter(Boolean) : [];
+}
+/** Engineer ids on a slot. Reads the v4 `engs` array, falling back to a v3
+    `eng` string — same tolerance as sim's engIdsOf(), and for the same reason:
+    a save written before the bump, or a stale tab, must not render as an empty
+    booth when someone is actually on it. */
+function slotEngs(slot){
+  if (!slot) return [];
+  if (Array.isArray(slot.engs)) {
+    const ids = slot.engs.filter(id => typeof id === 'string' && id);
+    if (ids.length) return ids.slice(0, uiMaxEng());
+  }
+  return (typeof slot.eng === 'string' && slot.eng) ? [slot.eng] : [];
 }
 function staffById(id){
   if (!S || !id) return null;
@@ -445,7 +464,8 @@ function bestEngineerSlot(engId){
 function slotState(st, partId){
   const slot = stSlot(st, partId);
   const crew = slotCrew(slot);
-  const eng = slot.eng ? staffById(slot.eng) : null;
+  const engPeople = slotEngs(slot).map(staffById).filter(Boolean);
+  const eng = engPeople[0] || null;
   const load = simLoadFactor(slot);
   const risk = simSlotRisk(st, slot);
   let level = 'covered';
@@ -457,7 +477,7 @@ function slotState(st, partId){
   if (!crew.length) level = 'exposed';
   else if (!eng && load >= 1.45) level = 'risky';
   else if (typeof BASE_RISK !== 'undefined' && risk >= BASE_RISK) level = 'risky';
-  return { slot, crew, eng, load, risk, level };
+  return { slot, crew, eng, engs: engPeople, load, risk, level };
 }
 /** Empire-wide roll-up: per-station counts plus the totals the HUD warns on. */
 function empireExposure(){
@@ -856,7 +876,7 @@ const COACH = [
   {
     id: 'engineer',
     when: () => staffOf('eng').length &&
-                !allStations().some(st => DAYPARTS.some(p => stSlot(st, p.id).eng)),
+                !allStations().some(st => DAYPARTS.some(p => slotEngs(stSlot(st, p.id)).length)),
     text: () => tt('coach5', { name: (staffOf('eng')[0] || {}).name || 'Your engineer' }),
     btn:  () => {
       const eng = staffOf('eng')[0];
@@ -1285,8 +1305,9 @@ function bookingsOf(id){
   allStations().forEach((st, i) => {
     for (const p of DAYPARTS) {
       const sl = stSlot(st, p.id);
-      if (slotDjs(sl).indexOf(id) >= 0 || sl.eng === id) {
-        out.push({ idx: i, call: st.call, part: p.id, asEng: sl.eng === id });
+      const asEng = slotEngs(sl).indexOf(id) >= 0;
+      if (slotDjs(sl).indexOf(id) >= 0 || asEng) {
+        out.push({ idx: i, call: st.call, part: p.id, asEng });
       }
     }
   });
@@ -1661,6 +1682,7 @@ function firePerson(id){
             for (const k in st.schedule) {
               const sl = st.schedule[k];
               if (Array.isArray(sl.djs)) sl.djs = sl.djs.filter(x => x !== id);
+              if (Array.isArray(sl.engs)) { const ea = sl.engs.indexOf(id); if (ea >= 0) sl.engs.splice(ea, 1); }
               if (sl.eng === id) sl.eng = null;
             }
           }
@@ -1806,7 +1828,8 @@ function openSlotEditor(stIdx, partId, redraw){
   const load = simLoadFactor(slot);
   const risk = simSlotRisk(st, slot);
   const rev  = simSlotRevenue(st, partId);
-  const eng  = slot.eng ? staffById(slot.eng) : null;
+  const engPeople = slotEngs(slot).map(staffById).filter(Boolean);
+  const eng  = engPeople[0] || null;
   const crew = slotCrew(slot);
 
   const loadCls = load < 1.2 ? 'ok' : load < LOAD_CROSSOVER ? 'warn' : 'bad';
@@ -1912,9 +1935,18 @@ function openSlotEditor(stIdx, partId, redraw){
   // slot's revenue — so print the answer, per candidate, per slot.
   const cur = slotDjs(slot);
   const bench = staffOf('dj').filter(p => cur.indexOf(p.id) < 0);
-  if (crew.length >= uiMaxCrew()) {
+  // A full crew used to hide the bench entirely, so at the exact moment you
+  // are deciding WHO to swap out you could no longer see who was available.
+  // The bench now always renders; a full crew greys it and says why.
+  const crewFull = crew.length >= uiMaxCrew();
+  if (crewFull) {
     body += '<div class="pick-sub" style="margin-top:8px">' + esc(tt('crewFull')) + '</div>';
-  } else if (!bench.length) {
+  }
+  if (crewFull && bench.length) {
+    body += '<div class="pick-sub" style="margin-top:2px">' +
+      esc(cur.length + ' / ' + uiMaxCrew() + ' on air · drop someone above to free a seat') + '</div>';
+  }
+  if (!bench.length) {
     body += '<div class="empty" style="padding:12px">' + esc(t('noCandidates')) + '</div>';
   } else {
     const baseNet = slotNet(st, partId, null, V);
@@ -1934,8 +1966,14 @@ function openSlotEditor(stIdx, partId, redraw){
       const chemTag = pair > 1.02 ? ' · <span style="color:var(--green)">' + esc(tt('chemGood')) + '</span>'
         : pair < 0.98 ? ' · <span style="color:var(--red)">' + esc(tt('chemBad')) + '</span>' : '';
       const others = bookingsOf(p.id);
-      body += '<button type="button" class="row' + (good ? '' : ' warnrow') + '" ' +
-        'data-addcrew="' + p.id + '" data-slotref="' + ref + '" style="cursor:pointer">' +
+      // The SAME-DAYPART booking is the one that matters: adding them here
+      // silently pulls them off that station. Engineers have named the station
+      // and daypart on the row for a while; DJs only said "on 2 slots", which
+      // does not tell you what you are about to break. Now they match.
+      const clash = others.find(b => b.part === partId && b.idx !== idx) || null;
+      body += '<button type="button" class="row' + (clash ? ' warnrow' : good ? '' : ' warnrow') + '" ' +
+        'data-addcrew="' + p.id + '" data-slotref="' + ref + '" style="cursor:pointer' +
+        (crewFull ? ';opacity:0.55' : '') + '">' +
         '<div class="row-icon">' + (style && style.icon ? esc(style.icon) : '🎧') + '</div>' +
         '<div class="row-body">' +
           '<div class="row-title">' + esc(p.name) + '</div>' +
@@ -1945,6 +1983,10 @@ function openSlotEditor(stIdx, partId, redraw){
           // two skill-6 hosts are not interchangeable, so it belongs on the
           // row where you choose between them.
           (style ? '<div class="row-sub" style="color:var(--cyan)">' + esc(style.name) + '</div>' : '') +
+          (clash ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' +
+            esc('takes ' + p.name.split(' ')[0] + ' off ' + clash.call + ' ' + partShort(clash.part)) + '</div>' : '') +
+          (crewFull ? '<div class="row-sub" style="color:var(--muted)">' +
+            esc('crew full — drop someone above first') + '</div>' : '') +
           '<div class="row-sub" style="color:var(--' + (good ? 'green' : 'red') + ')">' +
             esc(good ? tt('addWorth') : tt('addNotWorth')) + '</div>' +
         '</div>' +
@@ -1964,12 +2006,24 @@ function openSlotEditor(stIdx, partId, redraw){
   if (!engs.length) {
     body += '<div class="empty" style="padding:14px">' + esc(t('roleEngDesc')) + '</div>';
   } else {
-    body += '<button type="button" class="row' + (!slot.eng ? ' on' : '') + '" data-seteng="" data-slotref="' + ref + '" style="cursor:pointer">' +
+    const engOn = slotEngs(slot);
+    const engFull = engOn.length >= uiMaxEng();
+    // Say how many of how many are on this booth. Without this the second seat
+    // is invisible — you cannot tell "one assigned" from "at the cap".
+    body += '<div class="pick-sub" style="margin-top:6px">' +
+      esc(engOn.length + ' / ' + uiMaxEng() + ' assigned') +
+      (engFull ? ' · ' + esc('tap an assigned engineer to remove them') : '') + '</div>';
+    body += '<button type="button" class="row' + (!engOn.length ? ' on' : '') + '" data-seteng="" data-slotref="' + ref + '" style="cursor:pointer">' +
       '<div class="row-icon">🚫</div><div class="row-body">' +
-      '<div class="row-title">' + esc(tt('engNone')) + (!slot.eng ? ' ✓' : '') + '</div>' +
+      '<div class="row-title">' + esc(tt('engNone')) + (!engOn.length ? ' ✓' : '') + '</div>' +
       '<div class="row-sub">' + esc(t('unstaffed')) + '</div></div></button>';
     for (const p of engs) {
-      const on = slot.eng === p.id;
+      const on = engOn.indexOf(p.id) >= 0;
+      // At the cap, an unassigned engineer stays VISIBLE but is marked as
+      // blocked rather than hidden — the owner's note was that you cannot see
+      // who is available, and hiding the bench the moment it matters is exactly
+      // how that happens.
+      const blocked = !on && engFull;
       const worth = engineerWorth(st, partId, p.id, V);
       // The steal. CONTRACT: one engineer covers one daypart empire-wide, so
       // assigning here silently strips them off another station's slot at the
@@ -1978,15 +2032,22 @@ function openSlotEditor(stIdx, partId, redraw){
       let steal = null;
       allStations().forEach((s2, j) => {
         if (j === idx) return;
-        if (stSlot(s2, partId).eng === p.id) steal = { call: s2.call, part: partId };
+        if (slotEngs(stSlot(s2, partId)).indexOf(p.id) >= 0) steal = { call: s2.call, part: partId };
       });
       body += '<button type="button" class="row' + (on ? ' on' : steal ? ' warnrow' : '') + '" ' +
-        'data-seteng="' + p.id + '" data-slotref="' + ref + '" style="cursor:pointer">' +
+        'data-seteng="' + p.id + '" data-slotref="' + ref + '" style="cursor:pointer' +
+        (blocked ? ';opacity:0.55' : '') + '">' +
         '<div class="row-icon">🔧</div><div class="row-body">' +
           '<div class="row-title">' + esc(p.name) + (on ? ' ✓' : '') + '</div>' +
-          '<div class="row-sub">' + esc(t('skill', { n: p.skill })) + '</div>' +
+          '<div class="row-sub">' + esc(t('skill', { n: p.skill })) +
+            (on && engOn.length > 1 && engOn.indexOf(p.id) > 0
+              ? ' · ' + esc('second engineer — counts at ' + Math.round((typeof ENG_WEIGHTS !== 'undefined' ? ENG_WEIGHTS[1] : 0.45) * 100) + '%')
+              : '') + '</div>' +
           (steal ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' +
             esc(tt('engSteal', { name: p.name.split(' ')[0], call: steal.call, part: partShort(steal.part) })) + '</div>' : '') +
+          (blocked ? '<div class="row-sub" style="color:var(--muted)">' +
+            esc('booth full — remove one to add them') + '</div>' : '') +
+          (on ? '<div class="row-sub" style="color:var(--muted)">' + esc('tap to remove') + '</div>' : '') +
         '</div>' +
         '<div class="row-act"><span class="delta-tag ' + (worth > 0 ? 'up' : 'down') + '">' +
           (worth > 0 ? '+' : '−') + esc(money(Math.abs(worth))) + '</span></div>' +
@@ -2069,11 +2130,34 @@ function makeLead(ref, id){
   }
   afterSlotChange(ref);
 }
+/** v4: the engineer rows are a TOGGLE, not a radio group. Empty id clears the
+    booth; an id already on the slot removes that one; otherwise add, up to
+    MAX_ENG. Falls back to the v3 single-engineer call if sim is older than the
+    renderer, so a half-updated pair degrades instead of throwing. */
 function setEng(ref, id){
   const { idx, part } = parseRef(ref);
-  if (typeof setSlotEngineer !== 'function') { bridgeMiss('setSlotEngineer'); return; }
-  const res = setSlotEngineer(idx, part, id || null);
-  if (res && res.ok) noteSteal(res.stole, id);
+  if (!id) {
+    if (typeof setSlotEngineer !== 'function') { bridgeMiss('setSlotEngineer'); return; }
+    setSlotEngineer(idx, part, null);
+    afterSlotChange(ref);
+    return;
+  }
+  if (typeof addEngineer !== 'function' || typeof removeEngineer !== 'function') {
+    if (typeof setSlotEngineer !== 'function') { bridgeMiss('addEngineer'); return; }
+    const res = setSlotEngineer(idx, part, id);
+    if (res && res.ok) noteSteal(res.stole, id);
+    afterSlotChange(ref);
+    return;
+  }
+  const st = allStations()[idx];
+  const on = slotEngs(stSlot(st, part)).indexOf(id) >= 0;
+  if (on) {
+    removeEngineer(idx, part, id);
+  } else {
+    const res = addEngineer(idx, part, id);
+    if (res && res.ok) noteSteal(res.stole, id);
+    else if (res && res.reason === 'full') toast('🔧 ' + esc('Booth full — remove an engineer first'), 'bad');
+  }
   afterSlotChange(ref);
 }
 function setShow(ref, key){
