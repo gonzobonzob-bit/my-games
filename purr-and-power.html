@@ -306,7 +306,9 @@ table.pl tr.tot td{border-top:1px solid var(--border);border-bottom:none;font-we
    ════════════════════════════════════════════════════════════ */
 
 const SK='pnp_tycoon_v1';
-const SAVE_V=1;                 // bump when the state shape changes incompatibly
+const SAVE_V=2;                 // bump when the state shape changes incompatibly
+// v2 adds S.sales — the sales desk policy. A v1 save loads with the desk off
+// and the default floor, which is exactly the old behaviour, so nothing breaks.
 const OLD_KEYS=['pnp_v5','pnp_v4','pnp_v3'];
 
 // Every state-derived string that reaches innerHTML goes through this. There is
@@ -454,6 +456,11 @@ function blankState(){
     inv:{panel:0,opt:0,rail:0,inv:0},
     invest:{}, trucks:1, office:0,
     marketing:800, autoBuy:true,
+    // The sales desk. `auto` off means the v1 game: you price every lead by
+    // hand. `floor` is the margin your reps will not go below, and `keepFree`
+    // is how many job slots they leave open for you — the throttle that stops
+    // the desk from winning work the crews cannot reach.
+    sales:{auto:false, floor:22, keepFree:1},
     loan:0, loanRate:0.11,
     ledger:blankLedger(), history:[], cashHist:[],
     mod:{}, priceMod:{}, pendingLeads:0, moraleDrift:0,
@@ -624,6 +631,11 @@ function advanceDay(){
 
   dailyCosts();
   generateLeads();
+  // The desk works the fresh leads before they age, and before yesterday's
+  // bids resolve — so a rep never fills a slot that today's win is about to
+  // claim. Ordering matters: run it after tickBids and the desk would bid
+  // against capacity that no longer exists.
+  runSalesDesk();
   tickBids();
   tickJobs();
   tickMorale();
@@ -673,6 +685,66 @@ function addLead(){
     days: quality==='hot'?ri(5,8): quality==='cold'?ri(10,16):ri(7,12),
   });
   bdg('sales');
+}
+
+/* ── the sales desk ──────────────────────────────────────────────────────
+   A Solar Rep used to only GENERATE leads; closing them was always the
+   owner's hand on a slider. That slider is this game's documented design
+   defect: its optimum is a fixed win probability for every lead, independent
+   of cash, crew load or pipeline (see CLAUDE.md). Automating it removes a
+   decision that was never really a decision.
+
+   What replaces it is a decision that IS state-dependent, because the desk is
+   gated on capacity it does not control:
+     - each rep can close one lead per day, so sales throughput is a hiring
+       choice competing with crew hiring for the same wage budget;
+     - the desk stops at jobCap() - keepFree, so an aggressive desk in front of
+       thin crews fills the board with work that ages into late penalties;
+     - `floor` is the margin the desk will not undercut, so the owner sets risk
+       appetite rather than per-lead pennies.
+
+   The desk prices by SEARCHING for the expected-value peak rather than solving
+   for it in closed form. The algebra (w* = 1 + k/2 - cost/mp) is only correct
+   while winChance stays linear in price; a search stays correct if someone
+   later adds a term, and costs a few dozen multiplications a day. */
+function bestBidFor(lead){
+  const cb=costBasis(lead.panels).total;
+  const floor=Math.max(0, (S.sales&&S.sales.floor)||0);
+  let best=null;
+  for(let m=floor; m<=90; m+=1){
+    const price=Math.round(cb*(1+m/100));
+    const w=winChance(lead,price);
+    const ev=w*(price-cb);
+    if(!best||ev>best.ev) best={m,price,w,ev};
+  }
+  return best;
+}
+function salesDeskRoom(){
+  const keep=Math.max(0,(S.sales&&S.sales.keepFree)||0);
+  return jobCap()-keep-(S.jobs.length+S.bids.length);
+}
+function runSalesDesk(){
+  if(!S.sales||!S.sales.auto)return;
+  const reps=nStaff('rep');
+  if(!reps||!S.leads.length)return;
+  // One close per rep per day. Setters warm leads, they do not close them.
+  let closes=reps;
+  while(closes>0 && S.leads.length && salesDeskRoom()>0){
+    // Chase the lead with the best expected profit, not the biggest one — a
+    // 40-module job at a thin margin loses to a 12-module job at a fat one.
+    let pickIdx=-1, pickBid=null;
+    for(let i=0;i<S.leads.length;i++){
+      const b=bestBidFor(S.leads[i]);
+      if(!b||b.ev<=0)continue;
+      if(!pickBid||b.ev>pickBid.ev){ pickBid=b; pickIdx=i; }
+    }
+    if(pickIdx<0)break;                       // nothing clears the floor today
+    const l=S.leads[pickIdx];
+    S.bids.push({leadId:l.id,client:l.client,type:l.type,icon:l.icon,panels:l.panels,nm:!!l.nm,
+                 price:pickBid.price,chance:pickBid.w,wait:ri(2,5),desk:true});
+    S.leads.splice(pickIdx,1);
+    closes--;
+  }
 }
 
 function tickBids(){
@@ -1014,6 +1086,9 @@ function paintMarketing(){
 }
 function commitMarketing(){ renderFinance(); }
 function toggleAuto(){ S.autoBuy=!S.autoBuy; renderFinance(); }
+function toggleSalesDesk(){ S.sales.auto=!S.sales.auto; renderSales(); }
+function salesFloor(d){ S.sales.floor=Math.max(0,Math.min(90,(S.sales.floor||0)+d)); renderSales(); }
+function salesKeep(d){ S.sales.keepFree=Math.max(0,Math.min(20,(S.sales.keepFree|0)+d)); renderSales(); }
 
 function buyStock(k,qty){
   const cost=Math.round(qty*unitPrice(k)*matDiscount());
@@ -1322,6 +1397,37 @@ function renderSales(){
      '<div class="ff" style="font-size:15px">'+leadRate().toFixed(1)+'/day</div></div></div>'+
      '<div class="mini" style="margin-top:5px">Set the budget on the Finance tab. Reps and Appointment Setters '+
      'multiply it; reputation ('+Math.round(S.rep)+') tilts both flow and win rate.</div></div>';
+
+  /* The sales desk. Reps close leads for you; you set how hungry they are and
+     how much of the board you keep for yourself. The counts are printed
+     because the interesting failure is invisible otherwise: a desk with more
+     reps than crew headroom wins work that ages into late penalties. */
+  {
+    const reps=nStaff('rep');
+    const room=salesDeskRoom();
+    const on=!!(S.sales&&S.sales.auto);
+    h+='<div class="sec ff">Sales Desk <span class="hint">'+(reps?reps+' rep'+(reps>1?'s':''):'no reps hired')+'</span></div>';
+    h+='<div class="box">'+
+       '<div class="row"><div class="grow"><div class="ff" style="font-size:12px">Let reps close deals</div>'+
+       '<div class="mini">Each rep prices and submits one bid a day, at the best expected profit above your floor.</div></div>'+
+       '<button class="btn '+(on?'g':'')+' sm" onclick="toggleSalesDesk()">'+(on?'ON':'OFF')+'</button></div>'+
+       '<div class="row" style="margin-top:8px"><div class="grow"><div class="tiny">MARGIN FLOOR</div>'+
+       '<div class="ff" style="font-size:15px;color:var(--sun)">'+Math.round((S.sales&&S.sales.floor)||0)+'%</div></div>'+
+       '<button class="btn sm" onclick="salesFloor(-2)">-</button>'+
+       '<button class="btn sm" onclick="salesFloor(2)">+</button></div>'+
+       '<div class="row" style="margin-top:8px"><div class="grow"><div class="tiny">SLOTS KEPT FOR YOU</div>'+
+       '<div class="ff" style="font-size:15px">'+((S.sales&&S.sales.keepFree)|0)+'</div></div>'+
+       '<button class="btn sm" onclick="salesKeep(-1)">-</button>'+
+       '<button class="btn sm" onclick="salesKeep(1)">+</button></div>'+
+       '<div class="mini" style="margin-top:6px">'+
+         (!reps ? 'Hire a Solar Rep to open the desk.'
+          : !on ? 'Desk is off - you are pricing every lead by hand.'
+          : room>0 ? 'Room for <b>'+room+'</b> more bid'+(room>1?'s':'')+' before the desk stops. Board holds '+
+                     (S.jobs.length+S.bids.length)+' of '+jobCap()+'.'
+          : 'Desk is holding - the board is full at '+(S.jobs.length+S.bids.length)+' of '+jobCap()+
+            '. More crew or a Project Coordinator widens it.')+
+       '</div></div>';
+  }
 
   if(S.bids.length){
     h+='<div class="sec ff">Bids Out <span class="hint">'+S.bids.length+' awaiting decision</span></div>';
@@ -1781,6 +1887,15 @@ function sanitize(d){
   S2.trucks=num(d.trucks,1,0,50)|0;
   S2.office=num(d.office,0,0,OFFICES.length-1)|0;
   S2.marketing=num(d.marketing,800,0,12000);
+  // Sales desk policy. Validated field by field like every other persisted
+  // number: a floor of -900 would have the desk bidding below cost forever,
+  // and a negative keepFree would let it bid past jobCap() into guaranteed
+  // late penalties. A v1 save has no `sales` at all and gets the defaults,
+  // which is the desk switched off — identical to the old behaviour.
+  {
+    const sd=(d&&typeof d.sales==='object'&&d.sales)||{};
+    S2.sales={ auto:!!sd.auto, floor:num(sd.floor,22,0,90), keepFree:num(sd.keepFree,1,0,20)|0 };
+  }
   S2.loan =num(d.loan,0,0,1e9);
   S2.loanRate=num(d.loanRate,0.11,0,1);
   S2.wageIndex=num(d.wageIndex,1,0.1,100);
