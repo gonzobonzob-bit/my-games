@@ -200,9 +200,14 @@ const STR = {
     empireTitle: 'The Empire',
     foundConfirm: 'Found a second station?',
     foundConfirmSub: '{amt} out of the bank, today. The buildout is permanent.',
-    lockedSub: 'Reach {cash} and {rep} reputation to expand beyond one signal.',
+    /* Both strings name the BUILDOUT price, not just the unlock threshold.
+       UNLOCK_CASH is 9000 and STATION_COSTS[0] is 12000, so "reach $9,000"
+       followed by "you have the capital" told the player they could afford a
+       station that still cost $3,000 more than they had. The gate and the bill
+       are two different numbers and the copy has to say both. */
+    lockedSub: 'Reach {cash} and {rep} reputation to unlock expansion. The first buildout costs {cost}.',
     unlockedTitle: 'Expansion unlocked',
-    unlockedSub: 'You have the capital and the name. A second callsign is within reach.',
+    unlockedSub: 'You have the name and the runway. The first buildout costs {cost} out of the bank.',
     progressTo: 'Progress to expansion',
     foundStation: 'Found Second Station',
     // Replaces "runs itself day to day, contributing a share of its take back
@@ -219,6 +224,15 @@ const STR = {
     foundSplit: 'Two of your own signals in one segment split one pool. Total audience barely moves; the lease and the payroll both double.',
     foundCapNote: 'Four signals is the licence cap. Past that the only thing left to buy is better people.',
     foundCapped: 'Four callsigns. That is the whole file.',
+    /* Signal condition. The copy names the CAUSE on both sides and the
+       destination, because a bare percentage that drifts down on its own reads
+       as a bug rather than as a consequence. */
+    condTitle: 'Signal condition',
+    condSettling: 'settling toward {pct}%',
+    condPerWeek: '%/week',
+    condWear: 'Wear −{pct}%/day · {tx} on a {ant}. Bigger plant, faster wear.',
+    condTend: 'Attention +{pct}%/day · {eng} slots with an engineer, {dj} with hosts only. People spread thin bring less of themselves.',
+    condFloor: 'This signal is as degraded as it gets. Everything it airs goes out weak, and the lease has not moved.',
     segPopLbl: 'Audience pool', segCompLbl: 'Incumbents', segLeaseLbl: 'Lease premium',
     segTasteLbl: 'What it listens to',
     segPopSub: 'People in play in this segment, by daypart.',
@@ -294,6 +308,7 @@ const STR = {
     causeTalentThin: '{n} people against {slots} slots. Most of the empire aired automation at a third quality while you paid full lease for the privilege.',
     causeGearHeavy: 'The transmitter ladder ran three tiers ahead of the billing. Reach you cannot sell is just a bigger lease.',
     causeAdsOnly: 'The log was full and the reputation was gone. Paid programming pays today and closes every gear tier you had left.',
+    causeSignalRot: 'The transmitters were never touched. Signal condition fell to {pct}% and everything you put on air went out degraded — the lease and the payroll did not degrade with it.',
     causeNoEngineer: 'No engineer on the heavy slots. Faults kept taking a rep bite proportional to load, and rep is what the ad rate multiplies by.',
     causeQuiet: 'Nothing dramatic. A small signal in a crowded segment, out-pulled every single day by people who were there first.',
 

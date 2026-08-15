@@ -1023,11 +1023,62 @@ function viewBrief(){
 /** The active station's schedule, with the empire coverage strip above it.
     The strip is above on purpose: with four stations the question "is anything
     uncovered" is never about the station you happen to be looking at. */
+/* Signal condition, shown with its cause and its destination.
+
+   The mechanic is a slow multiplier on everything this station pulls, so a
+   player who cannot see it experiences an unexplained revenue sag — which is
+   indistinguishable from a bug, and is exactly the failure the rivals system
+   already shipped with (its only on-screen number was a static constant that
+   never moved). A gauge alone would not fix that: a falling number with no
+   stated cause is still a mystery. So this shows three things — where it is,
+   what is pushing it each way, and where it settles if nothing changes.
+
+   c* is closed-form (see js/sim.js), which is the whole reason this can name a
+   destination rather than a slope. That is what turns it into a decision. */
+function conditionCard(st){
+  const c = condOf(st);
+  const target = condTarget(st);
+  const wear = stationWear(st);
+  const attn = stationAttn(st);
+  const gain = COND_GAIN * attn * (1 - c);
+  const net = gain - wear;
+  const pct = Math.round(c * 100);
+  const cls = c >= 0.85 ? 'ok' : c >= 0.60 ? 'warn' : 'bad';
+  const arrow = net > 0.00005 ? '▲' : net < -0.00005 ? '▼' : '•';
+  // Drift is per-day and tiny; show it per WEEK, which is the timescale a
+  // player actually feels and avoids a row of zeroes.
+  const perWeek = (net * 700).toFixed(1);
+  const engSlots = DAYPARTS.filter(p => engIdsOf(st.schedule[p.id]).length).length;
+  const djOnly = DAYPARTS.filter(p => !engIdsOf(st.schedule[p.id]).length &&
+                                      (st.schedule[p.id].djs || []).length).length;
+  return '<div class="card"><div class="card-head">' +
+      '<span class="card-title">' + esc(tt('condTitle')) + '</span>' +
+      '<span class="card-note">' + esc(tt('condSettling', { pct: Math.round(target * 100) })) + '</span>' +
+    '</div>' +
+    '<div class="row"><div class="row-icon">📡</div><div class="row-body">' +
+      '<div class="row-title">' + pct + '% ' + arrow +
+        ' <span class="row-sub" style="display:inline">' +
+        (net >= 0 ? '+' : '') + perWeek + esc(tt('condPerWeek')) + '</span></div>' +
+      '<div class="meter"><div class="meter-fill ' + cls + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="row-sub" style="margin-top:5px">' +
+        esc(tt('condWear', { pct: (wear * 100).toFixed(2), tx: TX[st.tx].name, ant: ANT[st.ant].name })) +
+      '</div>' +
+      '<div class="row-sub">' +
+        esc(tt('condTend', { pct: (gain * 100).toFixed(2), eng: engSlots, dj: djOnly })) +
+      '</div>' +
+    '</div></div>' +
+    (c <= COND_MIN + 0.02
+      ? '<div class="row-sub" style="margin-top:4px;color:var(--bad)">' + esc(tt('condFloor')) + '</div>'
+      : '') +
+  '</div>';
+}
+
 function viewSchedule(){
   const st = curStation();
   if (!st) return '<div class="card"><div class="empty">' + esc(tt('emptyEmpire')) + '</div></div>';
   let h = '';
   if (stationCount() > 1) h += coverageCard(true);
+  h += conditionCard(st);
 
   h += '<div class="card"><div class="card-head">' +
     '<span class="card-title">' + esc(t('schedule')) + ' · ' + esc(st.call) + '</span>' +
@@ -1429,7 +1480,7 @@ function viewFounding(){
       '<div class="locked-panel" style="padding:14px 6px">' +
         '<div class="locked-icon">🔒</div>' +
         '<div style="font-size:13px;color:var(--muted)">' +
-          esc(t('lockedSub', { cash: money(UNLOCK_CASH), rep: UNLOCK_REP })) + '</div>' +
+          esc(t('lockedSub', { cash: money(UNLOCK_CASH), rep: UNLOCK_REP, cost: money(stationCost()) })) + '</div>' +
       '</div>' +
       '<div class="row"><div class="row-icon">💵</div><div class="row-body">' +
         '<div class="row-title">' + money(S.cash) + ' / ' + money(UNLOCK_CASH) + '</div>' +
@@ -1473,10 +1524,30 @@ function viewFounding(){
         '<div class="seg-pop"><div class="seg-pop-bar"><i style="height:' +
           Math.max(3, Math.round(pops[i] / peak * 26)) + 'px"></i></div>' +
         '<div class="seg-pop-lbl">' + p.icon + '</div></div>').join('') + '</div>' +
-      '<div class="row-sub" style="margin-top:7px;color:var(--muted)">' +
-        esc(tt('segComp')) + ' ' + Math.round((seg.comp && seg.comp.base) || 0) +
-        ' · ' + esc(tt('segLease')) + ' ×' + ((seg.leaseMul || 1).toFixed(2)) +
-      '</div>' +
+      /* LIVE incumbent capacity, not seg.comp.base — that static constant read
+         2000 against a real held total of 1049, hiding the whole rivals system
+         behind a number that never moved. Name the networks and show which way
+         the market is going, so "rivals grow into signals you leave empty" is
+         something the player can watch rather than infer. */
+      (function(){
+        // `id` is the loop key; the SEGMENTS value does not carry its own id.
+        const snap = rivalSnapshot(id);
+        const d = snap.open > 0 ? snap.total / snap.open : 1;
+        const arrow = d > 1.04 ? ' <span class="pill warn">▲ gaining</span>'
+                    : d < 0.96 ? ' <span class="pill good">▼ losing ground</span>' : '';
+        return '<div class="row-sub" style="margin-top:7px;color:var(--muted)">' +
+          esc(tt('segComp')) + ' ' + Math.round(snap.total) + arrow +
+          ' · ' + esc(tt('segLease')) + ' ×' + ((seg.leaseMul || 1).toFixed(2)) +
+        '</div>' +
+        '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
+          snap.nets.map(n => esc(n.icon + ' ' + n.name) + ' ' + Math.round(n.k)).join(' · ') +
+        '</div>' +
+        // segCompSub has been authored in content.js since v3 and never had a
+        // call site. It is the one line that explains what the number means.
+        '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
+          esc(tt('segCompSub')) +
+        '</div>';
+      })() +
     '</button>';
   }
   h += '</div>';
@@ -2252,9 +2323,23 @@ function openPauseMenu(){
   // flag, so it has to mean what it says.
   const wasRunning = running;
   const st = curStation();
-  pauseTick(); autoPaused = wasRunning;
+  /* RAISE the flag, never lower it — the same rule modalPause() in sim.js
+     documents and follows. Assigning it here meant that opening the pause menu
+     over an ALREADY-stopped clock (an event modal drained a moment earlier, or
+     a gamepad-X pause) cleared the earlier modal's claim, so Resume closed the
+     dialog and restarted nothing. The paused chip is a span, not a button, so
+     the only escape was Main Menu. That is a soft-lock, and sim.js:1546 names
+     this exact pause-menu case in its comment. */
+  pauseTick();
+  if (wasRunning) autoPaused = true;
   openModal(t('paused'), (st ? st.call + ' · ' : '') + t('day', { n: S.day }), '', [
-    { label: t('resume'), cls: 'buy', act: () => { closeModal(); } },
+    /* Resume means RUN, unconditionally. Leaving this to closeModal()'s
+       autoPaused convergence made it a no-op whenever the pause menu was opened
+       over an already-stopped clock: the button was pressed, the dialog closed,
+       and the game stayed frozen with no other way out. An explicit command
+       from the player must not depend on which modal happens to hold the
+       resume claim. */
+    { label: t('resume'), cls: 'buy', act: () => { autoPaused = false; closeModal(); resumeTick(); } },
     { label: t('save'), cls: '', act: () => { saveGame(); } },
     // Hand the pause off to the Options screen: btn-opt-back resumes on the
     // way out, so closeModal() must NOT resume underneath it.
@@ -2702,9 +2787,36 @@ function cycleStation(dir){
   setTimeout(() => setFocus(0), 40);
 }
 
+/* Frame loop only while a controller is actually in use.
+
+   pollPad() used to end with an unconditional requestAnimationFrame(pollPad),
+   so a frame callback stayed permanently pending whether or not a pad was
+   connected, the tab was visible, or the game was paused. Measured: 1.43% CPU
+   on a PAUSED game with no controller attached and reduced motion on — 48x the
+   0.03% idle floor, and the single largest power cost in the game. An idle
+   tycoon gets left open for hours on a phone, so this is a battery bug.
+
+   With no pad we probe on a 500ms handle-tracked interval instead, which is far
+   more often than a human can plug one in unnoticed and ~30x cheaper than a
+   frame loop. The rAF loop starts the moment a pad appears. Handles are tracked
+   and cleared per the vault's interval-hygiene rule. */
+let padRaf = null, padProbe = null;
+function padStopProbe(){ if (padProbe !== null) { clearInterval(padProbe); padProbe = null; } }
+function padStartProbe(){ if (padProbe === null) padProbe = setInterval(pollPad, 500); }
+/** Decide how pollPad() gets its next tick. The single exit point of the loop. */
+function padNext(){
+  padRaf = null;
+  if (padOn && !document.hidden) { padStopProbe(); padRaf = requestAnimationFrame(pollPad); }
+  else padStartProbe();
+}
+/** Drop every pad timer — menu transitions and teardown. */
+function padStop(){
+  if (padRaf !== null) { cancelAnimationFrame(padRaf); padRaf = null; }
+  padStopProbe();
+}
 function pollPad(){
   const now = performance.now();
-  if (!padOn && now - lastPoll < 250) { requestAnimationFrame(pollPad); return; }
+  if (!padOn && now - lastPoll < 250) { padNext(); return; }
   lastPoll = now;
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   const gp = Array.from(pads).find(p => p && p.connected);
@@ -2761,12 +2873,20 @@ function pollPad(){
     document.body.classList.remove('pad-on');
     paintFocus(null);
   }
-  requestAnimationFrame(pollPad);
+  padNext();
 }
 
 function initPad(){
-  window.addEventListener('gamepadconnected', () => { padOn = false; });
-  requestAnimationFrame(pollPad);
+  // padOn=false so the next poll re-runs the connect branch and re-toasts.
+  window.addEventListener('gamepadconnected', () => { padOn = false; padStop(); padRaf = requestAnimationFrame(pollPad); });
+  window.addEventListener('gamepaddisconnected', () => { padOn = false; padStop(); padStartProbe(); });
+  // A hidden tab gets no frames anyway; drop to the probe so we are not holding
+  // a pending callback the browser will fire in a burst on return.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { padStop(); padStartProbe(); }
+    else if (padOn) { padStop(); padRaf = requestAnimationFrame(pollPad); }
+  });
+  padStartProbe();
 }
 
 /* ---------------- boot ---------------- */

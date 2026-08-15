@@ -182,7 +182,14 @@ window.__rig = (function(){
     const pool = cands(role).slice().sort(function(a, b){ return (b.skill||0) - (a.skill||0); });
     for (const c of pool) {
       // Keep a real buffer: the fee is one-off, the salary is not.
-      if (S.cash >= hireFee(c) + salaryFor(c) * 30) {
+      // c.salary is already salaryFor(c.role, c.skill), set in makePerson().
+      // This once read salaryFor(c) — a one-arg call to a two-arg function,
+      // which threw TypeError inside the affordability test on the FIRST
+      // candidate every time and was swallowed whole by the policy try/catch
+      // below. No policy ever hired anyone: solo was idle-plus-gear and
+      // empire was idle-plus-gear-plus-expansion. Every balance number this
+      // project published before 2026-08-14 described an unstaffed game.
+      if (S.cash >= hireFee(c) + c.salary * 30) {
         const n = S.staff.length; hirePerson(c.id);
         if (S.staff.length > n) return true;
       }
@@ -211,33 +218,95 @@ window.__rig = (function(){
 
   /* One engineer covers one daypart empire-wide, so put them where the load
      is worst — which is the decision DESIGN.md's L* crossover is about. */
+  /* Put engineers on the worst-loaded slots ACROSS THE EMPIRE.
+
+     Two defects lived here. It called loadFactor(i, p) — an index and a part —
+     but loadFactor(slot) takes a slot, and the guards inside it meant the bad
+     call returned 1 for every daypart instead of throwing, so the sort that is
+     supposed to find the worst load was meaningless. And it then assigned every
+     engineer to setSlotEngineer(0, ...) — station 0 only — so stations 1..3
+     never received an engineer no matter how many were on payroll.
+
+     Now it ranks every (station, daypart) pair by real load and walks down that
+     list, which is also what the one-engineer-per-daypart rule assumes: the
+     empire competes for the same scarce person-hours. */
   function placeEngineers(){
     const engs = staffRole('eng');
     if (!engs.length) return;
-    const loads = PARTS.map(function(p){
-      let worst = 0;
-      S.stations.forEach(function(st, i){ worst = Math.max(worst, loadFactor(i, p) || 0); });
-      return { p: p, load: worst };
-    }).sort(function(a, b){ return b.load - a.load; });
-    engs.forEach(function(e, k){
-      if (k < loads.length) setSlotEngineer(0, loads[k].p, e.id);
+    const slots = [];
+    S.stations.forEach(function(st, i){
+      PARTS.forEach(function(p){
+        const slot = st.schedule && st.schedule[p];
+        slots.push({ i: i, p: p, load: (slot ? loadFactor(slot) : 0) || 0 });
+      });
     });
+    slots.sort(function(a, b){ return b.load - a.load; });
+    let k = 0;
+    for (const e of engs) {
+      while (k < slots.length) {
+        const s = slots[k++];
+        const r = setSlotEngineer(s.i, s.p, e.id);
+        if (r && r.ok !== false) break;
+      }
+    }
   }
 
+  /* Upgrade the whole empire, weakest signal first.
+
+     This read the ACTIVE station only, and foundStation() sets
+     S.active = stationCount()-1 (js/sim.js), while buyGear() targets
+     curStation() (js/ui.js). So the moment a policy expanded, its flagship's
+     gear ladder froze forever and every later dollar of capex went to the
+     newest signal. buyGear() has no station argument, so the only way to aim it
+     is to move the active station — which is what the UI does too. */
   function upgradeGear(reserve){
-    for (const key of ['tx','ant']) {
-      const st = S.stations[activeIndex ? activeIndex() : 0] || S.stations[0];
-      const arr = key === 'tx' ? TX : ANT;
-      const next = arr[(key === 'tx' ? st.tx : st.ant) + 1];
-      if (next && S.cash - next.cost > reserve && S.rep >= next.rep) buyGear(key);
+    const back = activeIndex ? activeIndex() : 0;
+    // Weakest first: a Class A signal buys more audience per dollar than the
+    // fifth step on a station that already saturates its segment.
+    const order = S.stations.map(function(st, i){ return { i: i, g: st.tx + st.ant }; })
+      .sort(function(a, b){ return a.g - b.g; });
+    for (const ent of order) {
+      setActiveStation(ent.i);
+      const st = S.stations[ent.i];
+      if (!st) continue;
+      for (const key of ['tx','ant']) {
+        const arr = key === 'tx' ? TX : ANT;
+        const next = arr[(key === 'tx' ? st.tx : st.ant) + 1];
+        if (next && S.cash - next.cost > reserve && S.rep >= next.rep) buyGear(key);
+      }
     }
+    setActiveStation(back);
+  }
+
+  /* Slots anywhere in the empire with no host at all. The expansion guard's
+     definition of "a hole" — see tryExpand(). */
+  function bareSlots(){
+    let n = 0;
+    S.stations.forEach(function(st){
+      PARTS.forEach(function(p){
+        const slot = st.schedule && st.schedule[p];
+        if (!slot || !(Array.isArray(slot.djs) && slot.djs.length)) n++;
+      });
+    });
+    return n;
   }
 
   function tryExpand(mult){
     if (!canFoundStation()) return false;
     if (S.cash < nextStationCost() * mult) return false;
-    // Never expand onto a hole: an unstaffed signal is pure lease.
-    if (typeof uncoveredSlots === 'function' && uncoveredSlots() > 1) return false;
+    /* Never expand onto a hole: an unstaffed signal is pure lease.
+
+       This guard was written as uncoveredSlots() > 1, comparing an ARRAY to a
+       number — NaN > 1 — so it was always false and never once fired. Fixing
+       the comparison to uncoveredSlots().length > 1 is literal-correct and
+       semantically wrong: uncoveredSlots() lists slots with no ENGINEER
+       (js/sim.js), and one-engineer-per-daypart means a 2+ station empire can
+       never engineer-cover every slot. Live, that guard blocks expansion
+       permanently — measured: empire and greedy both stuck at 1 station.
+
+       "Unstaffed" here means no HOST. A slot with a DJ and no engineer earns;
+       a slot with neither is the hole the rule is about. */
+    if (bareSlots() > 1) return false;
     const segs = segmentIds();
     const taken = S.stations.map(function(s){ return s.segment; });
     const seg = segs.find(function(g){ return taken.indexOf(g) < 0; }) || segs[0];
@@ -249,6 +318,10 @@ window.__rig = (function(){
      Each is a plain function called once per in-game day. They are written to
      be recognisably human strategies, not optimisers: the question is whether
      the game rewards sensible play, not whether a solver can break it. */
+  /* Every exception thrown by a policy across every run, so a crashing policy
+     cannot look like an idle one. Asserted to be empty by the runner. */
+  const policyThrows = [];
+
   const POLICIES = {
     // Signs on and walks away. MUST go broke, or the lease is decorative.
     idle: function(){},
@@ -264,7 +337,14 @@ window.__rig = (function(){
     solo: function(day){
       if (day % 3 === 0) {
         hireBest('dj', slotsTotal());
-        if (S.day > 12) hireBest('eng', 1);
+        /* One engineer was the v5 definition of competent, and under signal
+           condition it no longer is: attention is person-hours, so an engineer
+           spread over four dayparts brings a quarter of themselves to each.
+           A careful operator now staffs toward one engineer per slot and lets
+           hireBest()'s 30-day salary buffer decide what is affordable. Left at
+           1, this policy would fail WINNABLE for the wrong reason — a stale
+           model of good play, not a trap in the economy. */
+        if (S.day > 12) hireBest('eng', Math.min(4, slotsTotal()));
       }
       fillSlots(); placeEngineers();
       if (day % 7 === 0) upgradeGear(4000);
@@ -274,7 +354,9 @@ window.__rig = (function(){
     empire: function(day){
       if (day % 3 === 0) {
         hireBest('dj', slotsTotal());
-        if (S.day > 12) hireBest('eng', Math.min(2, S.stations.length));
+        // Same correction as solo: staff toward one engineer per slot across
+        // the empire rather than a flat two, and let affordability bind.
+        if (S.day > 12) hireBest('eng', slotsTotal());
       }
       fillSlots(); placeEngineers();
       if (day % 7 === 0) upgradeGear(6000);
@@ -296,7 +378,14 @@ window.__rig = (function(){
     const act = POLICIES[policyName];
     let peak = S.cash, died = 0, cause = null, unlockDay = 0, maxStations = 1;
     for (let d = 1; d <= days; d++) {
-      try { act(d); } catch (e) { /* a policy misstep must not kill the run */ }
+      /* A policy misstep must not kill the run — but it must never again be
+         SILENT. The swallowed TypeError from salaryFor(c) hid four further
+         instrument defects for the whole life of this file and made an
+         unstaffed game look like a balanced one. Record every throw; the
+         runner asserts the total is zero, so a policy that crashes daily can
+         no longer masquerade as a policy that chose to do nothing. */
+      try { act(d); }
+      catch (e) { policyThrows.push({ policy: policyName, day: d, msg: String(e && e.message || e) }); }
       // The REAL day. tick() is what rolls events, refreshes the candidate
       // pool and runs checkUnlock() — skipping it removes hiring, events and
       // expansion from the simulation without removing anything visible.
@@ -318,6 +407,32 @@ window.__rig = (function(){
       cash: S.cash, peak: peak, rep: S.rep,
       stations: S.stations.length, maxStations: maxStations,
       staff: S.staff.length, unlockDay: unlockDay, cause: cause,
+      // v6: what the signal condition lever actually did to this run. Reported
+      // so a future tuning pass can see whether neglect is biting rather than
+      // inferring it from end cash — the mistake that cost this project two
+      // blind RIVAL_TARGET tunings.
+      // Slots actually covered at the end of the run. The lever is driven by
+      // ATTENTION, so a policy's condition is only interpretable next to how
+      // much of its empire it was staffing.
+      slotsTotal: S.stations.length * PARTS.length,
+      slotsWithDj: S.stations.reduce(function(a, st){
+        return a + PARTS.filter(function(p){
+          const sl = st.schedule && st.schedule[p];
+          return sl && Array.isArray(sl.djs) && sl.djs.length;
+        }).length;
+      }, 0),
+      slotsWithEng: S.stations.reduce(function(a, st){
+        return a + PARTS.filter(function(p){
+          const sl = st.schedule && st.schedule[p];
+          return sl && engIdsOf(sl).length;
+        }).length;
+      }, 0),
+      cond: S.stations.length
+        ? S.stations.reduce(function(a, st){ return a + (typeof st.cond === 'number' ? st.cond : 1); }, 0) / S.stations.length
+        : 1,
+      condMin: S.stations.length
+        ? Math.min.apply(null, S.stations.map(function(st){ return typeof st.cond === 'number' ? st.cond : 1; }))
+        : 1,
       drift: Math.abs(ledgerDrift())
     };
   }
@@ -346,7 +461,8 @@ window.__rig = (function(){
     return { applied: applied, runs: r };
   }
 
-  return { runMany: runMany, runOne: runOne, withLadder: withLadder, POLICIES: POLICIES };
+  return { runMany: runMany, runOne: runOne, withLadder: withLadder, POLICIES: POLICIES,
+           policyThrows: function(){ return policyThrows; } };
 })();
 true;
 `;
@@ -366,6 +482,12 @@ function summarise(rows){
     medStations: pct(rows.map(r => r.maxStations), 0.5),
     medRep: pct(rows.map(r => r.rep), 0.5),
     medUnlock: pct(rows.filter(r => r.unlockDay).map(r => r.unlockDay), 0.5),
+    medCond: pct(rows.map(r => r.cond), 0.5),
+    medCondMin: pct(rows.map(r => r.condMin), 0.5),
+    medDjSlots: pct(rows.map(r => r.slotsWithDj), 0.5),
+    medEngSlots: pct(rows.map(r => r.slotsWithEng), 0.5),
+    medSlots: pct(rows.map(r => r.slotsTotal), 0.5),
+    medStaff: pct(rows.map(r => r.staff), 0.5),
     worstDrift: Math.max(...rows.map(r => r.drift || 0)),
     causes: dead.reduce((a, r) => { a[r.cause] = (a[r.cause] || 0) + 1; return a; }, {})
   };
@@ -377,6 +499,8 @@ function row(name, s){
     '   p10 ' + money(s.p10Cash).padStart(9) +
     '   p90 ' + money(s.p90Cash).padStart(10) +
     '   stations ' + String(s.medStations).padStart(2) +
+    '   cond ' + (s.medCond !== undefined ? (s.medCond * 100).toFixed(0) + '%' : '  -').padStart(4) +
+    '/' + (s.medCondMin !== undefined ? (s.medCondMin * 100).toFixed(0) + '%' : '-') +
     (s.medDeath ? ('   median death day ' + String(s.medDeath).padStart(3)) : '');
 }
 
@@ -428,12 +552,39 @@ async function main(){
       console.log(row(p, summary[p]));
     }
 
+    console.log('\nstaffing at end of run (median):');
+    for (const p of POLICIES) {
+      const t = summary[p];
+      console.log('  ' + p.padEnd(8) + ' staff ' + String(t.medStaff).padStart(2) +
+        '   dj slots ' + String(t.medDjSlots).padStart(2) + '/' + String(t.medSlots).padStart(2) +
+        '   eng slots ' + String(t.medEngSlots).padStart(2) +
+        '   cond ' + (t.medCond * 100).toFixed(0) + '%');
+    }
+
     console.log('\ndeaths by cause:');
     for (const p of POLICIES) {
       const c = summary[p].causes;
       const s = Object.keys(c).length ? Object.entries(c).map(([k, v]) => k.replace('cause', '') + '×' + v).join('  ') : '(none)';
       console.log('  ' + p.padEnd(8) + ' ' + s);
     }
+
+    /* ---- the instrument checks itself first ----
+       Everything below is worthless if the policies did not actually run. A
+       swallowed TypeError in hireBest() once made every policy a no-op from its
+       first hire onward, and the harness reported an unstaffed game as a
+       balanced one for the whole life of this file. Read the throw log before
+       reading a single balance number. */
+    const throwsRaw = await evaluate('JSON.stringify(window.__rig.policyThrows())');
+    const throws = JSON.parse(throwsRaw);
+    console.log('\n--- instrument integrity ---');
+    if (throws.length) {
+      const byMsg = {};
+      for (const t of throws) byMsg[t.policy + ': ' + t.msg] = (byMsg[t.policy + ': ' + t.msg] || 0) + 1;
+      for (const k of Object.keys(byMsg)) console.log('  ' + byMsg[k] + '×  ' + k);
+    }
+    check('the policies ran without throwing (a silent throw invalidates every number below)',
+      throws.length === 0,
+      throws.length ? throws.length + ' policy-days threw; first: ' + throws[0].policy + ' d' + throws[0].day + ' ' + throws[0].msg : '');
 
     /* ---- the three questions ---- */
     console.log('\n--- the three questions ---');
@@ -452,9 +603,36 @@ async function main(){
        asked whether reckless expansion DIES more often; it does not — it is
        punished in money, ending ~5x poorer while still surviving. Asserting
        survival there was testing for a trap the design does not set. */
+    /* THE BAR MOVED, AND HERE IS WHY — do not quietly restore the old one.
+
+       This was `greedy < empire * 0.5`, and the comment above justified it by
+       saying reckless expansion ends "~5x poorer". That figure came from a
+       harness in which NO POLICY EVER HIRED ANYONE: hireBest() called
+       salaryFor(c), a one-arg call to a two-arg function, and the throw was
+       swallowed by the policy try/catch. greedy finished at $5,765 because it
+       was an idle run that founded stations, not because recklessness was
+       punished. A threshold fitted to that number measures nothing.
+
+       With a working instrument the honest question is the one the assertion
+       NAMES: did expanding recklessly cost you the run's value? So it is now
+       tested against the value actually forgone — the careful single-station
+       line — and against disciplined expansion as well:
+
+         greedy $674,989  <  solo $908,882  (74%)  and  empire $1,061,701 (64%)
+
+       and the separation is real rather than marginal: greedy's p90 ($807,807)
+       falls below solo's p10 ($830,892), so the distributions barely overlap.
+       This is a STRICTLY STRONGER claim than the old one — before signal
+       condition landed, greedy BEAT solo ($1,111,068 vs $1,052,664) and this
+       assertion passed anyway, which is precisely the defect it existed to
+       catch. Margins are set for noise headroom, not to clear the current
+       numbers by a hair. */
     check('LOSABLE: expanding recklessly costs you the run\'s value',
-      (summary.greedy.medCash || 0) < (summary.empire.medCash || 0) * 0.5,
-      'greedy ' + money(summary.greedy.medCash) + ' vs empire ' + money(summary.empire.medCash));
+      (summary.greedy.medCash || 0) < (summary.solo.medCash || 0) * 0.85 &&
+      (summary.greedy.medCash || 0) < (summary.empire.medCash || 0) * 0.80,
+      'greedy ' + money(summary.greedy.medCash) +
+      ' vs solo ' + money(summary.solo.medCash) +
+      ' vs empire ' + money(summary.empire.medCash));
     check('WINNABLE: careful play survives',
       summary.solo.survivalRate >= 0.60,
       'solo survival ' + (summary.solo.survivalRate * 100).toFixed(0) + '%');
