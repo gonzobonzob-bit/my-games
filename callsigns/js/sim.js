@@ -281,7 +281,13 @@ function chemTags(){ return Object.keys(chemTable()); }
 // bump alone does not migrate anything, it just crashes older saves.
 // v4: a slot carries `engs` (up to MAX_ENG ids) instead of a single `eng`.
 // migrate() lifts a v3 `eng` string into a one-element array; see loadSlots.
-const STATE_VER = 4;
+// v5: S.rivalNets holds per-segment, per-network rival capacity. A v4 save has
+// none, and rivalK() seeds each network at its opening size on first read — so
+// an in-flight run resumes with exactly the competition it had.
+/* v6 adds station.cond (signal condition). A v<=5 station migrates in at 1.00 —
+   pristine — so nobody's live run is retroactively punished for days played
+   before the mechanic existed. */
+const STATE_VER = 6;
 
 // Producer condition #2: the assignment surface has to stay sub-linear in
 // stations. Four is the accepted hard cap for this overhaul.
@@ -306,9 +312,188 @@ const PULL_SCALE = 92;
 // dimensionless audience ratio in [0,1], so rival pull tops out at 1.9x base
 // no matter how big the empire gets, while YOUR pull keeps climbing with gear
 // and talent. That asymmetry is the counterbalance.
-const RIVAL_GAIN   = 0.90;
+const RIVAL_GAIN   = 0.90;   // v4 and earlier; retained for save migration only
 const RIVAL_ADAPT  = 0.06;   // ~17-day memory; slow enough to out-run briefly
 const RIVAL_PERIOD = 34;     // days per competition cycle
+
+/* ── v5: rivals own capacity ─────────────────────────────────────────────
+   Through v4 the rival denominator was a wave times a bounded response to the
+   share you were CURRENTLY taking. That is a negative feedback loop pointed
+   the wrong way: stop competing and takenShare -> 0, so pressure -> 0, so C
+   falls to its floor. The competition got weaker the less you played, which is
+   the mechanical reason `LOSABLE: doing nothing eventually goes broke` failed
+   and an idle run finished ~$33k up over 540 days.
+
+   Now each rival network owns a persistent capacity K per segment. K compounds
+   into markets you leave empty and erodes in markets you hold, so absence is
+   punished and presence pays. Nothing in K reads revenue, cash or payroll —
+   the day the denominator learns what the player earns, the game is solved.
+
+   Rates are the ones the design proof's arithmetic used (docs/DESIGN_PROOF_RIVALS.md):
+   at GROWTH a fully vacant segment's rival roughly doubles in ~70 days, which
+   is slow enough to notice and fast enough to matter inside one run.
+   ONE rate and ONE target, deliberately, because the obvious two-rate form
+   (grow by A*(1-h), shrink by B*h) couples speed to balance point: its
+   equilibrium is A/(A+B), so pinning the balance where it belongs forces the
+   speed to be glacial.
+
+       K <- K * (1 + RATE * (1 - h/TARGET))
+
+   RATE is how fast a market moves, TARGET is the share you must hold to keep
+   it still, and they are independent.
+
+   TARGET is MEASURED, not guessed. One station takes 1.85% of its segment pool
+   running on automation and 5.25% competently staffed — the whole live range is
+   a couple of percent, because a segment pool is four dayparts wide and the
+   rivals are most of it. The first two tunings used 30% and 18%, which put
+   every possible player below the threshold, so rivals grew at the same rate
+   for an idle station and a well-run one and the harness reported idle and
+   careful finishing within $340 of each other. 3.2% sits between the two
+   measured figures: automation drifts backwards, a staffed schedule pushes
+   forward. */
+const RIVAL_RATE   = 0.006;   // per day at zero share; ~116 days to double
+const RIVAL_TARGET = 0.032;   // the held share at which a market stops moving
+const RIVAL_K_MIN  = 0.30;    // floor, as a multiple of the network's opening size
+const RIVAL_K_MAX  = 2.20;    // ceiling, so a runaway cannot lock you out forever
+
+/* Fallback roster, same contract as SEG_FALLBACK: content.js owns the real
+   table and this keeps sim runnable on its own. `w` is the network's share of
+   a segment's opening comp base, so the sum of w across a segment is 1.0 and
+   day-one competition is IDENTICAL to v4 — the minute-5 founding arithmetic in
+   DESIGN.md must not move, and it does not. */
+const RIVAL_NETS_FALLBACK = [
+  { id: 'sunbelt',  name: 'Sunbelt Media',   icon: '📡', w: 0.45 },
+  { id: 'lantern',  name: 'Lantern Group',   icon: '🏮', w: 0.35 },
+  { id: 'ridgeway', name: 'Ridgeway Family', icon: '🌾', w: 0.20 },
+];
+function rivalNets(){
+  const t = (typeof RIVAL_NETS !== 'undefined' && Array.isArray(RIVAL_NETS) && RIVAL_NETS.length)
+    ? RIVAL_NETS : RIVAL_NETS_FALLBACK;
+  return t;
+}
+
+/* ---------------- Mechanic 5: signal condition ----------------
+
+   The second lever, and the one that finally gives the lease a clock.
+
+   THE PROBLEM IT SOLVES. The rival-capacity term (v5) is bounded by
+   RIVAL_K_MAX, so the worst drag it can ever apply to an unattended station is
+   about -$4/day. Measured: an idle run peaks near $10,800 around day 378 and
+   still ends 540 days up. No value of RIVAL_TARGET fixes that — the whole live
+   share range is a couple of percent wide, and the two tunings that tried
+   (3.5%, 4.2%) collapsed the economy for everyone else before they touched
+   idle. A second lever was the only way out.
+
+   WHAT IT IS. Every station carries `cond` in [COND_MIN, 1], multiplying its
+   pull. Transmitters WEAR — bigger plant wears faster — and people TEND. So:
+
+       cond <- clamp(cond + COND_GAIN*attn*(1 - cond) - wear, COND_MIN, 1)
+
+   which has a closed-form fixed point, and that is the point of this shape:
+
+       c* = 1 - wear / (COND_GAIN * attn)          (floored at COND_MIN)
+
+   A destination the UI can show beats a slope the player has to integrate in
+   their head. An invisible mechanic that drains you is indistinguishable from
+   a bug, so condition is rendered with its wear, its attention and its c*.
+
+   WHY IT IS NOT ANTI-EXPANSION — the property RIVAL_TARGET 4.2% did not have.
+   Wear is charged against WATTS, not callsigns. One Class C station on four
+   slots needs four engineers to sit at 0.91; four small stations hold the same
+   0.91 on one engineer each. Same four engineers either way, so the lever is
+   neutral between concentrating and spreading. What it does punish is running
+   signals nobody tends, which is precisely the reckless-expansion line.
+
+   WHY THE GEAR LADDER STOPS BEING AUTOMATIC. A transmitter step now costs cash,
+   lease AND wear, and the candidate stream is flat forever — so the real price
+   of TX4 is the DJ you did not hire. Before this, TX4 was an automatic buy for
+   anyone who could afford it.
+
+   THE SPIRAL GUARD, load-bearing: `cond` enters slotPull() and NOTHING else.
+   It must never reach the `quality` that feeds avgQuality/repPressure in
+   simulateDay(). Reputation is proportional-recovery with additive damage;
+   a multiplicative rep term driven by condition would close a rep->pull->
+   share->rep loop with no floor. Keep it out of the reputation path. */
+const COND_MIN     = 0.35;   // floor: bounds the drag, and sets the idle end-state
+const COND_WEAR    = 0.0025; // per day at TX0/ANT0 — (1-COND_MIN)/this = 260 days to floor
+const WEAR_PER_TX  = 0.55;   // TX4 wears 3.2x a Part 15 rig
+const WEAR_PER_ANT = 0.30;   // half the transmitter line, mirroring ANT_LEASE ~ 1/2 TX_LEASE
+const COND_GAIN    = 0.030;  // per attention-unit per day
+const ENG_TEND     = 1.00;   // an engineer tends the plant
+const DJ_TEND      = 0.25;   // a host notices the audio is wrong; they do not climb the tower
+
+/** Daily wear for a station, driven by the size of its plant. */
+function stationWear(st){
+  return COND_WEAR * (1 + WEAR_PER_TX * (st.tx || 0) + WEAR_PER_ANT * (st.ant || 0));
+}
+/** How many slots each person covers across the whole empire.
+
+    Load-bearing, and the thing this mechanic is actually about. A DJ may work
+    one daypart empire-wide, but that still lets FOUR people cover all sixteen
+    slots of a four-station empire — morning at one callsign, midday at the
+    next, and so on. Counting covered slots therefore reports a skeleton crew
+    stretched across four signals as fully tended: measured, the reckless
+    policy held 92% condition on four staff and no engineers, a better figure
+    than the careful single-station line managed with five staff and an
+    engineer. Attention is PERSON-HOURS, not slot coverage, and a person spread
+    over four slots brings a quarter of themselves to each. */
+function staffSlotLoad(){
+  const load = Object.create(null);
+  for (const st of S.stations) {
+    for (const part of DAYPARTS) {
+      const slot = st.schedule && st.schedule[part.id];
+      if (!slot) continue;
+      for (const id of engIdsOf(slot)) load[id] = (load[id] || 0) + 1;
+      if (Array.isArray(slot.djs)) for (const id of slot.djs) if (id) load[id] = (load[id] || 0) + 1;
+    }
+  }
+  return load;
+}
+/** Person-hours pointed at one station today. An engineer tends the plant, a
+    host only notices the audio is wrong, and a dark slot brings nobody — which
+    is what makes an unattended signal decay and a thinly-spread empire decay
+    everywhere at once.
+
+    `load` is optional so the daily tick can build the map once for the whole
+    empire instead of once per station. */
+function stationAttn(st, load){
+  const l = load || staffSlotLoad();
+  let a = 0;
+  for (const part of DAYPARTS) {
+    const slot = st.schedule && st.schedule[part.id];
+    if (!slot) continue;
+    const engs = engIdsOf(slot);
+    if (engs.length) {
+      for (const id of engs) a += ENG_TEND / Math.max(1, l[id] || 1);
+    } else if (Array.isArray(slot.djs) && slot.djs.length) {
+      for (const id of slot.djs) if (id) a += DJ_TEND / Math.max(1, l[id] || 1);
+    }
+  }
+  return a;
+}
+/** Where this station's condition is heading under today's staffing — the
+    closed-form fixed point. The UI shows this so the decision is legible. */
+function condTarget(st, load){
+  const attn = stationAttn(st, load);
+  if (attn <= 0) return COND_MIN;
+  return clamp(1 - stationWear(st) / (COND_GAIN * attn), COND_MIN, 1);
+}
+/** Advance one station's condition by `days` days. Shared by the daily tick and
+    by catchUp(), which must NOT be able to freeze decay by closing the tab. */
+function stepCondition(st, days, load){
+  const n = Math.max(0, Math.floor(days || 0));
+  const wear = stationWear(st), attn = stationAttn(st, load);
+  let c = typeof st.cond === 'number' && isFinite(st.cond) ? st.cond : 1;
+  for (let i = 0; i < n; i++) c = clamp(c + COND_GAIN * attn * (1 - c) - wear, COND_MIN, 1);
+  st.cond = c;
+  return c;
+}
+/** Read a station's condition defensively — every consumer goes through this so
+    a save that predates v6 reads as pristine rather than as zero. */
+function condOf(st){
+  const c = st && st.cond;
+  return (typeof c === 'number' && isFinite(c)) ? clamp(c, COND_MIN, 1) : 1;
+}
 
 // Mechanic 2: crewSkill = s1 + 0.55*s2 + 0.30*s3, cap three to a slot.
 const CREW_WEIGHTS = [1, 0.55, 0.30];
@@ -425,6 +610,9 @@ function newStation(call, segment, day){
     freq: (92.1 + randInt(0, 79) * 0.2).toFixed(1),
     segment: isSegment(segment) ? segment : DEFAULT_SEGMENT,
     tx: 0, ant: 0,
+    // v6: signal condition, 1.00 = freshly signed on. Day-one arithmetic in
+    // DESIGN.md is untouched precisely because a new station starts pristine.
+    cond: 1,
     // Yesterday's lease bill, for display only — simulateDay() recomputes it
     // from the gear every single day, so a stale value can never be charged.
     lease: 0,
@@ -460,6 +648,7 @@ function newState(call){
     // been taking, which is what the rivals respond to. An audience ratio, not
     // money: the moment this reads revenue it is the P&P self-reference trap.
     rivals: {},
+    rivalNets: {},
     log: [],
     unlockedExpansion: false,
     // Acknowledgement flags. Without seenExpansion the Empire tab badge stayed
@@ -718,20 +907,94 @@ function slotRisk(slot, seg){
 
 /* ---------------- mechanic 1: market share ---------------- */
 
-/** Rival pull for a segment/daypart. Two terms and no third:
-      - a day-indexed wave, deterministic in S.day, so competition has a
-        rhythm you can read and plan against rather than dice;
-      - a BOUNDED response to the share you have been taking off them.
-    Neither reads revenue, cash, payroll or any other player-cost quantity. The
-    day the denominator learns what the player earns, the game is solved. */
-function rivalPull(segId, partId){
+/** The capacity a rival network currently holds in a segment, in pull units.
+    Lazily seeded from the segment's opening comp base so a save that predates
+    v5 — or a segment founded later — starts exactly where v4 had it. */
+function rivalK(segId, netId){
   const seg = segmentOf(segId);
   const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+  const net = rivalNets().find(n => n.id === netId);
+  const open = base * (net ? readNum(net, 'w', 0) : 0);
+  if (!S.rivalNets || typeof S.rivalNets !== 'object') S.rivalNets = {};
+  if (!S.rivalNets[segId] || typeof S.rivalNets[segId] !== 'object') S.rivalNets[segId] = {};
+  const cur = S.rivalNets[segId][netId];
+  if (typeof cur !== 'number' || !isFinite(cur)) { S.rivalNets[segId][netId] = open; return open; }
+  return cur;
+}
+
+/** Read-only view of who holds a segment right now, for the UI.
+
+    The founding card used to print seg.comp.base — the STATIC opening constant
+    — as "Incumbents". Measured on a real day-139 run, that read 2000 while the
+    live networks held 1049 between them: the player had squeezed the rivals to
+    half their opening size and the only rival number in the game was telling
+    them nothing had changed. A number that is 2x wrong in the direction that
+    hides the entire v5 mechanic is worse than no number.
+
+    Deliberately does NOT call rivalK(), which lazily seeds S.rivalNets and so
+    would mutate state from a render path. Falls back to each network's opening
+    size for a segment that has never been simulated, which is exactly right:
+    that IS its current capacity. */
+function rivalSnapshot(segId){
+  const seg = segmentOf(segId);
+  const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+  const held = (S && S.rivalNets && S.rivalNets[segId]) || {};
+  const nets = rivalNets().map(net => {
+    const open = base * readNum(net, 'w', 0);
+    const cur = held[net.id];
+    const k = (typeof cur === 'number' && isFinite(cur)) ? cur : open;
+    return { id: net.id, name: net.name, icon: net.icon, k: k, open: open };
+  });
+  const total = nets.reduce((a, n) => a + n.k, 0);
+  const open = nets.reduce((a, n) => a + n.open, 0);
+  return { total: total, open: open, nets: nets };
+}
+
+/** Rival pull for a segment/daypart: the sum of what the networks in that
+    market actually hold, each riding the same day-indexed wave v4 used so the
+    competition still has a rhythm you can read rather than dice.
+
+    The v4 term this replaces responded to the share you were CURRENTLY taking,
+    which meant idling relaxed the competition. Capacity is remembered instead,
+    so a market you walk away from is a market someone else compounds into.
+
+    Reads nothing about revenue, cash or payroll — unchanged and load-bearing. */
+function rivalPull(segId, partId){
+  const seg = segmentOf(segId);
   const amp  = clamp(readNum(seg.comp, 'dayAmp', 0.2), 0, 0.6);
-  const phase = hashPhase(segId) + hashPhase(partId);
-  const wave = 1 + amp * Math.sin((S.day / RIVAL_PERIOD) * Math.PI * 2 + phase);
-  const pressure = clamp(readNum(S.rivals, segId, 0), 0, 1);
-  return base * wave * (1 + RIVAL_GAIN * pressure);
+  let sum = 0;
+  for (const net of rivalNets()) {
+    // Per-network phase, so the networks do not all peak on the same day and
+    // a market has a texture rather than one shared sine.
+    const phase = hashPhase(segId) + hashPhase(partId) + hashPhase(net.id);
+    const wave = 1 + amp * Math.sin((S.day / RIVAL_PERIOD) * Math.PI * 2 + phase);
+    sum += rivalK(segId, net.id) * wave;
+  }
+  return Math.max(1, sum);
+}
+
+/** Move every network's capacity one day. Growth is scaled by how VACANT the
+    segment is and erosion by how much of it you actually hold, which is what
+    turns absence into a cost. Bounded both ways: the floor stops a market you
+    dominate from becoming free forever, and the ceiling stops a market you
+    ignored from locking you out permanently. */
+function tickRivalCapacity(sharesBySeg){
+  for (const segId of segmentIds()) {
+    const held = clamp(readNum(sharesBySeg, segId, 0), 0, 1);
+    const seg = segmentOf(segId);
+    const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+    for (const net of rivalNets()) {
+      const open = base * readNum(net, 'w', 0);
+      if (open <= 0) continue;
+      const k = rivalK(segId, net.id);
+      // Clamped drift: a market you have utterly abandoned should not move
+      // faster than one you merely under-serve, and a runaway share should not
+      // collapse a rival in a fortnight.
+      const drift = clamp(1 - held / RIVAL_TARGET, -1.5, 1);
+      const next = k * (1 + RIVAL_RATE * drift);
+      S.rivalNets[segId][net.id] = clamp(next, open * RIVAL_K_MIN, open * RIVAL_K_MAX);
+    }
+  }
 }
 
 /** pull(s,p) = PULL_SCALE · quality · reach · fidelity · segmentFit · rep · buzz.
@@ -743,8 +1006,12 @@ function slotPull(st, partId){
   const show = SHOWS[slot.show];
   const seg = segmentOf(st.segment);
   const quality = show.appeal * djTerm(slot) * ((show.parts && show.parts[partId]) || 1);
+  /* condOf(st) is the ONLY place signal condition enters the economy. It is
+     deliberately applied here and not folded into `quality`, because `quality`
+     is what simulateDay() averages into repPressure — see the spiral guard on
+     the condition block above. */
   return PULL_SCALE * quality * reachValue(st) * fidelityValue(st) *
-         segFit(seg, slot.show) * (1 + S.rep / 62) * S.buzz;
+         segFit(seg, slot.show) * (1 + S.rep / 62) * S.buzz * condOf(st);
 }
 
 /** audience(s,p) = POP(p) · pull(s,p) / (C(p) + Σ_all_your_stations_in_segment pull).
@@ -880,14 +1147,29 @@ function simulateDay(){
   const avgQuality = slotCount ? qualitySum / slotCount : 0;
   const avgPressure = slotCount ? repPressure / slotCount : 0;
 
-  // Rivals respond to the SHARE you took, smoothed, and bounded into [0,1] on
-  // the way in — an unbounded response is a death spiral, which the design
-  // proof's negative-feedback check explicitly forbids.
+  // v5: rivals now own capacity that remembers. S.rivals is still maintained
+  // as the smoothed share you hold — the UI and the old save shape both read
+  // it — but it no longer drives the denominator; tickRivalCapacity() does.
+  const heldBySeg = {};
   for (const segId of segmentIds()) {
     const taken = poolBySeg[segId] ? clamp(takenBySeg[segId] / poolBySeg[segId], 0, 1) : 0;
     const cur = clamp(readNum(S.rivals, segId, 0), 0, 1);
     S.rivals[segId] = clamp(cur + (taken - cur) * RIVAL_ADAPT, 0, 1);
+    heldBySeg[segId] = taken;
   }
+  // Fed the RAW share, not the smoothed one: capacity is already slow, and
+  // stacking a 17-day EMA in front of it would make a market you abandoned take
+  // most of a month to notice.
+  tickRivalCapacity(heldBySeg);
+
+  /* Signal condition, AFTER the day's revenue is banked and after the rival
+     tick. Order matters twice over: today's audience was earned at today's
+     opening condition, and tickRivalCapacity() reads the shares that pull
+     produced, so moving condition first would apply tomorrow's decay to
+     today's market. Condition moves no cash directly — it only changes pull —
+     so the ledger identity is untouched by construction. */
+  const condLoad = staffSlotLoad();          // one map for the whole empire
+  for (const st of S.stations) stepCondition(st, 1, condLoad);
 
   // Performing-rights royalties: the recurring bill every music station pays.
   // It scales with revenue and with how much of the empire's day is music,
@@ -1052,7 +1334,7 @@ function checkUnlock(){
       modalPause();
       openModal(
         t('unlockedTitle'),
-        t('unlockedSub'),
+        t('unlockedSub', { cost: money(nextStationCost()) }),
         '<p style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(t('foundStationNote', { amt: money(nextStationCost()) })) + '</p>',
         [{ label: t('close'), cls: 'buy', act: dismissAutoModal }]
       );
@@ -1336,6 +1618,14 @@ function bankruptCause(){
   // ads pays today and burns the rep the ad rate multiplies by.
   if (slots > 0 && adsSlots / slots >= 0.5)
     return { key: 'causeAdsOnly', vars: {} };
+  /* Signal rot, ahead of the no-engineer line and ahead of causeQuiet. When a
+     run dies with its transmitters near the floor, that IS the cause — naming
+     "you never hired an engineer" or "you went quiet" instead would point the
+     player at a symptom. Sited after over-expansion and all-ads because those
+     are more specific mistakes that also produce rot. */
+  const worstCond = sts.length ? Math.min.apply(null, sts.map(condOf)) : 1;
+  if (worstCond <= COND_MIN + 0.05)
+    return { key: 'causeSignalRot', vars: { pct: Math.round(worstCond * 100) } };
   if (slots > 0 && engAssigned === 0)
     return { key: 'causeNoEngineer', vars: {} };
   // Reach you cannot sell is just a bigger lease.
@@ -1548,6 +1838,28 @@ function migrate(data){
   // into a divisor.
   s.rivals = {};
   for (const id of segmentIds()) s.rivals[id] = clamp(readNum(data.rivals, id, 0), 0, 1);
+  // Rival CAPACITY (v5): known segments and known networks only, each clamped
+  // into the band its opening size defines. A stale content row or a
+  // hand-edited save must not be able to plant an unbounded divisor — that is
+  // the same class of hole the [0,1] clamp closes for pressure.
+  {
+    const src = (data.rivalNets && typeof data.rivalNets === 'object') ? data.rivalNets : {};
+    const out = {};
+    for (const id of segmentIds()) {
+      const seg = segmentOf(id);
+      const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+      const row = (src[id] && typeof src[id] === 'object') ? src[id] : {};
+      out[id] = {};
+      for (const net of rivalNets()) {
+        const open = base * readNum(net, 'w', 0);
+        if (open <= 0) continue;
+        const raw = row[net.id];
+        out[id][net.id] = (typeof raw === 'number' && isFinite(raw))
+          ? clamp(raw, open * RIVAL_K_MIN, open * RIVAL_K_MAX) : open;
+      }
+    }
+    s.rivalNets = out;
+  }
 
   if (v >= 3) {
     // v3 -> v3: read the stations array field by field.
@@ -1615,6 +1927,9 @@ function readStation(rawIn, day){
   st.freq = readStr(raw, 'freq', st.freq);
   st.tx = readNum(raw, 'tx', 0);
   st.ant = readNum(raw, 'ant', 0);
+  // v6. A v<=5 save has no `cond`; readNum's default hands it a pristine 1.00
+  // rather than a 0, which would have read as a dead transmitter on load.
+  st.cond = clamp(readNum(raw, 'cond', 1), COND_MIN, 1);
   st.lease = readNum(raw, 'lease', 0);
   st.totalEarned = readNum(raw, 'totalEarned', 0);
   const base = defaultSchedule();
@@ -1626,14 +1941,37 @@ function readStation(rawIn, day){
     // than dropping the assignment on the floor.
     const legacyDj = readStr(src, 'dj', null);
     if (!djs.length && legacyDj) djs.push(legacyDj);
+    /* v4+: a slot carries `engs` (up to MAX_ENG ids). This read ONLY the v3
+       `eng` field and dropped `engs` on the floor, so every engineer in the
+       empire was silently unassigned on every single load — the save was
+       written correctly and thrown away by the reader. sanitize() has the
+       correct v3->v4 widening below, but it ran on the wreckage and found
+       neither field. The tell was that a v3 save survived and a current one did
+       not, because v3 is the exact shape this line reads.
+
+       Carry the array through and let sanitize() do the validation (staff
+       existence, per-slot dedupe, same-daypart uniqueness, MAX_ENG). */
+    const rawEngs = Array.isArray(src && src.engs)
+      ? src.engs.filter(x => typeof x === 'string' && x).slice(0, MAX_ENG)
+      : [];
+    const legacyEng = readStr(src, 'eng', null);
+    if (!rawEngs.length && legacyEng) rawEngs.push(legacyEng);
     st.schedule[p.id] = {
       show: SHOWS[readStr(src, 'show', '')] ? src.show : base[p.id].show,
       djs,
-      eng: readStr(src, 'eng', null)
+      engs: rawEngs
     };
   }
   return st;
 }
+
+/* Ceiling on a single day's net when it comes off disk. Not a balance number —
+   a defensive bound, and deliberately far above anything reachable: the empire
+   policy's p90 run averages roughly $4k/day across 540 days, so $1,000,000
+   leaves three orders of magnitude of headroom for any future economy while
+   still bounding catchUp()'s offline payout to a finite figure. Lives here
+   rather than in content.js because it guards the load path, not the design. */
+const LASTDAY_NET_MAX = 1e6;
 
 /** Coerce every field the sim divides, compares or renders. Runs on both the
     load path and the new-game path so there is exactly one shape of state.
@@ -1706,11 +2044,17 @@ function sanitize(s){
   // so a string "120" from a truncated save banked NaN cash and a NaN day
   // counter. Rebuilt from a fixed key list rather than coerced in place, so a
   // junk key can't ride along.
+  /* Typed is not enough for net: it is the ONLY lastDay field that mints cash.
+     n() rejects NaN and strings but happily passes a well-typed 1e300, which
+     catchUp() then multiplies by up to OFFLINE_MAX_DAYS — a hostile save
+     reached $4.8e301 in live cash that way. Clamp it to a day's worth of money
+     the game could actually produce; every other field is display-only. */
   const ld = (s.lastDay && typeof s.lastDay === 'object') ? s.lastDay : {};
   s.lastDay = {};
   for (const k of ['listeners','revenue','costs','net','quality','royalties','payroll','leases','repTarget','faults']) {
     s.lastDay[k] = n(ld[k], 0);
   }
+  s.lastDay.net = clamp(s.lastDay.net, -LASTDAY_NET_MAX, LASTDAY_NET_MAX);
   const bk = (s.book && typeof s.book === 'object') ? s.book : {};
   s.book = {};
   for (const k of ['day','opening','revenue','payroll','royalties','leases','capex','events','offline','closing']) {
@@ -1727,6 +2071,28 @@ function sanitize(s){
   const rv = (s.rivals && typeof s.rivals === 'object') ? s.rivals : {};
   s.rivals = {};
   for (const id of segmentIds()) s.rivals[id] = clamp(n(rv[id], 0), 0, 1);
+  // Rival CAPACITY (v5): known segments and known networks only, each clamped
+  // into the band its opening size defines. A stale content row or a
+  // hand-edited save must not be able to plant an unbounded divisor — that is
+  // the same class of hole the [0,1] clamp closes for pressure.
+  {
+    const src = (s.rivalNets && typeof s.rivalNets === 'object') ? s.rivalNets : {};
+    const out = {};
+    for (const id of segmentIds()) {
+      const seg = segmentOf(id);
+      const base = Math.max(1, readNum(seg.comp, 'base', 1000));
+      const row = (src[id] && typeof src[id] === 'object') ? src[id] : {};
+      out[id] = {};
+      for (const net of rivalNets()) {
+        const open = base * readNum(net, 'w', 0);
+        if (open <= 0) continue;
+        const raw = row[net.id];
+        out[id][net.id] = (typeof raw === 'number' && isFinite(raw))
+          ? clamp(raw, open * RIVAL_K_MIN, open * RIVAL_K_MAX) : open;
+      }
+    }
+    s.rivalNets = out;
+  }
 
   /* ---- stations ---- */
   if (!Array.isArray(s.stations) || !s.stations.length) s.stations = [ newStation(undefined, DEFAULT_SEGMENT, s.day) ];
@@ -1786,6 +2152,11 @@ function sanitize(s){
       out.schedule[p.id] = { show: SHOWS[src.show] ? src.show : base[p.id].show, djs, engs };
     }
     out.lease = 0;   // recomputed by simulateDay before it is ever charged
+    /* v6 signal condition. A well-typed 0, a NaN or a missing field all become
+       1.00 — pristine — because the only saves without it predate the mechanic
+       and must not be punished for that. Clamped, so a hand-edited 12 cannot
+       hand a station 12x pull. */
+    out.cond = clamp(n(out.cond, 1), COND_MIN, 1);
     return out;
   });
   // Unique callsigns and dial positions across the empire — two KXYZs is a
@@ -1821,6 +2192,13 @@ function hasSave(){
   try { d = JSON.parse(raw); }
   catch (e) { wipeSave(); return false; }
   if (!d || typeof d !== 'object' || !Number.isFinite(readNum(d, 'day', NaN))) return false;
+  /* A save claiming a version this build cannot read is not a save this build
+     has. Without this, Continue rendered enabled and correctly labelled
+     ("Continue · KREP · Day 123") and then failed silently on every press —
+     loadGame() bailed, the failed-load branch toasted, and nothing wiped the
+     save, so the button stayed permanently dead with no way forward. Better to
+     show a clean New Game than a button that lies. */
+  if (readNum(d, 'v', 0) > STATE_VER) return false;
   if (typeof readStr(d, 'call', null) === 'string') return true;
   return Array.isArray(d.stations) && d.stations.length > 0 &&
          typeof readStr(d.stations[0], 'call', null) === 'string';
@@ -1864,9 +2242,29 @@ function catchUp(){
   const days = Math.min(Math.floor(dt / OFFLINE_MS_PER_DAY), OFFLINE_MAX_DAYS);
   if (days < 1) return;
 
+  /* Signal condition decays while the tab is shut, BEFORE the offline payout is
+     sized. Without this, closing the tab froze the mechanic: leave at cond 1.00,
+     come back 96 days later at cond 1.00, and collect 96 days of full-condition
+     net — the same tab-dodge class as collision #7, and it would have made
+     "close the tab" the correct way to run an unattended station.
+
+     The payout is then scaled by how far condition actually fell over the
+     absence. Using the midpoint of the fall rather than the end value is the
+     honest reading: the station did not spend all 96 days at its final
+     condition, it slid there, so the average day is worth about the average of
+     the two ends. */
+  const condBefore = S.stations.reduce((a, st) => a + condOf(st), 0) / Math.max(1, S.stations.length);
+  const offlineLoad = staffSlotLoad();
+  for (const st of S.stations) stepCondition(st, days, offlineLoad);
+  const condAfter = S.stations.reduce((a, st) => a + condOf(st), 0) / Math.max(1, S.stations.length);
+  const condScale = condBefore > 0 ? clamp(((condBefore + condAfter) / 2) / condBefore, 0, 1) : 1;
+
   const daily = Number.isFinite(S.lastDay.net) ? S.lastDay.net : 0;
   const rate = daily >= 0 ? OFFLINE_RATE : 1;
-  let delta = daily * days * rate;
+  // Only scale the WINNING case: a decaying station earns less, but its lease
+  // and payroll do not shrink because nobody was watching. Scaling a loss by
+  // condition would pay the player for neglect.
+  let delta = daily >= 0 ? daily * days * rate * condScale : daily * days * rate;
   // Do not punch through the floor while the player is looking at a modal.
   if (delta < 0) delta = Math.max(delta, BANKRUPTCY_FLOOR - S.cash);
 
