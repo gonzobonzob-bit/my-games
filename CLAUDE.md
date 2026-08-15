@@ -227,6 +227,35 @@ never gets frozen in as expected behaviour and the lines vanish when fixed.
 flowing and nothing more. Real STUN traversal, mobile autoplay refusal and any
 mesh above three peers are unverified by the suite and need real devices.
 
+### Music plays at the edges, never under the clock
+Sixteen sound effects plus four musical stings — title, round start, reveal,
+podium fanfare — all synthesized from the same oscillator voices. **No audio
+files, no base64 samples**: the self-contained rule applies to sound too.
+
+**The question phase is silent and stays silent.** That is not an oversight to
+be filled in later. The game has voice chat, so anything playing under the
+twenty-second clock plays over somebody talking, and the ambient-bed option was
+declined for exactly that reason.
+
+Two things the tests now pin, because both are the kind of thing a later edit
+breaks with good intentions:
+
+- **Daybreak stays restrained.** It is the deliberate bland theme, and its
+  fanfare is sines with zero percussion. `audio-test.mjs` asserts its rms and
+  peak stay below marquee's, so nobody can quietly give it a brass section.
+  (Dead Air's fanfare is an open fifth with no third — a minor winner sting
+  reads as failure.)
+- **Music ducks under a live mic; effects do not.** Effects are short and
+  informational. A voice predicate that THROWS leaves music at full gain rather
+  than muting it: not knowing whether someone is talking is not a reason to go
+  silent mid-podium.
+
+`audio-test.mjs` renders every cue in an `OfflineAudioContext` at `LEN = 6`
+seconds. It was 3 until the 4-second fanfare existed, and a short buffer
+truncates rather than errors — which reads as a short sting, not a broken
+render. Its `rms` divides by buffer length, so rms figures are only comparable
+within a single run at a single LEN.
+
 ### The offline packs are bilingual by construction
 `PACKS` holds one deck per genre; `mixed` is served by `FALLBACK_PACK`, which
 is a separate literal further down the same file and is easy to forget — it
