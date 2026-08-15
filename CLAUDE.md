@@ -185,6 +185,48 @@ before first paint — without it every non-default player sees a flash of Studi
 on load. `--stage-hue` is written as an INLINE style by `setStage()` from a
 fixed set of dark mood colours, so a theme cannot override it; themes go
 through `--stage-paint` to say how much of that mood they absorb.
+### Voice is a mesh the room cannot hear
+Players only, 1-8, full-mesh WebRTC audio. Spectators are never in it — they
+are the studio audience, and the existing spectator guard already refuses every
+voice verb, so that is one rule rather than a check at each site. **Room voice
+defaults OFF**, which is the ship-safety model: with `settings.voice` false the
+relay refuses, no mesh forms and `getUserMedia` is never called, so a room
+whose host has not opted in behaves exactly as it did before voice existed.
+
+The relay is **blind on purpose**. One `voice-signal` type carries offer,
+answer and candidate alike and the Durable Object forwards `data` without
+parsing it — the room cannot leak or mangle SDP because it never reads it, and
+there is one path to audit instead of three. Every refusal is a **silent drop**:
+a candidate addressed to someone who just shut their laptop is ordinary WebRTC,
+and erroring on it would toast every client whenever anyone leaves.
+
+Three things that cost real time here:
+
+- **Only the initiator may pre-add the audio transceiver.** Per JSEP a
+  transceiver made by `addTransceiver` is not eligible to be matched against an
+  incoming offer, so both sides doing it silently builds a second `recvonly`
+  transceiver: audio flows ONE WAY while both ends report `connected`. The
+  answerer adopts the transceiver between `setRemoteDescription` and
+  `createAnswer`. No assertion catches this — only `getStats` or a human ear.
+- **Host mute is authoritative but is enforced receiver-side**, because the
+  audio is peer-to-peer and never touches the room. Every listener mutes the
+  incoming track of a roster entry flagged `muted`, which is also why a
+  tampered client cannot unmute itself for other people. Mutes live in
+  `g.mutedKeys` keyed by name-key, NOT on the player record — a lobby
+  disconnect deletes the record, and that made reconnecting a mute dodge.
+- **Voice state may ride a roster frame during a question** only because
+  neither field is a function of an answer. That is the whole test. A field
+  that reacted to correctness — "auto-mute whoever has locked in" — would be an
+  answer oracle in exactly the way the invariant section describes.
+
+`test/voice-test.mjs` covers the protocol over raw sockets. It prints
+defect-shaped findings as `OBS` lines instead of asserting them, so a known bug
+never gets frozen in as expected behaviour and the lines vanish when fixed.
+
+**Headless testing cannot prove audio is audible.** `getStats` proves RTP is
+flowing and nothing more. Real STUN traversal, mobile autoplay refusal and any
+mesh above three peers are unverified by the suite and need real devices.
+
 ### The offline packs are bilingual by construction
 `PACKS` holds one deck per genre; `mixed` is served by `FALLBACK_PACK`, which
 is a separate literal further down the same file and is easy to forget — it
