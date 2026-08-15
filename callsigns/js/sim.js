@@ -737,11 +737,54 @@ function roleStrength(role){
     Retained only because the v2 Station Effects card still calls it; ui.js's
     v3 rebuild should drop that line and then this function. */
 function engBonus(){ return Math.min(0.42, roleStrength('eng') * 0.035); }
-/** A half-full log is the floor, not a third: the old 0.30 baseline made the
-    first two weeks a dead zone, and the old ceiling made sales a ~5.5x
-    multiplier that dwarfed the entire transmitter ladder. Now ~2.7x. */
-function salesFill(){ return clamp(0.50 + roleStrength('sales') * 0.040, 0.50, 0.95); }
-function salesPrice(){ return 1 + roleStrength('sales') * 0.030; }
+/* Sales, and the ceiling that makes it a decision.
+
+   A half-full log is the floor, not a third: the old 0.30 baseline made the
+   first two weeks a dead zone, and the old ceiling made sales a ~5.5x
+   multiplier that dwarfed the entire transmitter ladder. Cutting it to ~2.7x
+   fixed the SIZE and left the real problem untouched.
+
+   THE REAL PROBLEM. A salesperson is the only hire in this game with no
+   opportunity cost. They occupy no slot, contribute no attention (so they never
+   touch signal condition), carry no fatigue and take no loadFactor risk. Two
+   skill-10 hires reach roleStrength 14.0 and take fill 0.50 -> 0.95 and price
+   1.00 -> 1.42 — measured 2.70x on the revenue terms, for about $166/day of
+   salary. There is no state in which that is the wrong purchase, so it is not a
+   decision, it is a tax on knowing about it. And because tests/harness.mjs only
+   ever calls hireBest() with 'dj' and 'eng', NO POLICY HAS EVER BOUGHT ONE:
+   every balance number this project has published describes a game with its
+   single largest lever unpulled. Same shape as the salaryFor() defect — the
+   numbers were not wrong, they were about a game nobody plays.
+
+   THE FIX IS A CEILING, NOT A SMALLER NUMBER. Reputation caps how much
+   inventory you can sell and what you can charge for it: an unknown station
+   cannot sell premium airtime however good its sellers are. Points above the
+   cap are worth EXACTLY ZERO, so "hire another seller" stops being universally
+   right and starts depending on rep — which faults damage and good programming
+   repairs. That converts an unbounded purchase into a bounded one whose ceiling
+   is set by play.
+
+   Reads reputation only. No cash, revenue or payroll term enters here, and it
+   must stay that way — the day the ad rate learns what the player earns, the
+   game is solved (see the Purr & Power note in CLAUDE.md).
+
+   Deliberately empire-wide for now because S.rep is. DESIGN_PROOF_ROOMS.md
+   makes both per-station when the Sales Floor lands; these are the same two
+   formulas, so that change is a re-siting rather than a retune. */
+const FILL_CAP_BASE = 0.55, FILL_CAP_PER_REP = 0.0040, FILL_CAP_MAX = 0.95;
+const PRICE_CAP_BASE = 1.00, PRICE_CAP_PER_REP = 0.0045, PRICE_CAP_MAX = 1.45;
+/** Most inventory a station of this reputation can actually move. */
+function fillCap(){ return clamp(FILL_CAP_BASE + FILL_CAP_PER_REP * S.rep, FILL_CAP_BASE, FILL_CAP_MAX); }
+/** Most a station of this reputation can charge for it. */
+function priceCap(){ return clamp(PRICE_CAP_BASE + PRICE_CAP_PER_REP * S.rep, PRICE_CAP_BASE, PRICE_CAP_MAX); }
+function salesFill(){ return clamp(0.50 + roleStrength('sales') * 0.040, 0.50, fillCap()); }
+function salesPrice(){ return clamp(1 + roleStrength('sales') * 0.030, 1, priceCap()); }
+/** Sales points beyond what reputation can carry — the number the UI has to
+    show, because a seller earning nothing looks identical to one earning. */
+function salesWasted(){
+  const need = Math.max((fillCap() - 0.50) / 0.040, (priceCap() - 1) / 0.030);
+  return Math.max(0, roleStrength('sales') - need);
+}
 
 /** How many slots a DJ is booked on across the WHOLE empire — working every
     morning drive in the network wears one person down exactly as hard as

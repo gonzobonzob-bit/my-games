@@ -396,6 +396,45 @@ async function main(){
     assert('a SECOND engineer is priced at the margin, not zeroed',
       engVal.secondOnTaken > 0 && engVal.secondOnTaken < engVal.ownWorth, JSON.stringify(engVal));
 
+    /* ---- 3e. reputation caps what sales can sell ----
+
+       A salesperson was the only hire with no opportunity cost — no slot, no
+       attn, no fatigue, no fault risk — and two skill-10 hires multiplied ALL
+       empire revenue by a measured 2.70x for ~$166/day. Strictly dominant, so
+       not a decision. Reputation now caps both terms, and points above the cap
+       are worth exactly zero.
+
+       Asserts the ceiling BINDS and that overshooting it buys nothing. A test
+       that only checked "sales does something" would pass against the old
+       unbounded version. */
+    const salesCap = await evaluate(`(function(){
+      const keepStaff = S.staff.slice(), keepRep = S.rep;
+      const read = (rep, n, skill) => {
+        S.rep = rep;
+        S.staff = [];
+        for (let i = 0; i < n; i++) { const p = makePerson('sales', 10); p.skill = skill; S.staff.push(p); }
+        return { fill: salesFill(), price: salesPrice(), wasted: salesWasted(),
+                 mult: (salesFill() * salesPrice()) / (0.50 * 1) };
+      };
+      const lowOne  = read(20, 1, 10);
+      const lowMany = read(20, 4, 10);   // four sellers at low reputation
+      const highOne = read(95, 1, 10);
+      const out = { lowOne, lowMany, highOne };
+      S.staff = keepStaff; S.rep = keepRep;
+      return out;
+    })()`);
+    assert('a low-reputation station cannot sell what its sellers could move',
+      salesCap.lowOne.fill < 0.70 && salesCap.lowOne.price < 1.12 && salesCap.lowOne.wasted > 0,
+      JSON.stringify(salesCap));
+    assert('sales points above the reputation ceiling are worth exactly zero',
+      salesCap.lowMany.fill === salesCap.lowOne.fill &&
+      salesCap.lowMany.price === salesCap.lowOne.price &&
+      salesCap.lowMany.wasted > salesCap.lowOne.wasted,
+      JSON.stringify(salesCap));
+    assert('reputation raises the ceiling, so the cap is a decision and not a wall',
+      salesCap.highOne.fill > salesCap.lowOne.fill && salesCap.highOne.price > salesCap.lowOne.price,
+      JSON.stringify(salesCap));
+
     /* ---- 4. save persists ----
 
        An ASSIGNED engineer goes on the schedule before the save, because that

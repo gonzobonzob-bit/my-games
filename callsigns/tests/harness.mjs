@@ -345,6 +345,14 @@ window.__rig = (function(){
            1, this policy would fail WINNABLE for the wrong reason — a stale
            model of good play, not a trap in the economy. */
         if (S.day > 12) hireBest('eng', Math.min(4, slotsTotal()));
+        /* Sales was never hired by ANY policy before 2026-08-15, so every
+           balance number this file produced described a game with its largest
+           revenue lever untouched. A competent operator hires sellers — and,
+           now that reputation caps what they can move, hires only as many as
+           the station's name can carry. salesWasted() is the game's own answer
+           to "would one more do anything", so the policy asks it rather than
+           carrying a hand-tuned count that would rot the moment rep moves. */
+        if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 4);
       }
       fillSlots(); placeEngineers();
       if (day % 7 === 0) upgradeGear(4000);
@@ -357,6 +365,8 @@ window.__rig = (function(){
         // Same correction as solo: staff toward one engineer per slot across
         // the empire rather than a flat two, and let affordability bind.
         if (S.day > 12) hireBest('eng', slotsTotal());
+        // Same correction as solo: sell the inventory you actually have.
+        if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
       }
       fillSlots(); placeEngineers();
       if (day % 7 === 0) upgradeGear(6000);
@@ -368,6 +378,9 @@ window.__rig = (function(){
     greedy: function(day){
       if (day % 5 === 0) tryExpand(1.0);
       if (day % 6 === 0) hireBest('dj', Math.max(2, S.stations.length));
+      // Buys sellers on reflex without ever asking whether reputation can carry
+      // them — the overshoot the ceiling exists to punish.
+      if (day % 6 === 0 && S.day > 20) hireBest('sales', 6);
       fillSlots();
     }
   };

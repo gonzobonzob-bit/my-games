@@ -169,6 +169,11 @@ function simFidelity(st){
 }
 function simSalesFill(){ return typeof salesFill === 'function' ? salesFill() : 0.5; }
 function simSalesPrice(){ return typeof salesPrice === 'function' ? salesPrice() : 1; }
+/* Reputation ceilings on the ad log — sim owns the formulas, ui only reads
+   them, so the number shown and the number charged can never drift apart. */
+function simFillCap(){ return typeof fillCap === 'function' ? fillCap() : 0.95; }
+function simPriceCap(){ return typeof priceCap === 'function' ? priceCap() : 1.45; }
+function simSalesWasted(){ return typeof salesWasted === 'function' ? salesWasted() : 0; }
 /** { share, audience, pop } — NOT a bare number. v3's pool is finite, so the
     interesting figure is the share of it you hold, and the audience is what
     that share is worth in people. */
@@ -278,6 +283,9 @@ const UI_STR = {
   engSteal: 'Putting {name} here pulls them off {call} {part}. One engineer, one daypart, whole empire.',
   onSlots: 'On {n} other slots today',
   onSlotsNamed: 'Also on {list}',
+  capped: '· at your reputation ceiling',
+  salesWastedLbl: 'Sales going nowhere',
+  salesWastedPts: 'pts — your name cannot carry them',
   chemGood: 'good chemistry', chemBad: 'clashes',
   netDelta: '{amt}/day net',
   addWorth: 'Worth it here', addNotWorth: 'Costs more than it makes',
@@ -1326,8 +1334,21 @@ function viewStaff(){
   const slotsTotal = stationCount() * DAYPARTS.length;
   h += '<div class="card"><div class="card-head">' +
     '<span class="card-title">📊 ' + esc(t('effectsTitle')) + '</span></div>' +
-    fxLine(t('fxAdFill'), Math.round(simSalesFill() * 100) + '%', 'green') +
-    fxLine(t('fxAdRate'), simSalesPrice().toFixed(2) + '×', 'green') +
+    /* Both lines now say whether reputation is the thing holding them down.
+       Sales points above the cap earn exactly $0, and a seller earning nothing
+       looks identical to one earning unless the screen says so — the same
+       invisible-mechanic failure as the static rival number and the missing
+       condition gauge. The wasted count is the number that stops "hire another
+       seller" being the reflex answer. */
+    fxLine(t('fxAdFill'), Math.round(simSalesFill() * 100) + '%' +
+      (simSalesFill() >= simFillCap() - 1e-9 ? ' ' + esc(tt('capped')) : ''),
+      simSalesFill() >= simFillCap() - 1e-9 ? 'amber' : 'green') +
+    fxLine(t('fxAdRate'), simSalesPrice().toFixed(2) + '×' +
+      (simSalesPrice() >= simPriceCap() - 1e-9 ? ' ' + esc(tt('capped')) : ''),
+      simSalesPrice() >= simPriceCap() - 1e-9 ? 'amber' : 'green') +
+    (simSalesWasted() > 0.05
+      ? fxLine(tt('salesWastedLbl'), simSalesWasted().toFixed(1) + ' ' + esc(tt('salesWastedPts')), 'red')
+      : '') +
     fxLine(tt('covExposed'), exp.exposed + ' / ' + slotsTotal, exp.exposed ? 'red' : 'green') +
     fxLine(tt('covRisky'), exp.risky + ' / ' + slotsTotal, exp.risky ? 'amber' : 'green') +
   '</div>';
