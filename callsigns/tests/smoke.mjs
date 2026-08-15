@@ -218,9 +218,18 @@ async function main(){
         const c = document.querySelector('#studio-coach');
         return !!c && c.textContent.trim().length > 0;
       })()`) === true);
-    // ...and it must not have stopped the clock to say it.
+    /* ...and it must not have stopped the clock to say it (producer condition
+       #7: onboarding is inline and non-blocking).
+
+       This read `typeof paused === 'undefined' || paused === false`. There is no
+       global named `paused` — the clock flag is `running` — so the first branch
+       was ALWAYS true and this assertion has never tested anything since the day
+       it was written. Same vacuous-assertion class CLAUDE.md documents from the
+       trivia packs. It now reads the real flag, so a change that holds the clock
+       through onboarding has to be an explicit decision rather than a silent
+       one. */
     assert('onboarding leaves the sim running (no auto-pause)',
-      await evaluate(`typeof paused === 'undefined' || paused === false`) === true);
+      await evaluate(`typeof running !== 'undefined' && running === true`) === true);
     const s0 = await evaluate(`({
       v: S.v, cash: S.cash, key: SAVE_KEY,
       stationsIsArray: Array.isArray(S.stations), stations: S.stations.length,
@@ -359,6 +368,33 @@ async function main(){
       condUi.hi100 && condUi.lo44, JSON.stringify(condUi));
     assert('the condition gauge names its cause and its destination',
       condUi.namesWear && condUi.namesTend && condUi.namesTarget, JSON.stringify(condUi));
+
+    /* ---- 3d. engineer value is priced, not zeroed ----
+
+       engineerWorth() compared { eng: null } vs { eng: id } — the v3 field —
+       while engIdsOf() prefers the v4 `engs` array. On a slot that already had
+       an engineer both branches were identical and the whole bench rendered
+       "−$0". Same v4 rename that broke readStation(). bestEngineerSlot() reads
+       this too, so every slot scored 0 and "best home in the empire" was
+       whichever slot got looked at first. */
+    const engVal = await evaluate(`(function(){
+      const st = S.stations[0];
+      const a = makePerson('eng', 8); a.skill = 8;
+      const b = makePerson('eng', 6); b.skill = 6;
+      S.staff.push(a, b);
+      setSlotEngineer(0, 'midday', a.id);          // seat one taken
+      const firstOnEmpty = engineerWorth(st, 'evening', b.id);   // empty slot
+      const secondOnTaken = engineerWorth(st, 'midday', b.id);   // marginal 2nd
+      const ownWorth = engineerWorth(st, 'midday', a.id);        // the incumbent
+      // Clean up so later assertions see the roster they expect.
+      setSlotEngineer(0, 'midday', null);
+      S.staff = S.staff.filter(p => p.id !== a.id && p.id !== b.id);
+      return { firstOnEmpty, secondOnTaken, ownWorth };
+    })()`);
+    assert('an engineer on an empty slot is worth more than $0',
+      engVal.firstOnEmpty > 0, JSON.stringify(engVal));
+    assert('a SECOND engineer is priced at the margin, not zeroed',
+      engVal.secondOnTaken > 0 && engVal.secondOnTaken < engVal.ownWorth, JSON.stringify(engVal));
 
     /* ---- 4. save persists ----
 

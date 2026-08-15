@@ -247,7 +247,8 @@ const UI_STR = {
   runwayDays: '{n}d left',
   runwayLots: 'healthy',
   warnRunway: '{n} days of cash left at this burn — cut costs or cover a better slot.',
-  warnBroke: 'Cash is past the floor. The next few days end the run.',
+  warnBroke: 'Closing on the floor at {floor}. A few more days like this and the run ends.',
+  warnRed: 'In the red — {amt} of room before the floor at {floor}.',
   warnExposed: '{n} slots are on air with nobody in the booth.',
   warnLoad: '{n} high-load slots have no engineer. Faults cost revenue AND reputation.',
   warnLease: 'Leases cost {amt}/day before a single ad sells.',
@@ -276,6 +277,7 @@ const UI_STR = {
   engNone: 'No engineer',
   engSteal: 'Putting {name} here pulls them off {call} {part}. One engineer, one daypart, whole empire.',
   onSlots: 'On {n} other slots today',
+  onSlotsNamed: 'Also on {list}',
   chemGood: 'good chemistry', chemBad: 'clashes',
   netDelta: '{amt}/day net',
   addWorth: 'Worth it here', addNotWorth: 'Costs more than it makes',
@@ -309,6 +311,7 @@ const UI_STR = {
   coach3: 'The lease is {amt} a day, paid whether you broadcast or not. That is the clock you are racing. The bar at the top of the screen tells you when it starts winning.',
   coach4: 'Extra co-hosts, and talk or news instead of music, raise a slot\'s LOAD. Load is what breaks transmitters, and a fault costs reputation in proportion to the load — not to the money. One engineer covers one daypart, across the whole empire.',
   coach4Btn: 'Hire an engineer',
+  coach4BtnAssign: 'Put an engineer on it',
   coach5: '{name} is on payroll but not assigned. Put them on the slot carrying the most load, which is usually not the slot making the most money.',
   coach5Btn: 'Open that slot',
   coach6: 'Morning drive happens at 6 AM on every station at once, and your people are one pool. The coverage grid is the only place you can see all of it.',
@@ -435,11 +438,27 @@ function slotNet(st, partId, ov, V){
 /** What an engineer of this skill is worth on this slot, per day. This is the
     crossover: it is quadratic in load and only linear in revenue, which is
     why the answer moves to the overnight news slot as the player loads it. */
+/** What this engineer is worth ON THIS SLOT, at the margin.
+
+    This compared { eng: null } against { eng: engId } — the v3 single-engineer
+    field. v4 moved to `engs`, and engIdsOf() prefers a non-empty `engs` array
+    over `eng`, so on any slot that ALREADY had an engineer both branches
+    evaluated identically and every engineer priced at exactly $0. A playtest
+    reported the whole bench labelled "−$0" and the second seat never justified
+    before the decision; this is why. It worked only on an empty slot, which is
+    the one case where the fallback to `eng` still fires.
+
+    Marginal against whoever is already on the booth, so the second seat is
+    priced as what it ADDS (ENG_WEIGHTS[1] = 0.45 of the first, by design)
+    rather than as a repeat of the first. bestEngineerSlot() reads this too, so
+    while it was broken every slot scored 0 and "the best home in the empire"
+    was simply the first slot it looked at. */
 function engineerWorth(st, partId, engId, V){
-  const cur = stSlot(st, partId);
+  const slot = stSlot(st, partId);
+  const others = engIdsOf(slot).filter(id => id !== engId);
   const v = (V === undefined) ? repValue() : V;
-  const withOut = slotNet(st, partId, { eng: null }, v);
-  const withEng = slotNet(st, partId, { eng: engId }, v);
+  const withOut = slotNet(st, partId, { engs: others }, v);
+  const withEng = slotNet(st, partId, { engs: others.concat([engId]).slice(0, uiMaxEng()) }, v);
   return withEng - withOut;
 }
 /** Best home in the WHOLE empire for a given engineer — the cross-station
@@ -679,8 +698,17 @@ function hudWarning(){
   const days = runwayDays();
   const exp = empireExposure();
   let w = null;
-  if (S.cash < 0) {
-    w = { cls: 'bad', ico: '🩸', txt: tt('warnBroke'), tab: 'studio' };
+  /* Two bands, because there is real distance between them. This fired the
+     run-is-ending warning at -$1 while the bankruptcy floor is -$4,000: a
+     playtest hit it, panicked, and recovered without doing anything. Crying
+     wolf at the top of a $4,000 runway teaches the player to ignore the one
+     warning that matters. Show the remaining room instead of a verdict. */
+  if (S.cash <= BANKRUPTCY_FLOOR / 2) {
+    w = { cls: 'bad', ico: '🩸', txt: tt('warnBroke', { floor: money(BANKRUPTCY_FLOOR) }), tab: 'studio' };
+  } else if (S.cash < 0) {
+    w = { cls: 'warn', ico: '🩸',
+          txt: tt('warnRed', { amt: money(S.cash - BANKRUPTCY_FLOOR), floor: money(BANKRUPTCY_FLOOR) }),
+          tab: 'studio' };
   } else if (Number.isFinite(days) && days <= 4) {
     w = { cls: 'bad', ico: '⚠️', txt: tt('warnRunway', { n: Math.floor(days) }), tab: 'studio' };
   } else if (exp.exposed > 0) {
@@ -865,13 +893,34 @@ const COACH = [
   },
   {
     id: 'load',
-    when: () => !staffOf('eng').length &&
-                allStations().some(st => DAYPARTS.some(p => {
+    /* Fires on an UNCOVERED heavy slot, not on an empty payroll.
+
+       This used to require `!staffOf('eng').length`, so a player who hired an
+       engineer early could never see it — and this is the only place in the
+       game that explains load -> fault -> reputation -> ad rate. A blind
+       playtest hired one on day 16, spent 120 days taking four-figure fault
+       hits with no idea why, and was finally told on the death screen.
+
+       The lesson is about the SLOT, so the trigger is a heavy slot with nobody
+       on the rack. That fires whether or not anyone is on payroll, and stops
+       the moment the slot is actually covered. */
+    when: () => allStations().some(st => DAYPARTS.some(p => {
                   const sl = stSlot(st, p.id);
-                  return slotDjs(sl).length > 1 || showTech(sl.show) >= 0.35;
+                  const heavy = slotDjs(sl).length > 1 || showTech(sl.show) >= 0.35;
+                  return heavy && !slotEngs(sl).length;
                 })),
     text: () => tt('coach4'),
-    btn:  () => ({ label: tt('coach4Btn'), run: () => setTab('staff') })
+    // Hiring is only the answer when there is nobody to assign. With an
+    // engineer already on payroll the fix is a slot away, so send them there.
+    btn:  () => {
+      const eng = staffOf('eng')[0];
+      if (!eng) return { label: tt('coach4Btn'), run: () => setTab('staff') };
+      const best = bestEngineerSlot(eng.id);
+      return {
+        label: tt('coach4BtnAssign'),
+        run: () => { if (best) { setStation(best.idx); openSlotEditor(best.idx, best.part); } else setTab('staff'); }
+      };
+    }
   },
   {
     id: 'engineer',
@@ -896,16 +945,32 @@ const COACH = [
   }
 ];
 
+/* An acknowledge-only step must never BLOCK the ones behind it.
+
+   This returned the first ready step in order, and step 3 ('lease') is
+   `ack: true` with `when: S.staff.length > 0` — permanently true the moment the
+   player hires anybody. So it sat on screen until clicked and every later step
+   queued behind it: a blind playtest carried it from day 26 to day 139 and was
+   never taught load, engineer assignment or the empire tab. The steps that
+   TEACH AN ACTION are the ones with a deadline; a standing note about the lease
+   can wait for a quiet moment.
+
+   So: show the first ready actionable step if there is one, and let the
+   informational steps fill the gaps. They stay pending, in order, and still get
+   their turn — just never in front of something the player needs now. */
 function coachStep(){
   if (!S) return null;
+  let firstAck = null;
   for (let i = 0; i < COACH.length; i++) {
     const c = COACH[i];
     if (coachDone[c.id]) continue;
     let on = false;
     try { on = !!c.when(); } catch (e) { on = false; }
-    if (on) return { c, n: i + 1 };
+    if (!on) continue;
+    if (c.ack) { if (!firstAck) firstAck = { c, n: i + 1 }; continue; }
+    return { c, n: i + 1 };
   }
-  return null;
+  return firstAck;
 }
 /** Acknowledge-only steps are dismissed by the player; the rest disappear on
     their own the moment the state they describe changes. Both write the same
@@ -1349,6 +1414,24 @@ function flySpend(fromSel, amount){
   const from = typeof fromSel === 'string' ? document.querySelector(fromSel) : fromSel;
   const to = $('stat-cash');
   if (from && to) fxFly(from, to, '−' + money(amount), 'spend');
+}
+
+/** Where else this person is working today, BY NAME.
+
+    The slot editor printed "On 3 other slots today" — a count, from a list that
+    has always carried the callsign and the daypart (see bookingsOf below). The
+    player's actual question is "which ones, so I can decide what to move", and
+    the string that answers it, coHostElsewhere, was authored in content.js in v3
+    and never had a call site. One booking gets the full sentence; several get a
+    compact list, because four clauses in a row is worse than a count. */
+function bookingSummary(others){
+  if (!others.length) return '';
+  if (others.length === 1) {
+    return tt('coHostElsewhere', { call: others[0].call, part: partLabel(others[0].part) });
+  }
+  return tt('onSlotsNamed', {
+    list: others.map(b => b.call + ' ' + partLabel(b.part)).join(', ')
+  });
 }
 
 function bookingsOf(id){
@@ -1988,7 +2071,7 @@ function openSlotEditor(stIdx, partId, redraw){
           '<div class="row-sub">' + esc(t('skill', { n: p.skill })) +
             (fat < 0.999 ? ' · <span style="color:var(--red);font-weight:700">' +
                esc(t('tired', { n: Math.round((1 - fat) * 100) })) + '</span>' : '') +
-            (others.length ? ' · ' + esc(tt('onSlots', { n: others.length })) : '') +
+            (others.length ? ' · ' + esc(bookingSummary(others)) : '') +
           '</div>' +
         '</div>' +
         '<div class="row-act" style="flex-direction:row;align-items:center">' +
@@ -2049,7 +2132,7 @@ function openSlotEditor(stIdx, partId, redraw){
         '<div class="row-body">' +
           '<div class="row-title">' + esc(p.name) + '</div>' +
           '<div class="row-sub">' + esc(t('skill', { n: p.skill })) + chemTag +
-            (others.length ? ' · ' + esc(tt('onSlots', { n: others.length })) : '') + '</div>' +
+            (others.length ? ' · ' + esc(bookingSummary(others)) : '') + '</div>' +
           // The on-air style, from content.js's tagInfo(). It is the reason
           // two skill-6 hosts are not interchangeable, so it belongs on the
           // row where you choose between them.
