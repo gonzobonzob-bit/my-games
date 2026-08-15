@@ -40,9 +40,16 @@ const MAX_SPECTATORS = 20;
 
 /* Biggest voice signalling payload the room will forward. An SDP offer with a
  * handful of ICE candidates runs a few kB; a candidate is a few hundred bytes.
- * The cap is not about protocol correctness — the room never parses these —
- * it is what stops a player using the relay as a private broadcast channel to
- * push megabytes at another player through infrastructure we pay for. */
+ * The cap is not about protocol correctness — the room never parses these.
+ *
+ * Be honest about what it does and does not buy: it bounds ONE message, not a
+ * burst. Measured, a single client pushed 30 at-cap payloads — 469 kB — through
+ * a room in half a second, and this cap did nothing about it; it only shaped
+ * the packets. It is not throttled on purpose, because ICE legitimately arrives
+ * in bursts and a mesh of eight is seven of those at once, so a floor tight
+ * enough to matter would break real calls. The real limits are that this is
+ * point-to-point rather than fan-out, and that both ends are already in a room
+ * together. */
 const VOICE_SIGNAL_MAX = 16384;
 
 const QUESTION_COUNT = 10;
@@ -242,7 +249,9 @@ export class Room {
         connectedAt: Date.now(),
         lang: sanitizeLang(url.searchParams.get('lang')),
         voiceOn: false, // mic is off until the player asks for it, never on join
-        hostMuted: false,
+        // A fresh record for a name the host has muted is still muted: in the
+        // lobby this IS the reconnect path, because the old record was pruned.
+        hostMuted: g.mutedKeys.indexOf(key) >= 0,
       };
       g.players[player.id] = player;
     } else {
@@ -255,6 +264,9 @@ export class Room {
       // deliberately NOT reset: it is the host's decision about this player,
       // and clearing it would make reload a way to dodge a mute.
       player.voiceOn = false;
+      // The register is the authority, not the surviving record — they agree
+      // in the in-game case and the register is the one that cannot be pruned.
+      player.hostMuted = g.mutedKeys.indexOf(key) >= 0;
     }
 
     // First player in is host; also covers the case where the stored host is
@@ -376,7 +388,10 @@ export class Room {
         // a mic tap, `muted` to the host clicking mute. Anything that reacts
         // to correctness — a streak, an elimination — is an answer oracle in
         // this frame and belongs in doReveal() instead. Do not add one here.
-        voice: p.voiceOn === true,   // advisory: their mic is live
+        // Gated on `connected` as well: voiceOn is only cleared when a player
+        // comes BACK, so someone who drops with their mic open would otherwise
+        // keep a live-mic indicator lit for as long as they stay away.
+        voice: p.voiceOn === true && connected.has(p.id), // advisory
         muted: p.hostMuted === true, // authoritative, but enforced receiver-side
       }));
   }
@@ -585,6 +600,12 @@ export class Room {
     // person can see what is about to be played is a dead screen for the rest.
     this.broadcast({ type: 'settings', settings: g.settings });
     if (voiceCleared) this.broadcastRoster();
+    // The one mutator that never told the directory. Without it the landing
+    // screen advertises the voice state (and genre, and difficulty) the room
+    // had when somebody last joined or left, which in the case of voice is
+    // exactly backwards from the reason it is in the listing at all: to be
+    // read BEFORE you commit a microphone to a room full of strangers.
+    this.reportToLobby();
   }
 
   /* "List publicly" — DEFAULT OFF, and the default is the security model:
@@ -852,7 +873,19 @@ export class Room {
     const p = g.players[me.id];
     if (!p || p.voiceOn === on) return;
     p.voiceOn = on;
-    await this.save();
+    /* Deliberately NOT saved. A live mic is session state, not room state —
+       the rejoin path clears it on principle, so persisting it buys nothing
+       and cost a storage write per flip. If the object is evicted mid-call,
+       every client re-states its own mic on the next change.
+
+       That removes the durable half of a measured amplifier: 60 alternating
+       frames (1.9 kB in) produced 59 roster broadcasts AND 59 writes of the
+       whole game object. The broadcasts remain, and are left alone on
+       purpose. A rate floor was tried and reverted — it drops flips, and a
+       dropped flip leaves a mic live with no indicator lit anywhere, which is
+       a worse failure than the fan-out it prevents. What is left is the same
+       exposure `onLang` has carried all along, bounded by a room of 8 players
+       and 20 spectators. */
     this.broadcastRoster();
   }
 
@@ -880,6 +913,11 @@ export class Room {
     const on = data.on === true;
     if (!target || target.hostMuted === on) return;
     target.hostMuted = on;
+    // Mirrored into the register that outlives the record. Both are kept in
+    // step here so every other site can keep reading the player field.
+    const at = g.mutedKeys.indexOf(target.key);
+    if (on && at < 0) g.mutedKeys.push(target.key);
+    if (!on && at >= 0) g.mutedKeys.splice(at, 1);
     await this.save();
     this.broadcastRoster();
   }
@@ -1042,7 +1080,10 @@ export class Room {
       if (candidates.length) g.hostId = candidates[0].id;
     }
 
-    // In the lobby a dropped player has nothing worth preserving.
+    // In the lobby a dropped player has nothing worth preserving — except a
+    // host mute, which is why g.mutedKeys exists outside the player record.
+    // Deleting the record here is what made reconnecting a mute dodge in the
+    // lobby, which is precisely where people are talking before a game starts.
     if (g.phase === 'lobby') {
       for (const pid of Object.keys(g.players)) {
         if (!connected.has(pid)) delete g.players[pid];
@@ -1322,6 +1363,12 @@ function freshGame() {
     settings: sanitizeSettings(null),
     // Texts used recently, so a second game in the same room is not a rerun.
     recentTexts: [],
+    /* Host mutes, keyed by name-key rather than player id, because a player
+       record does not outlive a lobby disconnect and a mute has to. Keyed by
+       the same lowercased name the rejoin path matches on, so "the person
+       called Cal" stays muted across a reload, a new id, or a room that
+       emptied and refilled. The host clears it; nothing else does. */
+    mutedKeys: [],
   };
 }
 
@@ -1509,6 +1556,12 @@ function normalizeGame(g) {
   } else {
     g.players = {};
   }
+  // Rooms saved before host mutes outlived a player record come back without
+  // this. Strings only: it is compared against a name key, and anything else
+  // in there could only ever match nobody.
+  g.mutedKeys = Array.isArray(g.mutedKeys)
+    ? g.mutedKeys.filter((k) => typeof k === 'string')
+    : [];
   return g;
 }
 
