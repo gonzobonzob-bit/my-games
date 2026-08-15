@@ -639,6 +639,24 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   transition:transform var(--d-state) var(--ease-snap),
              box-shadow var(--d-state) var(--ease-out-soft);
 }
+/* Language reads as a word, not a swatch — a colour cannot say "Spanish".
+   Same bar idiom as the theme dots, and the same 44px touch floor the voice
+   dock established, since this sits on the first screen a phone ever sees. */
+.lang-pill{
+  min-width:44px; min-height:44px; padding:0 var(--sp-3);
+  border-radius:var(--r-pill); border:1px solid var(--hair-strong);
+  background:transparent; color:var(--ink-200); cursor:pointer;
+  font-family:var(--font-num); font-size:12px; font-weight:700;
+  letter-spacing:.04em;
+  transition:transform var(--d-state) var(--ease-snap),
+             box-shadow var(--d-state) var(--ease-out-soft),
+             color var(--d-state) var(--ease-out-soft);
+}
+.lang-pill:hover{ transform:scale(1.06); color:var(--ink-50); }
+.lang-pill[aria-checked="true"]{
+  color:var(--ink-950); background:var(--amber);
+  box-shadow:0 0 0 2px var(--ink-900), 0 0 0 4px var(--amber);
+}
 .theme-dot:hover{ transform:scale(1.12); }
 .theme-dot[aria-checked="true"]{
   box-shadow:0 0 0 2px var(--ink-900), 0 0 0 4px var(--amber);
@@ -1583,6 +1601,14 @@ button.vchip:hover{ border-color:var(--hair-strong); }
         </div>
         <p class="field-note" id="joinNote">A room is just a link. Share it and people land straight in.</p>
       </form>
+      <!-- Language before Look, because it words the Look labels. The HUD is
+           display:none on this screen, so without this pair the landing has no
+           language control at all and a Spanish reader cannot switch until
+           they are already inside a room. -->
+      <div class="themebar" id="langBar">
+        <span class="micro themebar-k" id="langBarLabel">Language</span>
+        <div class="themebar-opts" id="langOpts" role="radiogroup" aria-labelledby="langBarLabel"></div>
+      </div>
       <div class="themebar" id="themeBar">
         <span class="micro themebar-k" id="themeBarLabel">Look</span>
         <div class="themebar-opts" id="themeOpts" role="radiogroup" aria-labelledby="themeBarLabel"></div>
@@ -1798,7 +1824,7 @@ button.vchip:hover{ border-color:var(--hair-strong); }
       noLeaveLive: 'The round is live — you can leave between rounds.',
       cantJoin: 'Could not join that room — it may be full, already on air, or the code may be wrong.',
       watchInstead: 'Watch instead', changeRoom: 'Change room',
-      look: 'Look', themeNamed: 'Theme: #',
+      look: 'Look', language: 'Language', themeNamed: 'Theme: #',
       themeStudio: 'Studio Classic', themeMarquee: 'Marquee Night',
       themeDrift: 'Signal Drift', themeDaybreak: 'Daybreak',
       themeDeadair: 'Dead Air',
@@ -1863,7 +1889,7 @@ button.vchip:hover{ border-color:var(--hair-strong); }
       noLeaveLive: 'La ronda está en directo — puedes salir entre rondas.',
       cantJoin: 'No se pudo entrar en esa sala — puede estar llena, ya en el aire, o el código puede estar mal.',
       watchInstead: 'Ver como espectador', changeRoom: 'Cambiar de sala',
-      look: 'Estilo', themeNamed: 'Tema: #',
+      look: 'Estilo', language: 'Idioma', themeNamed: 'Tema: #',
       themeStudio: 'Estudio clásico', themeMarquee: 'Noche de marquesina',
       themeDrift: 'Deriva de señal', themeDaybreak: 'Amanecer',
       themeDeadair: 'Aire muerto',
@@ -2034,6 +2060,7 @@ button.vchip:hover{ border-color:var(--hair-strong); }
       elCatChip = $('catChip'), elCatCap = $('catCap'), elCatText = $('catText'), elCatDiff = $('catDiff'),
       elLangBtn = $('langBtn'), elLangLabel = $('langLabel'),
       elThemeBtn = $('themeBtn'), elThemeLabel = $('themeLabel'),
+      elLangOpts = $('langOpts'), elLangBarLabel = $('langBarLabel'),
       elThemeOpts = $('themeOpts'), elThemeBarLabel = $('themeBarLabel'),
       elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
       elDiffSlot = $('diffSlot'), elDiffVal = $('diffVal'),
@@ -2289,11 +2316,51 @@ button.vchip:hover{ border-color:var(--hair-strong); }
   paintSound();
   paintLang();
   paintTheme();
+  /* Both language controls go through here, so the HUD chip and the landing
+     bar cannot drift apart. The chip CYCLES (one chip, no room for a set) and
+     the bar SELECTS (it shows every option), which is the only difference
+     between them and the reason the bar takes an explicit target. */
+  function setLang(next) {
+    if (LANGS.indexOf(next) < 0 || next === lang) return;
+    lang = next;
+    try { localStorage.setItem('ls:lang', lang); } catch (e) {}
+    paintLang();
+    // Tell the server, so it knows whether this room needs bilingual questions.
+    send({ type: 'lang', lang: lang });
+    // Re-render whatever is on screen right now. Switching language mid-question
+    // is legal precisely because every language is already on the wire.
+    if (state.question && curScreen === 'play') renderQuestion(state.question);
+    if (curScreen === 'lobby') paintCallSheet();
+  }
+
   function paintLang() {
     if (elLangLabel) elLangLabel.textContent = lang.toUpperCase();
     if (elLangBtn) {
       elLangBtn.setAttribute('aria-label',
         lang === 'es' ? 'Idioma: español. Cambiar a inglés.' : 'Language: English. Switch to Spanish.');
+    }
+    if (elLangBarLabel) elLangBarLabel.textContent = T('language');
+    if (elLangOpts) {
+      if (!elLangOpts.childNodes.length) {
+        for (var i = 0; i < LANGS.length; i++) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'lang-pill';
+          b.setAttribute('role', 'radio');
+          b.setAttribute('data-lang', LANGS[i]);
+          b.textContent = LANGS[i].toUpperCase();
+          elLangOpts.appendChild(b);
+        }
+      }
+      var pills = elLangOpts.querySelectorAll('.lang-pill');
+      for (var j = 0; j < pills.length; j++) {
+        var l = pills[j].getAttribute('data-lang');
+        pills[j].setAttribute('aria-checked', l === lang ? 'true' : 'false');
+        // Each option names itself IN ITS OWN LANGUAGE — the whole point of the
+        // control is to be found by somebody who cannot read the current one.
+        pills[j].setAttribute('aria-label', l === 'es' ? 'Español' : 'English');
+        pills[j].setAttribute('title', l === 'es' ? 'Español' : 'English');
+      }
     }
     document.documentElement.setAttribute('lang', lang);
     paintStatic();
@@ -2335,16 +2402,11 @@ button.vchip:hover{ border-color:var(--hair-strong); }
     if (curScreen === 'lobby') renderLobby();
   }
 
-  on(elLangBtn, 'click', function () {
-    lang = cycle(LANGS, lang, 1);
-    try { localStorage.setItem('ls:lang', lang); } catch (e) {}
-    paintLang();
-    // Tell the server, so it knows whether this room needs bilingual questions.
-    send({ type: 'lang', lang: lang });
-    // Re-render whatever is on screen right now. Switching language mid-question
-    // is legal precisely because every language is already on the wire.
-    if (state.question && curScreen === 'play') renderQuestion(state.question);
-    if (curScreen === 'lobby') paintCallSheet();
+  on(elLangBtn, 'click', function () { setLang(cycle(LANGS, lang, 1)); });
+
+  on(elLangOpts, 'click', function (ev) {
+    var pill = ev.target && ev.target.closest ? ev.target.closest('.lang-pill') : null;
+    if (pill) setLang(pill.getAttribute('data-lang'));
   });
 
   on(elSoundBtn, 'click', function () {
