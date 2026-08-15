@@ -17,6 +17,17 @@
 //   - Event pool expanded to 20, every one writing only to cash / rep / buzz,
 //     because those three fields exist in the v2 and v3 state shapes both.
 //
+// Bays-and-rooms content pass (DESIGN_PROOF_ROOMS.md). What landed here:
+//   - BAY_LEASE, the empire-wide building ladder, paid empty.
+//   - ROOM_TYPES: five rooms, all serves:['radio'], keyed on ROLE fit and never
+//     on skill rank (everyone is skill 10 by hour 2 — §5 defect B).
+//   - STR.en.room[id] carrying each room's ceiling line, stamped onto the table
+//     the same way SEGMENTS is, so the two cannot drift.
+//   - The §7 readouts: ceiling, wasted points, seat cost, bay-purchase preview,
+//     the Green Room warning, and causeOverbuilt.
+// MAX_BAYS, ROOM_SEATS and roomPower() are sim.js's; nothing here duplicates
+// them, for the reason in house rule 2 below.
+//
 // TWO HOUSE RULES THIS FILE IS HELD TO, both learned off the vault's repeat
 // failure mode (copy that lies):
 //   1. Every number in a string is checked against the code that produces it.
@@ -260,6 +271,88 @@ const STR = {
     uncovered: 'Uncovered today', uncoveredNone: 'Every slot has a voice on it.',
     uncoveredSlot: '{call} {part} — automation',
 
+    /* ---- v7: bays and rooms (DESIGN_PROOF_ROOMS.md §7) ----
+       This game has twice shipped a mechanic nobody could see — rival capacity
+       rendered a static constant for a whole version, and signal condition
+       needed a gauge retrofitted. These keys are the nine readouts the proof
+       names, written before the screen exists so they cannot be dropped as
+       clutter later.
+
+       Variables each key expects, so ui.js never has to guess:
+         bayLine {n},{amt}             bayBuy {n},{amt}
+         bayBuyValue {ret}             bayBuyThin {n},{amt},{ret}
+         bayLocked {rep},{cash}        bayEmpty {amt}
+         roomHead {room},{call}        roomPts {pts},{cap}
+         roomWaste {pts},{cap},{waste} roomHeadroom {n}
+         roomSeats {n},{max}           roomMargin {amt}
+         seatLine {name},{n},{total}   seatCost {attn},{call},{fat}
+         seatDiluted {n}               seatEngWarn {call}
+         greenWarn {name}              briefBayLease {amt}
+         briefRooms {amt},{cost}       briefBaysIdle {n},{amt}
+         goalBay {amt}
+         room.<id>.ceiling — its own variable list is on the table below.
+       Amounts arrive already formatted by ui.js's money helper, as everywhere
+       else in this file; {pts}/{cap}/{waste} are one-decimal point figures. */
+    bayTitle: 'Building Programme',
+    baySub: 'Six bays for the whole empire, not six per signal. One room to a bay, and the room works on one callsign.',
+    // The thesis of the whole feature, in one line, on the screen where it is
+    // about to be got wrong. Everything else here is detail underneath it.
+    bayThesis: 'A room only pays out of people you were not already using. Seat someone who is on the air and you have moved them, not multiplied them.',
+    bayMatrixNote: 'Every bay against every signal, one grid. A room is a bay pointed at a callsign.',
+    // For nextGoal(), if ui.js wants a rung between "found a station" and the
+    // end of the ladder. Names the cost, because the lease is the price.
+    goalBay: 'A bay is affordable — {amt}/day, one room, one signal (Building)',
+    bayNone: 'No bays. Everything you own is on the air and nothing is standing behind it.',
+    bayLine: 'Bay {n} — {amt}/day',
+    bayEmpty: 'Empty bay — {amt}/day',
+    // The whole trap in one sentence, said where the money leaves.
+    bayEmptyNote: 'Due every morning whether the bay holds a room, and whether the room holds a person.',
+    bayBuy: 'Buy bay {n} — {amt}/day, from tomorrow on',
+    bayBuyValue: 'Best room you could put in it returns about {ret}/day at today\'s ceilings.',
+    // Fires when lease > return. The gear ladder was an invisible trap until the
+    // wear preview landed; this is that preview, for bays.
+    bayBuyThin: '{amt}/day of lease against {ret}/day of room. Bay {n} loses money until a ceiling rises.',
+    bayLocked: 'Bays open at {rep} reputation with {cash} in the bank.',
+    bayCapped: 'Six bays is the whole programme. What is left to change is who sits in them.',
+    bayLeaseLbl: 'Bay leases',
+
+    roomLbl: 'Room', roomAssign: 'Put a room in this bay', roomOn: 'On {call}',
+    roomMove: 'Move to another signal', roomClear: 'Strip the bay',
+    roomDup: 'This signal already has one. One of each per callsign.',
+    roomHead: '{room} — {call}',
+    roomPts: '{pts} / {cap} pts',
+    // THE readout. Points above the ceiling are worth zero dollars — not fewer
+    // dollars — and this line is the only thing standing between the player and
+    // "hire more, stuff every room". ui.js strikes the overshoot through.
+    roomWaste: '{pts} / {cap} pts — {waste} wasted',
+    roomWasteNote: 'Points past the ceiling earn nothing. Not less — nothing. The salaries are still due.',
+    roomHeadroom: '{n} points of headroom before this room stops paying.',
+    roomAtCeiling: 'At the ceiling. The next person in here is payroll and nothing else.',
+    roomMargin: 'Next point ≈ +{amt}/day',
+    roomMarginNone: 'Next point ≈ nothing. Raise the ceiling or move the people.',
+    roomEmpty: 'Nobody seated. The bay bills anyway.',
+    roomCeilingLbl: 'Ceiling', roomSeatsLbl: 'Seats', roomSeats: '{n} of {max} seats',
+    roomFitLbl: 'Seat value by role',
+    // Defect B, stated as copy: everyone is skill 10 eventually, so the decision
+    // is role and ceiling, never "who is best".
+    roomFitNote: 'Role decides what a seat is worth here, not skill. Everybody trains to ten in the end; nobody changes what they are.',
+
+    seatAdd: 'Seat someone', seatDrop: 'Stand them down',
+    seatLine: '{name} · {n} of {total} assignments',
+    seatCost: '−{attn} attn on {call} · fatigue {fat}',
+    seatSurplus: 'On no slot anywhere. This seat costs the air nothing.',
+    seatDiluted: 'Already on {n} slots. What they bring in here, they stop bringing out there.',
+    seatNote: 'A room seat is an assignment exactly like a slot. Spread over three, a person brings a third of themselves to each.',
+    // The specific trap in §3: diluting the engineer to build the room that
+    // protects the plant can leave condition lower than it started.
+    seatEngWarn: 'This is the engineer tending {call}. Seat them and attention there falls — condition can end up worse than before the bay was built.',
+    // Readout #9, and it names the same person twice on purpose.
+    greenWarn: 'Seating {name} here adds to {name}\'s own load. This room exists to cut fatigue, and the first fatigue it adds is theirs.',
+
+    briefBayLease: 'Bay leases {amt}/day',
+    briefRooms: 'Rooms returned {amt} against {cost} of bay lease.',
+    briefBaysIdle: '{n} bays stood empty. {amt} out, nothing back.',
+
     logTitle: 'Station Log', noLog: 'Nothing logged yet.',
 
     paused: 'Paused', resume: 'Resume', save: 'Save', mainMenu: 'Main Menu',
@@ -305,6 +398,10 @@ const STR = {
     // every one of these is a cause the simulation can actually produce. Do not
     // add an entry here that no state can trigger.
     causeOverExpanded: 'You were paying lease on {n} signals and covering the slots on one of them.',
+    // Sited after causeOverExpanded and before causeAdsOnly in the branch order
+    // (DESIGN_PROOF_ROOMS.md §4). {n} is bays owned, {k} is rooms with anyone
+    // actually sitting in them.
+    causeOverbuilt: 'You were paying for {n} bays and staffing {k}. An empty room bills every morning and bills back nothing.',
     causeTalentThin: '{n} people against {slots} slots. Most of the empire aired automation at a third quality while you paid full lease for the privilege.',
     causeGearHeavy: 'The transmitter ladder ran three tiers ahead of the billing. Reach you cannot sell is just a bigger lease.',
     causeAdsOnly: 'The log was full and the reputation was gone. Paid programming pays today and closes every gear tier you had left.',
@@ -357,6 +454,53 @@ const STR = {
         blurb: 'A reserved-band licence, a student board op learning live on the air, and the best Thursday night in the market. Daytime is nearly empty.',
         taste: 'The strongest music pull in the game and the weakest tolerance for ads.',
         rule: 'No house rule. The cheapest lease you will ever sign.'
+      }
+    },
+
+    /* Room copy. Same idiom as `seg` above: names and blurbs live here and are
+       stamped onto the ROOM_TYPES rows at load, so localization edits one file
+       and the two can never drift.
+
+       `ceiling` is the line the whole feature stands on. Every room's output has
+       a ceiling set by state the player chose, and a point above it is worth
+       EXACTLY zero dollars — so each ceiling line names the state that sets it,
+       in the player's own terms, and says what happens at the wrong end of it.
+       Variables, by room:
+         sales   {rep},{cap}      maint  {tx},{ant}
+         green   {n}              news   {n},{call}      library {n},{call}
+       Newsroom and Record Library are deliberately written as mirror images:
+       their supports are disjoint, and reading the two lines side by side is
+       how a player learns that no fixed room order is right. */
+    room: {
+      sales: {
+        name: 'Sales Floor',
+        blurb: 'Desks, a rate card and a phone list. Fills more of this signal\'s log and holds the rate on what is in it.',
+        ceiling: 'Ceiling set by reputation {rep}: {cap} points. Nobody sells premium airtime for a signal they have never heard of.',
+        zero: 'At the ceiling another seller moves the fill and the rate by nothing at all.'
+      },
+      maint: {
+        name: 'Maintenance Bay',
+        blurb: 'Spare modules on the shelf and somebody who drives to the site before it fails. Cuts the wear your transmitter and antenna cause, and only that.',
+        ceiling: 'Ceiling set by the plant you own: {tx} on a {ant}. It cuts gear wear only — a Part 15 rig with a whip on it has none to cut.',
+        zero: 'Worth exactly zero until you buy a transmitter or an antenna worth protecting.'
+      },
+      green: {
+        name: 'Green Room',
+        blurb: 'A couch, a door that shuts, and coffee somebody actually replaces. Softens what a second and third shift do to a host on this signal.',
+        ceiling: 'Ceiling set by your own rota: {n} of your people work more than one slot. Nobody doubled up, nothing here to undo.',
+        zero: 'A rota with no doubles gets nothing from this room. Neither does a seat filled by someone already on the air.'
+      },
+      news: {
+        name: 'Newsroom',
+        blurb: 'A scanner, two phone lines and someone making calls at five in the morning. Lifts the talk and news hours on this signal and touches nothing else.',
+        ceiling: 'Ceiling set by the schedule: {n} talk or news slots on {call}. An all-music day gets nothing from this room.',
+        zero: 'Nothing here reaches a record. Change the schedule or move the bay.'
+      },
+      library: {
+        name: 'Record Library',
+        blurb: 'Everything catalogued, cleared and logged the way the rights people want it. Cuts what this signal\'s music hours cost in performing rights.',
+        ceiling: 'Ceiling set by the schedule: {n} music slots on {call}. An all-talk day pays no royalties for this room to cut.',
+        zero: 'Talk and news never paid performing rights. There is no bill here to shrink.'
       }
     }
   }
@@ -440,6 +584,27 @@ const ANT = [
    60 + 900 + 400 = $1,360/day. */
 const TX_LEASE  = [0, 40, 120, 340, 900];
 const ANT_LEASE = [0, 18,  55, 150, 400];
+
+/* ---- BAY_LEASE: the building programme's ladder (DESIGN_PROOF_ROOMS.md §1) ----
+   $/day for the Nth bay, empire-wide, PAID EMPTY. Index 0 is bay 1. Deliberately
+   the same shape as TX_LEASE — a ladder DESIGN.md already validated as
+   non-dominant — and the build cost is a small one-off because the lease is the
+   price. Bay 6 at $6,000/day against the empire's ~$45,000/day gross ceiling is
+   a genuinely dangerous buy, which is the point: this ladder has to be able to
+   end a run or it is a shopping list.
+
+   The binding condition the balance harness owns (§6): bay N's lease must EXCEED
+   the best available marginal room's value at the median hour-3 state. At that
+   state the best room is the Record Library at roughly $111/day on a $9,000/day
+   flagship, so bay 4 at $900/day is a losing buy until a ceiling rises. If a
+   retune ever makes bay N cheap enough to buy on reflex, bayBuyThin in STR stops
+   being able to fire and the ladder has gone quiet.
+
+   MAX_BAYS and ROOM_SEATS are sim.js's constants and are deliberately NOT
+   declared here — classic scripts share one top-level scope, and a duplicate
+   `const` is a parse error for the whole game (see the house rules at the top of
+   this file). The cap is this array's length; sim.js's MAX_BAYS must equal 6. */
+const BAY_LEASE = [40, 120, 340, 900, 2400, 6000];
 
 const DAYPARTS = [
   { id: 'morning', icon: '🌅', weight: 1.35 },
@@ -650,6 +815,110 @@ function segName(id){ return (SEGMENTS[id] && SEGMENTS[id].name) || id; }
 function segBlurb(id){ return (SEGMENTS[id] && SEGMENTS[id].blurb) || ''; }
 function segTaste(id){ return (SEGMENTS[id] && SEGMENTS[id].taste) || ''; }
 function segRuleText(id){ return (SEGMENTS[id] && SEGMENTS[id].rule) || ''; }
+
+/* ============================================================
+   ROOM_TYPES — what a bay can hold (DESIGN_PROOF_ROOMS.md §1)
+   ============================================================
+   A bay is a purchasable slot in the empire's building programme; the room in
+   it lands its effect on ONE station. Read by sim.js through roomPower():
+
+       roomPower(r) = Σ over p in r.staff of  fit[r.type][p.role] · p.skill / load[p.id]
+
+   `load` is the map staffSlotLoad() already builds once a day for stationAttn(),
+   and a room seat counts in it exactly like a daypart slot. That is the entire
+   integration: no new scarcity invented, the existing one deepened. A person on
+   two slots plus one room has load 3 and brings a third of themselves to each,
+   so a room is NET-NEGATIVE on the air unless it is staffed out of genuine
+   surplus. That sign is correct and it is the mechanic.
+
+   ROW SHAPE, every field present on every row:
+     name, blurb  — stamped from STR.en.room[id] at load, same as SEGMENTS
+     icon         — a category marker, never a reaction
+     serves       — which media this room can be built for. sim.js joins it
+                    against segmentOf(st.segment).medium and NOTHING branches on
+                    the literal string 'radio'. This is the first consumer the
+                    `medium` tag has ever had; it is what makes a future venue or
+                    stage three content rows instead of a second assignment
+                    system. ALL FIVE ROWS ARE serves:['radio'] AND NOTHING ELSE —
+                    adding a non-radio row now is the scope breach CONTRACT.md
+                    already forbids for SEGMENTS.
+     fit          — per-ROLE multiplier on a seated person's skill. Keyed on role
+                    and never on rank: trainCostFor() makes a full 1->10 ladder
+                    $39,636 against six figures of late-game cash, so everyone is
+                    skill 10 by hour 2 and THERE IS NO BEST PERSON. Any room
+                    mechanic whose decision is "put your best staffer in the best
+                    room" is dead on arrival (§5, defect B). Role fit, ceilings
+                    and the load divisor are the whole decision.
+
+   THE CEILINGS, which are what the player is actually solving for. A point above
+   the ceiling is worth EXACTLY ZERO DOLLARS, and every ceiling is set by state
+   the player chose rather than bought:
+     Sales Floor      rep       cap = max((fillCap-0.50)/0.040, (priceCap-1)/0.030)
+                                at rep 20 that is 3.25 points — ONE skill-3 seller
+                                saturates the first bay you ever buy
+     Maintenance Bay  gear      cuts the gear term of stationWear() only; at
+                                tx=ant=0 that term is 1 for every value of the
+                                cut, so the room is arithmetically worth zero
+     Green Room       rota      nothing to shrink if nobody is double-booked
+     Newsroom         schedule  talk/news slots only
+     Record Library   schedule  music slots only
+   Newsroom and Record Library have DISJOINT supports: the schedule that makes
+   one worth 2.5-7% of revenue makes the other worth exactly nothing. That zero
+   is structural, not numeric — no retune of any constant can produce a fixed
+   room priority list, which is the non-constancy the design gate demands.
+
+   FIVE ROOMS. Not six. A sixth row is a scope decision, not a content one.
+
+   NOTHING HERE READS CASH, REVENUE, PAYROLL OR ANY COST, and nothing may. The
+   day a ceiling learns what the player earns, the game is solved — the Purr &
+   Power self-reference trap CLAUDE.md rule 1 exists to prevent. */
+const ROOM_TYPES = {
+  // Sales is the one role in the game with no opportunity cost today. Fit 1.00
+  // for sales, 0.55 for a DJ (a host who can sell is real and is second-best),
+  // 0.20 for an engineer, who would rather be anywhere else.
+  sales:   { icon: '📈', serves: ['radio'], fit: { dj: 0.55, eng: 0.20, sales: 1.00 } },
+  // The only room an engineer is first pick for, and the only one whose value
+  // can be zero because of something the player DID buy rather than did not.
+  maint:   { icon: '🔧', serves: ['radio'], fit: { dj: 0.20, eng: 1.00, sales: 0.10 } },
+  // Hosts look after hosts. An engineer in here is being wasted twice: once on
+  // the fit and once on the attention they stop paying the plant.
+  green:   { icon: '🛋️', serves: ['radio'], fit: { dj: 0.60, eng: 0.15, sales: 0.40 } },
+  // Talk people first. A seller's phone list is half a source list, which is why
+  // sales outranks eng here and nowhere else except the floor itself.
+  news:    { icon: '🗞️', serves: ['radio'], fit: { dj: 0.70, eng: 0.35, sales: 0.55 } },
+  library: { icon: '🗃️', serves: ['radio'], fit: { dj: 0.65, eng: 0.30, sales: 0.35 } }
+};
+for (const roomId in ROOM_TYPES) {
+  ROOM_TYPES[roomId].id    = roomId;
+  ROOM_TYPES[roomId].name  = t('room.' + roomId + '.name');
+  ROOM_TYPES[roomId].blurb = t('room.' + roomId + '.blurb');
+}
+const ROOM_TYPE_IDS = Object.keys(ROOM_TYPES);
+function roomName(id){ return (ROOM_TYPES[id] && ROOM_TYPES[id].name) || id; }
+function roomBlurb(id){ return (ROOM_TYPES[id] && ROOM_TYPES[id].blurb) || ''; }
+/** The ceiling line, with whatever state the caller has to hand. Vars per room
+    are listed above STR.en.room; a missing one is caught by ui.js, not here. */
+function roomCeilingText(id, vars){ return ROOM_TYPES[id] ? t('room.' + id + '.ceiling', vars) : ''; }
+function roomZeroText(id){ return ROOM_TYPES[id] ? t('room.' + id + '.zero') : ''; }
+/** The data join, content-side, so no simulation or interface code ever tests
+    the literal string 'radio'. Pass segmentOf(st.segment).medium. */
+function roomsForMedium(medium){
+  const m = medium || 'radio';
+  return ROOM_TYPE_IDS.filter(id => ROOM_TYPES[id].serves.indexOf(m) >= 0);
+}
+
+/* One line per bay bought, same rule as STATION_MILESTONES: describe the world
+   and the mechanic, never the player. Keyed by the resulting bay count; six is
+   the length of BAY_LEASE and MAX_BAYS in sim.js both. */
+const BAY_MILESTONES = {
+  1: 'One bay. It bills tomorrow morning whether you put anything in it or not.',
+  2: 'Two bays. They do not have to sit on the same signal, and usually should not.',
+  3: 'Three bays. Three rooms to fill, against the same two or three names a week.',
+  4: 'Four bays. The lease line is a second payroll now.',
+  5: 'Five bays. The building has a corridor, and people have started leaving mugs in it.',
+  6: 'Six bays, which is the whole programme. Everything left to change is who is sitting in them.'
+};
+function bayMilestoneFor(n){ return BAY_MILESTONES[n] || null; }
 
 /* ============================================================
    CHEM_TAGS — the on-air chemistry behind chem() (producer condition #5)
