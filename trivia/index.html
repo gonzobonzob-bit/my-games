@@ -2428,7 +2428,12 @@ button.vchip:hover{ border-color:var(--hair-strong); }
     return audio.ctx;
   }
 
-  function makeAudio(getCtx, isOn) {
+  /* `isVoiceLive` is optional and may be omitted entirely (the offline test
+     harness constructs the engine with two arguments). When it is supplied and
+     returns true, the MUSIC bus — and only the music bus — is pulled down, so a
+     sting never talks over somebody's actual voice. Effects are unaffected:
+     they are short, informational, and already sit under conversation. */
+  function makeAudio(getCtx, isOn, isVoiceLive) {
     var master = null;
     var mctx = null;
 
@@ -2469,7 +2474,7 @@ button.vchip:hover{ border-color:var(--hair-strong); }
        note; `cut` puts a lowpass in front of it so bright waveforms can be
        used without turning harsh. */
     function tone(o) {
-      var ctx = getCtx(), out = bus();
+      var ctx = getCtx(), out = o.to || bus();
       if (!ctx || !out) return;
       var t0 = (o.at || 0) + ctx.currentTime;
       var dur = o.dur || 0.12;
@@ -2509,7 +2514,7 @@ button.vchip:hover{ border-color:var(--hair-strong); }
        of sine waves sounds like a videogame; a click with a noise
        transient sounds like an object. */
     function noise(o) {
-      var ctx = getCtx(), out = bus();
+      var ctx = getCtx(), out = o.to || bus();
       if (!ctx || !out) return;
       var dur = o.dur || 0.08;
       var t0 = (o.at || 0) + ctx.currentTime;
@@ -2550,9 +2555,39 @@ button.vchip:hover{ border-color:var(--hair-strong); }
           gain: (o.gain == null ? 0.05 : o.gain) / Math.sqrt(freqs.length),
           at: (o.at || 0) + i * (o.spread || 0),
           cut: o.cut,
+          q: o.q,
           atk: o.atk,
+          detune: o.detune,
+          to: o.to,
         });
       }
+    }
+
+    /* ---------- the music bus ----------
+
+       Late Signal has no soundtrack and is not getting one: the twenty-second
+       question is the moment people think and talk, and anything playing under
+       it competes with the room. What it has instead is four STINGS — bookends
+       at moments that already carry weight. They all run through here.
+
+       Each sting gets its own gain node in front of the master so it can carry
+       the duck level that was true at the moment it fired, then drops out of the
+       graph rather than leaving one dead node per sting behind. */
+    var MUSIC_DUCK = 0.55;   // ≈ -5dB while somebody in the room has a live mic
+
+    function mus(life) {
+      var ctx = getCtx(), m = bus();
+      if (!ctx || !m) return null;
+      var g = ctx.createGain();
+      var duck = 1;
+      try { if (isVoiceLive && isVoiceLive()) duck = MUSIC_DUCK; } catch (e) {}
+      g.gain.value = duck;
+      g.connect(m);
+      if (typeof setTimeout === 'function') {
+        setTimeout(function () { try { g.disconnect(); } catch (e) {} },
+                   ((life || 4) + 1) * 1000);
+      }
+      return g;
     }
 
     /* ---------- the sounds ---------- */
@@ -2612,9 +2647,20 @@ button.vchip:hover{ border-color:var(--hair-strong); }
       tone({ freq: 294, dur: 0.55, gain: 0.028, type: 'sine', at: 0.10, atk: 0.09, cut: 800 });
     };
 
-    /* Held a beat before the answer floods in. Tension, not threat. */
+    /* STING 1 of 4 — "and the answer is". Held a beat before the answer floods
+       in: a low pedal and two quiet stabs, ii then V, which deliberately do NOT
+       resolve. The resolution is the verdict 520ms later — correct or wrong is
+       the chord this figure is asking for. Tension, not threat.
+
+       This one fires ten times a game, which is the constraint that shaped it:
+       no noise transient, no top end, nothing that sharpens on repetition. It is
+       the quietest of the four stings on purpose. */
     S.reveal = function () {
-      tone({ freq: 330, slide: 262, dur: 0.28, gain: 0.030, type: 'triangle', cut: 1100, atk: 0.05 });
+      var out = mus(1);
+      if (!out) return;
+      tone({ freq: 73.42, dur: 0.42, gain: 0.045, type: 'triangle', cut: 240, atk: 0.02, to: out });
+      chord([146.83, 174.61, 220], { dur: 0.22, gain: 0.040, spread: 0.008, type: 'triangle', cut: 1100, atk: 0.012, to: out });
+      chord([196, 246.94, 349.23], { dur: 0.28, gain: 0.038, spread: 0.008, type: 'triangle', cut: 1300, atk: 0.014, at: 0.18, to: out });
     };
 
     /* RULE 2 — celebration is LOUD. A major arpeggio that keeps climbing,
@@ -2692,6 +2738,164 @@ button.vchip:hover{ border-color:var(--hair-strong); }
       tone({ freq: 660, dur: 0.18, gain: 0.028, type: 'sine', at: 0.07 });
     };
 
+    /* STING 2 of 4 — the title. Fires the instant the player commits to a room
+       from the landing screen, which is also the first user gesture of the
+       session and therefore the moment the AudioContext unlocks.
+
+       A stick click, a bass root and a rootless Cmaj9 — the sound of a desk
+       being switched on, not a logo. Under a second: this is a doorway, and the
+       player is already looking at the next screen. */
+    S.titleSting = function () {
+      var out = mus(2);
+      if (!out) return;
+      noise({ freq: 3200, band: true, q: 1.2, dur: 0.09, gain: 0.020, to: out });
+      tone({ freq: 65.41, dur: 0.55, gain: 0.075, type: 'triangle', cut: 260, atk: 0.012, to: out });
+      chord([164.81, 196, 246.94, 293.66], {
+        dur: 0.55, gain: 0.070, spread: 0.012, at: 0.015,
+        type: 'triangle', cut: 1500, atk: 0.02, to: out,
+      });
+      tone({ freq: 523.25, dur: 0.34, gain: 0.034, type: 'sine', at: 0.30, atk: 0.012, to: out });
+      tone({ freq: 987.77, dur: 0.40, gain: 0.015, type: 'sine', at: 0.36, atk: 0.05, to: out });
+    };
+
+    /* STING 3 of 4 — "we're live". Two seconds, fired once, on the first
+       question of a game. A late-night turnaround — Dm7, G7, home — with a
+       three-note horn figure landing on the last chord. It is a band playing the
+       show back in from the break, and then it gets out of the way: nothing else
+       plays for the twenty seconds that follow. */
+    S.roundStart = function () {
+      var out = mus(3);
+      if (!out) return;
+      var B = 0.42;   // ~143bpm feel; the same pulse the podium stabs land on
+
+      // | Dm7
+      noise({ freq: 3000, band: true, q: 1.2, dur: 0.07, gain: 0.018, to: out });
+      tone({ freq: 73.42, dur: 0.40, gain: 0.070, type: 'triangle', cut: 280, atk: 0.010, to: out });
+      chord([174.61, 220, 261.63], { dur: 0.38, gain: 0.058, spread: 0.010, type: 'triangle', cut: 1600, atk: 0.016, to: out });
+
+      // G7
+      tone({ freq: 98, dur: 0.40, gain: 0.066, type: 'triangle', cut: 300, atk: 0.010, at: B, to: out });
+      chord([196, 246.94, 349.23], { dur: 0.38, gain: 0.056, spread: 0.010, type: 'triangle', cut: 1700, atk: 0.016, at: B, to: out });
+      noise({ freq: 2600, band: true, q: 1.4, dur: 0.05, gain: 0.012, at: B, to: out });
+
+      // | Cmaj9 — home, held
+      tone({ freq: 65.41, dur: 1.15, gain: 0.072, type: 'triangle', cut: 300, atk: 0.02, at: B * 2, to: out });
+      chord([196, 246.94, 293.66, 329.63], {
+        dur: 1.10, gain: 0.072, spread: 0.018, at: B * 2,
+        type: 'triangle', cut: 2000, atk: 0.022, to: out,
+      });
+      noise({ freq: 5200, band: true, q: 1.0, dur: 0.50, gain: 0.012, at: B * 2 + 0.04, to: out });
+
+      // the figure over the top
+      tone({ freq: 523.25, dur: 0.30, gain: 0.040, type: 'sine', at: B * 2, atk: 0.012, to: out });
+      tone({ freq: 587.33, dur: 0.26, gain: 0.036, type: 'sine', at: B * 2 + 0.26, atk: 0.012, to: out });
+      tone({ freq: 659.25, dur: 0.62, gain: 0.042, type: 'sine', at: B * 2 + 0.50, atk: 0.018, to: out });
+    };
+
+    /* STING 4 of 4 — the podium. Four seconds, once per game, the biggest
+       musical moment there is. It lands on the winner reveal, with the bronze
+       and silver stabs at -520ms and -260ms acting as the pickup into it.
+
+       Per-theme flavour, because the podium is where a look should finally be
+       heard as well as seen. The rule for all five: same harmonic home (C), same
+       length, different band. Nothing here is a key change — a player who
+       switches themes between games should recognise the same show.
+
+       Daybreak is deliberately the plain one. It is the "make this stop being a
+       game show" option, and answering it with brass would be missing the point:
+       it gets a quiet piano-ish cadence and no percussion at all. Dead air gets
+       an open fifth — neither major nor minor — because that theme is about
+       absence, and because a *minor* winner sting would read as failure. */
+    S.fanfare = function (which) {
+      var out = mus(5);
+      if (!out) return;
+      var B = 0.52;
+
+      if (which === 'daybreak') {
+        // Restrained on purpose: Fmaj7 -> Cadd9, sines, no drums, no shimmer.
+        // It resolves and stops. That is the whole gesture.
+        chord([174.61, 261.63, 329.63, 392], { dur: 1.10, gain: 0.052, spread: 0.030, type: 'sine', atk: 0.06, to: out });
+        tone({ freq: 87.31, dur: 1.10, gain: 0.045, type: 'sine', atk: 0.05, to: out });
+        chord([196, 261.63, 293.66, 392], {
+          dur: 2.20, gain: 0.056, spread: 0.035, at: B * 2, type: 'sine', atk: 0.08, to: out,
+        });
+        tone({ freq: 65.41, dur: 2.25, gain: 0.048, type: 'sine', at: B * 2, atk: 0.07, to: out });
+        tone({ freq: 523.25, dur: 1.60, gain: 0.026, type: 'sine', at: B * 2 + 0.30, atk: 0.14, to: out });
+        return;
+      }
+
+      if (which === 'deadair') {
+        // Sparse to the point of austerity: an open fifth, one struck harmonic,
+        // and a long room tail. No third, no cadence, nothing sells it.
+        tone({ freq: 65.41, dur: 2.40, gain: 0.070, type: 'triangle', cut: 200, atk: 0.05, to: out });
+        tone({ freq: 98, dur: 2.30, gain: 0.048, type: 'triangle', cut: 260, atk: 0.07, at: 0.06, to: out });
+        noise({ freq: 900, band: true, q: 0.9, dur: 0.35, gain: 0.016, to: out });
+        tone({ freq: 784, dur: 1.20, gain: 0.030, type: 'sine', at: 0.55, atk: 0.008, to: out });
+        tone({ freq: 1046.5, dur: 0.90, gain: 0.014, type: 'sine', at: 0.62, atk: 0.006, to: out });
+        tone({ freq: 130.81, dur: 1.60, gain: 0.052, type: 'triangle', cut: 380, at: B * 4, atk: 0.12, to: out });
+        tone({ freq: 392, dur: 1.50, gain: 0.024, type: 'sine', at: B * 4 + 0.10, atk: 0.20, to: out });
+        return;
+      }
+
+      if (which === 'drift') {
+        // Synthwave: detuned saw pad, slow attacks, fifths on top, and a sweep
+        // instead of a cymbal. Same progression, no attack transients at all.
+        var pad = function (fs, at, dur, gain) {
+          chord(fs, { dur: dur, gain: gain, spread: 0.02, at: at, type: 'sawtooth', cut: 1500, q: 1.2, atk: 0.10, to: out });
+          chord(fs, { dur: dur, gain: gain * 0.7, spread: 0.02, at: at + 0.01, type: 'sawtooth', cut: 1300, detune: 9, atk: 0.12, to: out });
+        };
+        tone({ freq: 65.41, dur: 1.00, gain: 0.075, type: 'triangle', cut: 220, atk: 0.03, to: out });
+        pad([196, 246.94, 293.66], 0, 1.00, 0.050);
+        tone({ freq: 98, dur: 0.95, gain: 0.066, type: 'triangle', cut: 240, atk: 0.03, at: B * 2, to: out });
+        pad([196, 246.94, 349.23], B * 2, 0.95, 0.048);
+        tone({ freq: 65.41, dur: 1.85, gain: 0.078, type: 'triangle', cut: 260, atk: 0.04, at: B * 4, to: out });
+        pad([196, 246.94, 293.66, 329.63], B * 4, 1.80, 0.052);
+        tone({ freq: 1046.5, slide: 1567.98, dur: 1.30, gain: 0.026, type: 'sine', at: B * 4 + 0.12, atk: 0.22, to: out });
+        noise({ freq: 6000, band: true, q: 0.8, dur: 0.90, gain: 0.011, at: B * 4, to: out });
+        return;
+      }
+
+      // studio (default) and marquee share the arrangement; marquee is the same
+      // band with the lights up — brighter voices, a pickup run, more cymbal.
+      var glitz = which === 'marquee';
+      var vox = glitz ? 'sawtooth' : 'triangle';
+      var cut = glitz ? 2600 : 1800;
+      var lift = glitz ? 1.12 : 1;
+
+      if (glitz) {
+        // the run into the downbeat
+        tone({ freq: 392, dur: 0.10, gain: 0.030, type: 'square', cut: 2200, to: out });
+        tone({ freq: 493.88, dur: 0.10, gain: 0.030, type: 'square', cut: 2400, at: 0.07, to: out });
+      }
+      noise({ freq: glitz ? 4200 : 2800, band: true, q: 1.1, dur: glitz ? 0.22 : 0.12, gain: glitz ? 0.022 : 0.016, at: glitz ? 0.14 : 0, to: out });
+
+      // | Cmaj9
+      tone({ freq: 65.41, dur: 0.95, gain: 0.075, type: 'triangle', cut: 280, atk: 0.012, to: out });
+      chord([196, 246.94, 293.66], { dur: 0.90, gain: 0.058 * lift, spread: 0.014, type: vox, cut: cut, q: 1.1, atk: 0.018, to: out });
+      tone({ freq: 392, dur: 0.22, gain: 0.036 * lift, type: 'sine', at: 0, atk: 0.010, to: out });
+      tone({ freq: 440, dur: 0.20, gain: 0.034 * lift, type: 'sine', at: 0.26, atk: 0.010, to: out });
+      tone({ freq: 523.25, dur: 0.36, gain: 0.042 * lift, type: 'sine', at: B, atk: 0.012, to: out });
+
+      // Am7 | G13 — the walk home
+      tone({ freq: 110, dur: 0.48, gain: 0.062, type: 'triangle', cut: 300, atk: 0.012, at: B * 2, to: out });
+      chord([220, 261.63, 329.63], { dur: 0.46, gain: 0.050 * lift, spread: 0.012, type: vox, cut: cut, q: 1.1, atk: 0.016, at: B * 2, to: out });
+      tone({ freq: 493.88, dur: 0.24, gain: 0.036 * lift, type: 'sine', at: B * 2, atk: 0.010, to: out });
+      tone({ freq: 98, dur: 0.48, gain: 0.062, type: 'triangle', cut: 300, atk: 0.012, at: B * 3, to: out });
+      chord([196, 246.94, 349.23], { dur: 0.46, gain: 0.050 * lift, spread: 0.012, type: vox, cut: cut, q: 1.1, atk: 0.016, at: B * 3, to: out });
+      tone({ freq: 587.33, dur: 0.42, gain: 0.038 * lift, type: 'sine', at: B * 3 + 0.12, atk: 0.012, to: out });
+
+      // | Cmaj9 — the landing, held to the end
+      tone({ freq: 65.41, dur: 1.90, gain: 0.080, type: 'triangle', cut: 320, atk: 0.02, at: B * 4, to: out });
+      chord([130.81, 196, 246.94, 293.66, 329.63], {
+        dur: 1.85, gain: 0.075 * lift, spread: 0.016, at: B * 4,
+        type: vox, cut: cut + 400, q: 1.0, atk: 0.024, to: out,
+      });
+      tone({ freq: 659.25, dur: 1.55, gain: 0.046 * lift, type: 'sine', at: B * 4, atk: 0.018, to: out });
+      tone({ freq: glitz ? 1318.5 : 1046.5, dur: 1.20, gain: 0.020, type: 'sine', at: B * 4 + 0.22, atk: 0.10, to: out });
+      noise({ freq: glitz ? 6500 : 4600, band: true, q: 1.0, dur: glitz ? 1.00 : 0.70,
+              gain: glitz ? 0.016 : 0.012, at: B * 4, to: out });
+    };
+
     /* ---------- public surface ---------- */
 
     var api = {};
@@ -2714,7 +2918,11 @@ button.vchip:hover{ border-color:var(--hair-strong); }
     return api;
   }
 
-  var SFX = makeAudio(audioCtx, function () { return audio.on; });
+  /* The third argument is the music duck. `voice` is declared much further down
+     and this line runs at boot, so the guard inside it is load-bearing rather
+     than defensive — but it is only ever CALLED from a sting, long after. */
+  var SFX = makeAudio(audioCtx, function () { return audio.on; },
+                      function () { return !!(voice && voice.active); });
   /* Kept as a name so any call site not yet migrated still makes a noise
      rather than throwing. */
   function blip(freq, ms, vol) { SFX.blip(freq, ms, vol); }
@@ -3096,7 +3304,12 @@ button.vchip:hover{ border-color:var(--hair-strong); }
     // phase flag cannot distinguish them — it is already 'question' by the
     // time we get here — but the clock can: a fresh question has essentially
     // its whole window left.
-    if ((q.endsAt - Date.now()) > QUESTION_MS * 0.85) SFX.question();
+    // The first fresh question of a game is the show going live, and gets the
+    // two-second figure instead of the per-round riser — never both, and never
+    // on a reconnect. After it ends, the question phase is silent by design.
+    if ((q.endsAt - Date.now()) > QUESTION_MS * 0.85) {
+      if ((q.index | 0) === 0) SFX.roundStart(); else SFX.question();
+    }
 
     // Reset every trace of the last round. correctIndex goes back to null
     // here and stays null until a 'reveal' arrives.
@@ -3326,6 +3539,9 @@ button.vchip:hover{ border-color:var(--hair-strong); }
     for (var t = 0; t < tiles.length; t++) tiles[t].disabled = true;
     elTiles.classList.add('revealing', 'dip');
     elLockLine.textContent = '';
+    // On the drain, so the unresolved figure is still hanging when the answer
+    // lands at 520ms and the verdict resolves it.
+    SFX.reveal();
 
     // 140ms — the drain
     later('rev', function () {
@@ -3808,7 +4024,10 @@ button.vchip:hover{ border-color:var(--hair-strong); }
       elWinner.classList.add('play');
       elWinnerBloom.classList.add('on');
       countUp(elWinnerScore, 0, win.score || 0, REDUCED ? 300 : 1200);
-      SFX.win();
+      // The four-second fanfare IS the winner sound now — the bronze and silver
+      // stabs at 300 and 560 are its pickup. S.win, the old one-shot, stays in
+      // the engine (and in the audio test) but firing both would be mud.
+      SFX.fanfare(theme);
     }, 820);
 
     // 1100ms: confetti
@@ -5376,6 +5595,10 @@ button.vchip:hover{ border-color:var(--hair-strong); }
     var code = String(elCodeInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
     if (!ROOM_RE.test(code)) { note('A room code is 4 to 6 letters or digits.', true); elCodeInput.focus(); return; }
+    // The title sting rides the commit, not the button press: a rejected form
+    // is not the show starting. It is also the first gesture of the session,
+    // which is what unlocks the AudioContext for everything after it.
+    SFX.titleSting();
     beginSession(code, name);
   }
 
@@ -5383,6 +5606,7 @@ button.vchip:hover{ border-color:var(--hair-strong); }
   on(elCreateBtn, 'click', function () {
     var name = String(elNameInput.value || '').trim().slice(0, 16);
     if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
+    SFX.titleSting();
     beginSession(randomCode(), name);
   });
   on(elCodeInput, 'input', function () {

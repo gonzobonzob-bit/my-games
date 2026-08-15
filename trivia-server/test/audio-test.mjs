@@ -34,7 +34,7 @@ const CASES = [
   ['tick', [1], 0.01, 0.20],
   ['timeup', [], 0.20, 0.70],
   ['lock', [], 0.30, 0.90],
-  ['reveal', [], 0.12, 0.55],
+  ['reveal', [], 0.35, 0.62],
   ['correct', [], 0.40, 1.10],
   ['wrong', [], 0.12, 0.55],
   ['rowLand', [1, 8], 0.03, 0.30],
@@ -48,6 +48,18 @@ const CASES = [
   ['countdown', [1], 0.10, 0.60],
   ['reconnect', [], 0.05, 0.40],
   ['blip', [660, 60, 0.05], 0.02, 0.25],
+
+  /* Music. Four stings and nothing under the question phase — the game has
+     voice chat now, so anything playing while the clock runs is playing over
+     somebody talking. */
+  ['titleSting', [], 0.55, 1.05],
+  ['roundStart', [], 1.70, 2.35],
+  ['fanfare', ['studio'], 3.60, 4.40],
+  ['fanfare', ['marquee'], 3.60, 4.40],
+  ['fanfare', ['drift'], 3.55, 4.35],
+  ['fanfare', ['daybreak'], 3.00, 3.80],
+  ['fanfare', ['deadair'], 3.30, 4.10],
+  ['fanfare', [], 3.60, 4.40], // no theme falls back to studio
 ];
 
 class Tab {
@@ -92,7 +104,12 @@ await tab.evalAsync(ENGINE + '\n;window.makeAudio = makeAudio; true');
 
 const results = await tab.evalAsync(`(async () => {
   const CASES = ${JSON.stringify(CASES)};
-  const SR = 44100, LEN = 3;
+  /* 6s, not 3: the podium fanfare is 4s and a 3s buffer silently truncates
+     it, which would read as a short sting rather than as a broken render.
+     Note that rms below divides by buffer length, so every rms figure scales
+     with LEN — compare rms only against other rows in the SAME run, never
+     against a number written down from an older one. */
+  const SR = 44100, LEN = 6;
   const out = [];
   for (const [name, args, minD, maxD] of CASES) {
     const ctx = new OfflineAudioContext(1, SR * LEN, SR);
@@ -155,11 +172,61 @@ ok(t1.peak > t0.peak, 'RULE 1: the tick intensifies as the deadline closes', { c
 const win = results.find((r) => r.name === 'win');
 ok(win.dur > correct.dur, 'the winner fanfare outlasts a correct answer', { win: win.dur, correct: correct.dur });
 
-// Muted must mean silent — the gate, not just a low volume.
+/* Daybreak is the owner's deliberate "bland" option, and a fanfare is exactly
+   the place a future edit would quietly give it a brass section. Asserted
+   against marquee, the loud end of the range, so the gap has to stay real. */
+const fDay = results.find((r) => r.name === 'fanfare' && r.args[0] === 'daybreak');
+const fMarq = results.find((r) => r.name === 'fanfare' && r.args[0] === 'marquee');
+ok(fDay.rms < fMarq.rms * 0.95 && fDay.peak < fMarq.peak,
+   'Daybreak stays restrained — the bland theme did not grow a brass section',
+   { daybreak: { rms: fDay.rms, peak: fDay.peak }, marquee: { rms: fMarq.rms, peak: fMarq.peak } });
+
+// The podium is the biggest musical moment in the game, by measurement.
+const fStudio = results.find((r) => r.name === 'fanfare' && r.args[0] === 'studio');
+ok(fStudio.rms > win.rms, 'the podium fanfare outweighs the old win cue',
+   { fanfare: fStudio.rms, win: win.rms });
+
+/* The duck under live voice is a claim about gain, so measure it. Third arg
+   to makeAudio is the "is voice live" predicate; music ducks, effects do not. */
+const duck = await tab.evalAsync(`(async () => {
+  const render = async (voiceLive) => {
+    const ctx = new OfflineAudioContext(1, 44100 * 6, 44100);
+    const A = voiceLive
+      ? window.makeAudio(() => ctx, () => true, () => true)
+      : window.makeAudio(() => ctx, () => true);
+    A.fanfare('studio');
+    const d = (await ctx.startRendering()).getChannelData(0);
+    let peak = 0;
+    for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+    return peak;
+  };
+  return { dry: await render(false), ducked: await render(true) };
+})()`);
+ok(duck.ducked < duck.dry * 0.75 && duck.ducked > 0,
+   'music ducks under a live mic — quieter, but never silenced', duck);
+
+/* A predicate that throws must leave the sting at full volume rather than
+   killing it: failing to know whether voice is live is not a reason to go
+   silent in the middle of the podium. */
+const duckThrew = await tab.evalAsync(`(async () => {
+  const ctx = new OfflineAudioContext(1, 44100 * 6, 44100);
+  const A = window.makeAudio(() => ctx, () => true, () => { throw new Error('nope'); });
+  try { A.fanfare('studio'); } catch (e) { return 'THREW: ' + e.message; }
+  const d = (await ctx.startRendering()).getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  return peak;
+})()`);
+ok(typeof duckThrew === 'number' && duckThrew > duck.dry * 0.9,
+   'a throwing voice predicate leaves music at full gain, it does not mute it', duckThrew);
+
+// Muted must mean silent — the gate, not just a low volume. Music included:
+// a player who muted the game must not be serenaded by the podium.
 const muted = await tab.evalAsync(`(async () => {
-  const ctx = new OfflineAudioContext(1, 44100, 44100);
+  const ctx = new OfflineAudioContext(1, 44100 * 6, 44100);
   const A = window.makeAudio(() => ctx, () => false);
   A.win(); A.correct(); A.tick(1); A.blip(880, 100, 0.5);
+  A.titleSting(); A.roundStart(); A.reveal(); A.fanfare('marquee');
   const buf = await ctx.startRendering();
   const d = buf.getChannelData(0);
   let peak = 0;
