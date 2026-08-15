@@ -675,7 +675,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         align-items:center; gap:var(--sp-6); }
 /* The "list publicly" toggle. Amber only while ON — a listed room is a
    published room code, and the state should read from across the table. */
-.pub-row{ display:flex; align-items:center; justify-content:center; gap:var(--sp-3); }
+.pub-row{ display:flex; align-items:center; justify-content:center; gap:var(--sp-3);
+          flex-wrap:wrap; }
+/* The lobby's two switches are thumb targets, not header chrome: a
+   .chip-btn is 33px tall, which is under the 40px floor for anything a
+   phone has to hit. The HUD chips are a separate (pre-existing) problem
+   and are not touched here. */
+.pub-row .chip-btn{ min-height:44px; padding-top:0; padding-bottom:0; }
 #publicToggle[aria-pressed="true"]{
   color:var(--amber); border-color:rgba(var(--amber-rgb),.45);
   background:rgba(var(--amber-rgb),.08);
@@ -1191,6 +1197,191 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 
 /* ================================================================
+   TABLE VOICE
+
+   The dock sits in normal flow between the HUD and the stage, so a
+   room with voice on has a shorter stage rather than a stage with a
+   floating bar parked on top of it. It only exists while the mesh is
+   up: `hidden` (which is display:none !important above) the rest of
+   the time, so a room without voice pays nothing — no node in the
+   flow, no analyser, no timer.
+
+   Every control here is a real touch target: 44px minimum on both
+   axes, including the per-player mute the host taps mid-question.
+   The speaking indicator animates transform and opacity ONLY — see
+   the decoration rule in CLAUDE.md; a ring that animated width would
+   cost a layout per frame and break both theme-test and perf.
+   ================================================================ */
+.voicedock{
+  position:relative; z-index:20;
+  display:flex; align-items:center; gap:var(--sp-2);
+  padding:6px max(var(--sp-4), env(safe-area-inset-right))
+          6px max(var(--sp-4), env(safe-area-inset-left));
+  border-top:1px solid var(--hair); border-bottom:1px solid var(--hair);
+  background:var(--ink-900);
+}
+.vbtn{
+  font:inherit; font-size:12px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--slate-300);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-pill);
+  min-height:44px; min-width:44px; padding:0 14px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  flex:0 0 auto; white-space:nowrap;
+  transition:color var(--d-micro) var(--ease-out-soft),
+             border-color var(--d-micro) var(--ease-out-soft),
+             background var(--d-micro) var(--ease-out-soft);
+}
+.vbtn:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
+.vbtn .icon{ width:16px; height:16px; }
+/* The one thing the player is actually asking — "is my mic live" — is the
+   loudest control in the bar and answers in colour AND in words.
+
+   The WORD always takes the theme's foreground; the state hue lives in the
+   border, the wash and the icon. Measured: --mint as 12px text on
+   Daybreak's paper ground is 2.82:1 (fails AA), while the same mint as the
+   icon is 3.02:1 against that ground, which is the bar for a non-text
+   indicator. This way the live state is 9.9:1 in Studio and 12.8:1 in
+   Daybreak and still unmistakably green. */
+.vbtn-mic[data-mic] .icon{ color:currentColor; }
+.vbtn-mic[data-mic="on"]{
+  color:var(--paper-100); border-color:rgba(var(--mint-rgb),.55);
+  background:rgba(var(--mint-rgb),.12);
+}
+.vbtn-mic[data-mic="on"] .icon{ color:var(--mint-lo); }
+.vbtn-mic[data-mic="asking"] .icon{ color:var(--amber); }
+.vbtn-mic[data-mic="blocked"] .icon{ color:var(--crimson); }
+.vbtn-mic{ position:relative; }
+/* Your own level, same mechanism as everyone else's: a ring that only
+   ever animates transform and opacity. */
+.vbtn-mic::after{
+  content:''; position:absolute; inset:-3px; border-radius:var(--r-pill);
+  border:2px solid var(--mint-lo); opacity:0; transform:scale(.94);
+  pointer-events:none; will-change:transform,opacity;
+}
+.vbtn-mic.speaking::after{ animation:vpulse 900ms var(--ease-out-soft) infinite; }
+.vbtn-mic[data-mic="asking"]{ color:var(--paper-100); border-color:rgba(var(--amber-rgb),.45); }
+.vbtn-mic[data-mic="blocked"]{
+  color:var(--paper-100); border-color:rgba(var(--crimson-rgb),.45);
+  background:rgba(var(--crimson-rgb),.08);
+}
+/* Scoped to the ear button on purpose. As `.vbtn[aria-pressed="true"]` this
+   also matched the MIC — which is aria-pressed while it is live — and, being
+   later in the sheet at equal specificity, painted a live microphone in
+   crimson. A screenshot caught it; the computed style was "correct" for the
+   rule that happened to win. */
+#voiceEarBtn[aria-pressed="true"]{
+  color:var(--crimson); border-color:rgba(var(--crimson-rgb),.45);
+  background:rgba(var(--crimson-rgb),.08);
+}
+.vbtn-wake{ color:var(--amber); border-color:rgba(var(--amber-rgb),.45);
+            background:rgba(var(--amber-rgb),.08); }
+.vslash{ display:none; }
+.vbtn-mic[data-mic="off"] .vslash,
+.vbtn-mic[data-mic="blocked"] .vslash{ display:block; }
+
+/* The roster strip. Scrolls sideways rather than wrapping, so the dock
+   is one fixed row tall whatever the table size — the stage below it
+   never moves once the game starts. */
+.vpeers{
+  flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:var(--sp-2);
+  overflow-x:auto; overflow-y:hidden; scrollbar-width:none; padding:1px 0;
+  /* A soft right edge so a table of eight reads as "there is more this
+     way" rather than as a chip that got cut in half. When the chips fit,
+     the fade lands on empty space and is invisible. */
+  -webkit-mask-image:linear-gradient(90deg, #000 calc(100% - 20px), transparent 100%);
+  mask-image:linear-gradient(90deg, #000 calc(100% - 20px), transparent 100%);
+}
+.vpeers::-webkit-scrollbar{ display:none; }
+.vchip{
+  font:inherit; font-size:13px; font-weight:600; color:var(--paper-100);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-pill);
+  min-height:44px; padding:3px 12px 3px 3px; flex:0 0 auto; max-width:180px;
+  display:inline-flex; align-items:center; gap:8px; text-align:left;
+  transition:border-color var(--d-micro) var(--ease-out-soft);
+}
+button.vchip{ cursor:pointer; }
+button.vchip:hover{ border-color:var(--hair-strong); }
+.vchip-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+/* The host's verb, or the muted state for everyone else. 12px on
+   --ink-700 measures 6.6:1 against --slate-300 — AA at any size. */
+.vchip-act{
+  font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--slate-300); white-space:nowrap; flex:0 0 auto;
+}
+.vchip.muted .vchip-act{ color:var(--crimson); }
+.vdot{
+  position:relative; width:32px; height:32px; border-radius:var(--r-pill);
+  display:grid; place-items:center; flex:0 0 auto;
+  background:hsl(var(--ph,220),62%,54%); color:var(--ink-950);
+  font-size:13px; font-weight:700; line-height:1;
+}
+/* The ring is always in the DOM at zero opacity, so "started speaking"
+   is a class flip on an already-composited layer. */
+.vdot::after{
+  content:''; position:absolute; inset:-4px; border-radius:var(--r-pill);
+  border:2px solid var(--mint-lo); opacity:0; transform:scale(.86);
+  pointer-events:none; will-change:transform,opacity;
+}
+.vchip.speaking .vdot::after{ animation:vpulse 900ms var(--ease-out-soft) infinite; }
+@keyframes vpulse{
+  0%{ opacity:.95; transform:scale(.86) }
+  70%{ opacity:0;  transform:scale(1.3) }
+  100%{ opacity:0; transform:scale(1.3) }
+}
+/* Mic live but silent: a steady mint pip, no motion. Muted or absent
+   from the mesh: no pip at all. State is never text-only. */
+.vchip .vlive{
+  width:8px; height:8px; border-radius:var(--r-pill); flex:0 0 auto;
+  background:var(--slate-400);
+}
+.vchip.live .vlive{ background:var(--mint-lo); }
+.vchip.muted{ border-color:rgba(var(--crimson-rgb),.45); color:var(--slate-300); }
+.vchip.muted .vlive{ background:var(--crimson); }
+.vchip.muted .vdot{ opacity:.55; }
+.vchip.gone{ border-style:dashed; color:var(--slate-300); }
+.vchip.gone .vdot{ opacity:.45; }
+.vchip.gone .vlive{ background:var(--amber); }
+.vhint{
+  flex:0 0 auto; font-size:12px; color:var(--slate-300); white-space:nowrap;
+}
+/* The lobby's voice switch, and the tag everyone else sees.
+
+   Both say ON in mint — but neither says it with mint TEXT. Measured:
+   --mint at 11px on Daybreak's paper ground is 2.67:1, which fails AA,
+   and Daybreak has already darkened --mint as far as it sensibly can.
+   So the hue moves to the border, the wash and a pip, and the word itself
+   takes the theme's own foreground: 10.9:1 in Studio, 12.6:1 in Daybreak.
+   The state is still carried by colour AND by the word. */
+#voiceToggle[aria-pressed="true"]{
+  color:var(--paper-100); border-color:rgba(var(--mint-rgb),.55);
+  background:rgba(var(--mint-rgb),.12);
+}
+.voice-tag{ color:var(--paper-100); display:inline-flex; align-items:center; gap:6px; }
+.voice-tag::before{
+  content:''; width:8px; height:8px; border-radius:var(--r-pill);
+  background:var(--mint-lo); flex:0 0 auto;
+}
+@media (max-width: 719px){
+  .vhint{ display:none; }
+  .voicedock{ gap:6px; padding-left:max(var(--sp-3), env(safe-area-inset-left));
+              padding-right:max(var(--sp-3), env(safe-area-inset-right)); }
+  .vbtn{ padding:0 10px; }
+  .vchip{ max-width:150px; }
+}
+/* 320px: the mic keeps its word, the rest gives up its padding first. */
+@media (max-width: 360px){
+  .vchip{ max-width:118px; font-size:12px; }
+  .vbtn{ letter-spacing:.06em; }
+}
+/* Short viewports are where the question screen fights for every pixel, so
+   the dock gives back its own padding. Nothing inside it shrinks: measured,
+   the dock's height is set by the 44px mic button, so taking the chips down
+   to the 40px floor bought exactly zero pixels and cost a touch target. */
+@media (max-height: 820px){
+  .voicedock{ padding-top:3px; padding-bottom:3px; }
+}
+
+/* ================================================================
    Responsive — people will play this on phones, in portrait
    ================================================================ */
 @media (max-width: 719px){
@@ -1272,6 +1463,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   .grid-bloom.on{ animation:none; opacity:.22; }
   .winner-bloom.on{ animation:none; opacity:.55; }
   .btn:active{ transform:none; }
+  /* Speaking stills to a state, not to nothing: the ring stops pulsing
+     and simply sits there while that person is talking. Who is speaking
+     is information; the pulse was only ever the delivery. */
+  .vchip.speaking .vdot::after{ animation:none !important; opacity:.95; transform:scale(1.06); }
+  .vbtn-mic.speaking::after{ animation:none !important; opacity:.95; transform:scale(1); }
   /* retained on purpose: the bar fill is information, not decoration */
   .row-bar{ transition:transform 900ms var(--ease-out-expo); }
   .dwell.run{ animation:dwell var(--dwell,4000ms) linear forwards; }
@@ -1331,6 +1527,33 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     <span class="netdot" id="netdot" data-net="up" title="Connection"></span>
   </div>
 </header>
+
+<!-- ============ TABLE VOICE ============
+     In flow, not floating: when it appears the stage gets shorter
+     instead of getting covered. Hidden entirely unless this room has
+     voice on and we are a player. -->
+<div class="voicedock" id="voiceDock" hidden>
+  <button type="button" class="vbtn vbtn-mic" id="voiceMicBtn" data-mic="off" aria-pressed="false">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" fill="currentColor"/>
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path class="vslash" d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span id="voiceMicLabel">Mic off</span>
+  </button>
+  <button type="button" class="vbtn" id="voiceEarBtn" aria-pressed="false">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>
+      <path d="M17 9l4 6M21 9l-4 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="sr" id="voiceEarLabel">Mute everyone</span>
+  </button>
+  <button type="button" class="vbtn vbtn-wake" id="voiceWakeBtn" hidden>
+    <span id="voiceWakeLabel">Tap to hear the room</span>
+  </button>
+  <div class="vpeers" id="voicePeers" aria-live="off"></div>
+  <span class="vhint" id="voiceHint" hidden></span>
+</div>
 
 <main class="stagewrap">
 
@@ -1397,6 +1620,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       <div class="pub-row">
         <button type="button" class="chip-btn" id="publicToggle" aria-pressed="false" hidden></button>
         <span class="micro pub-tag" id="publicTag" hidden></span>
+        <!-- Voice is a lobby-only setting by protocol: the host sets it
+             before the game, and per-player mute is what people reach for
+             once the clock is running. It shares the row with "list
+             publicly" and wraps under it when the phone is too narrow,
+             rather than costing the lobby another 56px of height. -->
+        <button type="button" class="chip-btn" id="voiceToggle" aria-pressed="false" hidden></button>
+        <span class="micro voice-tag" id="voiceTag" hidden></span>
       </div>
       <div class="board-actions">
         <button type="button" class="btn btn-primary" id="startBtn" hidden>Start game</button>
@@ -1572,6 +1802,33 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       themeStudio: 'Studio Classic', themeMarquee: 'Marquee Night',
       themeDrift: 'Signal Drift', themeDaybreak: 'Daybreak',
       themeDeadair: 'Dead Air',
+      /* ---- voice (pass 2, Feature A) — wording from docs/VOICE_STRINGS.md ---- */
+      roomVoice: 'Room voice', voiceTag: 'Voice on',
+      voiceNote: 'Room voice lets players talk to each other. Mics start off — everyone opens their own. Set it before you start: on air it is fixed.',
+      voiceRoomOn: 'Room voice is on. Your mic stays off until you open it.',
+      voiceRoomOff: 'Room voice is off.',
+      mic: 'Mic', micOff: 'Mic off', micLive: 'Mic live',
+      micOffNote: 'Mics start off. Nobody hears you until you open yours.',
+      micHint: 'Hold space to talk', micHintTap: 'Tap the mic to open it',
+      micBlocked: 'The browser blocked the mic. Allow it in site permissions, then try again.',
+      micMissing: 'No microphone here. You can still play — you just cannot talk.',
+      micDataNote: 'Voice uses data and battery the whole time the room is live.',
+      speakingNow: '# is talking',
+      muteBtn: 'Mute', unmuteBtn: 'Unmute',
+      mutePlayer: 'Mute #', unmutePlayer: 'Unmute #',
+      mutedTag: 'Muted', youAreMuted: 'You are muted',
+      mutedByHost: 'Muted by the host — they can turn it back on.',
+      mutedPlayer: '# is muted.', unmutedPlayer: '# can talk again.',
+      voiceLinking: 'Linking voice…',
+      voiceNoPeer: 'Voice unavailable with #',
+      voiceNoPeerNote: 'Their network and yours would not meet. Everything else works.',
+      voiceSpectator: 'Voice is for players — spectators are outside the booth.',
+      publicVoiceNote: 'Listed and voice on: anyone who joins from the main screen can talk in your room.',
+      /* Three the content pass did not cover, because they belong to
+         controls it had not seen: the listener's own "silence the room"
+         switch and the autoplay escape hatch. Wording is mine. */
+      voiceMuteAll: 'Mute everyone', voiceUnmuteAll: 'Unmute everyone',
+      voiceTapToHear: 'Tap to hear the room',
       m_spectator: 'Spectators watch — they cannot play.',
       m_bilingual: 'Bilingual set — #. Everyone can read these in their own language.',
       m_offline: 'Offline pack — #. Open Trivia DB did not answer, so these are from the built-in set.',
@@ -1610,6 +1867,31 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       themeStudio: 'Estudio clásico', themeMarquee: 'Noche de marquesina',
       themeDrift: 'Deriva de señal', themeDaybreak: 'Amanecer',
       themeDeadair: 'Aire muerto',
+      /* ---- voz (pase 2, función A) — docs/VOICE_STRINGS.md ---- */
+      roomVoice: 'Voz de sala', voiceTag: 'Con voz',
+      voiceNote: 'La voz de sala deja que los jugadores hablen entre ellos. Los micros empiezan apagados — cada quien abre el suyo. Decídelo antes de empezar: en el aire ya no cambia.',
+      voiceRoomOn: 'Voz de sala activada. Tu micro sigue apagado hasta que lo abras.',
+      voiceRoomOff: 'Voz de sala desactivada.',
+      mic: 'Micro', micOff: 'Micro apagado', micLive: 'Micro al aire',
+      micOffNote: 'Los micros empiezan apagados. Nadie te oye hasta que abras el tuyo.',
+      micHint: 'Mantén espacio para hablar', micHintTap: 'Toca el micro para abrirlo',
+      micBlocked: 'El navegador bloqueó el micrófono. Permítelo en los permisos del sitio y vuelve a intentarlo.',
+      micMissing: 'No hay micrófono. Puedes jugar igual — solo que sin hablar.',
+      micDataNote: 'La voz gasta datos y batería mientras la sala esté en directo.',
+      speakingNow: '# está hablando',
+      muteBtn: 'Silenciar', unmuteBtn: 'Quitar silencio',
+      mutePlayer: 'Silenciar a #', unmutePlayer: 'Quitar silencio a #',
+      mutedTag: 'Silenciado', youAreMuted: 'Estás silenciado',
+      mutedByHost: 'Silenciado por el anfitrión — puede volver a activarlo.',
+      mutedPlayer: '# está silenciado.', unmutedPlayer: '# puede hablar otra vez.',
+      voiceLinking: 'Enlazando voz…',
+      voiceNoPeer: 'Sin voz con #',
+      voiceNoPeerNote: 'Su red y la tuya no se encontraron. Todo lo demás funciona.',
+      voiceSpectator: 'La voz es para los jugadores — los espectadores quedan fuera de la cabina.',
+      publicVoiceNote: 'Listada y con voz: cualquiera que entre desde la pantalla principal puede hablar en tu sala.',
+      /* Tres que el pase de contenido no cubrió (controles que no había visto) */
+      voiceMuteAll: 'Silenciar a todos', voiceUnmuteAll: 'Volver a oír a todos',
+      voiceTapToHear: 'Toca para oír la sala',
       m_spectator: 'Los espectadores miran — no pueden jugar.',
       m_bilingual: 'Set bilingüe — #. Cada quien puede leerlas en su idioma.',
       m_offline: 'Set sin conexión — #. Open Trivia DB no respondió, así que estas vienen del set incluido.',
@@ -1727,7 +2009,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     phase: 'lobby',
     players: [],           // roster
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
-    settings: { genre: 'mixed', difficulty: 'any' },
+    settings: { genre: 'mixed', difficulty: 'any', voice: false },
     catalog: [],           // [{slug,label}] — what the server will actually serve
     difficulties: ['any', 'easy', 'medium', 'hard'],
     starting: false,
@@ -1769,7 +2051,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elCopyBtn = $('copyBtn'), elNameInput = $('nameInput'), elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
-      elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch');
+      elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch'),
+      elVoiceDock = $('voiceDock'), elVoiceMicBtn = $('voiceMicBtn'), elVoiceMicLabel = $('voiceMicLabel'),
+      elVoiceEarBtn = $('voiceEarBtn'), elVoiceEarLabel = $('voiceEarLabel'),
+      elVoiceWakeBtn = $('voiceWakeBtn'), elVoiceWakeLabel = $('voiceWakeLabel'),
+      elVoicePeers = $('voicePeers'), elVoiceHint = $('voiceHint');
 
   var CHOICES = [
     { letter: 'A', c: '#3D6BFF', rgb: '61,107,255',  fill: '#FFFFFF', key: '1' },
@@ -2044,6 +2330,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (slotKs[1]) slotKs[1].textContent = T('difficulty');
     paintBackBtn();
     paintTheme();
+    // `voice` is declared further down; at boot this runs before it exists.
+    if (voice && voice.active) paintVoiceDock(true);
     if (curScreen === 'lobby') renderLobby();
   }
 
@@ -2589,6 +2877,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function sendSettings(next) {
+    /* Settings are sanitised field by field on the server with a strict
+       compare, so a field this client leaves out comes back FALSE — a
+       genre change would silently switch voice off for the room. Every
+       send therefore carries the whole set. */
+    if (next.voice === undefined) next.voice = state.settings.voice === true;
     // Painted immediately so the tap feels like a control rather than a
     // request, but the server's echo is the truth — if it disagrees, its
     // broadcast overwrites this a moment later.
@@ -2662,6 +2955,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         ? T('watchingN').replace('#', state.watching) : '';
     }
     paintPublicToggle();
+    paintVoiceToggle();
 
     if (lobbyPainted && arrivals > 0) SFX.join();
     lobbyPainted = true;
@@ -3727,6 +4021,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.settings) state.settings = msg.settings;
         state.starting = false;
         paintCallSheet();
+        // A room can already have voice on when we walk in; the mesh comes
+        // up here, the microphone does not.
+        syncVoice();
         state.everConnected = true;
         state.handshakeFails = 0;
         netbar(null);
@@ -3752,6 +4049,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (curScreen === 'lobby') renderLobby();
         if (curScreen === 'play' && state.phase === 'question') paintLockLine();
         if (curScreen === 'board') paintBoardActions();
+        // The roster is the only source of truth for who is in the mesh and
+        // who the host has muted. Reconciling here is what makes a leaver's
+        // peer go away and a host mute take effect on every listener.
+        syncVoice();
         break;
 
       case 'phase':
@@ -3838,6 +4139,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.settings) state.settings = msg.settings;
         state.starting = false;
         paintCallSheet();
+        // voice going false tears the whole mesh down, by contract.
+        syncVoice();
+        if (curScreen === 'lobby') paintVoiceToggle();
+        break;
+
+      /* Opaque by design: the Durable Object relays this blind and this
+         client is the only thing that knows what is inside it. */
+      case 'voice-signal':
+        onVoiceSignal(msg);
         break;
 
       case 'public':
@@ -3908,6 +4218,870 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (document.activeElement === tile) lockIn(idx);   // same key twice = confirm
     else tile.focus();                                  // first press = select
   });
+
+  /* ==================================================================
+     TABLE VOICE — a WebRTC full mesh between the players in this room.
+
+     Three things this code refuses to do, each for a reason that has
+     already cost somebody a session somewhere:
+
+     1. It never calls getUserMedia on load or on join. The mesh can be
+        up, connected and receiving with the microphone never once
+        opened; the mic is a separate, explicit tap.
+     2. It never blocks the game. A peer that fails, or that is still
+        checking after VOICE_TIMEOUT, is marked unavailable and left
+        alone — no retry, no reconnect loop, no error the player has to
+        dismiss before they can answer a question.
+     3. It keeps exactly one handle for every peer, element, analyser
+        and timer, and stopVoice() clears all of them. Cycling
+        Menu → room must not stack meshes (the interval-hygiene rule).
+
+     Host mute is enforced HERE, on the listening side, because media is
+     peer to peer and the server cannot gate it: every client mutes the
+     incoming track of any roster entry carrying muted:true.
+     ================================================================== */
+  var VOICE_ICE = { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] };
+  var VOICE_TIMEOUT   = 15000;  // still 'checking' after this = unavailable
+  var VOICE_DEBOUNCE  = 300;    // trailing wire signal for voice-state
+  var VOICE_LEVEL_MS  = 120;    // how often the analysers are read
+  var VOICE_HOT       = 7;      // RMS (0-128) that counts as speaking
+  var VOICE_COLD      = 4;
+
+  var voice = {
+    supported: !!(window.RTCPeerConnection && navigator.mediaDevices &&
+                  navigator.mediaDevices.getUserMedia && window.MediaStream),
+    active: false,          // the mesh is up
+    peers: Object.create(null),
+    stream: null,           // local mic stream, only ever after a tap
+    track: null,            // its single audio track
+    micOn: false,
+    asking: false,
+    denied: false,
+    deaf: false,            // local "mute everyone" — my ears, my choice
+    hostMuted: false,       // the host muted ME
+    ptt: false, pttHeld: false, pttWasOn: false, pttWaiting: false,
+    levelTimer: 0,
+    stateTimer: 0,
+    sentOn: null,
+    needWake: false,        // autoplay refused; a tap is required
+    sig: '',                // last painted roster signature
+    chips: Object.create(null),
+    meLevel: false,
+    saidOff: false, saidData: false, saidNoPeer: false,   // once-per-room notes
+    mutedSeen: Object.create(null)
+  };
+  // Whether this room's voice setting has been seen yet — so arriving in a
+  // room that already has voice on is not announced as a change.
+  var voiceRoomSeen = null;
+
+  function voiceWanted() {
+    return !!(voice.supported && state.settings && state.settings.voice === true &&
+              !state.spectator && state.me && state.me.id);
+  }
+
+  /* Signalling never uses send(): a stale ICE candidate arriving while the
+     socket is down would toast "not connected yet" at a player who did
+     nothing wrong. Voice is allowed to fail quietly. */
+  function voiceSend(obj) {
+    if (!ws || ws.readyState !== 1) return false;
+    try { ws.send(JSON.stringify(obj)); return true; } catch (e) { return false; }
+  }
+  function voiceSignal(to, data) {
+    voiceSend({ type: 'voice-signal', to: to, data: data });
+  }
+  function voiceWarn(e) { if (window.console && console.warn) console.warn('[voice]', e); }
+
+  /* The toast stack is fixed above the answer grid, so anything said
+     during a live question sits on top of tile B for three seconds while
+     the clock runs. Voice housekeeping is never worth that: the chip
+     already carries the state, in colour, permanently. Two exceptions
+     stay loud because the player cannot act without them — being muted by
+     the host, and a microphone that was refused. */
+  function voiceNote(msg, bad) {
+    if (state.phase === 'question') return false;
+    toast(msg, bad);
+    return true;
+  }
+
+  function rosterOf(pid) {
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === pid) return state.players[i];
+    }
+    return null;
+  }
+
+  /* ---------- the mesh ---------- */
+
+  function syncVoice() {
+    var on = !!(state.settings && state.settings.voice === true);
+    // "The host turned it on/off" is a room event and everyone hears it,
+    // spectators included. Arriving into a room that already has it on is
+    // not an event, so the first sighting is recorded silently.
+    if (voiceRoomSeen === null) voiceRoomSeen = on;
+    else if (on !== voiceRoomSeen) {
+      voiceRoomSeen = on;
+      voiceNote(T(on ? 'voiceRoomOn' : 'voiceRoomOff'));
+    }
+
+    if (!voiceWanted()) { stopVoice(); return; }
+    if (!voice.active) {
+      voice.active = true;
+      voice.sig = '';
+      if (!voice.levelTimer) voice.levelTimer = setInterval(voiceLevels, VOICE_LEVEL_MS);
+      // said once, and only once it has actually been SEEN
+      if (COARSE && !voice.saidOff && voiceNote(T('micOffNote'))) voice.saidOff = true;
+    }
+
+    // Am I muted by the host? Authoritative, and it beats my own mic.
+    var mine = rosterOf(state.me.id);
+    var muted = !!(mine && mine.muted === true);
+    if (muted !== voice.hostMuted) {
+      voice.hostMuted = muted;
+      if (muted) { setMicOn(false); toast(T('mutedByHost'), true); }
+    }
+
+    // One peer per other CONNECTED player; everything else goes.
+    var want = Object.create(null);
+    for (var i = 0; i < state.players.length; i++) {
+      var p = state.players[i];
+      if (!p || !p.id || p.id === state.me.id || !p.connected) continue;
+      want[p.id] = true;
+      // The host said it, so the host is told it took — the roster edge is
+      // the confirmation, not the click.
+      var was = voice.mutedSeen[p.id];
+      var now = p.muted === true;
+      if (was !== undefined && was !== now && state.isHost) {
+        voiceNote(T(now ? 'mutedPlayer' : 'unmutedPlayer').replace('#', p.name));
+      }
+      voice.mutedSeen[p.id] = now;
+      ensurePeer(p.id);
+    }
+    for (var pid in voice.peers) {
+      if (!want[pid]) dropPeer(pid);
+    }
+    applyMutes();
+    paintVoiceDock();
+  }
+
+  /* Glare: both sides know both ids, so the lexicographically lower one
+     offers and the other waits. No negotiation, no double offer. */
+  function initiatesTo(pid) { return !!(state.me && state.me.id < pid); }
+
+  function ensurePeer(pid) {
+    if (voice.peers[pid]) return voice.peers[pid];
+    var pc;
+    try { pc = new RTCPeerConnection(VOICE_ICE); }
+    catch (e) { voiceWarn(e); return null; }
+
+    var peer = {
+      id: pid, pc: pc, sender: null, audio: null, stream: null,
+      source: null, analyser: null, buf: null, timer: 0,
+      status: 'checking', speaking: false, hot: 0, pending: []
+    };
+    voice.peers[pid] = peer;
+
+    /* The OFFERER adds one sendrecv transceiver up front so the mic can be
+       attached to it later with replaceTrack() — turning the microphone on
+       mid-game then never renegotiates and never needs a second offer.
+
+       The ANSWERER must NOT pre-add one. A transceiver created by
+       addTransceiver() is not eligible to be matched against an incoming
+       offer's m-line (JSEP), so setRemoteDescription() builds a second,
+       RECVONLY transceiver beside it — and the answer goes back recvonly.
+       The result is a mesh that connects, reports `connected` on both
+       sides, and carries audio in one direction only. Measured, not
+       theorised: the offerer ended up sendonly and never fired ontrack.
+       The answerer adopts the transceiver it is given instead, in
+       adoptTransceiver() below, before it answers. */
+    if (initiatesTo(pid)) {
+      try {
+        var tr = pc.addTransceiver('audio', { direction: 'sendrecv' });
+        peer.sender = tr.sender;
+        if (voice.track) peer.sender.replaceTrack(voice.track).catch(voiceWarn);
+      } catch (e) { voiceWarn(e); }
+    }
+
+    pc.onicecandidate = function (ev) {
+      if (ev && ev.candidate) {
+        try { voiceSignal(pid, { k: 'ice', c: ev.candidate.toJSON() }); } catch (e) { voiceWarn(e); }
+      }
+    };
+    pc.ontrack = function (ev) {
+      try {
+        peer.stream = (ev.streams && ev.streams[0]) || new MediaStream([ev.track]);
+        attachAudio(peer);
+      } catch (e) { voiceWarn(e); }
+    };
+    pc.onconnectionstatechange = function () {
+      var s = pc.connectionState;
+      if (s === 'connected') {
+        if (peer.timer) { clearTimeout(peer.timer); peer.timer = 0; }
+        if (peer.status !== 'live') { peer.status = 'live'; paintVoiceDock(true); }
+      } else if (s === 'failed') { failPeer(pid); }
+    };
+    pc.oniceconnectionstatechange = function () {
+      if (pc.iceConnectionState === 'failed') failPeer(pid);
+    };
+
+    peer.timer = setTimeout(function () {
+      peer.timer = 0;
+      if (peer.status === 'checking') failPeer(pid);
+    }, VOICE_TIMEOUT);
+
+    if (initiatesTo(pid)) makeOffer(peer);
+    return peer;
+  }
+
+  /* Answerer side: take the transceiver the remote offer created, turn it
+     into a two-way one, and hang the microphone off it. Called after
+     setRemoteDescription and before createAnswer, which is the only window
+     where changing the direction lands in the answer. */
+  function adoptTransceiver(peer) {
+    var ts;
+    try { ts = peer.pc.getTransceivers(); } catch (e) { return; }
+    for (var i = 0; i < ts.length; i++) {
+      var t = ts[i];
+      var kind = (t.receiver && t.receiver.track && t.receiver.track.kind) ||
+                 (t.sender && t.sender.track && t.sender.track.kind) || 'audio';
+      if (kind !== 'audio' || t.stopped) continue;
+      try { t.direction = 'sendrecv'; } catch (e) { voiceWarn(e); }
+      peer.sender = t.sender;
+      if (voice.track && t.sender) {
+        try { t.sender.replaceTrack(voice.track).catch(voiceWarn); } catch (e) { voiceWarn(e); }
+      }
+      return;
+    }
+  }
+
+  function makeOffer(peer) {
+    var pc = peer.pc;
+    pc.createOffer().then(function (o) {
+      return pc.setLocalDescription(o);
+    }).then(function () {
+      var d = pc.localDescription;
+      if (d) voiceSignal(peer.id, { k: 'sdp', sdp: { type: d.type, sdp: d.sdp } });
+    }).catch(voiceWarn);
+  }
+
+  function flushPending(peer) {
+    var q = peer.pending; peer.pending = [];
+    for (var i = 0; i < q.length; i++) {
+      try { peer.pc.addIceCandidate(q[i]).catch(function () {}); } catch (e) {}
+    }
+  }
+
+  /* Every branch here is wrapped: a throw inside a peer handler is the
+     classic way this feature half-works with nothing in the console. */
+  function onVoiceSignal(msg) {
+    if (!voice.active || !state.me) return;
+    var pid = String(msg.from || '');
+    var d = msg.data;
+    if (!pid || pid === state.me.id || !d || typeof d !== 'object') return;
+    if (!rosterOf(pid)) return;
+
+    var peer = voice.peers[pid] || ensurePeer(pid);
+    if (!peer || peer.status === 'failed') return;
+    var pc = peer.pc;
+
+    try {
+      if (d.k === 'sdp' && d.sdp && d.sdp.type) {
+        if (d.sdp.type === 'offer') {
+          if (initiatesTo(pid)) return;         // we offer to them; ignore theirs
+          pc.setRemoteDescription(d.sdp).then(function () {
+            flushPending(peer);
+            adoptTransceiver(peer);      // must happen before the answer
+            return pc.createAnswer();
+          }).then(function (a) {
+            return pc.setLocalDescription(a);
+          }).then(function () {
+            var l = pc.localDescription;
+            if (l) voiceSignal(pid, { k: 'sdp', sdp: { type: l.type, sdp: l.sdp } });
+          }).catch(voiceWarn);
+        } else if (d.sdp.type === 'answer') {
+          if (!initiatesTo(pid)) return;
+          if (pc.signalingState !== 'have-local-offer') return;
+          pc.setRemoteDescription(d.sdp).then(function () {
+            flushPending(peer);
+          }).catch(voiceWarn);
+        }
+      } else if (d.k === 'ice' && d.c) {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          pc.addIceCandidate(d.c).catch(function () {});
+        } else {
+          if (peer.pending.length < 64) peer.pending.push(d.c);
+        }
+      }
+    } catch (e) { voiceWarn(e); }
+  }
+
+  /* Degradation, once, per peer. The pair is written off — no retry, no
+     storm — and the game does not notice. */
+  function failPeer(pid) {
+    var peer = voice.peers[pid];
+    if (!peer || peer.status === 'failed') return;
+    peer.status = 'failed';
+    releasePeerMedia(peer);
+    // Said once per room. The second half — that everything else works —
+    // is the load-bearing half.
+    if (!voice.saidNoPeer) {
+      var who = rosterOf(pid);
+      if (voiceNote(T('voiceNoPeer').replace('#', who ? who.name : '?') + ' ' + T('voiceNoPeerNote'))) {
+        voice.saidNoPeer = true;
+      }
+    }
+    paintVoiceDock(true);
+  }
+
+  function releasePeerMedia(peer) {
+    if (peer.timer) { clearTimeout(peer.timer); peer.timer = 0; }
+    if (peer.source) { try { peer.source.disconnect(); } catch (e) {} peer.source = null; }
+    if (peer.analyser) { try { peer.analyser.disconnect(); } catch (e) {} peer.analyser = null; }
+    peer.buf = null;
+    if (peer.audio) {
+      try { peer.audio.pause(); } catch (e) {}
+      try { peer.audio.srcObject = null; } catch (e) {}
+      if (peer.audio.parentNode) peer.audio.parentNode.removeChild(peer.audio);
+      peer.audio = null;
+    }
+    peer.stream = null;
+    peer.speaking = false;
+    if (peer.pc) {
+      peer.pc.onicecandidate = null;
+      peer.pc.ontrack = null;
+      peer.pc.onconnectionstatechange = null;
+      peer.pc.oniceconnectionstatechange = null;
+      try { peer.pc.close(); } catch (e) {}
+    }
+  }
+
+  function dropPeer(pid) {
+    var peer = voice.peers[pid];
+    if (!peer) return;
+    releasePeerMedia(peer);
+    peer.pc = null;
+    delete voice.peers[pid];
+    if (voice.chips[pid]) delete voice.chips[pid];
+  }
+
+  function stopVoice() {
+    for (var pid in voice.peers) dropPeer(pid);
+    voice.peers = Object.create(null);
+    voice.chips = Object.create(null);
+    if (voice.levelTimer) { clearInterval(voice.levelTimer); voice.levelTimer = 0; }
+    if (voice.stateTimer) { clearTimeout(voice.stateTimer); voice.stateTimer = 0; }
+    disarmWakeGesture();
+    stopMicStream();
+    voice.active = false;
+    voice.micOn = false;
+    voice.asking = false;
+    voice.deaf = false;
+    voice.hostMuted = false;
+    voice.ptt = voice.pttHeld = voice.pttWasOn = voice.pttWaiting = false;
+    voice.needWake = false;
+    voice.sentOn = null;
+    voice.meLevel = false;
+    voice.sig = '';
+    if (elVoicePeers) elVoicePeers.textContent = '';
+    if (elVoiceDock) elVoiceDock.hidden = true;
+  }
+
+  function stopMicStream() {
+    if (voice.meSource) { try { voice.meSource.disconnect(); } catch (e) {} voice.meSource = null; }
+    if (voice.meAnalyser) { try { voice.meAnalyser.disconnect(); } catch (e) {} voice.meAnalyser = null; }
+    voice.meBuf = null;
+    if (voice.stream) {
+      var tr = voice.stream.getTracks();
+      for (var i = 0; i < tr.length; i++) { try { tr[i].stop(); } catch (e) {} }
+    }
+    voice.stream = null;
+    voice.track = null;
+  }
+
+  /* ---------- audio out ----------
+     Attaching is deliberately late: the element is only created when a
+     track actually arrives, and play() is allowed to be refused. On
+     mobile a mesh that connects but never plays is indistinguishable
+     from a broken feature, so a refusal surfaces as a button rather
+     than as silence. */
+  function attachAudio(peer) {
+    if (!peer.audio) {
+      var a = document.createElement('audio');
+      a.autoplay = true;
+      a.setAttribute('playsinline', '');
+      a.playsInline = true;
+      a.style.display = 'none';
+      peer.audio = a;
+      document.body.appendChild(a);
+    }
+    try { peer.audio.srcObject = peer.stream; } catch (e) { voiceWarn(e); }
+    applyMuteFor(peer);
+    playPeer(peer);
+    /* Allowed to create the context here. Measured: without it, a player
+       who is only LISTENING — the common case, since mics start off —
+       never had an AudioContext, so nobody's speaking ring ever lit for
+       the one person most in need of it. A remote voice track arriving in
+       a room this player chose to join is signal enough. */
+    ensureAnalyser(peer, true);
+  }
+
+  function playPeer(peer) {
+    if (!peer.audio) return;
+    var p = null;
+    try { p = peer.audio.play(); } catch (e) { p = null; }
+    if (p && p.catch) {
+      p.catch(function () {
+        if (!voice.needWake) { voice.needWake = true; paintVoiceDock(true); armWakeGesture(); }
+      });
+    }
+  }
+
+  /* One armed listener, one handle, cleared by stopVoice like everything
+     else — a pending "next tap wakes the audio" must not outlive the room
+     it was armed in. */
+  var wakeHandler = null;
+  function armWakeGesture() {
+    if (wakeHandler) return;
+    wakeHandler = function () { disarmWakeGesture(); wakeAudio(); };
+    document.addEventListener('pointerdown', wakeHandler, { once: true, capture: true });
+  }
+  function disarmWakeGesture() {
+    if (!wakeHandler) return;
+    document.removeEventListener('pointerdown', wakeHandler, { capture: true });
+    wakeHandler = null;
+  }
+  function wakeAudio() {
+    voice.needWake = false;
+    disarmWakeGesture();
+    for (var pid in voice.peers) {
+      var peer = voice.peers[pid];
+      if (peer.audio && peer.stream) playPeer(peer);
+      ensureAnalyser(peer, true);
+    }
+    ensureMeAnalyser(true);
+    paintVoiceDock(true);
+  }
+
+  /* Host mute, enforced on this side of the wire. Both the element and
+     the receiving track are silenced: the element for what comes out of
+     the speaker, the track so a tampered client gains nothing. */
+  function applyMuteFor(peer) {
+    var entry = rosterOf(peer.id);
+    var off = voice.deaf || !!(entry && entry.muted === true);
+    if (peer.audio) peer.audio.muted = off;
+    if (peer.pc && peer.pc.getReceivers) {
+      var rs = peer.pc.getReceivers();
+      for (var i = 0; i < rs.length; i++) {
+        if (rs[i] && rs[i].track) rs[i].track.enabled = !off;
+      }
+    }
+  }
+  function applyMutes() { for (var pid in voice.peers) applyMuteFor(voice.peers[pid]); }
+
+  /* ---------- the microphone ---------- */
+  function requestMic(fromPtt) {
+    if (!voice.supported) { toast(T('micMissing'), true); return; }
+    if (voice.stream) { setMicOn(true); return; }
+    if (voice.asking) return;
+    voice.asking = true;
+    voice.pttWaiting = !!fromPtt;
+    paintVoiceDock(true);
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: false
+    }).then(function (stream) {
+      voice.asking = false;
+      // They left the room, or voice went off, while the prompt was open.
+      if (!voice.active) {
+        var t = stream.getTracks();
+        for (var i = 0; i < t.length; i++) { try { t[i].stop(); } catch (e) {} }
+        return;
+      }
+      voice.stream = stream;
+      voice.track = stream.getAudioTracks()[0] || null;
+      if (voice.track) voice.track.enabled = false;   // silent until we say so
+      voice.denied = false;
+      for (var pid in voice.peers) {
+        var peer = voice.peers[pid];
+        if (peer.sender && voice.track) peer.sender.replaceTrack(voice.track).catch(voiceWarn);
+      }
+      ensureMeAnalyser();
+      // What it costs, said at the moment it starts costing it, on the
+      // device where that matters. Once per room.
+      if (COARSE && !voice.saidData && voiceNote(T('micDataNote'))) voice.saidData = true;
+      // If this came from push-to-talk, only go live if the key is still down.
+      setMicOn(voice.pttWaiting ? voice.pttHeld : true);
+      voice.pttWaiting = false;
+    }, function (err) {
+      voice.asking = false;
+      voice.pttWaiting = false;
+      voiceWarn(err);
+      // A refused prompt and an absent microphone are different facts and
+      // the player can only act on one of them.
+      var name = (err && err.name) || '';
+      var missing = (name === 'NotFoundError' || name === 'DevicesNotFoundError' ||
+                     name === 'OverconstrainedError' || name === 'NotReadableError');
+      voice.denied = !missing;
+      voice.missing = missing;
+      toast(T(missing ? 'micMissing' : 'micBlocked'), true);
+      paintVoiceDock(true);
+    });
+  }
+
+  function setMicOn(on) {
+    on = !!on && !!voice.track && !voice.hostMuted;
+    voice.micOn = on;
+    if (voice.track) voice.track.enabled = on;
+    if (!on) voice.meLevel = false;
+    paintVoiceDock(true);
+    queueVoiceState();
+  }
+
+  /* One trailing signal, not one per keypress: a chatty player must not
+     make the server broadcast a roster per syllable. */
+  function queueVoiceState() {
+    if (voice.stateTimer) clearTimeout(voice.stateTimer);
+    voice.stateTimer = setTimeout(function () {
+      voice.stateTimer = 0;
+      if (!voice.active) return;
+      if (voice.sentOn === voice.micOn) return;
+      voice.sentOn = voice.micOn;
+      voiceSend({ type: 'voice-state', on: voice.micOn });
+    }, VOICE_DEBOUNCE);
+  }
+
+  /* ---------- analysers and the speaking indicator ----------
+     The AudioContext is only ever CREATED from a gesture (create=true is
+     passed from the dock's own buttons). Everywhere else we take the one
+     that already exists or go without: a player who never touches the
+     voice controls should not have an AudioContext built behind them,
+     and one built outside a gesture is born suspended anyway. */
+  function analyserCtx(create) {
+    if (create) return audioCtx();
+    return (audio.ctx && audio.ctx.state === 'running') ? audio.ctx : null;
+  }
+  function ensureAnalyser(peer, create) {
+    if (!peer || peer.analyser || !peer.stream) return;
+    var ctx = analyserCtx(create);
+    if (!ctx || ctx.state !== 'running') return;   // retried on the next tick
+    try {
+      peer.source = ctx.createMediaStreamSource(peer.stream);
+      peer.analyser = ctx.createAnalyser();
+      peer.analyser.fftSize = 512;
+      peer.buf = new Uint8Array(peer.analyser.fftSize);
+      peer.source.connect(peer.analyser);
+    } catch (e) { peer.source = null; peer.analyser = null; peer.buf = null; }
+  }
+  function ensureMeAnalyser(create) {
+    if (voice.meAnalyser || !voice.stream) return;
+    var ctx = analyserCtx(create);
+    if (!ctx || ctx.state !== 'running') return;
+    try {
+      voice.meSource = ctx.createMediaStreamSource(voice.stream);
+      voice.meAnalyser = ctx.createAnalyser();
+      voice.meAnalyser.fftSize = 512;
+      voice.meBuf = new Uint8Array(voice.meAnalyser.fftSize);
+      voice.meSource.connect(voice.meAnalyser);
+    } catch (e) { voice.meSource = null; voice.meAnalyser = null; voice.meBuf = null; }
+  }
+
+  function rms(analyser, buf) {
+    analyser.getByteTimeDomainData(buf);
+    var sum = 0;
+    for (var i = 0; i < buf.length; i += 4) {
+      var d = buf[i] - 128;
+      sum += d * d;
+    }
+    return Math.sqrt(sum / (buf.length / 4));
+  }
+
+  /* Cheap paint, on its own timer, separate from the structural rebuild:
+     it toggles ONE class per chip and never touches innerHTML, so a
+     roster strip cannot lose its scroll position to a talking player.
+     The class drives a transform/opacity keyframe, so a person speaking
+     costs zero layouts. */
+  function voiceLevels() {
+    if (!voice.active) return;
+    // A context built outside a gesture is born suspended and reads
+    // silence forever. Nudge it — never create one here.
+    if (audio.ctx && audio.ctx.state === 'suspended') audioCtx();
+    for (var pid in voice.peers) {
+      var peer = voice.peers[pid];
+      if (!peer.analyser) { ensureAnalyser(peer); continue; }
+      var entry = rosterOf(pid);
+      var silent = voice.deaf || !!(entry && entry.muted === true) || peer.status !== 'live';
+      var level = silent ? 0 : rms(peer.analyser, peer.buf);
+      var next = peer.speaking;
+      if (level > VOICE_HOT) { peer.hot = 3; next = true; }
+      else if (level < VOICE_COLD) { peer.hot = Math.max(0, peer.hot - 1); if (!peer.hot) next = false; }
+      if (next !== peer.speaking) {
+        peer.speaking = next;
+        var chip = voice.chips[pid];
+        if (chip) {
+          chip.classList.toggle('speaking', next);
+          // Said in words too, which is what reduced motion and a screen
+          // reader are left with when the ring stops moving.
+          var who = rosterOf(pid);
+          chip.title = next && who ? T('speakingNow').replace('#', who.name)
+                                   : (chip.dataset.base || '');
+        }
+      }
+    }
+    if (!voice.meAnalyser && voice.stream) ensureMeAnalyser(false);
+    if (voice.meAnalyser) {
+      // Same hysteresis as everyone else's: without it the ring strobes on
+      // the gaps between syllables, which reads as a fault rather than as
+      // speech. Measured against the fake device, whose tone is a short
+      // burst — one tick of "loud" was over before it could be seen.
+      var lvl = voice.micOn ? rms(voice.meAnalyser, voice.meBuf) : 0;
+      var mine = voice.meLevel;
+      if (lvl > VOICE_HOT) { voice.meHot = 3; mine = true; }
+      else if (lvl < VOICE_COLD) {
+        voice.meHot = Math.max(0, (voice.meHot || 0) - 1);
+        if (!voice.meHot) mine = false;
+      }
+      if (mine !== voice.meLevel) {
+        voice.meLevel = mine;
+        if (elVoiceMicBtn) elVoiceMicBtn.classList.toggle('speaking', mine);
+      }
+    }
+  }
+
+  /* ---------- the dock ----------
+     Structural rebuild only when the roster actually changed shape.
+     Everything that changes per tick is a class on a cached node. */
+  function paintVoiceDock(force) {
+    if (!elVoiceDock) return;
+    if (!voice.active) { elVoiceDock.hidden = true; return; }
+    elVoiceDock.hidden = false;
+
+    /* The mic is the loudest thing in the bar because it answers the one
+       question the player actually has: can anyone hear me right now.
+       Muted by the host is a DIFFERENT word from mic off — a player who
+       reads "Mic off" when they did not turn it off hammers a dead
+       button. And in that state the button really is dead, so it says so
+       by being disabled rather than by arguing on tap. */
+    var blocked = (voice.denied || voice.missing) && !voice.stream;
+    var mic = voice.hostMuted ? 'blocked'
+            : blocked ? 'blocked'
+            : voice.asking ? 'asking'
+            : voice.micOn ? 'on' : 'off';
+    elVoiceMicBtn.dataset.mic = mic;
+    elVoiceMicBtn.disabled = !!voice.hostMuted;
+    elVoiceMicBtn.setAttribute('aria-pressed', voice.micOn ? 'true' : 'false');
+    elVoiceMicLabel.textContent =
+      voice.hostMuted ? T('youAreMuted') :
+      voice.micOn ? T('micLive') : T('micOff');
+    elVoiceMicBtn.title = voice.hostMuted ? T('mutedByHost')
+                        : blocked ? T(voice.missing ? 'micMissing' : 'micBlocked')
+                        : voice.micOn ? T('micLive')
+                        : T(COARSE ? 'micHintTap' : 'micHint');
+
+    elVoiceEarBtn.setAttribute('aria-pressed', voice.deaf ? 'true' : 'false');
+    elVoiceEarLabel.textContent = voice.deaf ? T('voiceUnmuteAll') : T('voiceMuteAll');
+    elVoiceEarBtn.title = elVoiceEarLabel.textContent;
+
+    elVoiceWakeBtn.hidden = !voice.needWake;
+    elVoiceWakeLabel.textContent = T('voiceTapToHear');
+
+    /* Desktop only, exactly like "keys 1-4 work too": before the first
+       time the mic is opened it explains the default, after that it
+       teaches push-to-talk. Phones get the same two facts as a one-time
+       toast and as the button's own label — telling a phone about the
+       space bar is noise. */
+    if (elVoiceHint) {
+      var showHint = !COARSE && voice.supported && !voice.hostMuted;
+      elVoiceHint.hidden = !showHint;
+      elVoiceHint.textContent = showHint ? T(voice.stream ? 'micHint' : 'micOffNote') : '';
+    }
+
+    var sig = [];
+    for (var i = 0; i < state.players.length; i++) {
+      var p = state.players[i];
+      if (!p || !p.id || (state.me && p.id === state.me.id) || !p.connected) continue;
+      var pe = voice.peers[p.id];
+      sig.push(p.id + '|' + p.name + '|' + (p.voice ? 1 : 0) + '|' + (p.muted ? 1 : 0) +
+               '|' + (pe ? pe.status : '-') + '|' + (state.isHost ? 'h' : 'g'));
+    }
+    var joined = sig.join(';') + '::' + lang;
+    if (!force && joined === voice.sig) return;
+    voice.sig = joined;
+    buildVoiceChips();
+  }
+
+  function buildVoiceChips() {
+    elVoicePeers.textContent = '';
+    voice.chips = Object.create(null);
+    for (var i = 0; i < state.players.length; i++) {
+      var p = state.players[i];
+      if (!p || !p.id || (state.me && p.id === state.me.id) || !p.connected) continue;
+      var peer = voice.peers[p.id];
+      var failed = !!(peer && peer.status === 'failed');
+      var linking = !!(peer && peer.status === 'checking');
+      var muted = p.muted === true;
+      var live = p.voice === true && !failed;
+
+      // The host's mute is a control; everybody else's chip is a readout,
+      // and says so by not being a button at all.
+      var chip = document.createElement(state.isHost ? 'button' : 'div');
+      chip.className = 'vchip' + (muted ? ' muted' : '') + (failed ? ' gone' : '') +
+                       (live && !muted ? ' live' : '');
+      if (state.isHost) {
+        chip.type = 'button';
+        chip.dataset.pid = p.id;
+        chip.setAttribute('aria-pressed', muted ? 'true' : 'false');
+        chip.setAttribute('aria-label',
+          (muted ? T('unmutePlayer') : T('mutePlayer')).replace('#', p.name));
+      }
+      var base = failed ? T('voiceNoPeer').replace('#', p.name) + ' ' + T('voiceNoPeerNote')
+               : muted ? T('mutedTag')
+               : linking ? T('voiceLinking')
+               : live ? T('micLive') : T('micOff');
+      chip.dataset.base = base;
+      chip.title = base;
+
+      var dot = mk('div', 'vdot');
+      dot.style.setProperty('--ph', String(hueOf(p.name)));
+      dot.textContent = initialOf(p.name);
+      dot.setAttribute('aria-hidden', 'true');
+      chip.appendChild(dot);
+
+      var nm = mk('span', 'vchip-name');
+      nm.textContent = p.name;
+      chip.appendChild(nm);
+
+      var pip = mk('span', 'vlive');
+      pip.setAttribute('aria-hidden', 'true');
+      chip.appendChild(pip);
+
+      // The host gets the verb in words — an icon-only mute is a control
+      // nobody finds mid-question. Everyone else gets the state in words.
+      if (state.isHost) {
+        var act = mk('span', 'vchip-act');
+        act.textContent = T(muted ? 'unmuteBtn' : 'muteBtn');
+        chip.appendChild(act);
+      } else if (muted) {
+        var tag = mk('span', 'vchip-act');
+        tag.textContent = T('mutedTag');
+        chip.appendChild(tag);
+      }
+      /* A failed pair gets no word: the dashed edge, the amber pip and the
+         title carry it, and "voice unavailable with Sam" is a sentence, not
+         a chip label. It is in the screen-reader text in full. */
+
+      // The state in words for anyone not reading the colour.
+      var sr = mk('span', 'sr');
+      sr.textContent = base;
+      chip.appendChild(sr);
+
+      if (peer && peer.speaking) chip.classList.add('speaking');
+      voice.chips[p.id] = chip;
+      elVoicePeers.appendChild(chip);
+    }
+  }
+
+  on(elVoiceMicBtn, 'click', function () {
+    if (!voice.active || voice.hostMuted) return;   // the button is disabled anyway
+    if (!voice.supported) { toast(T('micMissing'), true); return; }
+    // The tap IS the gesture — anything the autoplay policy refused
+    // earlier gets another go on the way past.
+    if (voice.needWake) wakeAudio();
+    // Inside the tap, so the context is born running rather than suspended.
+    audioCtx();
+    if (!voice.stream) { requestMic(false); return; }
+    setMicOn(!voice.micOn);
+  });
+
+  on(elVoiceEarBtn, 'click', function () {
+    if (!voice.active) return;
+    voice.deaf = !voice.deaf;
+    audioCtx();
+    if (!voice.deaf && voice.needWake) wakeAudio();
+    applyMutes();
+    paintVoiceDock(true);
+  });
+
+  on(elVoiceWakeBtn, 'click', function () { wakeAudio(); });
+
+  /* Host mute, delegated: the chips are rebuilt on every roster change,
+     so one listener on the strip outlives all of them. */
+  on(elVoicePeers, 'click', function (ev) {
+    if (!state.isHost || !voice.active) return;
+    var chip = ev.target && ev.target.closest ? ev.target.closest('.vchip') : null;
+    if (!chip || !chip.dataset || !chip.dataset.pid) return;
+    var entry = rosterOf(chip.dataset.pid);
+    if (!entry) return;
+    voiceSend({ type: 'voice-mute', id: entry.id, on: !(entry.muted === true) });
+  });
+
+  /* ---------- push to talk ----------
+     Space was free: answers are 1-4 and A-D, and Enter confirms. It stays
+     free for anything focused that owns it — a focused button, a text
+     field — so this can never swallow an answer or a room code. */
+  function pttEligible(target) {
+    if (!voice.active || !voice.supported || voice.hostMuted) return false;
+    var tag = (target && target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
+        tag === 'BUTTON' || tag === 'A' || (target && target.isContentEditable)) return false;
+    return true;
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== ' ' && e.key !== 'Spacebar' && e.code !== 'Space') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!pttEligible(e.target)) return;
+    e.preventDefault();                 // no page scroll while talking
+    if (e.repeat || voice.pttHeld) return;
+    voice.pttHeld = true;
+    voice.pttWasOn = voice.micOn;       // already live: hold changes nothing
+    if (voice.micOn) return;
+    audioCtx();                         // still inside the gesture
+    if (!voice.stream) requestMic(true);
+    else setMicOn(true);
+  });
+  function releasePtt() {
+    if (!voice.pttHeld) return;
+    voice.pttHeld = false;
+    voice.pttWaiting = false;
+    if (!voice.pttWasOn) setMicOn(false);
+  }
+  document.addEventListener('keyup', function (e) {
+    if (e.key !== ' ' && e.key !== 'Spacebar' && e.code !== 'Space') return;
+    releasePtt();
+  });
+  // A lost key-up (alt-tab mid-sentence) must not leave the mic hot.
+  window.addEventListener('blur', releasePtt);
+
+  /* The lobby's voice switch. Host only, lobby only — that is the
+     protocol, not a UI choice: the server refuses a settings change
+     from anyone else or at any other time. */
+  function paintVoiceToggle() {
+    var btn = $('voiceToggle'), tag = $('voiceTag');
+    if (!btn || !tag) return;
+    var on = state.settings && state.settings.voice === true;
+    if (state.isHost && !state.spectator) {
+      btn.hidden = false;
+      tag.hidden = true;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.textContent = T('roomVoice') + ' · ' + T(on ? 'pubOn' : 'pubOff');
+      // The one combination with a consequence neither note covers alone.
+      btn.title = T('voiceNote') + (on && state.isPublic ? ' ' + T('publicVoiceNote') : '');
+      btn.disabled = !!state.starting;
+    } else {
+      btn.hidden = true;
+      tag.hidden = !on;
+      // A spectator is told the truth about the booth rather than a tag
+      // that implies they are in it.
+      tag.textContent = !on ? '' : (state.spectator ? T('voiceSpectator') : T('voiceTag'));
+    }
+  }
+  on($('voiceToggle'), 'click', function () {
+    if (!state.isHost || state.starting) return;
+    sendSettings({ genre: state.settings.genre, difficulty: state.settings.difficulty,
+                   voice: !(state.settings.voice === true) });
+    paintVoiceToggle();
+  });
+
+  // Closing the tab tears the mesh down with everything else.
+  window.addEventListener('pagehide', stopVoice);
 
   /* ==================================================================
      Landing / routing
@@ -4033,6 +5207,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       bits.push(phase === 'lobby' ? T('inLobbyTag') : (phase === 'final' ? T('podiumTag') : T('onAirTag')));
       bits.push(T('playingN').replace('#', players));
       if (watching > 0) bits.push(T('watchingN').replace('#', watching));
+      // Voice is knowable before you walk in, which is the point of it
+      // being in the directory payload at all.
+      if (r && r.voice === true) bits.push(T('voiceTag'));
       meta.textContent = bits.join(' · ');
       info.appendChild(codeEl);
       info.appendChild(meta);
@@ -4070,6 +5247,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function goLanding(keepCode) {
     wantOpen = false;
+    stopVoice();
     stopWatchdog();
     forceClose = null;
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = 0; }
@@ -4092,6 +5270,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function beginSession(code, name, asSpectator) {
+    // Belt and braces against the bug this vault has had three times:
+    // entering a room always starts from no mesh at all, whatever the
+    // last one left behind.
+    stopVoice();
+    voiceRoomSeen = null;
+    voice.saidOff = voice.saidData = voice.saidNoPeer = false;
+    voice.denied = false;
+    voice.missing = false;
+    voice.mutedSeen = Object.create(null);
     state.spectator = !!asSpectator;
     state.code = code;
     state.name = name;

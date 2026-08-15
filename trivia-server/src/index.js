@@ -38,6 +38,13 @@ const MIN_PLAYERS = 1;
 // cannot be used as free fan-out infrastructure.
 const MAX_SPECTATORS = 20;
 
+/* Biggest voice signalling payload the room will forward. An SDP offer with a
+ * handful of ICE candidates runs a few kB; a candidate is a few hundred bytes.
+ * The cap is not about protocol correctness — the room never parses these —
+ * it is what stops a player using the relay as a private broadcast channel to
+ * push megabytes at another player through infrastructure we pay for. */
+const VOICE_SIGNAL_MAX = 16384;
+
 const QUESTION_COUNT = 10;
 const QUESTION_MS = 20_000;
 /* Reveal → next question, measured from the reveal broadcast — including the
@@ -234,12 +241,20 @@ export class Room {
         joinedAt: Date.now(),
         connectedAt: Date.now(),
         lang: sanitizeLang(url.searchParams.get('lang')),
+        voiceOn: false, // mic is off until the player asks for it, never on join
+        hostMuted: false,
       };
       g.players[player.id] = player;
     } else {
       player.name = name; // keep the latest capitalisation
       player.connectedAt = Date.now();
       player.lang = sanitizeLang(url.searchParams.get('lang'));
+      // A reconnecting socket is a fresh page with no microphone permission
+      // and no peer connections, so a `voiceOn` carried over from the old
+      // session would draw a live mic on someone who has none. hostMuted is
+      // deliberately NOT reset: it is the host's decision about this player,
+      // and clearing it would make reload a way to dodge a mute.
+      player.voiceOn = false;
     }
 
     // First player in is host; also covers the case where the stored host is
@@ -356,6 +371,13 @@ export class Room {
         score: p.score,
         isHost: p.id === g.hostId,
         connected: connected.has(p.id),
+        // Voice state rides the roster DURING a question, which is only safe
+        // because neither field is a function of an answer: `voice` reacts to
+        // a mic tap, `muted` to the host clicking mute. Anything that reacts
+        // to correctness — a streak, an elimination — is an answer oracle in
+        // this frame and belongs in doReveal() instead. Do not add one here.
+        voice: p.voiceOn === true,   // advisory: their mic is live
+        muted: p.hostMuted === true, // authoritative, but enforced receiver-side
       }));
   }
 
@@ -391,6 +413,9 @@ export class Room {
       phase: g.phase === 'lobby' ? 'lobby' : (g.phase === 'final' ? 'final' : 'live'),
       genre: g.settings.genre,
       difficulty: g.settings.difficulty,
+      // So the landing screen can say "voice on" BEFORE anyone joins — the
+      // one fact about a room you want before you commit your microphone.
+      voice: g.settings.voice === true,
     });
     const id = this.env.LOBBY.idFromName(LOBBY_SINGLETON);
     this.ctx.waitUntil(
@@ -486,6 +511,12 @@ export class Room {
           return await this.onNext(ws, me);
         case 'again':
           return await this.onAgain(ws, me);
+        case 'voice-signal':
+          return this.onVoiceSignal(ws, me, data);
+        case 'voice-state':
+          return await this.onVoiceState(ws, me, data);
+        case 'voice-mute':
+          return await this.onVoiceMute(ws, me, data);
         default:
           return this.send(ws, { type: 'error', message: 'unknown message type' });
       }
@@ -535,11 +566,25 @@ export class Room {
     if (g.loadingAt && Date.now() - g.loadingAt < LOADING_STALE_MS) {
       return this.send(ws, { type: 'error', message: 'the game is already starting' });
     }
+    const hadVoice = g.settings.voice === true;
     g.settings = sanitizeSettings(data.settings);
+    // Voice going off tears every mesh down, so no mic is live any more and a
+    // roster still claiming otherwise would light up speaking indicators in a
+    // room with no voice in it — and would light them up again the moment the
+    // host turned voice back on, before anyone had touched a microphone.
+    // hostMuted is deliberately left alone: it is the host's standing decision
+    // about a player, not a fact about the mesh.
+    let voiceCleared = false;
+    if (hadVoice && g.settings.voice !== true) {
+      for (const p of Object.values(g.players)) {
+        if (p.voiceOn === true) { p.voiceOn = false; voiceCleared = true; }
+      }
+    }
     await this.save();
     // Everyone sees the choice, not just the host — a lobby where only one
     // person can see what is about to be played is a dead screen for the rest.
     this.broadcast({ type: 'settings', settings: g.settings });
+    if (voiceCleared) this.broadcastRoster();
   }
 
   /* "List publicly" — DEFAULT OFF, and the default is the security model:
@@ -727,6 +772,116 @@ export class Room {
     this.broadcast({ type: 'phase', phase: 'lobby' });
     this.broadcastRoster();
     this.reportToLobby();
+  }
+
+  /* ---------------- voice ---------------- */
+
+  /* The signalling relay. It is deliberately BLIND: one message type carries
+     offer, answer and ICE candidate alike, and the room forwards `data`
+     without parsing, inspecting, validating or logging it. That is a security
+     property by construction rather than by good intentions — a room that
+     never reads SDP cannot leak, mangle or come to depend on what is in it,
+     and there is one relay path to audit instead of three.
+
+     Every refusal below is a SILENT drop. A candidate addressed to someone who
+     just closed their laptop is ordinary WebRTC behaviour, not a mistake by
+     anyone, and erroring on it would spray a toast at every client each time a
+     player leaves. Nothing here is a state change, so nothing needs saving. */
+  onVoiceSignal(ws, me, data) {
+    const g = this.game;
+    // Signalling in a room with voice off would make the setting a lie: the
+    // mesh would form and audio would flow with the host having said no.
+    if (g.settings.voice !== true) return;
+
+    const to = data.to;
+    if (typeof to !== 'string' || to === me.id) return;
+    // hasOwnProperty, not a bare read: `to: '__proto__'` on a plain object map
+    // returns Object.prototype, which is very truthy and is not a player.
+    if (!Object.prototype.hasOwnProperty.call(g.players, to)) return;
+
+    if (!Object.prototype.hasOwnProperty.call(data, 'data')) return;
+    const payload = data.data;
+    if (payload === undefined) return;
+    // Measured on the payload alone, so the cap means the same number to both
+    // sides of the wire regardless of what the envelope costs.
+    let sized;
+    try {
+      sized = JSON.stringify(payload);
+    } catch {
+      return; // unserialisable payload; nothing to forward
+    }
+    if (typeof sized !== 'string' || sized.length > VOICE_SIGNAL_MAX) return;
+
+    // Addressed to a player, so it goes to that player's socket(s) and to
+    // nobody else — not the room, not the spectators. A player mid-reconnect
+    // can briefly own two, which is why this is not a `find`. A player whose
+    // record exists but who is not connected simply matches no socket here,
+    // which is the stale-candidate case: dropped, quietly, by construction.
+    const body = '{"type":"voice-signal","from":' + JSON.stringify(me.id) +
+                 ',"data":' + sized + '}';
+    for (const s of this.ctx.getWebSockets()) {
+      const a = s.deserializeAttachment() || {};
+      if (a.pid !== to) continue;
+      try {
+        s.send(body);
+      } catch {
+        /* socket already gone; the close handler tidies the roster */
+      }
+    }
+  }
+
+  /* "My mic is live." Advisory display state, and — like `lang` — safe to
+     write at any time INCLUDING mid-question, because it is not a function of
+     anybody's answer. See the roster() comment: that is the whole test for
+     whether a per-player field may ride a roster frame during a question.
+
+     The no-op guard is not just tidiness. The client debounces push-to-talk,
+     but a client that did not would otherwise turn every syllable into a
+     storage write and a room-wide broadcast. */
+  async onVoiceState(ws, me, data) {
+    const g = this.game;
+    // Same gate as the relay, for the same reason: with voice off there is no
+    // mesh to be live in, so a "my mic is open" claim is meaningless. Without
+    // this it is also an unrated toggle — any player could flip it back and
+    // forth forever, and every flip costs a storage write and a roster
+    // broadcast to the whole room. `onLang` has the same shape and the same
+    // exposure; the difference is that a language is always meaningful and a
+    // mic state in a voice-off room never is.
+    if (g.settings.voice !== true) return;
+    const on = data.on === true;
+    const p = g.players[me.id];
+    if (!p || p.voiceOn === on) return;
+    p.voiceOn = on;
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* Host mute. Legal in EVERY phase on purpose: a mic blasting through a
+     question is exactly the moment the host needs this, and making them wait
+     for the reveal would make the control useless when it matters. Safe
+     mid-question for the same reason as voice-state — the host clicking mute
+     says nothing about anyone's answer.
+
+     The flag is authoritative but the room cannot enforce it: the audio is
+     peer-to-peer and never touches this object. Enforcement lives in every
+     listening client muting the incoming track of a roster entry with
+     `muted: true`, which is also why a tampered client cannot unmute itself
+     for other people. It also survives a reconnect (see the rejoin path in
+     fetch()), so reloading is not a way out of it. */
+  async onVoiceMute(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can mute players' });
+    }
+    const id = data.id;
+    if (typeof id !== 'string') return;
+    if (!Object.prototype.hasOwnProperty.call(g.players, id)) return;
+    const target = g.players[id];
+    const on = data.on === true;
+    if (!target || target.hostMuted === on) return;
+    target.hostMuted = on;
+    await this.save();
+    this.broadcastRoster();
   }
 
   /* ---------------- state machine ---------------- */
@@ -1075,6 +1230,7 @@ export class Lobby {
           phase: entry.phase,
           genre: entry.genre,
           difficulty: entry.difficulty,
+          voice: entry.voice,
           updatedAt: Date.now(),
         };
       }
@@ -1103,6 +1259,9 @@ export class Lobby {
           phase: r.phase,
           genre: r.genre,
           difficulty: r.difficulty,
+          // Listings written before voice existed come back without it, so
+          // this is read defensively rather than passed through.
+          voice: r.voice === true,
         }));
       return new Response(JSON.stringify({ type: 'lobby', rooms }), {
         headers: { 'content-type': 'application/json' },
@@ -1133,6 +1292,7 @@ function sanitizeListing(raw) {
            Object.prototype.hasOwnProperty.call(GENRES, raw.genre)
       ? raw.genre : 'mixed',
     difficulty: DIFFICULTIES.includes(raw.difficulty) ? raw.difficulty : 'any',
+    voice: raw.voice === true,
   };
 }
 
@@ -1287,7 +1447,7 @@ const LANGS = ['en', 'es'];
 function sanitizeLang(raw) {
   return typeof raw === 'string' && LANGS.includes(raw) ? raw : 'en';
 }
-const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any' };
+const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any', voice: false };
 
 /* How many recently-used question texts to remember so a second game in the
  * same room is not the same ten questions. Deliberately small: save() runs on
@@ -1301,7 +1461,11 @@ const RECENT_CAP = 40;
  * persisted shape, and hasOwnProperty (rather than `in`) keeps inherited
  * names like `constructor` from validating as a genre. */
 function sanitizeSettings(raw) {
-  const out = { genre: DEFAULT_SETTINGS.genre, difficulty: DEFAULT_SETTINGS.difficulty };
+  const out = {
+    genre: DEFAULT_SETTINGS.genre,
+    difficulty: DEFAULT_SETTINGS.difficulty,
+    voice: DEFAULT_SETTINGS.voice,
+  };
   if (!raw || typeof raw !== 'object') return out;
   if (typeof raw.genre === 'string' &&
       Object.prototype.hasOwnProperty.call(GENRES, raw.genre)) {
@@ -1310,6 +1474,10 @@ function sanitizeSettings(raw) {
   if (typeof raw.difficulty === 'string' && DIFFICULTIES.includes(raw.difficulty)) {
     out.difficulty = raw.difficulty;
   }
+  // Voice is OFF unless someone said exactly `true`, same discipline as
+  // g.public: the setting gates the signalling relay, so "truthy" is not a
+  // good enough reason to open a channel between two strangers' browsers.
+  out.voice = raw.voice === true;
   return out;
 }
 
@@ -1327,6 +1495,20 @@ function normalizeGame(g) {
   // an invalid code means "never report", an invalid flag means "private".
   if (typeof g.code !== 'string' || !ROOM_CODE.test(g.code)) g.code = '';
   g.public = g.public === true;
+  // Players persist across a game, and rooms saved before voice existed come
+  // back with player records that have neither field. Both go on the wire as
+  // booleans, and `undefined` would drop out of the roster entry entirely —
+  // so coerce here, once, rather than at every read site.
+  if (g.players && typeof g.players === 'object') {
+    for (const pid of Object.keys(g.players)) {
+      const p = g.players[pid];
+      if (!p || typeof p !== 'object') continue;
+      p.voiceOn = p.voiceOn === true;
+      p.hostMuted = p.hostMuted === true;
+    }
+  } else {
+    g.players = {};
+  }
   return g;
 }
 

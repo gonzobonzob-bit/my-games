@@ -91,7 +91,7 @@ try {
       // The listing must never carry more than the advertised shape — no
       // scores, no player names, nothing that grew by accident.
       const keys = Object.keys(entry).sort().join(',');
-      ok(keys === 'code,difficulty,genre,host,phase,players,watching',
+      ok(keys === 'code,difficulty,genre,host,phase,players,voice,watching',
          'listing carries exactly the advertised fields', keys);
     }
     A.close(); B.close();
