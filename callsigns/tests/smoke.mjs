@@ -233,7 +233,7 @@ async function main(){
       lease: leaseFor(S.stations[0]),
       legacySecondStation: 'secondStation' in S
     })`);
-    assert('save schema is v5 under the same key', s0.v === 5 && s0.key === 'callsigns.save', JSON.stringify(s0));
+    assert('save schema is v6 under the same key', s0.v === 6 && s0.key === 'callsigns.save', JSON.stringify(s0));
     assert('new game: starting cash 800', s0.cash === 800, s0.cash);
     // The v3 shape, field by field — this is the assertion CONTRACT.md asks
     // for, and it is the one that fails loudly if anyone reintroduces a flat
@@ -285,7 +285,102 @@ async function main(){
       after.payroll === 0 && after.leases > 0, JSON.stringify(after));
     assert('ledger reconciles to cash on every single day', after.worstDrift < 1e-6, after.worstDrift);
 
-    /* ---- 4. save persists ---- */
+    /* ---- 3b. the founding card reports LIVE competition ----
+
+       It printed seg.comp.base, the static opening constant, labelled
+       "Incumbents". On a real day-139 run that read 2000 while the networks
+       actually held 1049 between them — 2x wrong, in the direction that hides
+       the entire v5 rivals system behind a number that never moves. The player
+       had squeezed the rivals to half their opening size with no way to know.
+
+       Assert the rendered number TRACKS state rather than merely existing:
+       move the live capacity and the card has to move with it. A test that only
+       checked "a number appears" would have passed against the constant. */
+    const segLive = await evaluate(`(function(){
+      const id = segmentIds()[0];
+      // viewFounding() returns the locked panel until expansion unlocks, and at
+      // day 13 it has not. Open the gate for the render only.
+      const lockedBefore = S.unlockedExpansion;
+      S.unlockedExpansion = true;
+      const before = rivalSnapshot(id).total;
+      // viewFounding() RETURNS markup; it does not write to the DOM.
+      const grab = () => {
+        const d = document.createElement('div');
+        d.innerHTML = viewFounding();
+        const el = d.querySelector('.seg-card[data-seg="' + id + '"]');
+        return el ? el.textContent.replace(/\\s+/g, ' ') : '';
+      };
+      const textBefore = grab();
+      // Halve what the networks hold, re-render, and read it back.
+      S.rivalNets = S.rivalNets || {};
+      S.rivalNets[id] = {};
+      for (const net of rivalNets()) S.rivalNets[id][net.id] = rivalK(id, net.id) * 0.5;
+      const after = rivalSnapshot(id).total;
+      const textAfter = grab();
+      S.unlockedExpansion = lockedBefore;   // leave the run exactly as found
+      return { id, before, after,
+               sawBefore: textBefore.indexOf(String(Math.round(before))) >= 0,
+               sawAfter:  textAfter.indexOf(String(Math.round(after))) >= 0,
+               named: rivalNets().every(n => textAfter.indexOf(n.name) >= 0),
+               textAfter: textAfter.slice(0, 220) };
+    })()`);
+    assert('the founding card shows live rival capacity, not the static comp.base',
+      segLive.sawBefore && segLive.sawAfter && segLive.after < segLive.before, JSON.stringify(segLive));
+    assert('the founding card names the rival networks',
+      segLive.named, JSON.stringify(segLive));
+
+    /* ---- 3c. the condition gauge is visible and tracks state ----
+
+       Signal condition multiplies everything a station pulls. Shipped without a
+       gauge it would be the second invisible force in this game — the first
+       being rival capacity, which spent a whole version rendering a static
+       constant. Assert the number MOVES with state and that the cause and the
+       destination are both named, not merely that a card exists. */
+    const condUi = await evaluate(`(function(){
+      const st = S.stations[0];
+      const grab = () => {
+        const d = document.createElement('div');
+        d.innerHTML = viewSchedule();
+        return d.textContent.replace(/\\s+/g, ' ');
+      };
+      st.cond = 1;    const hi = grab();
+      st.cond = 0.44; const lo = grab();
+      st.cond = 1;
+      return {
+        hi100: hi.indexOf('100%') >= 0,
+        lo44: lo.indexOf('44%') >= 0,
+        namesWear: /Wear/.test(lo),
+        namesTend: /Attention/.test(lo),
+        namesTarget: /settling toward/.test(lo),
+        sample: lo.slice(lo.indexOf('Signal condition'), lo.indexOf('Signal condition') + 200)
+      };
+    })()`);
+    assert('the condition gauge renders the live value, not a constant',
+      condUi.hi100 && condUi.lo44, JSON.stringify(condUi));
+    assert('the condition gauge names its cause and its destination',
+      condUi.namesWear && condUi.namesTend && condUi.namesTarget, JSON.stringify(condUi));
+
+    /* ---- 4. save persists ----
+
+       An ASSIGNED engineer goes on the schedule before the save, because that
+       is the case nothing here used to cover. readStation() rebuilt every slot
+       reading only the v3 `eng` field and never `engs`, so the whole v4
+       two-engineers-per-slot feature was silently wiped on every load: the
+       engineer stayed on payroll, the slot went back to uncovered, and fault
+       risk jumped to x1.90 with nothing on screen to say why. These assertions
+       checked slot SHAPE and cross-station uniqueness but never round-tripped a
+       real assignment, so all 40 passed against a broken reader. */
+    const engFix = await evaluate(`(function(){
+      S.cash += 50000;
+      const p = makePerson('eng', S.rep);
+      S.staff.push(p);
+      const r = setSlotEngineer(0, 'morning', p.id);
+      const slot = slotAt(0, 'morning');
+      return { ok: !!(r && r.ok !== false), id: p.id, live: engIdsOf(slot) };
+    })()`);
+    assert('an engineer can be assigned to a slot before saving (fixture)',
+      engFix.ok && engFix.live.length === 1 && engFix.live[0] === engFix.id, JSON.stringify(engFix));
+
     const saved = await evaluate(`(function(){
       const ok = saveGame(true);
       const raw = localStorage.getItem(SAVE_KEY);
@@ -301,7 +396,7 @@ async function main(){
     })()`);
     assert('saveGame() writes the save', saved.ok === true && saved.hasRaw, JSON.stringify(saved));
     assert('saved day/version match live state',
-      saved.day === saved.live && saved.v === 5, JSON.stringify(saved));
+      saved.day === saved.live && saved.v === 6, JSON.stringify(saved));
     assert('v3 payload carries the callsign inside stations[0]',
       typeof saved.call === 'string' && saved.call.length === 4 && saved.topLevelCall === undefined, JSON.stringify(saved));
     assert('saveHeadline() reads an unloaded save', saved.headline && saved.headline.call === saved.call, JSON.stringify(saved));
@@ -317,7 +412,38 @@ async function main(){
     // trigger catchUp() and advance the day. Same-run reloads are < 60s so it
     // is === in practice, but the assertion shouldn't depend on test speed.
     assert('reloaded save resumes same station',
-      s1.call === saved.call && s1.day >= saved.day && s1.v === 5 && s1.stations === 1, JSON.stringify(s1));
+      s1.call === saved.call && s1.day >= saved.day && s1.v === 6 && s1.stations === 1, JSON.stringify(s1));
+
+    /* The regression guard. Read it through engIdsOf(), the same accessor the
+       sim uses to decide coverage and fault risk, so a slot that merely LOOKS
+       right in the payload but reads as uncovered still fails. */
+    const engBack = await evaluate(`(function(){
+      const slot = slotAt(0, 'morning');
+      return { engs: engIdsOf(slot), raw: slot.engs, onStaff: S.staff.some(p => p.id === ${JSON.stringify(engFix.id)}) };
+    })()`);
+    assert('an assigned engineer survives save -> reload (v4 engs are not dropped by readStation)',
+      engBack.onStaff && engBack.engs.length === 1 && engBack.engs[0] === engFix.id, JSON.stringify(engBack));
+
+    /* v6 signal condition: it must round-trip, and a save that predates the
+       field must come back PRISTINE rather than at zero. A default of 0 would
+       have silently killed every existing player's station on the update. */
+    const condRt = await evaluate(`(function(){
+      const st = S.stations[0];
+      st.cond = 0.62; saveGame(true);
+      const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
+      const savedCond = raw.stations[0].cond;
+      // Now fake a pre-v6 save: strip the field and drop the version.
+      delete raw.stations[0].cond; raw.v = 5;
+      localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
+      // loadGame() RETURNS the rebuilt state; it does not install it.
+      const loaded = loadGame();
+      S = loaded;
+      return { savedCond, ok: !!loaded, migrated: S.stations[0].cond, ver: S.v };
+    })()`);
+    assert('signal condition round-trips through the save',
+      Math.abs(condRt.savedCond - 0.62) < 1e-9, JSON.stringify(condRt));
+    assert('a pre-v6 save migrates in at full condition, not zero',
+      condRt.ok && condRt.migrated === 1 && condRt.ver === 6, JSON.stringify(condRt));
 
     /* ---- 6. the empire invariants, through the real mutators ----
        Last, and deliberately so: this block funds itself with test money and
@@ -433,10 +559,17 @@ async function main(){
                  { id:'d3', role:'dj' }, { id:'d4', role:'dj' }];
       got.quiet = bankruptCause().key;
 
+      // v6: a run that died with its transmitters on the floor must be TOLD
+      // that, not handed a symptom like "you went quiet". Set last, and reset
+      // after, so it cannot leak into the cases above.
+      one.cond = COND_MIN;
+      got.rot = bankruptCause().key;
+      one.cond = 1;
+
       const all = ['causeOverExpanded','causeTalentThin','causeGearHeavy',
-                   'causeAdsOnly','causeNoEngineer','causeQuiet'];
+                   'causeAdsOnly','causeNoEngineer','causeQuiet','causeSignalRot'];
       const bad = all.filter(k => {
-        const s = t(k, { n: 2, slots: 8 });
+        const s = t(k, { n: 2, slots: 8, pct: 35 });
         return !s || s === k || /\\{[a-z]+\\}/i.test(s);
       });
       return { got: got, unrenderable: bad,
@@ -444,10 +577,11 @@ async function main(){
     })()`);
     assert('every authored post-mortem renders with its variables filled',
       !post.missing && post.unrenderable && post.unrenderable.length === 0, JSON.stringify(post));
-    assert('all six post-mortems are reachable from real state',
+    assert('all seven post-mortems are reachable from real state',
       post.got && post.got.over === 'causeOverExpanded' && post.got.ads === 'causeAdsOnly'
       && post.got.noEng === 'causeNoEngineer' && post.got.gear === 'causeGearHeavy'
-      && post.got.thin === 'causeTalentThin' && post.got.quiet === 'causeQuiet',
+      && post.got.thin === 'causeTalentThin' && post.got.quiet === 'causeQuiet'
+      && post.got.rot === 'causeSignalRot',
       JSON.stringify(post));
 
     /* ---- 7. nothing errored anywhere along the way ---- */
