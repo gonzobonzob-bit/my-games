@@ -2,7 +2,7 @@
 
 This file governs every game added to or modified in this repository (GitHub Pages site "Gonzo's Game Vault"). It exists because the 2026-07 portfolio review found the same handful of mistakes repeated across a dozen independently-built games. Read this before adding a new game or doing a polish pass on an existing one.
 
-## The four binding rules (new builds and major overhauls)
+## The six binding rules (new builds and major overhauls)
 
 These are binding for any **new game** and any **major overhaul**. Existing games
 are grandfathered until their next major pass — they are not retroactively in
@@ -106,6 +106,40 @@ pass its own gate while failing to be a game.
 
 Run `design-architect` with a research brief, or a research pass, before the
 design proof — not after.
+
+### 5. Test the instrument before you trust its measurements
+A broken measuring tool does not produce obvious nonsense — it produces
+confident, plausible, wrong numbers. Before trusting a harness or a suite,
+**break the thing it is supposed to catch and confirm it screams.** An assertion
+never seen to fail is not evidence.
+
+This exists because Callsigns' balance harness called `salaryFor(c)` — one
+argument to a two-argument function — which threw inside the affordability check
+and was swallowed by the policy try/catch. **No policy had ever hired anybody.**
+Every balance number the project published described a game with an empty staff
+roster. Three more followed in the same file: fixed-priority policies that built
+one room and then nothing for 460 days; a gate asking whether room choice
+depends on the schedule while never once changing a schedule; and a 5% threshold
+sitting at 0.81 standard errors, so a true 5% edge passed it half the time.
+
+Two tells worth memorising: **two things that should differ producing identical
+output are the same run, not a close result**; and a statistic whose noise is
+wider than its effect has no opinion, so neither should you.
+
+### 6. Every pass leaves the process better than it found it
+Fixing the bug is half the job. The other half is asking what rule, check or
+agent instruction would have caught it, and writing that down where the next
+pass will read it. A defect that could recur becomes an assertion; a defect no
+suite could catch becomes a rule; a mistake in how the work was organised
+becomes a line in the agent's own definition.
+
+**An owner correction is the highest-value input available** — record it in their
+words before acting. Rule 4 exists because two sentences from someone who knows
+radio beat two full design proofs.
+
+**This binds fiction too.** A game's economy is invented; whether its optimum is
+a constant is not. A book's world is invented; whether it contradicts itself is
+not. Invented content is not an excuse for unmeasured work.
 
 ## The standing squads
 
