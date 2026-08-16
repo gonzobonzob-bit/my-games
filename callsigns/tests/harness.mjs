@@ -314,6 +314,173 @@ window.__rig = (function(){
     return !!(r && r.ok);
   }
 
+
+  /* ---- rooms: the machinery the shopping-list gate needs ----
+
+     The whole feature turns on ONE claim (DESIGN_PROOF_ROOMS.md §2): no fixed
+     room priority is optimal, because the Newsroom and the Record Library have
+     disjoint supports and the Sales Floor's marginal value flips sign on
+     reputation. If that claim is false the feature is a shopping list wearing a
+     decision's clothes, and it must not ship. So the gate below runs FIXED
+     priorities against one that reads state, and demands a real margin.
+
+     The value function is ui.js's own uiWhatIf()/uiEmpireWorth() — deliberately
+     the SAME numbers the player is shown on the Building tab. A policy that
+     out-thinks the UI would prove nothing about whether a human can make this
+     decision; a policy that uses the UI's own arithmetic proves exactly that. */
+  function surplusStaff(){
+    const load = staffSlotLoad();
+    return S.staff.filter(function(p){ return !(load[p.id] > 0); });
+  }
+  /** Marginal empire value per day of doing fn, measured not estimated. */
+  function marginOf(fn){
+    if (typeof uiWhatIf !== 'function' || typeof uiEmpireWorth !== 'function') return 0;
+    const base = uiEmpireWorth();
+    const after = uiWhatIf(function(){ fn(); return uiEmpireWorth(); });
+    if (after === null || !isFinite(after) || !isFinite(base)) return 0;
+    return after - base;
+  }
+  /** Buy a bay only when the best room it could hold outearns its lease. */
+  function maybeBuyBay(reserve){
+    const can = canBuyBay();
+    if (!can || !can.ok) return false;
+    if (S.cash < (typeof BAY_BUILD_COST !== 'undefined' ? BAY_BUILD_COST : 2500) + reserve) return false;
+    const lease = bayLease(bayCount());
+    let best = 0;
+    for (let i = 0; i < S.stations.length; i++) {
+      for (const type of roomTypeIds()) {
+        if (roomAt(i, type)) continue;
+        const idx = i, ty = type;
+        best = Math.max(best, marginOf(function(){
+          S.bays = bayCount() + 1;
+          const r = buildRoom(idx, ty);
+          if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
+        }));
+      }
+    }
+    if (best <= lease) return false;
+    const r = buyBay();
+    return !!(r && r.ok);
+  }
+  /* Hire people FOR the rooms.
+
+     Without this the whole cohort was measuring nothing. empireCore hires DJs
+     and engineers to exactly slotsTotal(), so every person is on a slot,
+     staffSlotLoad() puts them all at load 1 and surplusStaff() is EMPTY — the
+     policies dutifully built rooms and left them standing empty, paying lease
+     for nothing. The tell was six policies sharing a byte-identical p10 and two
+     exact ties: they were the same runs.
+
+     A player who builds a room hires somebody to sit in it. That extra body is
+     a real cost — salary forever, against a room that must beat salary AND
+     lease — which is exactly the trade the feature is supposed to pose. */
+  function hireForRooms(){
+    const seatsWanted = roomList().reduce(function(a, r){
+      return a + Math.max(0, ROOM_SEATS - (r.staff ? r.staff.length : 0));
+    }, 0);
+    if (seatsWanted <= 0) return;
+    const spare = surplusStaff().length;
+    if (spare >= seatsWanted) return;
+    // Hire toward slots + room seats. Which ROLE is worth hiring is the room's
+    // own fit table, so ask the rooms rather than guessing.
+    const need = {};
+    for (const r of roomList()) {
+      const free = ROOM_SEATS - (r.staff ? r.staff.length : 0);
+      if (free <= 0) continue;
+      let bestRole = 'dj', bestFit = 0;
+      for (const role of ['dj', 'eng', 'sales']) {
+        const f = roomFit(r.type, role);
+        if (f > bestFit) { bestFit = f; bestRole = role; }
+      }
+      need[bestRole] = (need[bestRole] || 0) + free;
+    }
+    for (const role of Object.keys(need)) {
+      // Cap = what the SLOTS need plus what the ROOMS need. Sales occupy no
+      // slot, so their whole cap is room seats.
+      const base = (role === 'sales') ? 0 : slotsTotal();
+      hireBest(role, base + need[role]);
+    }
+  }
+
+  /** Build and staff rooms. pickType and pickStation ARE the strategy under test. */
+  function manageRooms(pickType, pickStation, reserve){
+    maybeBuyBay(reserve);
+    if (roomList().length < bayCount()) {
+      const idx = pickStation();
+      const type = pickType(idx);
+      if (type && !roomAt(idx, type)) buildRoom(idx, type);
+    }
+    hireForRooms();
+    // Seat surplus people only. Seating someone who is on air costs attention
+    // and fatigue, which is the trap the readouts exist to warn about — a
+    // competent operator does not walk into it.
+    const sp = surplusStaff();
+    if (!sp.length) return;
+    const rooms = roomList();
+    for (const p of sp) {
+      let bestRoom = null, bestVal = 0;
+      for (const r of rooms) {
+        if (!Array.isArray(r.staff) || r.staff.length >= ROOM_SEATS) continue;
+        if (r.staff.indexOf(p.id) >= 0) continue;
+        const rid = r.id, pid = p.id;
+        const v = marginOf(function(){ seatInRoom(rid, pid); });
+        if (v > bestVal) { bestVal = v; bestRoom = r; }
+      }
+      if (bestRoom && bestVal > (p.salary || 0)) seatInRoom(bestRoom.id, p.id);
+    }
+  }
+  /** The state-reading chooser: whichever room type is worth most HERE, TODAY. */
+  function greedyType(idx){
+    let best = null, bestVal = 0;
+    for (const type of roomTypeIds()) {
+      if (roomAt(idx, type)) continue;
+      const ty = type;
+      const v = marginOf(function(){
+        const r = buildRoom(idx, ty);
+        if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
+      });
+      if (v > bestVal) { bestVal = v; best = type; }
+    }
+    return best;
+  }
+  /** ...and where. Stations differ in segment, gear, schedule and saturation. */
+  function greedyStation(){
+    let best = 0, bestVal = -Infinity;
+    for (let i = 0; i < S.stations.length; i++) {
+      const idx = i, ty = greedyType(i);
+      if (!ty) continue;
+      const v = marginOf(function(){
+        const r = buildRoom(idx, ty);
+        if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
+      });
+      if (v > bestVal) { bestVal = v; best = i; }
+    }
+    return best;
+  }
+  const flagship = function(){ return 0; };
+  function fixedType(type){ return function(idx){ return roomAt(idx, type) ? null : type; }; }
+  let rrTick = 0;
+  function roundRobinType(idx){
+    const ids = roomTypeIds();
+    for (let k = 0; k < ids.length; k++) {
+      const t = ids[(rrTick + k) % ids.length];
+      if (!roomAt(idx, t)) { rrTick++; return t; }
+    }
+    return null;
+  }
+  /** The empire policy's staffing, shared by every room policy so the ONLY
+      difference between them is which room they choose and where. */
+  function empireCore(day){
+    if (day % 3 === 0) {
+      hireBest('dj', slotsTotal());
+      if (S.day > 12) hireBest('eng', slotsTotal());
+      if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
+    }
+    fillSlots(); placeEngineers();
+    if (day % 7 === 0) upgradeGear(6000);
+    if (day % 5 === 0) tryExpand(2.2);
+  }
+
   /* ---- the policies ----
      Each is a plain function called once per in-game day. They are written to
      be recognisably human strategies, not optimisers: the question is whether
@@ -382,6 +549,53 @@ window.__rig = (function(){
       // them — the overshoot the ceiling exists to punish.
       if (day % 6 === 0 && S.day > 20) hireBest('sales', 6);
       fillSlots();
+    },
+
+    /* ---- the rooms cohort. Identical staffing, different room strategy. ---- */
+    rooms:       function(day){ empireCore(day); if (day % 4 === 0) manageRooms(greedyType, greedyStation, 8000); },
+    alwaysLib:   function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('library'), flagship, 8000); },
+    alwaysGreen: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('green'),   flagship, 8000); },
+    alwaysMaint: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('maint'),   flagship, 8000); },
+    alwaysNews:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('news'),    flagship, 8000); },
+    roundRobin:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(roundRobinType,       flagship, 8000); },
+    // Greedy on TYPE but blind on PLACEMENT — isolates whether "which station"
+    // is a real decision, which matters because reputation is empire-wide and
+    // so every Sales Floor shares one ceiling.
+    roomsFlagship: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(greedyType, flagship, 8000); },
+    // Maxes the bay ladder and staffs nothing. Leases are paid empty.
+    builder: function(day){
+      empireCore(day);
+      if (day % 4 === 0) { const c = canBuyBay(); if (c && c.ok) buyBay();
+        if (roomList().length < bayCount()) buildRoom(0, roomTypeIds()[0]); }
+    },
+
+    /* Runs four callsigns on half a roster, so people cover two slots each and
+       fatigue is real. Not a degenerate line — it is what a player who expanded
+       faster than they hired actually looks like, and it is the ONLY state in
+       which the Green Room has anything to fix. Without it the gate judges that
+       room in the one condition where its value is structurally zero. */
+    lean: function(day){
+      if (day % 3 === 0) {
+        hireBest('dj', Math.max(2, Math.floor(slotsTotal() / 2)));
+        if (S.day > 12) hireBest('eng', Math.max(1, Math.floor(slotsTotal() / 4)));
+        if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
+      }
+      fillSlots(); placeEngineers();
+      if (day % 7 === 0) upgradeGear(6000);
+      if (day % 5 === 0) tryExpand(2.2);
+      if (day % 4 === 0) manageRooms(greedyType, greedyStation, 8000);
+    },
+    // Same lean staffing, no rooms at all — the control the lean line is scored
+    // against, so "rooms helped" cannot be confounded with "lean is different".
+    leanBare: function(day){
+      if (day % 3 === 0) {
+        hireBest('dj', Math.max(2, Math.floor(slotsTotal() / 2)));
+        if (S.day > 12) hireBest('eng', Math.max(1, Math.floor(slotsTotal() / 4)));
+        if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
+      }
+      fillSlots(); placeEngineers();
+      if (day % 7 === 0) upgradeGear(6000);
+      if (day % 5 === 0) tryExpand(2.2);
     }
   };
 
@@ -427,6 +641,8 @@ window.__rig = (function(){
       // Slots actually covered at the end of the run. The lever is driven by
       // ATTENTION, so a policy's condition is only interpretable next to how
       // much of its empire it was staffing.
+      bays: (typeof bayCount === 'function') ? bayCount() : 0,
+      rooms: (typeof roomList === 'function') ? roomList().length : 0,
       slotsTotal: S.stations.length * PARTS.length,
       slotsWithDj: S.stations.reduce(function(a, st){
         return a + PARTS.filter(function(p){
@@ -663,6 +879,57 @@ async function main(){
     check('the ledger reconciles in every single run',
       Math.max(...POLICIES.map(p => summary[p].worstDrift)) < 1e-6,
       'worst drift ' + Math.max(...POLICIES.map(p => summary[p].worstDrift)));
+
+    /* ---- THE ROOMS GATE ----
+       docs/DESIGN_PROOF_ROOMS.md §3.3 and §10: this ships WITH the code, not
+       after it. If any fixed room priority comes within 5% of the policy that
+       reads state, §2's non-constancy argument is wrong and the feature does
+       not merge. Written to be able to fail, and to say plainly what it means
+       if it does. */
+    console.log('\n--- rooms: is the choice a decision, or a shopping list? ---');
+    const ROOM_POLICIES = ['rooms', 'roomsFlagship', 'alwaysMaint', 'alwaysNews',
+                           'alwaysLib', 'alwaysGreen', 'roundRobin', 'builder',
+                           'lean', 'leanBare'];
+    const ROOM_RUNS = Math.max(12, Math.floor(RUNS / 2));
+    const rsum = {};
+    for (const rp of ROOM_POLICIES) {
+      const rrows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
+        JSON.stringify(rp) + ', ' + ROOM_RUNS + ', ' + DAYS + '))'));
+      rsum[rp] = summarise(rrows);
+      console.log(row(rp, rsum[rp]) + '   bays ' + (pct(rrows.map(r => r.bays), 0.5) || 0) +
+        '   rooms ' + (pct(rrows.map(r => r.rooms), 0.5) || 0));
+    }
+    console.log('  (rooms cohort runs at ' + ROOM_RUNS + ' seeds, not ' + RUNS +
+      ' — seven extra policies at ' + DAYS + ' days is real wall clock, and this is a margin test)');
+
+    const fixedBest = Math.max(rsum.alwaysMaint.medCash || 0, rsum.alwaysNews.medCash || 0,
+                               rsum.alwaysLib.medCash || 0, rsum.alwaysGreen.medCash || 0,
+                               rsum.roundRobin.medCash || 0);
+    const greedyCash = rsum.rooms.medCash || 0;
+    check('ROOMS ARE NOT A SHOPPING LIST: reading state beats every fixed priority by >5%',
+      greedyCash > fixedBest * 1.05,
+      'state-reading ' + money(greedyCash) + ' vs best fixed ' + money(fixedBest) +
+      ' (' + (fixedBest ? ((greedyCash / fixedBest - 1) * 100).toFixed(1) : '-') + '%)' +
+      ' — if this fails, DESIGN_PROOF_ROOMS.md §2 is wrong and rooms must not ship');
+    /* Placement, tested separately from type. Reputation is empire-wide, so
+       every Sales Floor shares one ceiling and "which station" could easily be
+       a constant. If it is, say so out loud rather than letting the combined
+       number hide it. */
+    check('room PLACEMENT is a decision too, not just room type',
+      greedyCash > (rsum.roomsFlagship.medCash || 0) * 1.02,
+      'greedy placement ' + money(greedyCash) + ' vs always-flagship ' +
+      money(rsum.roomsFlagship.medCash) +
+      ' — reputation is empire-wide, so this is the weakest leg of §2');
+    check('LOSABLE: overbuilding bays costs the run',
+      (rsum.builder.medCash || 0) < (summary.empire.medCash || 0) * 0.85,
+      'builder ' + money(rsum.builder.medCash) + ' vs empire ' + money(summary.empire.medCash));
+    check('rooms pay for a SHORT-STAFFED operator, where fatigue is real',
+      (rsum.lean.medCash || 0) > (rsum.leanBare.medCash || 0) * 1.05,
+      'lean+rooms ' + money(rsum.lean.medCash) + ' vs lean alone ' + money(rsum.leanBare.medCash) +
+      ' — the Green Room has no support in a fully-crewed run, so this is the state that tests it');
+    check('SKILL PAYS: rooms beat leaving the same money in the bank',
+      greedyCash > (summary.empire.medCash || 0) * 1.10,
+      'rooms ' + money(greedyCash) + ' vs empire ' + money(summary.empire.medCash));
 
     /* ---- the STATION_COSTS ladder, A/B ---- */
     console.log('\n--- STATION_COSTS ladder (the disagreement the checklist refused to hand-pick) ---');

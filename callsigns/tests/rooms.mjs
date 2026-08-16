@@ -141,11 +141,13 @@ ok('a surplus engineer in the bay makes condition BETTER', seat.cSurplus > seat.
 /* ---- 5. roomPower divides by load ---- */
 const power = run(`(function(){
   S = sanitize(newState('KPOW'));
-  const p = makePerson('sales', 9); p.skill = 9; S.staff.push(p);
-  S.bays = 1; S.rooms = [{ id:'s', type:'sales', station:0, staff:[p.id] }];
+  // Fixtured on the Newsroom now that the Sales Floor is gone. The check is
+  // about roomPower's arithmetic, not about any one room.
+  const p = makePerson('dj', 9); p.skill = 9; S.staff.push(p);
+  S.bays = 1; S.rooms = [{ id:'s', type:'news', station:0, staff:[p.id] }];
   const solo = roomPower(S.rooms[0]);
   S.stations[0].schedule.morning.djs = [];
-  const d = makePerson('dj', 9); d.skill = 9; S.staff.push(d);
+  const d = makePerson('eng', 9); d.skill = 9; S.staff.push(d);
   S.rooms[0].staff = [p.id, d.id];
   const pair = roomPower(S.rooms[0]);
   // now double-book the seller onto two slots -> load 3
@@ -156,30 +158,35 @@ const power = run(`(function(){
   // seat them in a second room instead (load 2)
   S.rooms.push({ id:'s2', type:'green', station:0, staff:[p.id] });
   const diluted = roomPower(S.rooms[0]);
-  return { solo, pair, diluted, fitSales: roomFit('sales','sales'), fitDj: roomFit('sales','dj') };
+  return { solo, pair, diluted, fitDj: roomFit('news','dj'), fitEng: roomFit('news','eng') };
 })()`);
-ok('roomPower = fit x skill for one full-time person', Math.abs(power.solo - 9) < 1e-12, JSON.stringify(power));
-ok('a DJ in the sales floor is priced by ROLE FIT, not by skill rank',
-  Math.abs(power.pair - (9 + 0.55*9)) < 1e-12, JSON.stringify(power));
-ok('a second seat halves what someone brings to the first', Math.abs(power.diluted - 4.5) < 1e-12, JSON.stringify(power));
+ok('roomPower = fit x skill for one full-time person',
+  Math.abs(power.solo - power.fitDj * 9) < 1e-12, JSON.stringify(power));
+ok('a second body is priced by ROLE FIT, not by skill rank',
+  Math.abs(power.pair - (power.fitDj * 9 + power.fitEng * 9)) < 1e-12, JSON.stringify(power));
+ok('a second assignment halves what someone brings to the first',
+  Math.abs(power.diluted - power.fitDj * 9 / 2) < 1e-12, JSON.stringify(power));
 
 /* ---- 6. ceilings: points above the cap are worth exactly zero ---- */
 const ceil = run(`(function(){
   S = sanitize(newState('KCAP'));
   S.rep = 38;
-  S.bays = 1; S.rooms = [{ id:'s', type:'sales', station:0, staff:[] }];
+  // Sales has no room any more: it is a GLOBAL, reputation-capped lever, which
+  // is the fix that actually removed its dominance (commit 1916875). Hiring
+  // more sellers past what reputation can carry must still buy nothing.
   const seat = n => {
-    S.staff = []; S.rooms[0].staff = [];
-    for (let i=0;i<n;i++){ const p = makePerson('sales',10); p.skill=10; S.staff.push(p); S.rooms[0].staff.push(p.id); }
-    return { fill: salesFill(S.stations[0]), price: salesPrice(S.stations[0]),
-             wasted: salesWasted(S.stations[0]), power: roomPower(S.rooms[0]), ceiling: roomCeiling(S.rooms[0]) };
+    S.staff = [];
+    for (let i=0;i<n;i++){ const p = makePerson('sales',10); p.skill=10; S.staff.push(p); }
+    return { fill: salesFill(), price: salesPrice(), wasted: salesWasted() };
   };
   return { one: seat(1), three: seat(3), fillCap: fillCap(), priceCap: priceCap() };
 })()`);
 ok('sales points above the reputation ceiling buy nothing',
   ceil.three.fill === ceil.one.fill && ceil.three.price === ceil.one.price && ceil.three.wasted > ceil.one.wasted,
   JSON.stringify(ceil));
-ok('the ceiling is the rep-set one', Math.abs(ceil.one.ceiling - Math.max((ceil.fillCap-0.5)/0.04,(ceil.priceCap-1)/0.03)) < 1e-9, JSON.stringify(ceil));
+ok('the sales ceiling is the rep-set one',
+  Math.abs(ceil.one.wasted - (10 - Math.max((ceil.fillCap-0.5)/0.04, (ceil.priceCap-1)/0.03))) < 1e-9,
+  JSON.stringify(ceil));
 
 /* ---- 7. newsroom / library disjoint supports ---- */
 const disjoint = run(`(function(){
@@ -247,8 +254,11 @@ const mig = run(`(function(){
            v6fill, v6price, fill: salesFill(S.stations[0]), price: salesPrice(S.stations[0]) };
 })()`);
 ok('a v6 save migrates to v7 with bays 0', mig.ver === 7 && mig.bays === 0, JSON.stringify(mig));
-ok('a v6 save with sellers is granted a free Sales Floor, seats capped at 3',
-  mig.rooms === 1 && mig.type === 'sales' && mig.seats === 3, JSON.stringify(mig));
+// With no Sales Floor there is no transition to grandfather: a v6 save simply
+// arrives with no rooms, and its sellers keep working the global lever exactly
+// as they did. The multiplier check below is what actually protects the player.
+ok('a v6 save with sellers migrates to NO rooms and loses nothing',
+  mig.rooms === 0 && mig.seats === 0, JSON.stringify(mig));
 ok('the migrated save keeps the multiplier it paid for',
   Math.abs(mig.fill - mig.v6fill) < 1e-12 && Math.abs(mig.price - mig.v6price) < 1e-12, JSON.stringify(mig));
 
@@ -269,13 +279,15 @@ const hostile = run(`(function(){
   raw.v = 7;
   raw.bays = 9999;
   raw.rooms = [
-    { id:'a', type:'sales', station: 0, staff:[p.id, p.id, 'ghost', 'ghost2', p.id] },
-    { id:'a', type:'sales', station: 0, staff:[] },              // duplicate id AND duplicate type
+    { id:'a', type:'news', station: 0, staff:[p.id, p.id, 'ghost', 'ghost2', p.id] },
+    { id:'a', type:'news', station: 0, staff:[] },               // duplicate id AND duplicate type
     { id:'b', type:'spaceport', station: 0, staff:[] },          // unknown type
     { id:'c', type:'maint', station: 99, staff:[] },             // station out of range
     { id:'d', type:'green', station: -5, staff:[p.id] },
     { id:'e', type:'news', station: 0, staff:[] },
     { id:'f', type:'library', station: 0, staff:[] },
+    // A save written by the in-progress build that HAD a Sales Floor. It must be
+    // dropped like any other unknown type rather than throwing.
     { id:'g', type:'sales', station: 0, staff:[] },
     'not an object', null
   ];
@@ -287,6 +299,8 @@ const hostile = run(`(function(){
 })()`);
 ok('S.bays is clamped to [0, MAX_BAYS]', hostile.bays === 6, JSON.stringify(hostile));
 ok('unknown room types are dropped', hostile.types.indexOf('spaceport') < 0, JSON.stringify(hostile));
+ok('a retired Sales Floor in an old v7 save is dropped, not honoured',
+  hostile.types.indexOf('sales') < 0, JSON.stringify(hostile));
 ok('room.station is clamped into the station array', hostile.stations.every(x => x === 0), JSON.stringify(hostile));
 ok('seats are deduped, capped and filtered to the roster', hostile.firstSeats.length === 1, JSON.stringify(hostile));
 ok('duplicate room ids are re-issued', new Set(hostile.ids).size === hostile.ids.length, JSON.stringify(hostile));
@@ -295,8 +309,8 @@ ok('one room type per station survives', new Set(hostile.types).size === hostile
 /* ---- 11. firing scrubs room seats ---- */
 const fired = run(`(function(){
   S = sanitize(newState('KFIR'));
-  const p = makePerson('sales', 9); S.staff.push(p);
-  S.bays = 1; S.rooms = [{ id:'s', type:'sales', station:0, staff:[p.id] }];
+  const p = makePerson('dj', 9); S.staff.push(p);
+  S.bays = 1; S.rooms = [{ id:'s', type:'news', station:0, staff:[p.id] }];
   const before = roomPower(S.rooms[0]);
   scrubStaffFromSchedules(p.id);
   S.staff = S.staff.filter(x => x.id !== p.id);
@@ -309,7 +323,7 @@ const cause = run(`(function(){
   S = sanitize(newState('KOVB'));
   S.rep = 45;
   const quiet = bankruptCause().key;
-  S.bays = 4; S.rooms = [{ id:'s', type:'sales', station:0, staff:[] }];
+  S.bays = 4; S.rooms = [{ id:'s', type:'news', station:0, staff:[] }];
   const overbuilt = bankruptCause().key;
   S.bays = 0; S.rooms = [];
   return { quiet, overbuilt, back: bankruptCause().key };
@@ -324,8 +338,8 @@ const mut = run(`(function(){
   const lockedByRep = canBuyBay();
   S.rep = 30;
   const buy1 = buyBay();
-  const noBayLeft = buildRoom(0, 'sales');   // 1 bay, 0 rooms -> should be ok
-  const dupe = buildRoom(0, 'sales');
+  const noBayLeft = buildRoom(0, 'news');    // 1 bay, 0 rooms -> should be ok
+  const dupe = buildRoom(0, 'news');
   const second = buildRoom(0, 'maint');      // no free bay
   const cashAfter = S.cash;
   return { lockedByRep: lockedByRep.reason, buy1: buy1.ok, bays: S.bays,
@@ -361,130 +375,37 @@ const longRun = run(`(function(){
 ok('540 days with five staffed rooms: ledger reconciles, invariants hold',
   longRun.worstDrift < 1e-6 && longRun.bad === 0, JSON.stringify(longRun));
 
-/* ---- 15. the live sales transition: no cliff on the other stations ---- */
-const setUpEmpire = `
-  S = sanitize(newState('KTRN'));
-  S.cash = 5e6; S.rep = 88; S.unlockedExpansion = true;
-  const segs = segmentIds();
-  for (let i = 1; i < 4; i++) { const r = foundStation(segs[i % segs.length]); if (!r.ok) throw new Error('found failed: ' + r.reason); }
-  for (let i=0;i<2;i++){ const p = makePerson('sales',10); p.skill = 10; S.staff.push(p); }
-  S.bays = 2;
-`;
-const trans = run(`(function(){
-  ${setUpEmpire}
-  const read = () => S.stations.map(st => +(salesFill(st) * salesPrice(st) / 0.5).toFixed(3));
-  const before = read();
-  const built = buildRoom(0, 'sales');
-  const after = read();
-  return { before, after, built: built.ok, rooms: S.rooms.length,
-           free: S.rooms.map(r => !!r.free), seats: S.rooms.map(r => r.staff.length),
-           latch: S.salesRoomed, bays: S.bays, paid: paidRoomCount() };
-})()`);
-ok('before the transition every station reads the v6 multiplier',
-  trans.before.every(x => x === trans.before[0] && x > 2.4), JSON.stringify(trans.before));
-// Two sellers cannot staff four sales floors — that is the per-station
-// mechanic, not the transition. What the transition must guarantee is that
-// every seller the player employs keeps working at FULL strength (load 1,
-// under the ceiling) and that no station the sellers reach is cliffed.
-ok('every station a seller reaches keeps ~93% of the v6 multiplier',
-  trans.after.filter(x => x >= trans.before[0] * 0.85).length === 2, JSON.stringify(trans));
+/* Sections 15-19 removed with the Sales Floor.
 
-// The integrator's case: sellers >= stations. Nobody is cliffed at all.
-const transFull = run(`(function(){
-  ${setUpEmpire}
-  for (let i=0;i<2;i++){ const p = makePerson('sales',10); p.skill = 10; S.staff.push(p); }
-  const read = () => S.stations.map(st => +(salesFill(st) * salesPrice(st) / 0.5).toFixed(3));
-  const before = read();
-  buildRoom(0, 'sales');
-  return { before, after: read(), seats: S.rooms.map(r => r.staff.length) };
-})()`);
-ok('with a seller per station, the transition costs ~7% and nothing cliffs',
-  transFull.after.every(x => x >= transFull.before[0] * 0.85) &&
-  transFull.seats.every(n => n === 1), JSON.stringify(transFull));
-ok('every station is granted a Sales Floor, only the bought one is paid',
-  trans.rooms === 4 && trans.paid === 1 && trans.free.filter(Boolean).length === 3, JSON.stringify(trans));
-ok('the two sellers are spread one per station, not stacked',
-  trans.seats.filter(n => n === 1).length === 2 && trans.seats.filter(n => n > 1).length === 0, JSON.stringify(trans));
-ok('the transition latches', trans.latch === true, JSON.stringify(trans));
+   They policed the empire-wide -> per-station sales transition: the live cliff,
+   the S.salesRoomed latch, the free-room entitlement and the migration that
+   granted a Sales Floor per station. Every one of those existed ONLY to manage
+   moving sales into a room, and the room was cut after measurement showed it
+   structurally negative — never worth building at any seller count, because the
+   empire-wide reading stacks sellers geometrically across all stations while a
+   per-station room splits the same people up.
 
-/* ---- 16. grandfathered rooms do not eat bay budget ---- */
-const budget = run(`(function(){
-  ${setUpEmpire}
-  buildRoom(0, 'sales');            // 1 paid + 3 free
-  const second = buildRoom(1, 'maint');   // 2 bays, 1 paid so far -> must be allowed
-  const third  = buildRoom(2, 'news');    // no bay left
-  return { second: second.ok, third: third.reason, paid: paidRoomCount(), bays: S.bays, rooms: S.rooms.length };
-})()`);
-ok('a free Sales Floor does not consume a bay the player bought',
-  budget.second === true && budget.third === 'nobay' && budget.paid === 2, JSON.stringify(budget));
-
-/* ---- 17. the reverse cliff / delete-the-room exploit ---- */
-const reverse = run(`(function(){
-  ${setUpEmpire}
-  buildRoom(0, 'sales');
-  const withRooms = S.stations.map(st => +(salesFill(st) * salesPrice(st) / 0.5).toFixed(3));
-  for (const r of S.rooms.slice()) removeRoom(r.id);
-  const afterDelete = S.stations.map(st => +(salesFill(st) * salesPrice(st) / 0.5).toFixed(3));
-  const rebuilt = buildRoom(0, 'sales');
-  return { withRooms, afterDelete, latch: S.salesRoomed, rebuiltOk: rebuilt.ok,
-           rebuiltFree: rebuilt.room && rebuilt.room.free, paid: paidRoomCount() };
-})()`);
-ok('deleting every Sales Floor does NOT restore the v6 empire-wide multiplier',
-  reverse.afterDelete.every(x => x === 1) && reverse.latch === true, JSON.stringify(reverse));
-ok('a deleted Sales Floor can be rebuilt free, so removal is symmetric',
-  reverse.rebuiltOk && reverse.rebuiltFree === true && reverse.paid === 0, JSON.stringify(reverse));
-
-/* ---- 18. migration grants one per station and spreads the sellers ---- */
-const mig2 = run(`(function(){
-  S = sanitize(newState('KMG2'));
-  S.cash = 5e6; S.rep = 88; S.unlockedExpansion = true;
-  const segs = segmentIds();
-  for (let i = 1; i < 4; i++) { const r = foundStation(segs[i % segs.length]); if (!r.ok) throw new Error('found failed: ' + r.reason); }
-  for (let i=0;i<2;i++){ const p = makePerson('sales',10); p.skill = 10; S.staff.push(p); }
-  const before = S.stations.map(st => +(salesFill(st) * salesPrice(st) / 0.5).toFixed(3));
-  const raw = JSON.parse(JSON.stringify(S)); raw.v = 6;
-  delete raw.bays; delete raw.rooms; delete raw.salesRoomed;
-  localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
-  S = loadGame();
-  const after = S.stations.map(st => +(salesFill(st) * salesPrice(st) / 0.5).toFixed(3));
-  return { before, after, rooms: S.rooms.length, free: S.rooms.every(r => r.free),
-           seats: S.rooms.map(r => r.staff.length), bays: S.bays, latch: S.salesRoomed };
-})()`);
-ok('a v6 empire migrates to one free Sales Floor per station',
-  mig2.rooms === 4 && mig2.free === true && mig2.bays === 0 && mig2.latch === true, JSON.stringify(mig2));
-ok('migration keeps the multiplier within ~15% on the stations that get a seller',
-  mig2.after.filter(x => x >= mig2.before[0] * 0.85).length === 2, JSON.stringify(mig2));
-
-/* ---- 19. a hand-edited save cannot grant itself free bays ---- */
-const freeCheat = run(`(function(){
-  S = sanitize(newState('KCHT'));
-  const raw = JSON.parse(JSON.stringify(S));
-  raw.v = 7; raw.bays = 0; raw.salesRoomed = false;
-  raw.rooms = [
-    { id:'n1', type:'news', station:0, staff:[], free:true },
-    { id:'n2', type:'maint', station:0, staff:[], free:true },
-    { id:'n3', type:'sales', station:0, staff:[], free:true }
-  ];
-  localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
-  S = loadGame();
-  return { free: S.rooms.map(r => r.type + ':' + !!r.free), paid: paidRoomCount(), latch: S.salesRoomed };
-})()`);
-ok('only a Sales Floor may be free; other rooms stay paid and bounded by bays',
-  freeCheat.free.indexOf('news:true') < 0 && freeCheat.free.indexOf('maint:true') < 0 &&
-  freeCheat.free.indexOf('sales:true') >= 0 && freeCheat.paid === 2, JSON.stringify(freeCheat));
-ok('a save that keeps rooms but clears the latch cannot double-dip', freeCheat.latch === true, JSON.stringify(freeCheat));
+   Deleted rather than adapted on purpose: an assertion kept alive against a
+   mechanic that no longer exists is how a suite starts lying. Sales is now a
+   global, reputation-capped lever with no room, and section 6 below still pins
+   the ceiling that actually fixed its dominance. */
 
 /* ---- 20. still inert: nothing above fires without a bay ---- */
 const inert2 = run(`(function(){
   S = sanitize(newState('KIN2'));
   for (let i=0;i<2;i++){ const p = makePerson('sales',10); p.skill = 10; S.staff.push(p); }
   S.rep = 88;
-  const build = buildRoom(0, 'sales');
-  return { latch: S.salesRoomed, rooms: S.rooms.length, reason: build.reason,
+  // 'sales' is no longer a room type at all, so this is refused on type before
+  // the bay budget is even consulted. Ask for a real room to test the budget.
+  const gone = buildRoom(0, 'sales');
+  const real = buildRoom(0, 'news');
+  return { rooms: S.rooms.length, goneReason: gone.reason, realReason: real.reason,
            mult: +(salesFill() * salesPrice() / 0.5).toFixed(3) };
 })()`);
+ok('the Sales Floor is gone as a room type',
+  inert2.goneReason === 'type', JSON.stringify(inert2));
 ok('at bays 0 no room can be built and sales still reads v6',
-  inert2.reason === 'nobay' && inert2.rooms === 0 && inert2.latch === false && inert2.mult > 2.4,
+  inert2.realReason === 'nobay' && inert2.rooms === 0 && inert2.mult > 2.4,
   JSON.stringify(inert2));
 
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall room checks passed');

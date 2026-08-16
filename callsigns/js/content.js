@@ -19,8 +19,14 @@
 //
 // Bays-and-rooms content pass (DESIGN_PROOF_ROOMS.md). What landed here:
 //   - BAY_LEASE, the empire-wide building ladder, paid empty.
-//   - ROOM_TYPES: five rooms, all serves:['radio'], keyed on ROLE fit and never
+//   - ROOM_TYPES: four rooms, all serves:['radio'], keyed on ROLE fit and never
 //     on skill rank (everyone is skill 10 by hour 2 — §5 defect B).
+//     The Sales Floor was the fifth and is CUT: measured structurally negative at
+//     every seller count (−$3,871/day at three sellers, −$670/day at six). The
+//     empire-wide reading stacks sellers geometrically and applies the total to
+//     every station; a per-station room splits the same people up, so each
+//     station ends with fewer points against its own ceiling. Sales stays as the
+//     global, reputation-capped lever it already was. Do not re-add the row.
 //   - STR.en.room[id] carrying each room's ceiling line, stamped onto the table
 //     the same way SEGMENTS is, so the two cannot drift.
 //   - The §7 readouts: ceiling, wasted points, seat cost, bay-purchase preview,
@@ -135,7 +141,11 @@ const STR = {
     // engineer on the payroll is an engineer on the slot.
     roleDjDesc: 'Leads or co-hosts one slot. Skill, chemistry and fatigue all multiply the same number.',
     roleEngDesc: 'One engineer covers one daypart across the whole empire. Hiring them is not assigning them.',
-    roleSalesDesc: 'Fills more of the ad log and holds the rate. Works empire-wide, not per station.',
+    // Sales is a global lever and always was — the per-station Sales Floor room
+    // was cut for being structurally negative. roleStrength() decays each extra
+    // seller by 0.40, and fillCap/priceCap are both read off reputation, so both
+    // halves of this sentence are the code.
+    roleSalesDesc: 'Fills more of the ad log and holds the rate, empire-wide. Each extra seller counts far less than the last, and reputation caps what any of them can move.',
     skill: 'Skill {n}', salary: '{amt}/day',
     hire: 'Hire', fire: 'Fire',
     hireTerms: 'One-time signing fee · then {amt}/day',
@@ -341,7 +351,11 @@ const STR = {
     seatLine: '{name} · {n} of {total} assignments',
     seatCost: '−{attn} attn on {call} · fatigue {fat}',
     seatSurplus: 'On no slot anywhere. This seat costs the air nothing.',
+    /* Two forms: "1 slots" read as a bug in a line whose whole job is to be
+       trusted. The UI picks by count — the file has no pluraliser and one
+       string is not worth building one. */
     seatDiluted: 'Already on {n} slots. What they bring in here, they stop bringing out there.',
+    seatDiluted1: 'Already on one slot. What they bring in here, they stop bringing out there.',
     seatNote: 'A room seat is an assignment exactly like a slot. Spread over three, a person brings a third of themselves to each.',
     // The specific trap in §3: diluting the engineer to build the room that
     // protects the plant can leave condition lower than it started.
@@ -466,29 +480,31 @@ const STR = {
        EXACTLY zero dollars — so each ceiling line names the state that sets it,
        in the player's own terms, and says what happens at the wrong end of it.
        Variables, by room:
-         sales   {rep},{cap}      maint  {tx},{ant}
-         green   {n}              news   {n},{call}      library {n},{call}
+         maint   {tx},{ant}       green  {n}
+         news    {n},{call}       library {n},{call}
        Newsroom and Record Library are deliberately written as mirror images:
        their supports are disjoint, and reading the two lines side by side is
-       how a player learns that no fixed room order is right. */
+       how a player learns that no fixed room order is right.
+
+       THE TWO HONEST ROOMS. Measured net of bay lease at four stations, TX2/ANT2,
+       crewed, rep 80:  news +$393/day · library +$60/day · maint −$20/day ·
+       green $0/day. The Maintenance Bay only clears its lease near the top of the
+       transmitter ladder, and the Green Room is worth nothing to a rota with
+       nobody doubled up. Both facts are now IN the ceiling line, which is the
+       line that renders before the build — not in the zero line, which only
+       fires once the room is already standing there costing money. */
     room: {
-      sales: {
-        name: 'Sales Floor',
-        blurb: 'Desks, a rate card and a phone list. Fills more of this signal\'s log and holds the rate on what is in it.',
-        ceiling: 'Ceiling set by reputation {rep}: {cap} points. Nobody sells premium airtime for a signal they have never heard of.',
-        zero: 'At the ceiling another seller moves the fill and the rate by nothing at all.'
-      },
       maint: {
         name: 'Maintenance Bay',
         blurb: 'Spare modules on the shelf and somebody who drives to the site before it fails. Cuts the wear your transmitter and antenna cause, and only that.',
-        ceiling: 'Ceiling set by the plant you own: {tx} on a {ant}. It cuts gear wear only — a Part 15 rig with a whip on it has none to cut.',
-        zero: 'Worth exactly zero until you buy a transmitter or an antenna worth protecting.'
+        ceiling: 'Ceiling set by the plant you own: {tx} on a {ant}. It cuts gear wear only, and does not earn its bay back until the top of the ladder.',
+        zero: 'A Part 15 rig with a whip on it has no wear worth paying somebody to prevent. Buy plant first, protect it second.'
       },
       green: {
         name: 'Green Room',
         blurb: 'A couch, a door that shuts, and coffee somebody actually replaces. Softens what a second and third shift do to a host on this signal.',
-        ceiling: 'Ceiling set by your own rota: {n} of your people work more than one slot. Nobody doubled up, nothing here to undo.',
-        zero: 'A rota with no doubles gets nothing from this room. Neither does a seat filled by someone already on the air.'
+        ceiling: 'Ceiling set by your own rota: {n} of your people are doubled up. At zero doubled up it pays zero — support for a short-handed week, not an upgrade.',
+        zero: 'Nobody is doubled up: no fatigue to cut, and the bay bills anyway. A seat filled by someone already on the air gets nothing back either.'
       },
       news: {
         name: 'Newsroom',
@@ -839,7 +855,7 @@ function segRuleText(id){ return (SEGMENTS[id] && SEGMENTS[id].rule) || ''; }
                     the literal string 'radio'. This is the first consumer the
                     `medium` tag has ever had; it is what makes a future venue or
                     stage three content rows instead of a second assignment
-                    system. ALL FIVE ROWS ARE serves:['radio'] AND NOTHING ELSE —
+                    system. ALL FOUR ROWS ARE serves:['radio'] AND NOTHING ELSE —
                     adding a non-radio row now is the scope breach CONTRACT.md
                     already forbids for SEGMENTS.
      fit          — per-ROLE multiplier on a seated person's skill. Keyed on role
@@ -853,13 +869,13 @@ function segRuleText(id){ return (SEGMENTS[id] && SEGMENTS[id].rule) || ''; }
    THE CEILINGS, which are what the player is actually solving for. A point above
    the ceiling is worth EXACTLY ZERO DOLLARS, and every ceiling is set by state
    the player chose rather than bought:
-     Sales Floor      rep       cap = max((fillCap-0.50)/0.040, (priceCap-1)/0.030)
-                                at rep 20 that is 3.25 points — ONE skill-3 seller
-                                saturates the first bay you ever buy
      Maintenance Bay  gear      cuts the gear term of stationWear() only; at
                                 tx=ant=0 that term is 1 for every value of the
-                                cut, so the room is arithmetically worth zero
-     Green Room       rota      nothing to shrink if nobody is double-booked
+                                cut, so the room is arithmetically worth zero —
+                                and measured −$20/day net of lease at TX2/ANT2,
+                                so it only pays at the top of the ladder
+     Green Room       rota      nothing to shrink if nobody is double-booked, which
+                                is $0/day for any player booking one voice a slot
      Newsroom         schedule  talk/news slots only
      Record Library   schedule  music slots only
    Newsroom and Record Library have DISJOINT supports: the schedule that makes
@@ -867,24 +883,25 @@ function segRuleText(id){ return (SEGMENTS[id] && SEGMENTS[id].rule) || ''; }
    is structural, not numeric — no retune of any constant can produce a fixed
    room priority list, which is the non-constancy the design gate demands.
 
-   FIVE ROOMS. Not six. A sixth row is a scope decision, not a content one.
+   FOUR ROOMS, since the Sales Floor was cut for being structurally negative at
+   every seller count (see the note at the head of this file). A fifth row is a
+   scope decision, not a content one.
 
    NOTHING HERE READS CASH, REVENUE, PAYROLL OR ANY COST, and nothing may. The
    day a ceiling learns what the player earns, the game is solved — the Purr &
    Power self-reference trap CLAUDE.md rule 1 exists to prevent. */
 const ROOM_TYPES = {
-  // Sales is the one role in the game with no opportunity cost today. Fit 1.00
-  // for sales, 0.55 for a DJ (a host who can sell is real and is second-best),
-  // 0.20 for an engineer, who would rather be anywhere else.
-  sales:   { icon: '📈', serves: ['radio'], fit: { dj: 0.55, eng: 0.20, sales: 1.00 } },
-  // The only room an engineer is first pick for, and the only one whose value
-  // can be zero because of something the player DID buy rather than did not.
+  // The only room an engineer is first pick for. Measured −$20/day net of lease
+  // at TX2/ANT2: it is the top-of-the-ladder room, and its ceiling line says so
+  // before the build rather than after.
   maint:   { icon: '🔧', serves: ['radio'], fit: { dj: 0.20, eng: 1.00, sales: 0.10 } },
   // Hosts look after hosts. An engineer in here is being wasted twice: once on
-  // the fit and once on the attention they stop paying the plant.
+  // the fit and once on the attention they stop paying the plant. Measured $0/day
+  // to a rota with nobody doubled up — kept as support for short-handed play, and
+  // its ceiling line says that outright instead of implying an upgrade.
   green:   { icon: '🛋️', serves: ['radio'], fit: { dj: 0.60, eng: 0.15, sales: 0.40 } },
-  // Talk people first. A seller's phone list is half a source list, which is why
-  // sales outranks eng here and nowhere else except the floor itself.
+  // Talk people first, and a seller's phone list is half a source list — this is
+  // the room where a sales agent comes closest to a host (0.55 against 0.70).
   news:    { icon: '🗞️', serves: ['radio'], fit: { dj: 0.70, eng: 0.35, sales: 0.55 } },
   library: { icon: '🗃️', serves: ['radio'], fit: { dj: 0.65, eng: 0.30, sales: 0.35 } }
 };
