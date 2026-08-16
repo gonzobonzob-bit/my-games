@@ -1683,7 +1683,14 @@ function conditionCard(st){
         esc(tt('condWear', { pct: (wear * 100).toFixed(2), tx: TX[st.tx].name, ant: ANT[st.ant].name })) +
       '</div>' +
       '<div class="row-sub">' +
-        esc(tt('condTend', { pct: (gain * 100).toFixed(2), eng: engSlots, dj: djOnly })) +
+        /* Report attention as the SHARE OF THE GAP it closes per day, not as
+           today's raw gain. Gain is COND_GAIN*attn*(1-c), so it shrinks as
+           condition rises and equals wear exactly at the settling point — which
+           meant the card could show "wear 0.25%/day, attention 0.19%/day" and
+           then claim it settles at 92%. A blind playtest read that as arithmetic
+           that contradicts its own conclusion, and it is: the (1-c) term was
+           invisible. Stated as a share of the gap, the equilibrium is obvious. */
+        esc(tt('condTend', { pct: (COND_GAIN * attn * 100).toFixed(1), eng: engSlots, dj: djOnly })) +
       '</div>' +
     '</div></div>' +
     (c <= COND_MIN + 0.02
@@ -2336,6 +2343,31 @@ function gearCard(key, arr, idx, title, icon, statKey){
         (leaseStep > 0
           ? '<div class="row-sub" style="color:var(--red)">+' + money(leaseStep) + '/day lease, permanently</div>'
           : '') +
+        /* And the WEAR. A bigger plant wears faster, so a tier costs condition
+           as well as cash and lease. A blind playtest maxed a transmitter and
+           watched that station's condition target collapse to the floor without
+           a word of warning anywhere on this card — the same invisible-trap
+           class as the lease step this row already fixed once. Measured through
+           the real condTarget() on a clone, never re-derived. */
+        (function(){
+          if (typeof uiWhatIf !== 'function' || typeof condTarget !== 'function') return '';
+          const stNow = curStation();
+          if (!stNow) return '';
+          const before = condTarget(stNow);
+          const after = uiWhatIf(function(){
+            const s2 = curStation();
+            if (!s2) return null;
+            if (key === 'tx') s2.tx = Math.min(TX.length - 1, (s2.tx || 0) + 1);
+            else               s2.ant = Math.min(ANT.length - 1, (s2.ant || 0) + 1);
+            return condTarget(s2);
+          });
+          if (after === null || !isFinite(after)) return '';
+          const drop = before - after;
+          if (drop <= 0.005) return '';
+          return '<div class="row-sub" style="color:var(--red)">' +
+            esc(t('gearWearWarn', { from: Math.round(before * 100), to: Math.round(after * 100) })) +
+            '</div>';
+        })() +
         (!repOk ? '<div class="row-sub" style="color:var(--red)">' + esc(t('needRep', { n: next.rep })) + '</div>' : '') +
       '</div>' +
       '<div class="row-act">' +

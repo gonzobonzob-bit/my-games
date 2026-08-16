@@ -262,7 +262,11 @@ const STR = {
     condSettling: 'settling toward {pct}%',
     condPerWeek: '%/week',
     condWear: 'Wear −{pct}%/day · {tx} on a {ant}. Bigger plant, faster wear.',
-    condTend: 'Attention +{pct}%/day · {eng} slots with an engineer, {dj} with hosts only. People spread thin bring less of themselves.',
+    gearWearWarn: 'Wears faster: this station settles at {to}% condition instead of {from}%.',
+    /* Phrased as a share of the GAP, because the raw daily gain shrinks as
+       condition rises — printing it against wear made the card look like it
+       contradicted its own settling figure. */
+    condTend: 'Attention closes {pct}% of the gap to full each day · {eng} slots with an engineer, {dj} with hosts only. People spread thin bring less of themselves.',
     condFloor: 'This signal is as degraded as it gets. Everything it airs goes out weak, and the lease has not moved.',
     segPopLbl: 'Audience pool', segCompLbl: 'Incumbents', segLeaseLbl: 'Lease premium',
     segTasteLbl: 'What it listens to',
