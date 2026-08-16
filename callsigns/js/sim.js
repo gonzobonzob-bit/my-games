@@ -853,7 +853,18 @@ const PLANT_PTS_PER_UNIT = 4.5;
    sold local schedule does not pay. PROD_SHARE_PER_PT is the purchase. */
 const LOCAL_BASE_NOPROD  = 0.55;
 const LOCAL_PREM         = 0.3841;
-const PROD_SHARE_PER_PT  = 0.020;
+const PROD_SHARE_PER_PT  = 0.130;   /* 0.020 -> 0.130, and the reason is worth keeping.
+   The proof (DESIGN_PROOF_ROOMS_V3.md 5) computed a Production Room's value on
+   ONE slot and never asked whether the pool could reach the other fifteen. At
+   0.020 a point buys 2% of local share, so filling a station's ~0.18 headroom
+   needs 9 points per slot and 144 across a four-station board — while a
+   three-seat room supplies 22.95. It covered two and a half slots out of
+   sixteen and banked $31/day against the Traffic Desk's ~$1,000.
+   Measured, not guessed: full allotment needs 16*0.181/x <= 22.95, i.e.
+   x >= 0.126. The CEILING was always right — fill * LOCAL_PREM * headroom is
+   about 5.5% of gross, ~$1,028/day, genuinely comparable to Traffic. The pool
+   simply could not reach it. This changes magnitude only: the structural zero
+   at headroom 0 is untouched, and nothing here reads a player choice. */
 
 /* Traffic Desk (v3 §3c). 0.60 is the most of an unsold log a desk can clear;
    REMNANT_RATE 0.35 is 65% off rate card, inside the researched 40–70% band

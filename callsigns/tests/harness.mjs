@@ -443,7 +443,17 @@ window.__rig = (function(){
         const v = marginOf(function(){ seatInRoom(rid, pid); });
         if (v > bestVal) { bestVal = v; bestRoom = r; }
       }
-      if (bestRoom && bestVal > (p.salary || 0)) seatInRoom(bestRoom.id, p.id);
+      /* SUNK COST. These people are SURPLUS — already hired, already paid, and
+         sitting on no slot. Seating one costs nothing extra, so the bar is a
+         positive margin, not their salary. Comparing against salary made the
+         policy refuse to seat staff it had already paid for, which is why the
+         Production Room measured $2/day in the cohort while the same room
+         measured +$377/day of real revenue when seated by hand. The room was
+         never broken; the instrument would not use it.
+
+         Whether to HIRE another body is a different question, and hireForRooms()
+         still answers that one against the wage. */
+      if (bestRoom && bestVal > 0) seatInRoom(bestRoom.id, p.id);
     }
   }
   /** Value of putting one type on one station, seated with a surplus person. */
@@ -540,6 +550,20 @@ window.__rig = (function(){
     });
   }
 
+  /* empireCore plus a deliberate surplus in exactly one role, so the arms
+     differ in WHO IS SPARE and in nothing else. The surplus is what a room can
+     be staffed from without stripping the air, and v3's flip lives entirely in
+     which role that is. Four spare is enough to fill any one room three-deep
+     and still have a body left over. */
+  function armCore(day, spareRole){
+    empireCore(day);
+    if (day % 3 !== 0) return;
+    const spare = surplusStaff().filter(function(p){ return p.role === spareRole; }).length;
+    if (spare >= 4) return;
+    const base = (spareRole === 'sales') ? 0 : slotsTotal();
+    hireBest(spareRole, base + 4);
+  }
+
   /** The empire policy's staffing, shared by every room policy so the ONLY
       difference between them is which room they choose and where. */
   function empireCore(day){
@@ -626,12 +650,25 @@ window.__rig = (function(){
       fillSlots();
     },
 
-    /* ---- the rooms cohort. Identical staffing, different room strategy. ---- */
-    rooms:       function(day){ empireCore(day); if (day % 4 === 0) manageRooms(greedyChoice, 8000); },
-    alwaysLib:   function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedChoice('library'), 8000); },
-    alwaysMaint: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedChoice('maint'), 8000); },
-    alwaysNews:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedChoice('news'), 8000); },
-    roundRobin:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(roundRobinChoice, 8000); },
+    /* ---- the rooms cohort, in TWO ARMS ----
+
+       v3's claim is not "one room is better". It is that the ordering REVERSES
+       on which spare person the hiring stream happens to hand you: a spare DJ
+       favours the Production Room (fit 0.85) and a spare seller favours the
+       Traffic Desk (fit 0.80). So the cohort runs twice, once with each surplus
+       role, and the gate demands the SIGN of (traffic - production) flip between
+       the arms. A single-arm cohort cannot see that, which is exactly how the
+       last two gates measured the wrong axis.
+
+       Everything else is held identical across arms: same staffing of slots,
+       same gear, same expansion, same schedule policy. The only difference is
+       who is spare. */
+    armDjProd:      function(day){ armCore(day, 'dj');    if (day % 4 === 0) manageRooms(fixedChoice('prod'), 8000); },
+    armDjTraffic:   function(day){ armCore(day, 'dj');    if (day % 4 === 0) manageRooms(fixedChoice('traffic'), 8000); },
+    armDjReads:     function(day){ armCore(day, 'dj');    if (day % 4 === 0) manageRooms(greedyChoice, 8000); },
+    armSellProd:    function(day){ armCore(day, 'sales'); if (day % 4 === 0) manageRooms(fixedChoice('prod'), 8000); },
+    armSellTraffic: function(day){ armCore(day, 'sales'); if (day % 4 === 0) manageRooms(fixedChoice('traffic'), 8000); },
+    armSellReads:   function(day){ armCore(day, 'sales'); if (day % 4 === 0) manageRooms(greedyChoice, 8000); },
     // Greedy on TYPE but blind on PLACEMENT — isolates whether "which station"
     // is a real decision, which matters because reputation is empire-wide and
     // so every Sales Floor shares one ceiling.
@@ -715,6 +752,22 @@ window.__rig = (function(){
       // Slots actually covered at the end of the run. The lever is driven by
       // ATTENTION, so a policy's condition is only interpretable next to how
       // much of its empire it was staffing.
+      /* v3 9 asks for localBase and headroom per station, and I skipped it —
+         then spent a run guessing why Production earned nothing. The room
+         works: measured +$839/day when staffed on a station with real headroom.
+         What the cohort never showed was whether its stations HAVE any. */
+      localBase: (typeof headroomOf === 'function')
+        ? S.stations.map(function(st){ return +(st.localBase || 0).toFixed(3); }) : [],
+      headroom: (typeof headroomOf === 'function')
+        ? +S.stations.reduce(function(a, st){ return a + headroomOf(st); }, 0).toFixed(3) : 0,
+      /* What the SIM actually banked, straight out of the book — not what a
+         what-if thinks a room is worth. If these are zero while roomValue is
+         non-zero (or vice versa) the disagreement is the finding. */
+      prodRev: (S.lastDay && typeof S.lastDay.prodRev === 'number') ? +S.lastDay.prodRev.toFixed(2) : -1,
+      remRev:  (S.lastDay && typeof S.lastDay.remRev  === 'number') ? +S.lastDay.remRev.toFixed(2)  : -1,
+      roomTypes: (typeof roomList === 'function') ? roomList().map(function(r){ return r.type; }).sort().join(',') : '',
+      roomSeats: (typeof roomList === 'function')
+        ? roomList().reduce(function(a, r){ return a + (r.staff ? r.staff.length : 0); }, 0) : 0,
       bays: (typeof bayCount === 'function') ? bayCount() : 0,
       rooms: (typeof roomList === 'function') ? roomList().length : 0,
       /* WHAT THE ROOMS WERE ACTUALLY WORTH on the final day, measured the same
@@ -805,6 +858,11 @@ function summarise(rows){
     medCond: pct(rows.map(r => r.cond), 0.5),
     medCondMin: pct(rows.map(r => r.condMin), 0.5),
     medRooms: pct(rows.map(r => r.rooms), 0.5),
+    medHeadroom: pct(rows.map(r => r.headroom), 0.5),
+    medSeats: pct(rows.map(r => r.roomSeats), 0.5),
+    medProdRev: pct(rows.map(r => r.prodRev), 0.5),
+    medRemRev: pct(rows.map(r => r.remRev), 0.5),
+    typesSeen: Array.from(new Set(rows.map(r => r.roomTypes))).slice(0,3).join(' | '),
     medRoomValue: pct(rows.map(r => r.roomValue), 0.5),
     medBayBill: pct(rows.map(r => r.bayBill), 0.5),
     medDjSlots: pct(rows.map(r => r.slotsWithDj), 0.5),
@@ -974,62 +1032,41 @@ async function main(){
       Math.max(...POLICIES.map(p => summary[p].worstDrift)) < 1e-6,
       'worst drift ' + Math.max(...POLICIES.map(p => summary[p].worstDrift)));
 
-    /* ---- THE ROOMS GATE ----
-       docs/DESIGN_PROOF_ROOMS.md §3.3 and §10: this ships WITH the code, not
-       after it. If any fixed room priority comes within 5% of the policy that
-       reads state, §2's non-constancy argument is wrong and the feature does
-       not merge. Written to be able to fail, and to say plainly what it means
-       if it does. */
-    console.log('\n--- rooms: is the choice a decision, or a shopping list? ---');
-    // alwaysGreen is gone with the Green Room: a policy that can never build
-    // anything is not a fixed PRIORITY, it is a control, and leaving it in the
-    // fixedBest max would have let "build nothing" win the comparison.
-    const ROOM_POLICIES = ['rooms', 'roomsFlagship', 'alwaysMaint', 'alwaysNews',
-                           'alwaysLib', 'roundRobin', 'builder',
-                           'lean', 'leanBare'];
-    const ROOM_RUNS = Math.max(12, Math.floor(RUNS / 2));
-    const rsum = {};
-    for (const rp of ROOM_POLICIES) {
-      const rrows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
-        JSON.stringify(rp) + ', ' + ROOM_RUNS + ', ' + DAYS + '))'));
-      rsum[rp] = summarise(rrows);
-      rsum[rp].rows = rrows;
-      console.log(row(rp, rsum[rp]) + '   bays ' + (pct(rrows.map(r => r.bays), 0.5) || 0) +
-        '   rooms ' + (pct(rrows.map(r => r.rooms), 0.5) || 0) +
-        '   roomValue ' + money(rsum[rp].medRoomValue) + '/day' +
-        '   bayBill ' + money(rsum[rp].medBayBill) + '/day');
+    /* ---- GATE R3 (docs/DESIGN_PROOF_ROOMS_V3.md 9) ----
+
+       The claim under test is NOT "rooms are worth building" — that is a
+       separate, easier question. It is that WHICH room is a real decision,
+       because the ordering reverses on which spare person you happen to hold.
+       So the cohort runs in two arms and the gate demands the sign flip. The
+       previous two gates each tested a single arm and could not have seen it.
+
+       Read this before believing any number below: a difference of medians here
+       has a standard error around 6% of the median, so a 5% threshold on
+       UNPAIRED medians is a coin flip. Every comparison is therefore the median
+       of PER-SEED differences, and the reported band is the paired 10th-90th
+       percentile so a claim can be seen to exclude zero or not. */
+    console.log('\n--- GATE R3: is WHICH room a decision? ---');
+    const R3 = ['armDjProd','armDjTraffic','armDjReads',
+                'armSellProd','armSellTraffic','armSellReads','builder'];
+    const R3_RUNS = Math.max(12, Math.floor(RUNS / 2));
+    const g = {};
+    for (const rp of R3) {
+      const rows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
+        JSON.stringify(rp) + ', ' + R3_RUNS + ', ' + DAYS + '))'));
+      g[rp] = summarise(rows); g[rp].rows = rows;
+      console.log(row(rp, g[rp]) +
+        '   bays ' + (pct(rows.map(r => r.bays), 0.5) || 0) +
+        '   rooms ' + (pct(rows.map(r => r.rooms), 0.5) || 0) +
+        '   roomValue ' + money(g[rp].medRoomValue) + '/day' +
+        '   seats ' + (g[rp].medSeats || 0) +
+        '   headroom ' + (g[rp].medHeadroom || 0) +
+        '   prodRev ' + money(g[rp].medProdRev) + '  remRev ' + money(g[rp].medRemRev) +
+        '   built[' + g[rp].typesSeen + ']');
     }
-    console.log('  (rooms cohort runs at ' + ROOM_RUNS + ' seeds, not ' + RUNS +
-      ' — seven extra policies at ' + DAYS + ' days is real wall clock, and this is a margin test)');
+    console.log('  (' + R3_RUNS + ' seeds per policy, paired by seed)');
 
-    /* Only policies that ACTUALLY BUILT count as fixed priorities.
-
-       alwaysMaint reaches bays 0 / rooms 0 — the Maintenance Bay never clears a
-       bay lease at any state these policies reach — so including it made the
-       "best fixed priority" a policy that builds nothing, and this assertion
-       silently became rooms-versus-no-rooms. That question is already asked, and
-       asked better, by 'rooms beat leaving the same money in the bank' below.
-       Same flaw that made alwaysGreen worth removing. If EVERY fixed policy
-       declines to build, say so out loud rather than comparing against a
-       control. */
-    /* PAIRED comparison, because the unpaired one has no power.
-
-       Measured spread is p10-p90 $4.8M-$7.9M, so sigma is ~$1.05M on a $7.1M
-       median and the standard error of a DIFFERENCE OF MEDIANS at n=20 is about
-       6.2% of the median. A 5% threshold therefore sits at 0.81 SE: a design
-       with a true 5% edge passes it about half the time and a design with no
-       edge passes it about a fifth of the time. Comparing medians here is
-       reading tea leaves, which is why roundRobin can post WORSE room economics
-       ($73/day of value against $130/day of bays) and still show a higher
-       median than the state-reading policy.
-
-       Every policy runs the same seed list, so the honest statistic is the
-       median of the PER-SEED differences. It is not full common-random-numbers
-       — one global PRNG still desynchronises once policies diverge — but the
-       opening of each run is shared, which removes most of the between-seed
-       variance that swamps the signal. Report the paired figure alongside the
-       raw medians and judge on the paired one. */
-    const pairedMedian = (a, b) => {
+    /** Median and 10-90 band of the per-seed difference a - b. */
+    const paired = (a, b) => {
       if (!a || !b || !a.rows || !b.rows) return null;
       const n = Math.min(a.rows.length, b.rows.length), d = [];
       for (let i = 0; i < n; i++) {
@@ -1037,62 +1074,46 @@ async function main(){
         if (!x || !y) continue;
         d.push((x.survived ? x.cash : 0) - (y.survived ? y.cash : 0));
       }
-      return pct(d, 0.5);
+      return { med: pct(d, 0.5), lo: pct(d, 0.10), hi: pct(d, 0.90), n: d.length };
     };
-    const fixedCandidates = [['alwaysMaint', rsum.alwaysMaint], ['alwaysNews', rsum.alwaysNews],
-                             ['alwaysLib', rsum.alwaysLib], ['roundRobin', rsum.roundRobin]]
-      .filter(function(e){ return (e[1].medRooms || 0) > 0; });
-    if (!fixedCandidates.length) console.log('  NOTE: every fixed-priority policy declined to build a room at all.');
-    const fixedBest = fixedCandidates.length
-      ? Math.max.apply(null, fixedCandidates.map(function(e){ return e[1].medCash || 0; })) : 0;
-    const fixedBestName = fixedCandidates.length
-      ? fixedCandidates.reduce(function(a, b){ return (b[1].medCash || 0) > (a[1].medCash || 0) ? b : a; })[0] : 'none';
-    const greedyCash = rsum.rooms.medCash || 0;
-    /* Paired: the median seed-by-seed gain of reading state over each fixed
-       rule that actually builds. Positive on every one, and large enough to
-       matter, is what "the choice is a decision" looks like. */
-    const pairedVsFixed = fixedCandidates.map(function(e){
-      return [e[0], pairedMedian(rsum.rooms, e[1])];
-    });
-    console.log('  paired (median per-seed gain of reading state):');
-    for (const [nm, v] of pairedVsFixed) console.log('    vs ' + nm.padEnd(12) + ' ' + money(v));
-    const worstPaired = pairedVsFixed.length
-      ? Math.min.apply(null, pairedVsFixed.map(function(e){ return e[1] === null ? 0 : e[1]; })) : 0;
-    check('ROOMS ARE NOT A SHOPPING LIST: reading state beats every fixed priority, paired',
-      pairedVsFixed.length > 0 && worstPaired > greedyCash * 0.05,
-      'worst paired gain ' + money(worstPaired) + ' against a bar of ' + money(greedyCash * 0.05) +
-      ' — unpaired medians for reference: state-reading ' + money(greedyCash) +
-      ' vs best fixed (' + fixedBestName + ') ' + money(fixedBest) +
-      '; if this fails, DESIGN_PROOF_ROOMS.md §2 is wrong and rooms must not ship');
-    check('(reference, low power) unpaired median also favours reading state',
-      greedyCash > fixedBest * 1.05,
-      'state-reading ' + money(greedyCash) + ' vs best fixed (' + fixedBestName + ') ' + money(fixedBest) +
-      ' (' + (fixedBest ? ((greedyCash / fixedBest - 1) * 100).toFixed(1) : '-') + '%)' +
-      ' — if this fails, DESIGN_PROOF_ROOMS.md §2 is wrong and rooms must not ship');
-    /* Placement, tested separately from type. Reputation is empire-wide, so
-       every Sales Floor shares one ceiling and "which station" could easily be
-       a constant. If it is, say so out loud rather than letting the combined
-       number hide it. */
-    check('room PLACEMENT is a decision too, not just room type',
-      greedyCash > (rsum.roomsFlagship.medCash || 0) * 1.02,
-      'greedy placement ' + money(greedyCash) + ' vs always-flagship ' +
-      money(rsum.roomsFlagship.medCash) +
-      ' — reputation is empire-wide, so this is the weakest leg of §2');
-    check('LOSABLE: overbuilding bays costs the run',
-      (rsum.builder.medCash || 0) < (summary.empire.medCash || 0) * 0.85,
-      'builder ' + money(rsum.builder.medCash) + ' vs empire ' + money(summary.empire.medCash));
-    /* The 5% bar here was set for the GREEN ROOM, which is now cut — it existed
-       to help exactly this short-staffed player. What survives is the fairer
-       question: do the three remaining rooms earn their bays for an operator who
-       expanded faster than they hired? Bar dropped to a margin that is merely
-       real rather than one calibrated for a deleted mechanic. */
-    check('rooms earn their bays for a SHORT-STAFFED operator',
-      (rsum.lean.medCash || 0) > (rsum.leanBare.medCash || 0) * 1.02,
-      'lean+rooms ' + money(rsum.lean.medCash) + ' vs lean alone ' + money(rsum.leanBare.medCash) +
-      ' — the Green Room, which existed for this player, was cut; these are the other three');
-    check('SKILL PAYS: rooms beat leaving the same money in the bank',
-      greedyCash > (summary.empire.medCash || 0) * 1.10,
-      'rooms ' + money(greedyCash) + ' vs empire ' + money(summary.empire.medCash));
+
+    /* (b) FIRST, because it is the claim. The two fixed rules must not tie, and
+       the sign of (traffic - production) must REVERSE between the arms. If one
+       fixed rule wins in both arms, "which room" answers itself and the feature
+       is decoration however much money it makes. */
+    const djFlip   = paired(g.armDjTraffic,   g.armDjProd);
+    const sellFlip = paired(g.armSellTraffic, g.armSellProd);
+    console.log('  spare DJ     · traffic - production = ' + money(djFlip.med) +
+      '   [' + money(djFlip.lo) + ' .. ' + money(djFlip.hi) + ']');
+    console.log('  spare seller · traffic - production = ' + money(sellFlip.med) +
+      '   [' + money(sellFlip.lo) + ' .. ' + money(sellFlip.hi) + ']');
+    const flipped = (djFlip.med < 0 && sellFlip.med > 0) || (djFlip.med > 0 && sellFlip.med < 0);
+    check('GATE R3(b): the better room REVERSES with who is spare',
+      flipped,
+      'spare DJ ' + money(djFlip.med) + ', spare seller ' + money(sellFlip.med) +
+      ' — the design predicts a spare DJ favours Production (negative) and a spare seller ' +
+      'favours Traffic (positive). No reversal means WHICH room answers itself.');
+
+    /* (a) And reading state must beat BOTH fixed rules, in both arms. A policy
+       that only beats the rule it happens to agree with has learned nothing. */
+    const arms = [['spare DJ', g.armDjReads, g.armDjProd, g.armDjTraffic],
+                  ['spare seller', g.armSellReads, g.armSellProd, g.armSellTraffic]];
+    let worst = Infinity, worstWhy = '';
+    for (const [name, reads, prod, traf] of arms) {
+      for (const [label, fixed] of [['production', prod], ['traffic', traf]]) {
+        const d = paired(reads, fixed);
+        const bar = (reads.medCash || 0) * 0.05;
+        console.log('  ' + name + ' · reads - always-' + label + ' = ' + money(d.med) +
+          '   [' + money(d.lo) + ' .. ' + money(d.hi) + ']   bar ' + money(bar));
+        if (d.med - bar < worst) { worst = d.med - bar; worstWhy = name + ' vs always-' + label + ' ' + money(d.med) + ' against a bar of ' + money(bar); }
+      }
+    }
+    check('GATE R3(a): reading state beats BOTH fixed rules in BOTH arms, paired',
+      worst > 0, worstWhy);
+
+    check('GATE R3: overbuilding bays still costs the run',
+      (g.builder.medCash || 0) < (summary.empire.medCash || 0) * 0.85,
+      'builder ' + money(g.builder.medCash) + ' vs empire ' + money(summary.empire.medCash));
 
     /* ---- the STATION_COSTS ladder, A/B ---- */
     console.log('\n--- STATION_COSTS ladder (the disagreement the checklist refused to hand-pick) ---');
