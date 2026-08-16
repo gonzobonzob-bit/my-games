@@ -43,6 +43,23 @@
 //   - Math.random is replaced with a seeded PRNG, so a surprising run can be
 //     reproduced exactly instead of admired once.
 //
+// ---------------------------------------------------------------------------
+// EDITING THIS FILE: the RIG below is a String.raw template literal.
+// A BACKTICK ANYWHERE INSIDE IT — including inside a comment — silently ends the
+// string and turns the rest of the file into garbage. This has been done four
+// separate times. Symptoms vary and none of them name the cause: "Unexpected
+// identifier", "1 is not a function", or a clean parse that runs the wrong code.
+// Write `code` as plain words inside the RIG, never in backticks, and check with:
+//
+//   node -e 'const s=require("fs").readFileSync("tests/harness.mjs","utf8");
+//     const i=s.indexOf("const RIG = String.raw"); const r=s.slice(i+22);
+//     const rig=r.slice(1, r.indexOf("`;"));
+//     console.log("stray backticks:", (rig.match(/`/g)||[]).length)'
+//
+// Same file, second trap: every policy must PROVE it acted. A policy that
+// silently no-ops is indistinguishable from one that chose to do nothing, which
+// is how salaryFor(c) hid an unstaffed economy behind eleven green assertions.
+// ---------------------------------------------------------------------------
 // Run:  node callsigns/tests/harness.mjs [--runs N] [--days N] [--json]
 // No npm dependencies, same as smoke.mjs.
 import { spawn } from 'node:child_process';
