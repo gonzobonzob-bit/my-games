@@ -2,7 +2,7 @@
 
 This file governs every game added to or modified in this repository (GitHub Pages site "Gonzo's Game Vault"). It exists because the 2026-07 portfolio review found the same handful of mistakes repeated across a dozen independently-built games. Read this before adding a new game or doing a polish pass on an existing one.
 
-## The three binding rules (new builds and major overhauls)
+## The four binding rules (new builds and major overhauls)
 
 These are binding for any **new game** and any **major overhaul**. Existing games
 are grandfathered until their next major pass — they are not retroactively in
@@ -69,6 +69,43 @@ working. The Purr & Power overhaul ran five specialists in parallel and then
 bottlenecked on ~90 hand-applied edits by one integrator, purely because five
 agents cannot edit one 2,000-line file at once. Chop Shop Circuit and Marble
 Descent already have the right shape; copy them.
+
+### 4. Research the real thing before designing the mechanic
+Anything that models something real — a radio station, a solar installer, a
+freight line, a publishing house — gets researched BEFORE the mechanic is
+designed, and what was found gets written into the design proof. Every object in
+the model must have a real-world counterpart you can name. If you cannot name it,
+that object is suspect and probably exists to satisfy the design gate rather than
+to model anything.
+
+**The game is always better than reality — livelier, faster, more legible. It is
+never made better by drifting away from it.** Simplify, compress, exaggerate and
+omit freely. Do not invent a structure that has no counterpart just to
+manufacture a decision.
+
+This exists because Callsigns' rooms were derived backwards. Rule 1 demands a
+non-constant decision, so a feature was built to produce one: purchasable "bays"
+holding specialist rooms, one type per station, with the value ceiling
+denominated in dayparts. None of that corresponds to a real station group. A
+group has one newsroom serving every callsign; four dayparts share a studio six
+hours apart; nobody buys an abstract bay. The cost of finding that out the wrong
+way: two full design proofs, a complete build across sim/content/ui, a ~7x
+magnitude retune, a scarcity experiment, and five separate defects in the harness
+built to measure it — after which the owner pointed out in two sentences that the
+model did not match how radio works. The arithmetic never converged because
+there was nothing real for it to converge on.
+
+Practical test before writing code: for each object, name what it is in the real
+world and what a real operator does with it. For each decision, name the real
+tradeoff it stands for. A mechanic that survives that is worth building; one that
+needs a paragraph of justification is the one to cut.
+
+Rule 1 and rule 4 are ordered: research first, then prove the decision. A design
+proof that reasons correctly from an invented premise is still wrong, and it will
+pass its own gate while failing to be a game.
+
+Run `design-architect` with a research brief, or a research pass, before the
+design proof — not after.
 
 ## The standing squads
 
