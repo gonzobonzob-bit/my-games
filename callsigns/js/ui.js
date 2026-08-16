@@ -212,6 +212,29 @@ function simCanBuyBay(){
 }
 function simRoomPower(r, load){ return typeof roomPower === 'function' ? roomPower(r, load) : 0; }
 function simRoomCeiling(r){ return typeof roomCeiling === 'function' ? roomCeiling(r) : 0; }
+/** The ceiling arithmetic from the other end: a station and a TYPE, with no
+    room built yet. This is the form the picker and the next-bay preview want. */
+function simRoomCeilingFor(st, type){
+  if (typeof roomCeiling !== 'function' || !st) return 0;
+  return roomCeiling(st, type);
+}
+/** How many of this station's four dayparts run a show this room is paid on.
+    Sim owns the support lists (NEWSROOM_SHOWS / LIBRARY_SHOWS) and this is the
+    SAME count its ceiling is computed from — the readout may not keep a second
+    idea of which slots serve which room. Null for the one room the schedule
+    does not set. */
+function simServedSlots(st, type){
+  if (!st) return 0;
+  if (typeof servedSlots === 'function') return servedSlots(st, type);
+  bridgeMiss('servedSlots');
+  return 0;
+}
+/** Whether this room's ceiling is set by the schedule at all. The Maintenance
+    Bay is the one that is not: its ceiling is the plant. */
+function simSchedRoom(type){
+  if (typeof roomShows === 'function') return !!roomShows(type);
+  return type === UI_RT.news || type === UI_RT.lib;
+}
 function simRoomWasted(r, load){
   if (typeof roomWasted === 'function') return roomWasted(r, load);
   return Math.max(0, simRoomPower(r, load) - simRoomCeiling(r));
@@ -237,7 +260,11 @@ function simCondTarget(st, load){
   if (typeof condTarget === 'function') return condTarget(st, load);
   return (typeof condOf === 'function') ? condOf(st) : 1;
 }
-function simRoyaltyCut(st, load){ return typeof royaltyCut === 'function' ? royaltyCut(st, load) : 0; }
+/* simRoyaltyCut() lived here and is gone with royaltyCut() (v2 §3a): the
+   Record Library is an appeal multiplier on music slots now, mirroring the
+   Newsroom on talk/news, and NO room touches a money line any more. Royalties
+   are a flat ROYALTY_RATE on the music share and nothing in the building
+   programme moves them — so nothing on this tab may say it does. */
 /** content.js owns the room's name, icon and copy, exactly as it owns a
     segment's. A missing row renders as its id rather than as blank. */
 function uiRoomName(type){ return typeof roomName === 'function' ? roomName(type) : type; }
@@ -409,7 +436,7 @@ const UI_STR = {
   goalFound2: 'You can afford a second callsign',
 
   /* Building programme. content.js authored the whole of §7's copy (bayTitle,
-     roomWaste, seatCost, greenWarn and the rest) and those keys are used
+     roomWaste, seatCost, roomCapNews and the rest) and those keys are used
      directly — these are only the labels the readouts needed that no STR key
      covers: a tab label, a four-character column head, and the three tile
      captions on the rollup. Every one of them is reported as a missing STR key
@@ -654,13 +681,15 @@ function runwayDays(){
    to predict them is how the preview and the purchase start disagreeing. Same
    idiom as withSlot() above, one level up.
 
-   The three channels a room moves, all of them already in sim:
-     revenue   — show appeal (Newsroom) and the fatigue coefficient (Green
-                 Room), both of which reach marketShare()/slotPull() and
-                 therefore uiSlotRevenue(). Note what is NOT in this list: the
-                 ad log. Sales is empire-wide and no room touches it, so a
-                 room's measured value never contains a fill or rate term;
-     royalties — the Record Library, a cost line, so it is subtracted here;
+   The two channels a room moves, both of them already in sim:
+     revenue   — show appeal, on the dayparts the room is paid on: newsMul()
+                 on talk/news, libMul() on music, and NEITHER on `ads`. Both
+                 reach slotPull() and therefore uiSlotRevenue(). Note what is
+                 NOT in this list: the ad log. Sales is empire-wide and no room
+                 touches it, so a room's measured value never contains a fill
+                 or rate term. Royalties are no longer in it either — the
+                 Library stopped being a rate cut in v2 §3a and no room effect
+                 touches a money line at all now;
      condition — the Maintenance Bay cuts gear wear, and EVERY seat cuts
                  attention. Neither moves today's cond, they move the fixed
                  point c* it is heading to, so that term is priced at today's
@@ -721,7 +750,11 @@ function uiStationWorth(st){
     else if (slot.show === 'talk' || slot.show === 'news') talk++;
   }
   const share = rev > 0 ? shareRev / rev : 0;
-  const roy = rev * UI_ROYALTY * (music / DAYPARTS.length) * (1 - simRoyaltyCut(st));
+  // Flat rate on the music share, with no room term in it. It is still here
+  // because it is a real cost of a music schedule and the difference of two
+  // states has to carry it — a Library that makes music slots pull harder also
+  // raises the royalty bill it owes, and that netting is the point.
+  const roy = rev * UI_ROYALTY * (music / DAYPARTS.length);
   const c = (typeof condOf === 'function') ? condOf(st) : 1;
   const cond = rev * (1 - share) * (simCondTarget(st) - c) / Math.max(0.05, c);
   return { rev, roy, cond, share, music, talk, worth: rev - roy + cond };
@@ -775,15 +808,27 @@ function uiBestSeatFor(type, roomId){
     measurement, so the tab badge and the HUD can ask on every tick.
 
     Every room pays a bay lease now — there is no free/granted class left, so
-    the room list IS the paid list and the two can never disagree. */
+    the room list IS the paid list and the two can never disagree.
+
+    `cold` is the state the served-slot ceiling INVENTED, and it needs its own
+    count: a room with people in it, drawing salary and a lease, on a station
+    whose schedule serves it not at all. It is not idle — somebody is sitting in
+    it — so the idle count cannot see it, and the player who caused it did so by
+    re-formatting a station on a completely different tab. Un-flagged, that is a
+    silent bleed until the post-mortem names it (content's causeRoomsCold), and
+    a warning that only arrives at the cliff is not a warning. Cheap on purpose:
+    seats and served slots are both plain state reads, no load map, no
+    hypothetical — this runs on every tick. */
 function uiIdleBays(){
   const paid = simRoomList().filter(Boolean);
-  let n = 0, lease = 0;
+  const stations = allStations();
+  let n = 0, lease = 0, cold = 0;
   for (let i = 0; i < simBayCount(); i++) {
     const r = paid[i];
     if (!r || !Array.isArray(r.staff) || !r.staff.length) { n++; lease += simBayLease(i); }
+    else if (uiRoomIsZero(r.type, stations[r.station])) cold++;
   }
-  return { n, lease };
+  return { n, lease, cold };
 }
 
 /* The economy of the whole building programme, in one memoised pass.
@@ -836,7 +881,7 @@ function uiRoomEcon(){
   // Brief never pays for a number it does not print.
   const out = {
     rooms: [], base: 0, lease: simBayLeaseTotal(), idle: 0, idleLease: 0,
-    returned: 0, seats: simRoomSeats()
+    cold: 0, returned: 0, seats: simRoomSeats()
   };
   if (!S) return out;
   const load = simLoadMap();
@@ -869,6 +914,7 @@ function uiRoomEcon(){
   const idle = uiIdleBays();
   out.idle = idle.n;
   out.idleLease = idle.lease;
+  out.cold = idle.cold;
 
   _econMemo = { key, val: out };
   return out;
@@ -1039,11 +1085,19 @@ function paintTabs(){
       b.classList.toggle('has-badge',
         !!(S && ((S.unlockedExpansion && !S.seenExpansion && canFound()) || exp.exposed > 0)));
     }
-    // A bay billing every morning with nobody in it is the building
-    // programme's version of an exposed slot, so it gets the same dot rather
-    // than a sentence three scrolls down inside a tab nobody opened. Read from
-    // state, never from the measured economy — this runs on every tick.
-    if (b.dataset.tab === 'build') b.classList.toggle('has-badge', !!(S && uiIdleBays().n > 0));
+    /* A bay billing every morning with nobody in it is the building
+       programme's version of an exposed slot, so it gets the same dot rather
+       than a sentence three scrolls down inside a tab nobody opened. Read from
+       state, never from the measured economy — this runs on every tick.
+
+       A COLD room lights the same dot. Its cause is on another tab entirely —
+       the player changed a daypart's format and a room's ceiling went to zero —
+       so the Building tab is the last place they would think to look, which is
+       exactly why the tab has to raise its hand. */
+    if (b.dataset.tab === 'build') {
+      const idle = S ? uiIdleBays() : { n: 0, cold: 0 };
+      b.classList.toggle('has-badge', idle.n > 0 || idle.cold > 0);
+    }
   });
 }
 
@@ -1749,14 +1803,18 @@ function coverageCard(compact){
    per-room detail, then the purchase — controls under the numbers they move,
    because the thumb sits on the controls.                                     */
 
-/* The four room ids, read from sim's own constants so a rename cannot leave the
-   UI branching on a string nothing builds any more. The Sales Floor is not on
-   this table and must not come back to it: sales is an empire-wide lever, a
-   per-station room splits the same sellers up, and the room measured worse than
-   the thing it replaced at every seller count. */
+/* THE THREE room ids, read from sim's own constants so a rename cannot leave
+   the UI branching on a string nothing builds any more. Two ids are NOT on this
+   table and neither may come back:
+     sales — an empire-wide lever; a per-station room splits the same sellers up
+             and measured worse than the thing it replaced at every seller count;
+     green — cut in v2 §5. Its payoff needed somebody double-booked, and
+             spreading DJs to one slot each is free and strictly better, so it
+             was a crutch occupying a bay. uiDoubledUp() went with it: nothing
+             on this tab counts doubled-up people any more, because no room is
+             paid for them. */
 const UI_RT = {
   maint: (typeof ROOM_MAINT !== 'undefined') ? ROOM_MAINT : 'maint',
-  green: (typeof ROOM_GREEN !== 'undefined') ? ROOM_GREEN : 'green',
   news:  (typeof ROOM_NEWS  !== 'undefined') ? ROOM_NEWS  : 'news',
   lib:   (typeof ROOM_LIB   !== 'undefined') ? ROOM_LIB   : 'library'
 };
@@ -1765,11 +1823,12 @@ function uiPts(n){ return (Math.round((n || 0) * 10) / 10).toFixed(1); }
 /* Every measured per-day figure on this tab goes through here, so that ZERO
    reads AS zero.
 
-   This is not cosmetic. With the Sales Floor gone, two of the four rooms a
-   player meets are worth nothing most of the time: the Green Room is worth
-   EXACTLY $0 unless somebody is double-booked (its only channel is fatigue
-   relief, and a well-crewed rota has no fatigue), and the Maintenance Bay is
-   worth nothing at all until there is plant to protect. money(0) inside the
+   This is not cosmetic. Every one of the three rooms is worth EXACTLY $0 in a
+   state the player can be in without noticing: a Newsroom on a board with no
+   talk or news hour and a Record Library on a board with no music hour both
+   have a ceiling of zero however many people are sitting in them, and the
+   Maintenance Bay is worth nothing at all until there is plant to protect.
+   Two of those three are set by the SCHEDULE, which is the lesson. money(0) inside the
    green "+" tag renders "+$0" — which reads as a small gain, not as "this room
    does nothing" — and an omitted tag reads as "not measured yet". Both are the
    ambiguous blank. A room earning nothing says so, in its own tag, in --dim
@@ -1792,52 +1851,61 @@ function uiRoomBay(roomId){
   const i = simRoomList().filter(Boolean).findIndex(r => r.id === roomId);
   return i < 0 ? null : { idx: i, lease: simBayLease(i) };
 }
-/** People carrying more than one assignment — what the Green Room has to work
-    with, and zero if nobody is doubled up. */
-function uiDoubledUp(){
-  const load = simLoadMap();
-  let n = 0;
-  for (const p of (S && Array.isArray(S.staff) ? S.staff : [])) if ((load[p.id] || 0) > 1) n++;
-  return n;
-}
-function uiSlotsOfKind(st, kinds){
-  let n = 0;
-  for (const part of DAYPARTS) if (kinds.indexOf(stSlot(st, part.id).show) >= 0) n++;
-  return n;
-}
 /** Readout #2. content.js authored one ceiling line per room, each naming the
     state that sets it; this supplies that line's variables and nothing else
     invents copy. Every variable the key expects is passed — an unsupplied one
     prints a literal {brace} at the player, which the smoke suite asserts against.
 
-    Four rooms, four variable lists: maint {tx},{ant} · green {n} ·
-    news {n},{call} · library {n},{call}. `cap` is still taken and no longer
-    read: the Sales Floor's line was the only one that quoted its own point
-    ceiling back at the player, and every remaining room names a piece of the
-    WORLD instead — the plant, the rota, the schedule. The parameter stays
-    because the three call sites all have the number to hand and a fifth room
-    would almost certainly want it. */
+    Three rooms, three variable lists: maint {tx},{ant} · news {n},{call} ·
+    library {n},{call}. The two schedule rooms' {n} is sim's own servedSlots()
+    — the SAME count roomCeiling() divides by 3.0 — so the sentence and the
+    number under it can never disagree. `cap` is still taken and no longer read:
+    every remaining room's line names a piece of the WORLD rather than quoting
+    its own point ceiling back. The parameter stays because all four call sites
+    have the number to hand. */
 function uiCeilingLine(type, st, cap){
   if (!st) return '';
   if (type === UI_RT.maint) return uiRoomCeilingText(type, {
     tx: (TX[st.tx] || {}).name || '—', ant: (ANT[st.ant] || {}).name || '—'
   });
-  if (type === UI_RT.green) return uiRoomCeilingText(type, { n: uiDoubledUp() });
-  if (type === UI_RT.news)  return uiRoomCeilingText(type, {
-    n: uiSlotsOfKind(st, ['talk', 'news']), call: stationCall(st) });
-  if (type === UI_RT.lib)   return uiRoomCeilingText(type, {
-    n: uiSlotsOfKind(st, ['music']), call: stationCall(st) });
+  if (type === UI_RT.news || type === UI_RT.lib) return uiRoomCeilingText(type, {
+    n: simServedSlots(st, type), call: stationCall(st) });
+  return '';
+}
+/* THE LINE THE WHOLE FEATURE NOW STANDS ON (v2 §3a).
+
+   The ceiling stopped being a flat 10 points and became 3.0 x the number of
+   DAYPARTS running a format the room is paid on. So the wasted-points readout
+   is no longer "you over-hired" — it is "you did not schedule it", and unless
+   the card says which of the four slots set the ceiling, the player reads a
+   wasted number with no cause attached and hires their way at it. Content
+   wrote the causes; this picks one:
+
+     7.0 / 3.0 pts — 4.0 wasted · ceiling set by one talk or news slot
+
+   Singular and plural are separate keys, chosen by count, exactly as
+   seatDiluted/seatDiluted1 already are: "ceiling set by 1 talk or news slots"
+   reads as a bug on the one line whose whole job is to be trusted. */
+function uiCapCause(type, st){
+  if (!st) return '';
+  if (!simSchedRoom(type)) return t('roomCapMaint');
+  const n = simServedSlots(st, type);
+  if (n <= 0) return t('roomCapZero');
+  if (type === UI_RT.news) return n === 1 ? t('roomCapNews1') : t('roomCapNews', { n: n });
+  if (type === UI_RT.lib)  return n === 1 ? t('roomCapLib1')  : t('roomCapLib',  { n: n });
   return '';
 }
 /** True when this room's effect is structurally zero on this station whatever
     is sitting in it — an all-music Newsroom, a Maintenance Bay on a Part 15
-    rig. The proof's disjoint supports, said out loud. */
+    rig. The proof's disjoint supports, said out loud.
+
+    For the two schedule rooms this is now exactly "the ceiling is zero", asked
+    of sim rather than recounted here, so the warning and the 0.0 next to it are
+    the same fact and cannot drift apart. */
 function uiRoomIsZero(type, st){
   if (!st) return false;
   if (type === UI_RT.maint) return !(st.tx > 0 || st.ant > 0);
-  if (type === UI_RT.news)  return uiSlotsOfKind(st, ['talk', 'news']) === 0;
-  if (type === UI_RT.lib)   return uiSlotsOfKind(st, ['music']) === 0;
-  if (type === UI_RT.green) return uiDoubledUp() === 0;
+  if (simSchedRoom(type)) return simServedSlots(st, type) === 0;
   return false;
 }
 
@@ -1883,13 +1951,19 @@ function bayMatrix(econ){
     for (let j = 0; j < list.length; j++) {
       if (r && r.station === j) {
         const pts = e ? e.pts : 0, cap = e ? e.cap : 0, waste = e ? e.waste : 0;
-        const fill = cap > 0 ? clamp(pts / cap * 100, 0, 100) : (pts > 0 ? 100 : 0);
-        const over = cap > 0 ? clamp((pts - cap) / cap * 100, 0, 100) : 0;
+        /* A ZERO CEILING IS ALL BAR, NO FILL. The served-slot rule makes cap 0
+           a routine state — a Newsroom on an all-music board — and the old
+           "no ceiling, so call it full" fallback painted exactly that case
+           green at 100%. Every point in a zero-ceiling room is wasted, so the
+           meter is 100% red and the cell takes the `over` class from waste. */
+        const fill = cap > 0 ? clamp(pts / cap * 100, 0, 100) : 0;
+        const over = cap > 0 ? clamp((pts - cap) / cap * 100, 0, 100)
+                             : (pts > 0.05 ? 100 : 0);
         /* Four states, in the order they matter: throwing points away, nobody
-           in it, staffed-but-worth-nothing, working. The third is new with the
-           four-room table — the Green Room's point ceiling is a constant, so a
-           room can read 3.0/10.0 pts and still be worth exactly $0/day, and
-           points alone would show that as a working room. */
+           in it, staffed-but-worth-nothing, working. The third is what a room
+           inside its ceiling but on a schedule that barely serves it looks
+           like — real points, no dollars — and points alone would show that as
+           a working room. */
         const val = e ? e.value : null;
         const inert = val !== null && Math.abs(val) < 0.5;
         const cls = waste > 0.05 ? ' over'
@@ -1900,6 +1974,10 @@ function bayMatrix(econ){
             (waste > 0.05
               ? t('roomWaste', { pts: uiPts(pts), cap: uiPts(cap), waste: uiPts(waste) })
               : t('roomPts',   { pts: uiPts(pts), cap: uiPts(cap) })) +
+            // What SET that ceiling, in the label as well as on the card: the
+            // grid cell is 54px wide and can carry a number and a meter and
+            // nothing else, so the cause travels with the screen-reader text.
+            ' · ' + uiCapCause(r.type, list[j]) +
             (val === null ? '' : ' — ' +
               (inert ? money(0) + tt('perDay')
                 : (val > 0 ? '+' : '−') + money(Math.abs(val)) + tt('perDay')))) + '">' +
@@ -1942,22 +2020,37 @@ function bayMatrix(econ){
 function bayRoomRows(econ){
   const list = allStations();
   const rooms = simRoomList();
+  /* The rule, once, at the top of the list rather than repeated on every row:
+     every daypart you point at a room raises its ceiling, and hiring does not.
+     It sits directly above the first "x / y pts" figure, which is the only
+     place it can do any work. */
   let h = '<div class="card"><div class="card-head">' +
     '<span class="card-title">' + esc(t('roomLbl')) + '</span>' +
     '<span class="card-note">' + esc(t('roomFitNote').split('.')[0]) + '</span></div>';
   if (!rooms.length) {
     return h + '<div class="empty">' + esc(t(simBayCount() ? 'roomAssign' : 'bayNone')) + '</div></div>';
   }
+  h += '<div class="hint" style="margin:0 0 10px">' + esc(t('roomCeilingRule')) + '</div>';
   for (const r of rooms) {
     const st = list[r.station];
     const e = econ.rooms.find(x => x.id === r.id) || { pts: 0, cap: 0, waste: 0, value: null };
     const seated = Array.isArray(r.staff) ? r.staff.length : 0;
     const headroom = Math.max(0, e.cap - e.pts);
 
-    /* Readout #3. The overshoot is struck through and counted, because points
-       past the ceiling are worth EXACTLY nothing while the salary still is.
-       Composed through a sentinel so content.js keeps owning the sentence and
-       esc() still runs over every character of it. */
+    /* Readout #3, AND THE CENTRE OF THE WHOLE FEATURE. The overshoot is struck
+       through and counted, because points past the ceiling are worth EXACTLY
+       nothing while the salary still is. Composed through a sentinel so
+       content.js keeps owning the sentence and esc() still runs over every
+       character of it.
+
+       The cause rides on the same line, subordinate to the figure:
+
+         7.0 / 3.0 pts — 4.0 wasted · ceiling set by one talk or news slot
+
+       Without that tail the reading is "hire fewer people". With it, the
+       reading is the one this tab exists to teach: the ceiling is the
+       SCHEDULE, and hiring cannot move it. */
+    const cause = uiCapCause(r.type, st);
     let ptsLine;
     if (e.waste > 0.05) {
       ptsLine = '<span class="pts-line bad">' +
@@ -1966,6 +2059,7 @@ function bayRoomRows(econ){
     } else {
       ptsLine = '<span class="pts-line">' + esc(t('roomPts', { pts: uiPts(e.pts), cap: uiPts(e.cap) })) + '</span>';
     }
+    if (cause) ptsLine += '<span class="cap-cause"> · ' + esc(cause) + '</span>';
 
     const margin = uiRoomMarginOf(r.id);
     const marg = (margin === null) ? ''
@@ -2094,16 +2188,19 @@ function bayBuyCard(econ){
           '</div>' +
           '<div class="row-sub" style="color:var(--dim)">' +
             esc(uiRoomName(best.type) + ' · ' + t('roomOn', { call: best.call })) + '</div>' +
-          /* And WHAT SETS that room's ceiling, before the money moves. The best
-             room on a low-gear empire is routinely the Maintenance Bay, whose
-             ceiling line is the one that says it does not earn a bay back until
-             the top of the transmitter ladder (measured −$20/day net at
-             TX2/ANT2). Quoting the return without the ceiling that caps it is
-             the gear ladder's old invisible-trap shape. */
+          /* And WHAT SETS that room's ceiling, before the money moves. The bay
+             ladder is [40, 90, 180, 320, 520, 800] now, so rungs 3 and 4 sit
+             inside the band real rooms are worth and this comparison decides
+             something — but only if the ceiling behind the return is on the
+             same card. A return measured against a 3-point ceiling evaporates
+             the day the player re-formats that station, and quoting the dollars
+             without the slots that set them is the gear ladder's old
+             invisible-trap shape. */
           '<div class="row-sub" style="color:var(--dim)">' +
             esc(t('roomCeilingLbl')) + ': ' +
             esc(uiCeilingLine(best.type, allStations()[best.station],
-              simRoomCeiling({ type: best.type, station: best.station, staff: [] }))) + '</div>'
+              simRoomCeilingFor(allStations()[best.station], best.type))) +
+            ' · ' + esc(uiCapCause(best.type, allStations()[best.station])) + '</div>'
       : '') +
     // The reason a disabled button is disabled is ON the button; repeating it
     // here as a row-sub printed "Needs 20 rep" twice, one line apart.
@@ -2161,6 +2258,16 @@ function viewBuild(){
     '<div class="hint" style="margin:10px 0 0">' + esc(t('bayThesis')) + '</div>';
   if (econ.idle > 0) {
     h += '<div class="row-sub" style="margin-top:8px;color:var(--amber)">⚠️ ' + esc(t('bayEmptyNote')) + '</div>';
+  }
+  /* The other way to bleed, and the one this version of the feature created:
+     rooms with people in them over a schedule that serves none of them. Said at
+     the top, above the grid, because it is the answer to "why is the return
+     line red" and the grid below only shows it a cell at a time. Both strings
+     are content's and both are already true of this state — no new copy, and
+     no count invented in this file. */
+  if (econ.cold > 0) {
+    h += '<div class="row-sub" style="margin-top:8px;color:var(--red)">⚠️ ' +
+      esc(t('roomCapZero')) + ' · ' + esc(t('roomCeilingRule')) + '</div>';
   }
   h += '</div>';
 
@@ -3328,9 +3435,9 @@ function openRoomEditor(roomId, redraw){
       (wasted ? '<s class="struck">' + esc(uiPts(e.pts)) + '</s>' : esc(uiPts(e.pts))) +
       ' / ' + esc(uiPts(e.cap)) + '</div>' +
       '<div class="ro-lbl">' + esc(t('roomCeilingLbl')) + '</div></div>' +
-    /* Zero is a real answer here and gets said out loud: an empty Green Room
-       on a rota with nobody doubled up returns EXACTLY $0/day, and "+$0" in the
-       positive style would read as a small win. */
+    /* Zero is a real answer here and gets said out loud: a Newsroom on a board
+       with no talk hour returns EXACTLY $0/day however many people are in it,
+       and "+$0" in the positive style would read as a small win. */
     '<div class="ro ' + ((e.value === null || e.value >= 0) ? 'neutral' : 'bad') + '">' +
       '<div class="ro-val">' + (e.value === null ? '—'
         : Math.abs(e.value) < 0.5 ? esc(money(0)) + esc(tt('perDay'))
@@ -3340,13 +3447,23 @@ function openRoomEditor(roomId, redraw){
       esc(t('roomSeats', { n: seated.length, max: seats })) + '</div>' +
       '<div class="ro-lbl">' + esc(t('roomSeatsLbl')) + '</div></div>' +
   '</div>';
+  /* The wasted figure and WHAT SET THE CEILING, in that order, on one line —
+     "7.0 / 3.0 pts — 4.0 wasted · ceiling set by one talk or news slot". The
+     wasted number without its cause is the shape that made this feature fail
+     before: it reads as "you hired too many", and the true answer is "you did
+     not put the format on the air". */
+  const cause = uiCapCause(r.type, st);
   body += '<div class="readout-note">' +
     (wasted
       ? '<span style="color:var(--red);font-weight:700">' +
-          esc(t('roomWaste', { pts: uiPts(e.pts), cap: uiPts(e.cap), waste: uiPts(e.waste) })) + '</span> ' +
+          esc(t('roomWaste', { pts: uiPts(e.pts), cap: uiPts(e.cap), waste: uiPts(e.waste) })) + '</span>' +
+          (cause ? '<span class="cap-cause"> · ' + esc(cause) + '</span>' : '') + ' ' +
           esc(t('roomWasteNote'))
-      : esc(headroom > 0.05 ? t('roomHeadroom', { n: uiPts(headroom) }) : t('roomAtCeiling'))) +
+      : esc(headroom > 0.05 ? t('roomHeadroom', { n: uiPts(headroom) }) : t('roomAtCeiling')) +
+        (cause ? '<span class="cap-cause"> · ' + esc(cause) + '</span>' : '')) +
     '</div>';
+  // The rule under the readout, carrying no constant of its own.
+  body += '<div class="readout-note" style="color:var(--dim)">' + esc(t('roomCeilingRule')) + '</div>';
   body += '<div class="readout-note">' + esc(t('roomCeilingLbl')) + ': ' +
     esc(uiCeilingLine(r.type, st, e.cap)) + '</div>';
   if (uiRoomIsZero(r.type, st)) {
@@ -3413,9 +3530,9 @@ function openRoomEditor(roomId, redraw){
       const slots = bookingsOf(p.id);
       const pv = (!full && i < UI_SEAT_EXACT) ? uiSeatPreview(roomId, p.id) : null;
       const adds = pv ? pv.adds : simRoomFit(r.type, p.role) * p.skill / Math.max(1, (load[p.id] || 0) + 1);
-      // Readout #9: the Green Room raises the very load it exists to soften,
-      // and the first fatigue it adds is the occupant's own.
-      const greenTrap = r.type === UI_RT.green && slots.length > 0;
+      /* greenWarn's row went with the Green Room (v2 §5). What it said — that
+         a seat adds to the occupant's own load — is true of EVERY seat in the
+         building, and seatDiluted plus seatNote say it on every row already. */
       // §3's trap: the engineer tending this station is the WORST person to
       // put in the room that protects it, because the seat takes the attention
       // the plant was getting.
@@ -3449,12 +3566,10 @@ function openRoomEditor(roomId, redraw){
             : '') +
           (engTrap ? '<div class="row-sub" style="color:var(--red)">⚠️ ' +
             esc(t('seatEngWarn', { call: stationCall(st) })) + '</div>' : '') +
-          (greenTrap ? '<div class="row-sub" style="color:var(--red)">⚠️ ' +
-            esc(t('greenWarn', { name: p.name.split(' ')[0] })) + '</div>' : '') +
         '</div>' +
-        // A measured $0 is the answer a Green Room seat usually deserves, and it
-        // is not the same answer as "not measured" (the blank past
-        // UI_SEAT_EXACT rows) — uiValueTag keeps the two apart.
+        // A measured $0 is the answer every seat in a zero-ceiling room
+        // deserves, and it is not the same answer as "not measured" (the blank
+        // past UI_SEAT_EXACT rows) — uiValueTag keeps the two apart.
         '<div class="row-act">' + (pv ? uiValueTag(pv.delta) : '') + '</div>' +
       '</button>';
     });
@@ -3492,13 +3607,14 @@ function openRoomEditor(roomId, redraw){
     the ceiling, what sets it, whether it is structurally zero here, and what
     it would actually return with the best person you have.
 
-    This is the last screen before the build, so it is where the two rooms that
-    are usually worth nothing have to say so. The Green Room's ceiling line
-    prints how many of your people are doubled up — at zero, that IS the answer,
-    and it comes with the zero warning and a $0/day tag. The Maintenance Bay's
-    ceiling line names the plant it is protecting and says it does not earn the
-    bay back until the top of the transmitter ladder; measured, it is −$20/day
-    net at TX2/ANT2, which is what the lease comparison below prints. */
+    This is the last screen before the build, so it is where a room that is
+    worth nothing ON THIS CALLSIGN has to say so before the bay is committed.
+    Each row prints the ceiling this station's SCHEDULE would give that room —
+    a Newsroom offered against a four-music board reads a ceiling of 0.0 with
+    the zero warning and a $0/day tag, and the Library beside it reads 12.0 —
+    which is the choice the whole feature is, made on one screen. The
+    Maintenance Bay's line names the plant instead, because it is the one room
+    the schedule does not set. */
 function openRoomPicker(bayIdx, stIdx){
   const list = allStations();
   const st = list[stIdx];
@@ -3533,12 +3649,21 @@ function openRoomPicker(bayIdx, stIdx){
     // of the gear ladder is the case this exists for, and it does not trip the
     // zero test because its effect is real, just smaller than the lease.
     const thin = gain !== null && pick && gain < lease;
-    const cap = simRoomCeiling({ type, station: stIdx, staff: [] });
+    const cap = simRoomCeilingFor(st, type);
+    /* THE NUMBER FIRST, then the sentence. Three rows offered against one
+       callsign differ by exactly one figure — the ceiling this station's board
+       gives them — and a player comparing three paragraphs of prose is not
+       comparing anything. 0.0 / 3.0 / 12.0 with the cause beside it is the
+       whole decision, and it moves the moment the schedule does. */
     body += '<button type="button" class="row' + (zero || thin ? ' warnrow' : '') + '" ' +
       'data-pickroom="' + esc(bayIdx + '|' + stIdx + '|' + type) + '" style="cursor:pointer">' +
       '<div class="row-icon">' + uiRoomIcon(type) + '</div>' +
       '<div class="row-body">' +
         '<div class="row-title">' + esc(uiRoomName(type)) + '</div>' +
+        '<div class="row-sub" style="font-size:13px;font-weight:800">' +
+          '<span class="pts-line' + (cap > 0 ? '' : ' bad') + '">' +
+            esc(t('roomPts', { pts: uiPts(0), cap: uiPts(cap) })) + '</span>' +
+          '<span class="cap-cause"> · ' + esc(uiCapCause(type, st)) + '</span></div>' +
         '<div class="row-sub">' + esc(uiRoomBlurb(type)) + '</div>' +
         '<div class="row-sub" style="color:var(--dim)">' + esc(t('roomCeilingLbl')) + ': ' +
           esc(uiCeilingLine(type, st, cap)) + '</div>' +
@@ -3680,14 +3805,16 @@ function buyBayFlow(){
       esc(ret < lease
         ? t('bayBuyThin', { n: n, amt: money(lease), ret: money(Math.max(0, ret)) })
         : t('bayBuyValue', { ret: money(ret) })) + '</p>' +
-    // The ceiling on the room that number was measured with — the Maintenance
-    // Bay's says it only pays at the top of the gear ladder, and this sheet is
-    // the last screen before the buildout is spent.
+    // The ceiling on the room that number was measured with, and what set it.
+    // This sheet is the last screen before the buildout is spent, and a return
+    // resting on one talk slot is a different purchase from the same return
+    // resting on four.
     (best
       ? '<p style="font-size:12px;color:var(--dim);margin-top:6px">' +
           esc(uiRoomName(best.type)) + ' · ' + esc(t('roomCeilingLbl')) + ': ' +
           esc(uiCeilingLine(best.type, allStations()[best.station],
-            simRoomCeiling({ type: best.type, station: best.station, staff: [] }))) + '</p>'
+            simRoomCeilingFor(allStations()[best.station], best.type))) +
+          ' · ' + esc(uiCapCause(best.type, allStations()[best.station])) + '</p>'
       : '') +
     '<p style="font-size:12px;color:var(--muted);margin-top:8px">' + esc(t('bayEmptyNote')) + '</p>';
 

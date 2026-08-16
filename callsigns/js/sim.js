@@ -292,11 +292,13 @@ function chemTags(){ return Object.keys(chemTable()); }
    Sales Floor note above ROOM_TYPES_FALLBACK), so every v6 multiplier reads
    identically on a v7 save and the migration only has to seed `bays: 0` and
    an empty `rooms`.
-   v7 SHIPPED ONCE, MID-BUILD, WITH A FIFTH ROOM. An in-progress v7 save may
-   therefore carry a `sales` room and a `salesRoomed` flag. Neither exists any
-   more: sanitize() drops the room with every other unknown type and the flag
-   is simply never read. Both paths are silent — a save from the discarded
-   build loads, it just loads without the room. */
+   v7 SHIPPED ONCE, MID-BUILD, WITH A FIFTH ROOM, and a later in-progress v7
+   had a fourth. Such a save may therefore carry a `sales` or `green` room and
+   a `salesRoomed` flag. None of the three exists any more: sanitize() drops
+   both rooms with every other unknown type and the flag is simply never read.
+   Every path is silent — a save from a discarded build loads, it just loads
+   without those rooms. STATE_VER stays 7 because v7 has never shipped to
+   players; there is no live save to migrate, only mid-build ones to tolerate. */
 const STATE_VER = 7;
 
 // Producer condition #2: the assignment surface has to stay sub-linear in
@@ -403,8 +405,8 @@ function rivalNets(){
    finally covered, the moment rooms turn on.
 
    Every room's output has a CEILING set by state the player chose — gear index
-   for the Maintenance Bay, schedule for the Newsroom and the Record Library,
-   roster load for the Green Room — and a
+   for the Maintenance Bay, and the SCHEDULE (3.0 points per served daypart,
+   0..4 of them) for the Newsroom and the Record Library — and a
    point above the ceiling is worth exactly zero dollars. That is what stops
    "hire more, stuff every room" being the whole game: by hour 2 money, skill
    and headcount are all surplus (§0), and ceiling headroom is not.
@@ -436,12 +438,13 @@ const ROOM_SEATS = 3;
    type; a `free: true` a hand-edited save could grant itself is a lease-dodge,
    and the flag is now neither written nor read. */
 
-/* The four radio rooms, by id. sim has to name them because it owns their
-   arithmetic; content.js owns their name, icon, fit table and copy. These four
+/* The three radio rooms, by id. sim has to name them because it owns their
+   arithmetic; content.js owns their name, icon, fit table and copy. These three
    ids are the cross-file seam — content.js's ROOM_TYPES must key on exactly
    these, and an id that does not match resolves to no fit and is dropped by
-   sanitize() rather than silently paying out. That is also what disposes of a
-   `sales` room left in an in-progress v7 save: it is an unknown id now.
+   sanitize() rather than silently paying out. That is what disposes of both
+   retired types — a `sales` room from the in-progress v7 build and a `green`
+   room from the one after it — with no migration and no special case.
 
    THE SALES FLOOR IS CUT, and it was cut on a MEASUREMENT, not a tuning miss.
    Net of its lease it was worth -$3,871/day at three sellers, -$1,480 at four
@@ -455,8 +458,18 @@ const ROOM_SEATS = 3;
    fixes a room that is worse than the thing it replaces at every seller count.
    The opportunity-cost half of the sales defect is closed by the REPUTATION
    CEILING (fillCap/priceCap), which shipped in 1916875 and is untouched here. */
-const ROOM_MAINT = 'maint', ROOM_GREEN = 'green',
-      ROOM_NEWS  = 'news',  ROOM_LIB   = 'library';
+const ROOM_MAINT = 'maint', ROOM_NEWS = 'news', ROOM_LIB = 'library';
+
+/* THE GREEN ROOM IS CUT TOO, on the same kind of measurement (v2 §5). Its
+   payoff was FATIGUE_PER_LOAD·(djLoad − 1)·(GREEN_PER_PT·pts), so it only ever
+   paid on a roster the player had double-booked — and that state has a FREE
+   correction that strictly dominates the room: at load 4 the room at max points
+   recovered djFatigue 0.46 -> 0.757 (djTerm +19%), while assigning a second DJ
+   recovers 0.46 -> 1.00 (+34%) and costs no bay. A room whose support is "you
+   made an avoidable mistake", dominated by the correction, is a crutch sitting
+   in a bay a real room could use. Like `sales`, it leaves by the unknown-type
+   path in sanitize(): a save carrying one loads with one fewer room, silently,
+   and FATIGUE_PER_LOAD is the flat v6 constant again. */
 
 /* Same contract as SEG_FALLBACK and RIVAL_NETS_FALLBACK: content.js owns the
    real table, this keeps sim runnable on its own, and the fits are the ones
@@ -466,16 +479,19 @@ const ROOM_MAINT = 'maint', ROOM_GREEN = 'green',
    serves the medium a segment declares. Zero non-radio rows ship this pass. */
 const ROOM_TYPES_FALLBACK = {
   maint:   { name: 'Maintenance Bay', icon: '🔧', serves: ['radio'], fit: { eng: 1.00, dj: 0.20, sales: 0.10 } },
-  green:   { name: 'Green Room',      icon: '🛋️', serves: ['radio'], fit: { dj: 1.00, sales: 0.45, eng: 0.25 } },
   news:    { name: 'Newsroom',        icon: '📰', serves: ['radio'], fit: { dj: 0.70, sales: 0.55, eng: 0.35 } },
   library: { name: 'Record Library',  icon: '💿', serves: ['radio'], fit: { eng: 0.60, dj: 0.60, sales: 0.30 } }
 };
 /* $/day, PAID EMPTY, mirroring TX_LEASE's shape. The build cost is a small
    one-off; the LEASE is the price, because §0 shows cash is unbounded against
    a revenue line that is hard-capped near $45,000/day — a room priced only in
-   dollars is bought by everyone, always. Bay 6 at $6,000/day is one eighth of
-   the empire's entire ceiling for a room that might have nobody in it. */
-const BAY_LEASE_FALLBACK = [40, 120, 340, 900, 2400, 6000];
+   dollars is bought by everyone, always.
+
+   RE-LADDERED in v2 §9 item 5, and content.js owns the live table: the old
+   [40,120,340,900,2400,6000] priced rungs 4-6 at 1.4x/3.7x/9.2x the best room
+   in the game, so the top half of the programme was unbuyable by arithmetic
+   rather than by choice. This copy must stay in step with content.js's. */
+const BAY_LEASE_FALLBACK = [40, 90, 180, 320, 520, 800];
 
 function roomTypeTable(){
   const t0 = (typeof ROOM_TYPES !== 'undefined') ? ROOM_TYPES : null;
@@ -571,57 +587,105 @@ function roomPtsFor(st, type, load){
   return roomPts(stationIndexOf(st), type, load);
 }
 
-/* ---- the four effects, all bounded by an explicit min() ----
+/* ---- the three effects, every one bounded by an explicit ceiling ----
 
    Every one of these is exactly its v6 constant when the room is absent or
    empty, which is the inertness claim stated as arithmetic:
      gearCut 0    -> wear = COND_WEAR·(1 + WEAR_PER_TX·tx + WEAR_PER_ANT·ant)
-     green   0    -> fatigue coefficient 0.18
      news    0    -> newsMul 1.00
-     library 0    -> royalty rate 0.045
+     library 0    -> libMul  1.00
+   Fatigue is no longer on this list: the Green Room is CUT (v2 §5), so
+   FATIGUE_PER_LOAD is the flat v3..v6 constant again with nothing reading it.
+   Royalties are no longer on it either: royaltyCut() is deleted and
+   ROYALTY_RATE is flat 0.045, which removes the last room effect that ever
+   touched a money line (v2 §3d).
    Sales is not on this list and no longer wants to be: it never became a room,
    so it reads the empire-wide roleStrength it has read since v3. */
 const GEAR_CUT_PER_PT   = 0.060, GEAR_CUT_MAX = 0.60;
-const FATIGUE_PER_LOAD  = 0.18;                       // v3..v6 constant, now a floor to shrink
-const GREEN_PER_PT      = 0.055, GREEN_MAX    = 0.55;
-const NEWS_PER_PT       = 0.035, NEWS_MAX     = 0.35;
-const ROYALTY_RATE      = 0.045;                      // v3..v6 constant
-const LIB_PER_PT        = 0.055, LIB_MAX      = 0.55;
-/* The Newsroom's support: talk and news slots only, and structurally — no
-   retune can make it pay on an all-music station, which is half of §2a's
-   calibration-free non-constancy proof (the Record Library is the other half,
-   and their supports are disjoint by construction). */
+const FATIGUE_PER_LOAD  = 0.18;                       // v3..v6 constant, flat again
+const NEWS_PER_PT       = 0.055;
+const LIB_PER_PT        = 0.055;
+const ROYALTY_RATE      = 0.045;                      // v3..v6 constant, flat again
+/* v2 §3a: the two schedule rooms are the SAME mechanism with disjoint supports,
+   and their shared ceiling is the schedule itself — ROOM_PTS_PER_SERVED_SLOT
+   points per daypart that room's support covers, 0..4 slots, so 0..12 points.
+   At zero served slots the ceiling is 0 and the multiplier is exactly 1.00: the
+   zero is STRUCTURAL (min(pts, 0) = 0), not a small number someone can retune
+   upwards. Room value is then roughly quadratic in how concentrated a station's
+   schedule is, which is the decision the whole mechanic exists to pose. */
+const ROOM_PTS_PER_SERVED_SLOT = 3.0;
+/* The Newsroom's support: talk and news slots only. The Record Library's:
+   music only. Disjoint by construction, and `ads` is served by NEITHER — that
+   third regime ("this station wants no schedule room, put the bay elsewhere")
+   is what makes room placement non-constant across a four-station empire. */
 const NEWSROOM_SHOWS = ['talk', 'news'];
+const LIBRARY_SHOWS  = ['music'];
 function newsroomServes(showKey){ return NEWSROOM_SHOWS.indexOf(showKey) >= 0; }
+function libraryServes(showKey){ return LIBRARY_SHOWS.indexOf(showKey) >= 0; }
+/** The show list a room type is paid on, or null for a room whose ceiling is
+    not set by the schedule (the Maintenance Bay's is the gear index). */
+function roomShows(type){
+  if (type === ROOM_NEWS) return NEWSROOM_SHOWS;
+  if (type === ROOM_LIB)  return LIBRARY_SHOWS;
+  return null;
+}
+/** How many of this station's four DAYPARTS run a show in `type`'s support.
+    0..4, and zero-sum across the three competing formats plus `ads` — which is
+    the scarce resource (v2 §8), not money. */
+function servedSlots(st, type){
+  const shows = roomShows(type);
+  if (!st || !shows || !st.schedule) return 0;
+  let n = 0;
+  for (const p of DAYPARTS) {
+    const slot = st.schedule[p.id];
+    if (slot && shows.indexOf(slot.show) >= 0) n++;
+  }
+  return n;
+}
 
 function gearCut(st, load){
   return Math.min(GEAR_CUT_MAX, GEAR_CUT_PER_PT * roomPtsFor(st, ROOM_MAINT, load));
 }
-function fatiguePer(st, load){
-  return FATIGUE_PER_LOAD * (1 - Math.min(GREEN_MAX, GREEN_PER_PT * roomPtsFor(st, ROOM_GREEN, load)));
+/** The shared form of the two schedule rooms. Points above the served-slot
+    ceiling are worth exactly $0, and a station whose schedule serves the room
+    not at all returns exactly 1 — the same number the absent room returns. */
+function schedMul(st, type, load, perPt){
+  const cap = roomCeiling(st, type);
+  if (!(cap > 0)) return 1;
+  return 1 + perPt * Math.min(roomPtsFor(st, type, load), cap);
 }
-function newsMul(st, load){
-  return 1 + Math.min(NEWS_MAX, NEWS_PER_PT * roomPtsFor(st, ROOM_NEWS, load));
-}
-function royaltyCut(st, load){
-  return Math.min(LIB_MAX, LIB_PER_PT * roomPtsFor(st, ROOM_LIB, load));
-}
+function newsMul(st, load){ return schedMul(st, ROOM_NEWS, load, NEWS_PER_PT); }
+function libMul(st, load){ return schedMul(st, ROOM_LIB, load, LIB_PER_PT); }
 
 /** The number readout #3 exists for: how many points this room is carrying,
     and how many of them are worth exactly zero. A seller earning nothing looks
     identical to one earning until this is on screen.
 
-    The Newsroom's and the Library's POINT ceilings are where their own min()
-    saturates; their VALUE ceiling is the schedule, and it is zero on a station
-    with no talk/news (resp. no music) slots however many points sit in them.
-    ui must print the schedule, not just this number, for those two. */
-function roomCeiling(r){
-  if (!r) return 0;
-  if (r.type === ROOM_MAINT) return GEAR_CUT_MAX / GEAR_CUT_PER_PT;
-  if (r.type === ROOM_GREEN) return GREEN_MAX / GREEN_PER_PT;
-  if (r.type === ROOM_NEWS)  return NEWS_MAX / NEWS_PER_PT;
-  if (r.type === ROOM_LIB)   return LIB_MAX / LIB_PER_PT;
-  return 0;
+    Two call shapes, because two callers ask the same question from opposite
+    ends: `roomCeiling(station, type)` is the arithmetic form the multipliers
+    use (there need be no room built yet), and `roomCeiling(room)` is the form
+    a list of built rooms uses. The type argument being a string is the
+    discriminator; a room object never is.
+
+    The Maintenance Bay's ceiling is where its own min() saturates. The
+    Newsroom's and the Library's is the SCHEDULE — 3.0 points per served
+    daypart — so it is genuinely 0 on a station with no talk/news (resp. no
+    music) slots however many points sit in the room. ui prints the slot count
+    that set it, because "0.0 pts of ceiling" alone reads as a bug. */
+function roomCeiling(a, type){
+  if (typeof type === 'string') {
+    if (type === ROOM_MAINT) return GEAR_CUT_MAX / GEAR_CUT_PER_PT;
+    if (roomShows(type)) return ROOM_PTS_PER_SERVED_SLOT * servedSlots(a, type);
+    return 0;
+  }
+  const r = a;
+  if (!r || typeof r.type !== 'string') return 0;
+  return roomCeiling(stationOfRoom(r), r.type);
+}
+/** The station a room points at, or null if its index is stale. */
+function stationOfRoom(r){
+  if (!r || !S || !Array.isArray(S.stations)) return null;
+  return S.stations[Math.floor(readNum(r, 'station', -1))] || null;
 }
 function roomWasted(r, load){ return Math.max(0, roomPower(r, load) - roomCeiling(r)); }
 
@@ -1190,17 +1254,13 @@ function djLoad(id){
     every morning drive in the network wears one person down exactly as hard as
     working four slots on one station did in v2.
 
-    The Green Room shrinks the COEFFICIENT, not the count, and it does so on
-    one station: the same double-booked host is less worn out on the station
-    with the couch than on the one without. `st` omitted (ui's fatigue readout,
-    which has no station context) reads the v6 constant 0.18 exactly.
-
-    The trap this creates is real and is meant to be surfaced, not removed: a
-    Green Room seat raises its OWN occupant's djLoad, which is the fatigue the
-    room exists to fix. Monotone and bounded, so no spiral — but a naive player
-    can make things strictly worse, which is what §7 readout #9 is for. */
+    NO ROOM READS THIS ANY MORE. The Green Room shrank the coefficient; it is
+    cut, so the coefficient is the flat v3..v6 constant on every station and the
+    only cure for fatigue is the free one the player always had — spread the
+    work. `st` and `load` are still accepted so every call site (including ui's
+    station-less readout) keeps its signature; both are unread. */
 function djFatigue(id, st, load){
-  return clamp(1 - fatiguePer(st, load) * (djLoad(id) - 1), 0.40, 1);
+  return clamp(1 - FATIGUE_PER_LOAD * (djLoad(id) - 1), 0.40, 1);
 }
 
 /** The people actually on a slot, lead first, orphan ids skipped. */
@@ -1466,18 +1526,22 @@ function slotPull(st, partId, load){
   const slot = st.schedule[partId];
   const show = SHOWS[slot.show];
   const seg = segmentOf(st.segment);
-  /* The Newsroom multiplies show.appeal on this station's TALK and NEWS slots
-     and nothing else — on an all-music station it is worth exactly $0 however
-     many points sit in it, which is half of §2a's calibration-free proof that
-     no fixed room priority is optimal (the Record Library, whose support is
-     the complementary set, is the other half).
+  /* The two schedule rooms, at ONE site and in ONE form (v2 §3a). The Newsroom
+     multiplies show.appeal on this station's TALK and NEWS slots; the Record
+     Library multiplies it on MUSIC slots; `ads` is served by neither. Each is
+     worth exactly $0 on a station whose schedule does not run its shows,
+     however many points sit in the room, because the ceiling is 3.0 points per
+     served daypart and min(pts, 0) is 0 — that is the calibration-free proof
+     that no fixed room priority is optimal, and it is structural in three
+     directions rather than two.
 
      Applied HERE and not to the `quality` simulateDay() averages into
      repPressure, for the same reason condOf() is: rep is proportional-recovery
      with additive damage, and a multiplicative rep term is a loop nobody has
      bounded. The newsroom still moves rep the way it always did — through
      SHOWS.news.rep on the slots you scheduled. */
-  const appeal = show.appeal * (newsroomServes(slot.show) ? newsMul(st, load) : 1);
+  const appeal = show.appeal * (newsroomServes(slot.show) ? newsMul(st, load)
+                              : libraryServes(slot.show)  ? libMul(st, load) : 1);
   const quality = appeal * djTerm(slot, st, load) * ((show.parts && show.parts[partId]) || 1);
   /* condOf(st) is the ONLY place signal condition enters the economy. It is
      deliberately applied here and not folded into `quality`, because `quality`
@@ -1671,21 +1735,26 @@ function simulateDay(){
      which is what gives Talk and News an economic identity instead of a purely
      reputational one.
 
-     PER STATION as of v7, because the Record Library is per station and an
-     empire-wide music share would charge a talk station for its neighbour's
-     records — and would make the room's own readout ("N music slots on KXYZ")
-     a lie. This is arithmetically identical to v6's empire-wide form whenever
-     the stations share a music share, which includes every case v6 could
-     produce on one station and every harness policy on four. The rate cut is
-     bounded at LIB_MAX and the whole line is floored at zero; it moves one
-     book line and the ledger identity is untouched. */
+     NO ROOM TOUCHES THIS LINE. royaltyCut() is deleted (v2 §3a): a rate cut is
+     bounded at ROYALTY_RATE·musicShare — 2.475% of music revenue at most, when
+     the Newsroom's appeal multiplier reaches ~7% — and closing that six-to-one
+     gap needs ROYALTY_RATE at 0.12, which manufactures a $253/day problem in
+     order to sell the cure. The Library is an appeal multiplier now, at the
+     same site as the Newsroom, and the flat rate stays the v3..v6 constant.
+     What remains here is the Library's natural counterbalance, for free:
+     royalties tax exactly the revenue the Library creates.
+
+     Still summed PER STATION rather than empire-wide, because a shared rate on
+     a shared music share is only the same number when the stations run the
+     same schedule; per station, a talk callsign is never billed for its
+     neighbour's records. The line is floored at zero. */
   let royalties = 0;
   for (const st of S.stations) {
     const rev = revBySt.get(st) || 0;
     if (rev <= 0) continue;
     const share = (musicBySt.get(st) || 0) / DAYPARTS.length;
-    if (share <= 0) continue;             // no music slots: the library is worth exactly $0 here
-    royalties += rev * ROYALTY_RATE * share * (1 - royaltyCut(st, load));
+    if (share <= 0) continue;             // no music slots: no records, no royalties
+    royalties += rev * ROYALTY_RATE * share;
   }
   royalties = Math.max(0, royalties);
   const payroll = payrollTotal();
@@ -2143,7 +2212,7 @@ function bankruptCause(){
   // available, and the easiest to have not made.
   if (sts.length >= 2 && staffedPerStation.some(n => n === 0))
     return { key: 'causeOverExpanded', vars: { n: sts.length } };
-  /* Bays are charged EMPTY, on a ladder that reaches $6,000/day against a
+  /* Bays are charged EMPTY, on a ladder that bills every morning against a
      revenue line that is hard-capped — so "four bays, one staffed" is its own
      way to die and deserves its own name. Sited after over-expansion (a bigger
      mistake that also produces this) and before all-ads (a smaller one).
@@ -2154,8 +2223,23 @@ function bankruptCause(){
     const staffedRooms = rooms.filter(r => Array.isArray(r.staff) && r.staff.length).length;
     let power = 0, ceiling = 0;
     for (const r of rooms) { power += roomPower(r); ceiling += roomCeiling(r); }
+    /* `n` and `k` because that is what the authored line interpolates
+       ("paying for {n} bays and staffing {k}"); the older names are kept
+       beside them so nothing that already reads them starts reading
+       undefined. */
     if (bayCount() > staffedRooms + 1 || (ceiling > 0 && power < 0.5 * ceiling))
-      return { key: 'causeOverbuilt', vars: { bays: bayCount(), staffed: staffedRooms } };
+      return { key: 'causeOverbuilt',
+               vars: { n: bayCount(), k: staffedRooms, bays: bayCount(), staffed: staffedRooms } };
+    /* THE COLD BUILDING — the failure only the served-slot ceiling can produce,
+       and the reason that ceiling has to be structural. Rooms with people in
+       them, a lease on every bay, and a schedule that serves none of them: the
+       ceiling is 0, so every point in them earns exactly $0 while the salaries
+       and the leases bill in full. Sited immediately after causeOverbuilt (an
+       EMPTY room is the cruder mistake and wins the tie) and before
+       causeAdsOnly. Reads seats and schedule only — no money term, like every
+       other room reading in this file. */
+    const cold = rooms.filter(r => roomPower(r) > 0 && roomCeiling(r) <= 0).length;
+    if (cold > 0) return { key: 'causeRoomsCold', vars: { k: cold, n: cold } };
   }
   // ads pays today and burns the rep the ad rate multiplies by.
   if (slots > 0 && adsSlots / slots >= 0.5)

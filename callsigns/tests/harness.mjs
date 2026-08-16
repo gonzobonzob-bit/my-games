@@ -341,24 +341,17 @@ window.__rig = (function(){
     return after - base;
   }
   /** Buy a bay only when the best room it could hold outearns its lease. */
-  function maybeBuyBay(reserve){
+  function maybeBuyBay(reserve, choose){
     const can = canBuyBay();
     if (!can || !can.ok) return false;
     if (S.cash < (typeof BAY_BUILD_COST !== 'undefined' ? BAY_BUILD_COST : 2500) + reserve) return false;
-    const lease = bayLease(bayCount());
-    let best = 0;
-    for (let i = 0; i < S.stations.length; i++) {
-      for (const type of roomTypeIds()) {
-        if (roomAt(i, type)) continue;
-        const idx = i, ty = type;
-        best = Math.max(best, marginOf(function(){
-          S.bays = bayCount() + 1;
-          const r = buildRoom(idx, ty);
-          if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
-        }));
-      }
-    }
-    if (best <= lease) return false;
+    // Price the bay against what THIS strategy would actually put in it, not
+    // against the best room in the game — otherwise every policy buys bays on
+    // the strength of a room it will never build.
+    const pick = choose ? choose() : null;
+    if (!pick) return false;
+    const value = pairValue(pick.idx, pick.type);
+    if (value <= bayLease(bayCount())) return false;
     const r = buyBay();
     return !!(r && r.ok);
   }
@@ -402,13 +395,20 @@ window.__rig = (function(){
     }
   }
 
-  /** Build and staff rooms. pickType and pickStation ARE the strategy under test. */
-  function manageRooms(pickType, pickStation, reserve){
-    maybeBuyBay(reserve);
+  /* Build and staff rooms. The choose callback IS the strategy under test;
+     it returns an {idx, type} pair, or null.
+
+     This used to take a separate pickType(idx) and pickStation(). That could not
+     express a fixed-type strategy at all: pickStation chose a station by GREEDY
+     value, then fixedType('maint') returned null because that station already
+     had a maint room, so the build silently never happened. Measured after the
+     first fix attempt: alwaysMaint reached bays 2 / rooms 1 — it bought a second
+     bay and could not fill it. Station and type have to be chosen together. */
+  function manageRooms(choose, reserve){
+    maybeBuyBay(reserve, choose);
     if (roomList().length < bayCount()) {
-      const idx = pickStation();
-      const type = pickType(idx);
-      if (type && !roomAt(idx, type)) buildRoom(idx, type);
+      const pick = choose();
+      if (pick && pick.type && !roomAt(pick.idx, pick.type)) buildRoom(pick.idx, pick.type);
     }
     hireForRooms();
     // Seat surplus people only. Seating someone who is on air costs attention
@@ -429,45 +429,100 @@ window.__rig = (function(){
       if (bestRoom && bestVal > (p.salary || 0)) seatInRoom(bestRoom.id, p.id);
     }
   }
-  /** The state-reading chooser: whichever room type is worth most HERE, TODAY. */
-  function greedyType(idx){
-    let best = null, bestVal = 0;
-    for (const type of roomTypeIds()) {
-      if (roomAt(idx, type)) continue;
-      const ty = type;
-      const v = marginOf(function(){
-        const r = buildRoom(idx, ty);
-        if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
-      });
-      if (v > bestVal) { bestVal = v; best = type; }
-    }
-    return best;
+  /** Value of putting one type on one station, seated with a surplus person. */
+  function pairValue(idx, type){
+    return marginOf(function(){
+      S.bays = Math.max(bayCount(), roomList().length + 1);
+      const r = buildRoom(idx, type);
+      if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
+    });
   }
-  /** ...and where. Stations differ in segment, gear, schedule and saturation. */
-  function greedyStation(){
-    let best = 0, bestVal = -Infinity;
+  /** Best station for a GIVEN type — what a fixed-priority player does. */
+  function bestStationFor(type){
+    let best = null, bestVal = -Infinity;
     for (let i = 0; i < S.stations.length; i++) {
-      const idx = i, ty = greedyType(i);
-      if (!ty) continue;
-      const v = marginOf(function(){
-        const r = buildRoom(idx, ty);
-        if (r && r.ok) { const sp = surplusStaff(); if (sp.length) seatInRoom(r.room.id, sp[0].id); }
-      });
+      if (roomAt(i, type)) continue;
+      const v = pairValue(i, type);
       if (v > bestVal) { bestVal = v; best = i; }
     }
-    return best;
+    return best === null ? null : { idx: best, type: type };
   }
-  const flagship = function(){ return 0; };
-  function fixedType(type){ return function(idx){ return roomAt(idx, type) ? null : type; }; }
-  let rrTick = 0;
-  function roundRobinType(idx){
+  function fixedChoice(type){ return function(){ return bestStationFor(type); }; }
+  function flagshipChoice(type){
+    return function(){ return roomAt(0, type) ? null : { idx: 0, type: type }; };
+  }
+  let rrTick2 = 0;
+  function roundRobinChoice(){
     const ids = roomTypeIds();
     for (let k = 0; k < ids.length; k++) {
-      const t = ids[(rrTick + k) % ids.length];
-      if (!roomAt(idx, t)) { rrTick++; return t; }
+      const t = ids[(rrTick2 + k) % ids.length];
+      const pick = bestStationFor(t);
+      if (pick) { rrTick2++; return pick; }
     }
     return null;
   }
+
+  /** The state-reading chooser: the best (station, type) PAIR available today.
+      Everything the design claims lives here — if no fixed rule can match this,
+      the choice is a decision. */
+  function greedyChoice(){
+    let best = null, bestVal = 0;
+    for (let i = 0; i < S.stations.length; i++) {
+      for (const type of roomTypeIds()) {
+        if (roomAt(i, type)) continue;
+        const v = pairValue(i, type);
+        if (v > bestVal) { bestVal = v; best = { idx: i, type: type }; }
+      }
+    }
+    return best;
+  }
+
+  /* Put each slot on its best-earning format, evaluated THROUGH whatever rooms
+     currently exist.
+
+     Nothing in this file ever called setSlotShow() except the ads policy, so
+     every room run — 20 seeds x 10 policies x 4 stations, 540 days — used the
+     default music/music/talk/music schedule. The Newsroom pays on talk/news and
+     the Record Library on music, so the gate was asking whether room choice
+     depends on the schedule WHILE HOLDING THE SCHEDULE CONSTANT. It is the
+     third time this project has judged a mechanic in the one state where it
+     cannot function.
+
+     Shared by every policy, deliberately: the schedule then reacts identically
+     for all of them, so it is state the room decision READS rather than a
+     confound that varies with the strategy under test. And because it evaluates
+     through current rooms, a room that changes what the schedule should be gets
+     to actually change it — which is the coupling the design claims. */
+  function setSchedules(){
+    const V = (typeof repValue === 'function') ? repValue() : undefined;
+    /* ADS IS EXCLUDED, and that is a modelling decision rather than a
+       convenience. A per-slot argmax on immediate net picks ads for 6 of 16
+       slots — every night slot on every segment — because ads pays now and the
+       reputation it burns is paid later. Measured: letting it choose ads
+       collapsed every empireCore policy from ~$6.6M to ~$1.6M, i.e. it turned
+       the competent operator into the degenerate all-ads line the harness
+       already has a dedicated policy for, and which dies on day 182.
+
+       A competent operator programs music, talk and news and does not sell
+       every hour. Those three are also exactly the formats the rooms care
+       about (Newsroom on talk/news, Record Library on music), so the axis the
+       gate needs still varies — measured across the four starting segments,
+       the argmax differs by segment rather than being constant. */
+    const shows = Object.keys(SHOWS).filter(function(x){ return x !== 'ads'; });
+    S.stations.forEach(function(st, i){
+      PARTS.forEach(function(part){
+        let best = null, bestV = -Infinity;
+        for (const show of shows) {
+          let v;
+          try { v = slotNet(st, part, { show: show }, V); } catch (e) { v = -Infinity; }
+          if (isFinite(v) && v > bestV) { bestV = v; best = show; }
+        }
+        const cur = st.schedule && st.schedule[part];
+        if (best && cur && cur.show !== best) setSlotShow(i, part, best);
+      });
+    });
+  }
+
   /** The empire policy's staffing, shared by every room policy so the ONLY
       difference between them is which room they choose and where. */
   function empireCore(day){
@@ -477,6 +532,9 @@ window.__rig = (function(){
       if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
     }
     fillSlots(); placeEngineers();
+    // Re-evaluate formats weekly. Not daily: a schedule that thrashes every day
+    // is not a strategy a human would run, and it would drown the room signal.
+    if (day % 7 === 0) setSchedules();
     if (day % 7 === 0) upgradeGear(6000);
     if (day % 5 === 0) tryExpand(2.2);
   }
@@ -552,16 +610,15 @@ window.__rig = (function(){
     },
 
     /* ---- the rooms cohort. Identical staffing, different room strategy. ---- */
-    rooms:       function(day){ empireCore(day); if (day % 4 === 0) manageRooms(greedyType, greedyStation, 8000); },
-    alwaysLib:   function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('library'), flagship, 8000); },
-    alwaysGreen: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('green'),   flagship, 8000); },
-    alwaysMaint: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('maint'),   flagship, 8000); },
-    alwaysNews:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedType('news'),    flagship, 8000); },
-    roundRobin:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(roundRobinType,       flagship, 8000); },
+    rooms:       function(day){ empireCore(day); if (day % 4 === 0) manageRooms(greedyChoice, 8000); },
+    alwaysLib:   function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedChoice('library'), 8000); },
+    alwaysMaint: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedChoice('maint'), 8000); },
+    alwaysNews:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(fixedChoice('news'), 8000); },
+    roundRobin:  function(day){ empireCore(day); if (day % 4 === 0) manageRooms(roundRobinChoice, 8000); },
     // Greedy on TYPE but blind on PLACEMENT — isolates whether "which station"
     // is a real decision, which matters because reputation is empire-wide and
     // so every Sales Floor shares one ceiling.
-    roomsFlagship: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(greedyType, flagship, 8000); },
+    roomsFlagship: function(day){ empireCore(day); if (day % 4 === 0) manageRooms(function(){ const p = greedyChoice(); return p ? flagshipChoice(p.type)() : null; }, 8000); },
     // Maxes the bay ladder and staffs nothing. Leases are paid empty.
     builder: function(day){
       empireCore(day);
@@ -583,7 +640,7 @@ window.__rig = (function(){
       fillSlots(); placeEngineers();
       if (day % 7 === 0) upgradeGear(6000);
       if (day % 5 === 0) tryExpand(2.2);
-      if (day % 4 === 0) manageRooms(greedyType, greedyStation, 8000);
+      if (day % 4 === 0) manageRooms(greedyChoice, 8000);
     },
     // Same lean staffing, no rooms at all — the control the lean line is scored
     // against, so "rooms helped" cannot be confounded with "lean is different".
@@ -643,6 +700,23 @@ window.__rig = (function(){
       // much of its empire it was staffing.
       bays: (typeof bayCount === 'function') ? bayCount() : 0,
       rooms: (typeof roomList === 'function') ? roomList().length : 0,
+      /* WHAT THE ROOMS WERE ACTUALLY WORTH on the final day, measured the same
+         way the Building tab prices them: empire worth with the rooms, minus
+         empire worth with every room emptied. Without this a tie is
+         undiagnosable — "rooms were worth nothing" and "both policies built the
+         same rooms" produce the identical number, and v2 6 asks for it by name.
+         Also record the daily bay bill, because value has to beat the lease. */
+      roomValue: (function(){
+        if (typeof uiWhatIf !== 'function' || typeof uiEmpireWorth !== 'function') return 0;
+        if (!roomList().length) return 0;
+        const withRooms = uiEmpireWorth();
+        const without = uiWhatIf(function(){
+          for (const r of roomList()) r.staff = [];
+          return uiEmpireWorth();
+        });
+        return (without === null) ? 0 : withRooms - without;
+      })(),
+      bayBill: (typeof bayLeaseTotal === 'function') ? bayLeaseTotal() : 0,
       slotsTotal: S.stations.length * PARTS.length,
       slotsWithDj: S.stations.reduce(function(a, st){
         return a + PARTS.filter(function(p){
@@ -713,6 +787,8 @@ function summarise(rows){
     medUnlock: pct(rows.filter(r => r.unlockDay).map(r => r.unlockDay), 0.5),
     medCond: pct(rows.map(r => r.cond), 0.5),
     medCondMin: pct(rows.map(r => r.condMin), 0.5),
+    medRoomValue: pct(rows.map(r => r.roomValue), 0.5),
+    medBayBill: pct(rows.map(r => r.bayBill), 0.5),
     medDjSlots: pct(rows.map(r => r.slotsWithDj), 0.5),
     medEngSlots: pct(rows.map(r => r.slotsWithEng), 0.5),
     medSlots: pct(rows.map(r => r.slotsTotal), 0.5),
@@ -887,8 +963,11 @@ async function main(){
        not merge. Written to be able to fail, and to say plainly what it means
        if it does. */
     console.log('\n--- rooms: is the choice a decision, or a shopping list? ---');
+    // alwaysGreen is gone with the Green Room: a policy that can never build
+    // anything is not a fixed PRIORITY, it is a control, and leaving it in the
+    // fixedBest max would have let "build nothing" win the comparison.
     const ROOM_POLICIES = ['rooms', 'roomsFlagship', 'alwaysMaint', 'alwaysNews',
-                           'alwaysLib', 'alwaysGreen', 'roundRobin', 'builder',
+                           'alwaysLib', 'roundRobin', 'builder',
                            'lean', 'leanBare'];
     const ROOM_RUNS = Math.max(12, Math.floor(RUNS / 2));
     const rsum = {};
@@ -897,14 +976,15 @@ async function main(){
         JSON.stringify(rp) + ', ' + ROOM_RUNS + ', ' + DAYS + '))'));
       rsum[rp] = summarise(rrows);
       console.log(row(rp, rsum[rp]) + '   bays ' + (pct(rrows.map(r => r.bays), 0.5) || 0) +
-        '   rooms ' + (pct(rrows.map(r => r.rooms), 0.5) || 0));
+        '   rooms ' + (pct(rrows.map(r => r.rooms), 0.5) || 0) +
+        '   roomValue ' + money(rsum[rp].medRoomValue) + '/day' +
+        '   bayBill ' + money(rsum[rp].medBayBill) + '/day');
     }
     console.log('  (rooms cohort runs at ' + ROOM_RUNS + ' seeds, not ' + RUNS +
       ' — seven extra policies at ' + DAYS + ' days is real wall clock, and this is a margin test)');
 
     const fixedBest = Math.max(rsum.alwaysMaint.medCash || 0, rsum.alwaysNews.medCash || 0,
-                               rsum.alwaysLib.medCash || 0, rsum.alwaysGreen.medCash || 0,
-                               rsum.roundRobin.medCash || 0);
+                               rsum.alwaysLib.medCash || 0, rsum.roundRobin.medCash || 0);
     const greedyCash = rsum.rooms.medCash || 0;
     check('ROOMS ARE NOT A SHOPPING LIST: reading state beats every fixed priority by >5%',
       greedyCash > fixedBest * 1.05,

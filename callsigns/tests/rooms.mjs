@@ -86,9 +86,11 @@ function COND_WEARish(){ return run('COND_WEAR') * 0.999; }
 const idle = run(`(function(){
   S = sanitize(newState('KIDL'));
   S.bays = 6;
-  S.rooms = [{id:'a',type:'maint',station:0,staff:[]},{id:'b',type:'green',station:0,staff:[]},
-             {id:'c',type:'news',station:0,staff:[]},{id:'d',type:'library',station:0,staff:[]},
-             {id:'e',type:'sales',station:0,staff:[]}];
+  // Every surviving room type, all empty: attn must still be 0 on an unstaffed
+  // station or LOSABLE re-opens. The cut types (green, sales) are covered by
+  // the hostile-save block instead, as unknown types.
+  S.rooms = [{id:'a',type:'maint',station:0,staff:[]},
+             {id:'c',type:'news',station:0,staff:[]},{id:'d',type:'library',station:0,staff:[]}];
   const st = S.stations[0];
   const a0 = stationAttn(st);
   let days = 0; while (st.cond > COND_MIN + 1e-9 && days < 2000) { stepCondition(st, 1); days++; }
@@ -109,15 +111,15 @@ const inert = run(`(function(){
     fill: salesFill(), price: salesPrice(), wasted: salesWasted(),
     legacyFill: Math.min(0.50 + roleStrength('sales')*0.040, fillCap()),
     fatigue: djFatigue(q.id), legacyFatigue: 1 - 0.18*(2-1),
-    news: newsMul(S.stations[0]), royalty: royaltyCut(S.stations[0]),
+    news: newsMul(S.stations[0]), lib: libMul(S.stations[0]),
     bayLease: bayLeaseTotal(), leases: totalLeases(), lease0: leaseFor(S.stations[0]),
     load: JSON.stringify(staffSlotLoad())
   };
 })()`);
 ok('sales reads exactly v6 at bays 0', Math.abs(inert.fill - inert.legacyFill) < 1e-12 && inert.price > 1, JSON.stringify(inert));
 ok('fatigue coefficient is 0.18 at bays 0', Math.abs(inert.fatigue - inert.legacyFatigue) < 1e-12, JSON.stringify(inert));
-ok('newsMul 1.00 / royaltyCut 0 / bay lease $0 at bays 0',
-  inert.news === 1 && inert.royalty === 0 && inert.bayLease === 0 && inert.leases === inert.lease0, JSON.stringify(inert));
+ok('newsMul and libMul are both 1.00, and bay lease is $0, at bays 0',
+  inert.news === 1 && inert.lib === 1 && inert.bayLease === 0 && inert.leases === inert.lease0, JSON.stringify(inert));
 
 /* ---- 4. a room seat costs attention and fatigue ---- */
 const seat = run(`(function(){
@@ -156,7 +158,7 @@ const power = run(`(function(){
   S.staff.find(x=>x.id===p.id);
   S.stations[0].schedule.evening.djs = [];
   // seat them in a second room instead (load 2)
-  S.rooms.push({ id:'s2', type:'green', station:0, staff:[p.id] });
+  S.rooms.push({ id:'s2', type:'maint', station:0, staff:[p.id] });
   const diluted = roomPower(S.rooms[0]);
   return { solo, pair, diluted, fitDj: roomFit('news','dj'), fitEng: roomFit('news','eng') };
 })()`);
@@ -195,18 +197,13 @@ const disjoint = run(`(function(){
     const parts = ['morning','midday','evening','night'];
     parts.forEach((p,i) => setSlotShow(0, p, shows[i]));
     const st = S.stations[0];
-    const base = { pull: slotPull(st,'morning'), roy: null };
-    const d0 = simulateDayRoyalty();
+    const before = slotPull(st, 'morning');
     S.bays = 1;
     const p = makePerson('dj', 9); p.skill = 9; S.staff.push(p);
     S.rooms = [{ id:'x', type, station:0, staff:[p.id] }];
-    return { pullBefore: base.pull, pullAfter: slotPull(st,'morning'), royBefore: d0, royAfter: simulateDayRoyalty() };
+    return { pullBefore: before, pullAfter: slotPull(st, 'morning'),
+             ceiling: roomCeiling(S.rooms[0]), served: servedSlots(st, type) };
   };
-  function simulateDayRoyalty(){
-    const st = S.stations[0];
-    let music = 0; for (const p of DAYPARTS) if (st.schedule[p.id].show === 'music') music++;
-    return 1000 * ROYALTY_RATE * (music/DAYPARTS.length) * (1 - royaltyCut(st));
-  }
   return {
     newsOnMusic: build(['music','music','music','music'], 'news'),
     newsOnTalk:  build(['talk','talk','news','news'], 'news'),
@@ -218,11 +215,27 @@ ok('a Newsroom on an all-music station is worth exactly zero pull',
   disjoint.newsOnMusic.pullAfter === disjoint.newsOnMusic.pullBefore, JSON.stringify(disjoint.newsOnMusic));
 ok('a Newsroom on a talk/news station raises pull',
   disjoint.newsOnTalk.pullAfter > disjoint.newsOnTalk.pullBefore, JSON.stringify(disjoint.newsOnTalk));
-ok('a Record Library on an all-talk station is worth exactly zero royalty',
-  disjoint.libOnTalk.royAfter === disjoint.libOnTalk.royBefore && disjoint.libOnTalk.royAfter === 0,
-  JSON.stringify(disjoint.libOnTalk));
-ok('a Record Library on an all-music station cuts royalties',
-  disjoint.libOnMusic.royAfter < disjoint.libOnMusic.royBefore, JSON.stringify(disjoint.libOnMusic));
+/* The Library stopped cutting royalties in v2 and became an appeal multiplier
+   on music slots, mirroring the Newsroom on talk/news — because a royalty cut
+   is structurally capped at ROYALTY_RATE*0.55 = 2.475% of music revenue while
+   the Newsroom reaches ~7%, and one room worth a sixth of another is not a
+   choice. So it is now tested the same way its twin is: pull, not money. */
+ok('a Record Library on an all-talk station is worth exactly zero pull',
+  disjoint.libOnTalk.pullAfter === disjoint.libOnTalk.pullBefore, JSON.stringify(disjoint.libOnTalk));
+ok('a Record Library on an all-music station raises pull',
+  disjoint.libOnMusic.pullAfter > disjoint.libOnMusic.pullBefore, JSON.stringify(disjoint.libOnMusic));
+/* The structural zero is the whole argument: a room with no served slots has a
+   ceiling of ZERO, not merely a small multiplier. No constant can tune that
+   away, which is what makes the schedule a real decision. */
+ok('a room with no served slots has a ceiling of exactly zero',
+  disjoint.libOnTalk.ceiling === 0 && disjoint.libOnTalk.served === 0 &&
+  disjoint.newsOnMusic.ceiling === 0 && disjoint.newsOnMusic.served === 0,
+  JSON.stringify({ lib: disjoint.libOnTalk, news: disjoint.newsOnMusic }));
+/* ...and the ceiling scales with HOW MUCH of the board serves the room, which
+   is what makes concentration a decision rather than a binary. */
+ok('the ceiling is 3 points per served slot',
+  disjoint.libOnMusic.served === 4 && Math.abs(disjoint.libOnMusic.ceiling - 12) < 1e-9,
+  JSON.stringify(disjoint.libOnMusic));
 
 /* ---- 8. bay leases ride the leases line, and the ledger reconciles ---- */
 const ledger = run(`(function(){
@@ -283,6 +296,7 @@ const hostile = run(`(function(){
     { id:'a', type:'news', station: 0, staff:[] },               // duplicate id AND duplicate type
     { id:'b', type:'spaceport', station: 0, staff:[] },          // unknown type
     { id:'c', type:'maint', station: 99, staff:[] },             // station out of range
+    // Cut room types must be dropped, not honoured — same path as sales.
     { id:'d', type:'green', station: -5, staff:[p.id] },
     { id:'e', type:'news', station: 0, staff:[] },
     { id:'f', type:'library', station: 0, staff:[] },
@@ -361,7 +375,7 @@ const longRun = run(`(function(){
   const djs = S.staff.filter(p=>p.role==='dj'), engs = S.staff.filter(p=>p.role==='eng');
   parts.forEach((p,i) => { addDj(0,p,djs[i%djs.length].id); addEngineer(0,p,engs[i%engs.length].id); });
   setSlotShow(0,'evening','news'); setSlotShow(0,'night','talk');
-  S.rooms = ['sales','maint','green','news','library'].map((t,i) => ({
+  S.rooms = ['maint','news','library'].map((t,i) => ({
     id:'r'+i, type:t, station:0, staff:[S.staff[(i*2)%S.staff.length].id]
   }));
   let worstDrift = 0, bad = 0;
