@@ -287,12 +287,18 @@ function chemTags(){ return Object.keys(chemTable()); }
 /* v6 adds station.cond (signal condition). A v<=5 station migrates in at 1.00 —
    pristine — so nobody's live run is retroactively punished for days played
    before the mechanic existed.
-   v7 adds S.bays (the building programme, capped at MAX_BAYS) and S.rooms. The
-   migration trap is the same class as v6's cond seeding and is documented on
-   migrate(): a v6 save with salespeople on payroll is earning a real revenue
-   multiplier through the empire-wide sales terms, so it is granted a free
-   Sales Floor with those sellers already seated. Deleting a multiplier the
-   player paid for is not a refactor. */
+   v7 adds S.bays (the building programme, capped at MAX_BAYS) and S.rooms.
+   There is no v6->v7 economy migration: sales stayed empire-wide (see the
+   Sales Floor note above ROOM_TYPES_FALLBACK), so every v6 multiplier reads
+   identically on a v7 save and the migration only has to seed `bays: 0` and
+   an empty `rooms`.
+   v7 SHIPPED ONCE, MID-BUILD, WITH A FIFTH ROOM, and a later in-progress v7
+   had a fourth. Such a save may therefore carry a `sales` or `green` room and
+   a `salesRoomed` flag. None of the three exists any more: sanitize() drops
+   both rooms with every other unknown type and the flag is simply never read.
+   Every path is silent — a save from a discarded build loads, it just loads
+   without those rooms. STATE_VER stays 7 because v7 has never shipped to
+   players; there is no live save to migrate, only mid-build ones to tolerate. */
 const STATE_VER = 7;
 
 // Producer condition #2: the assignment surface has to stay sub-linear in
@@ -398,9 +404,9 @@ function rivalNets(){
    mechanic, not a side effect — it is what makes hour 2, when the slots are
    finally covered, the moment rooms turn on.
 
-   Every room's output has a CEILING set by state the player chose — rep for
-   the Sales Floor, gear index for the Maintenance Bay, schedule for the
-   Newsroom and the Record Library, roster load for the Green Room — and a
+   Every room's output has a CEILING set by state the player chose — gear index
+   for the Maintenance Bay, and the SCHEDULE (3.0 points per served daypart,
+   0..4 of them) for the Newsroom and the Record Library — and a
    point above the ceiling is worth exactly zero dollars. That is what stops
    "hire more, stuff every room" being the whole game: by hour 2 money, skill
    and headcount are all surplus (§0), and ceiling headroom is not.
@@ -426,20 +432,44 @@ function rivalNets(){
    build a bay; they must therefore measure exactly what they measured before. */
 const MAX_BAYS   = 6;
 const ROOM_SEATS = 3;
-/* Paid bays plus at most one GRANDFATHERED Sales Floor per station — see
-   grantSalesFloors(). Nothing else can ever be free, so this is the true
-   bound on how many rooms can exist, and sanitize() enforces both halves
-   separately (paid <= MAX_BAYS, total <= MAX_ROOMS) rather than trusting a
-   hand-edited `free: true` to mean what it says. */
-const MAX_ROOMS  = MAX_BAYS + MAX_STATIONS;
+/* EVERY room costs a bay, with no exceptions and no entitlements, so the bay
+   count is the only bound on how many rooms can exist and sanitize() enforces
+   exactly one rule (rooms <= MAX_BAYS). The v7 build briefly had a free room
+   type; a `free: true` a hand-edited save could grant itself is a lease-dodge,
+   and the flag is now neither written nor read. */
 
-/* The five radio rooms, by id. sim has to name them because it owns their
-   arithmetic; content.js owns their name, icon, fit table and copy. These five
+/* The three radio rooms, by id. sim has to name them because it owns their
+   arithmetic; content.js owns their name, icon, fit table and copy. These three
    ids are the cross-file seam — content.js's ROOM_TYPES must key on exactly
    these, and an id that does not match resolves to no fit and is dropped by
-   sanitize() rather than silently paying out. */
-const ROOM_SALES = 'sales', ROOM_MAINT = 'maint', ROOM_GREEN = 'green',
-      ROOM_NEWS  = 'news',  ROOM_LIB   = 'library';
+   sanitize() rather than silently paying out. That is what disposes of both
+   retired types — a `sales` room from the in-progress v7 build and a `green`
+   room from the one after it — with no migration and no special case.
+
+   THE SALES FLOOR IS CUT, and it was cut on a MEASUREMENT, not a tuning miss.
+   Net of its lease it was worth -$3,871/day at three sellers, -$1,480 at four
+   and -$670 at six against a mid-game empire (4 stations, TX2/ANT2, rep 80):
+   better with more sellers, never positive. The reason is structural. The
+   empire-wide reading stacks sellers geometrically (0.40^i) and applies the
+   total to EVERY station; a per-station room splits the same people up, so
+   each station gets fewer points against the same reputation ceiling — at rep
+   80 with six sellers, 2.184x per-station against 2.366x empire-wide, a 7.7%
+   loss on all four callsigns, permanently. No lease, fit or per-point number
+   fixes a room that is worse than the thing it replaces at every seller count.
+   The opportunity-cost half of the sales defect is closed by the REPUTATION
+   CEILING (fillCap/priceCap), which shipped in 1916875 and is untouched here. */
+const ROOM_MAINT = 'maint', ROOM_NEWS = 'news', ROOM_LIB = 'library';
+
+/* THE GREEN ROOM IS CUT TOO, on the same kind of measurement (v2 §5). Its
+   payoff was FATIGUE_PER_LOAD·(djLoad − 1)·(GREEN_PER_PT·pts), so it only ever
+   paid on a roster the player had double-booked — and that state has a FREE
+   correction that strictly dominates the room: at load 4 the room at max points
+   recovered djFatigue 0.46 -> 0.757 (djTerm +19%), while assigning a second DJ
+   recovers 0.46 -> 1.00 (+34%) and costs no bay. A room whose support is "you
+   made an avoidable mistake", dominated by the correction, is a crutch sitting
+   in a bay a real room could use. Like `sales`, it leaves by the unknown-type
+   path in sanitize(): a save carrying one loads with one fewer room, silently,
+   and FATIGUE_PER_LOAD is the flat v6 constant again. */
 
 /* Same contract as SEG_FALLBACK and RIVAL_NETS_FALLBACK: content.js owns the
    real table, this keeps sim runnable on its own, and the fits are the ones
@@ -448,18 +478,20 @@ const ROOM_SALES = 'sales', ROOM_MAINT = 'maint', ROOM_GREEN = 'green',
    'radio' (CONTRACT.md's TV/film constraint), it only asks whether a room type
    serves the medium a segment declares. Zero non-radio rows ship this pass. */
 const ROOM_TYPES_FALLBACK = {
-  sales:   { name: 'Sales Floor',     icon: '💼', serves: ['radio'], fit: { sales: 1.00, dj: 0.55, eng: 0.20 } },
   maint:   { name: 'Maintenance Bay', icon: '🔧', serves: ['radio'], fit: { eng: 1.00, dj: 0.20, sales: 0.10 } },
-  green:   { name: 'Green Room',      icon: '🛋️', serves: ['radio'], fit: { dj: 1.00, sales: 0.45, eng: 0.25 } },
   news:    { name: 'Newsroom',        icon: '📰', serves: ['radio'], fit: { dj: 0.70, sales: 0.55, eng: 0.35 } },
   library: { name: 'Record Library',  icon: '💿', serves: ['radio'], fit: { eng: 0.60, dj: 0.60, sales: 0.30 } }
 };
 /* $/day, PAID EMPTY, mirroring TX_LEASE's shape. The build cost is a small
    one-off; the LEASE is the price, because §0 shows cash is unbounded against
    a revenue line that is hard-capped near $45,000/day — a room priced only in
-   dollars is bought by everyone, always. Bay 6 at $6,000/day is one eighth of
-   the empire's entire ceiling for a room that might have nobody in it. */
-const BAY_LEASE_FALLBACK = [40, 120, 340, 900, 2400, 6000];
+   dollars is bought by everyone, always.
+
+   RE-LADDERED in v2 §9 item 5, and content.js owns the live table: the old
+   [40,120,340,900,2400,6000] priced rungs 4-6 at 1.4x/3.7x/9.2x the best room
+   in the game, so the top half of the programme was unbuyable by arithmetic
+   rather than by choice. This copy must stay in step with content.js's. */
+const BAY_LEASE_FALLBACK = [40, 90, 180, 320, 520, 800];
 
 function roomTypeTable(){
   const t0 = (typeof ROOM_TYPES !== 'undefined') ? ROOM_TYPES : null;
@@ -518,10 +550,10 @@ function roomList(){ return (S && Array.isArray(S.rooms)) ? S.rooms : []; }
 function bayCount(){ return S ? clamp(Math.floor(readNum(S, 'bays', 0)), 0, MAX_BAYS) : 0; }
 function stationIndexOf(st){ return (S && Array.isArray(S.stations)) ? S.stations.indexOf(st) : -1; }
 function roomsOn(idx){ return roomList().filter(r => r && r.station === idx); }
-/** Rooms that occupy the building programme. A grandfathered Sales Floor is
-    not one of them: the player never bought it, so it must not eat a bay they
-    did buy. */
-function paidRoomCount(){ return roomList().filter(r => r && !r.free).length; }
+/** Rooms that occupy the building programme — all of them, because every room
+    costs a bay. Kept as its own name because buildRoom() and sanitize() both
+    ask the same question and the budget rule should read the same in both. */
+function paidRoomCount(){ return roomList().filter(r => !!r).length; }
 function roomById(id){ return roomList().find(r => r && r.id === id) || null; }
 /** One room type per station, max — so this is a lookup, not a list. */
 function roomAt(idx, type){ return roomList().find(r => r && r.station === idx && r.type === type) || null; }
@@ -555,62 +587,105 @@ function roomPtsFor(st, type, load){
   return roomPts(stationIndexOf(st), type, load);
 }
 
-/* ---- the five effects, all bounded by an explicit min() ----
+/* ---- the three effects, every one bounded by an explicit ceiling ----
 
    Every one of these is exactly its v6 constant when the room is absent or
    empty, which is the inertness claim stated as arithmetic:
      gearCut 0    -> wear = COND_WEAR·(1 + WEAR_PER_TX·tx + WEAR_PER_ANT·ant)
-     green   0    -> fatigue coefficient 0.18
      news    0    -> newsMul 1.00
-     library 0    -> royalty rate 0.045
-     sales   —    -> see salesPointsAt(), which keeps v6's empire-wide reading
-                     until the first Sales Floor is built. */
+     library 0    -> libMul  1.00
+   Fatigue is no longer on this list: the Green Room is CUT (v2 §5), so
+   FATIGUE_PER_LOAD is the flat v3..v6 constant again with nothing reading it.
+   Royalties are no longer on it either: royaltyCut() is deleted and
+   ROYALTY_RATE is flat 0.045, which removes the last room effect that ever
+   touched a money line (v2 §3d).
+   Sales is not on this list and no longer wants to be: it never became a room,
+   so it reads the empire-wide roleStrength it has read since v3. */
 const GEAR_CUT_PER_PT   = 0.060, GEAR_CUT_MAX = 0.60;
-const FATIGUE_PER_LOAD  = 0.18;                       // v3..v6 constant, now a floor to shrink
-const GREEN_PER_PT      = 0.055, GREEN_MAX    = 0.55;
-const NEWS_PER_PT       = 0.035, NEWS_MAX     = 0.35;
-const ROYALTY_RATE      = 0.045;                      // v3..v6 constant
-const LIB_PER_PT        = 0.055, LIB_MAX      = 0.55;
-const SALES_FILL_PER_PT = 0.040, SALES_PRICE_PER_PT = 0.030;
-/* The Newsroom's support: talk and news slots only, and structurally — no
-   retune can make it pay on an all-music station, which is half of §2a's
-   calibration-free non-constancy proof (the Record Library is the other half,
-   and their supports are disjoint by construction). */
+const FATIGUE_PER_LOAD  = 0.18;                       // v3..v6 constant, flat again
+const NEWS_PER_PT       = 0.055;
+const LIB_PER_PT        = 0.055;
+const ROYALTY_RATE      = 0.045;                      // v3..v6 constant, flat again
+/* v2 §3a: the two schedule rooms are the SAME mechanism with disjoint supports,
+   and their shared ceiling is the schedule itself — ROOM_PTS_PER_SERVED_SLOT
+   points per daypart that room's support covers, 0..4 slots, so 0..12 points.
+   At zero served slots the ceiling is 0 and the multiplier is exactly 1.00: the
+   zero is STRUCTURAL (min(pts, 0) = 0), not a small number someone can retune
+   upwards. Room value is then roughly quadratic in how concentrated a station's
+   schedule is, which is the decision the whole mechanic exists to pose. */
+const ROOM_PTS_PER_SERVED_SLOT = 3.0;
+/* The Newsroom's support: talk and news slots only. The Record Library's:
+   music only. Disjoint by construction, and `ads` is served by NEITHER — that
+   third regime ("this station wants no schedule room, put the bay elsewhere")
+   is what makes room placement non-constant across a four-station empire. */
 const NEWSROOM_SHOWS = ['talk', 'news'];
+const LIBRARY_SHOWS  = ['music'];
 function newsroomServes(showKey){ return NEWSROOM_SHOWS.indexOf(showKey) >= 0; }
+function libraryServes(showKey){ return LIBRARY_SHOWS.indexOf(showKey) >= 0; }
+/** The show list a room type is paid on, or null for a room whose ceiling is
+    not set by the schedule (the Maintenance Bay's is the gear index). */
+function roomShows(type){
+  if (type === ROOM_NEWS) return NEWSROOM_SHOWS;
+  if (type === ROOM_LIB)  return LIBRARY_SHOWS;
+  return null;
+}
+/** How many of this station's four DAYPARTS run a show in `type`'s support.
+    0..4, and zero-sum across the three competing formats plus `ads` — which is
+    the scarce resource (v2 §8), not money. */
+function servedSlots(st, type){
+  const shows = roomShows(type);
+  if (!st || !shows || !st.schedule) return 0;
+  let n = 0;
+  for (const p of DAYPARTS) {
+    const slot = st.schedule[p.id];
+    if (slot && shows.indexOf(slot.show) >= 0) n++;
+  }
+  return n;
+}
 
 function gearCut(st, load){
   return Math.min(GEAR_CUT_MAX, GEAR_CUT_PER_PT * roomPtsFor(st, ROOM_MAINT, load));
 }
-function fatiguePer(st, load){
-  return FATIGUE_PER_LOAD * (1 - Math.min(GREEN_MAX, GREEN_PER_PT * roomPtsFor(st, ROOM_GREEN, load)));
+/** The shared form of the two schedule rooms. Points above the served-slot
+    ceiling are worth exactly $0, and a station whose schedule serves the room
+    not at all returns exactly 1 — the same number the absent room returns. */
+function schedMul(st, type, load, perPt){
+  const cap = roomCeiling(st, type);
+  if (!(cap > 0)) return 1;
+  return 1 + perPt * Math.min(roomPtsFor(st, type, load), cap);
 }
-function newsMul(st, load){
-  return 1 + Math.min(NEWS_MAX, NEWS_PER_PT * roomPtsFor(st, ROOM_NEWS, load));
-}
-function royaltyCut(st, load){
-  return Math.min(LIB_MAX, LIB_PER_PT * roomPtsFor(st, ROOM_LIB, load));
-}
+function newsMul(st, load){ return schedMul(st, ROOM_NEWS, load, NEWS_PER_PT); }
+function libMul(st, load){ return schedMul(st, ROOM_LIB, load, LIB_PER_PT); }
 
 /** The number readout #3 exists for: how many points this room is carrying,
     and how many of them are worth exactly zero. A seller earning nothing looks
     identical to one earning until this is on screen.
 
-    The Newsroom's and the Library's POINT ceilings are where their own min()
-    saturates; their VALUE ceiling is the schedule, and it is zero on a station
-    with no talk/news (resp. no music) slots however many points sit in them.
-    ui must print the schedule, not just this number, for those two. */
-function roomCeiling(r){
-  if (!r) return 0;
-  if (r.type === ROOM_SALES) {
-    const st = S && S.stations ? S.stations[r.station] : null;
-    return Math.max((fillCap(st) - 0.50) / SALES_FILL_PER_PT, (priceCap(st) - 1) / SALES_PRICE_PER_PT);
+    Two call shapes, because two callers ask the same question from opposite
+    ends: `roomCeiling(station, type)` is the arithmetic form the multipliers
+    use (there need be no room built yet), and `roomCeiling(room)` is the form
+    a list of built rooms uses. The type argument being a string is the
+    discriminator; a room object never is.
+
+    The Maintenance Bay's ceiling is where its own min() saturates. The
+    Newsroom's and the Library's is the SCHEDULE — 3.0 points per served
+    daypart — so it is genuinely 0 on a station with no talk/news (resp. no
+    music) slots however many points sit in the room. ui prints the slot count
+    that set it, because "0.0 pts of ceiling" alone reads as a bug. */
+function roomCeiling(a, type){
+  if (typeof type === 'string') {
+    if (type === ROOM_MAINT) return GEAR_CUT_MAX / GEAR_CUT_PER_PT;
+    if (roomShows(type)) return ROOM_PTS_PER_SERVED_SLOT * servedSlots(a, type);
+    return 0;
   }
-  if (r.type === ROOM_MAINT) return GEAR_CUT_MAX / GEAR_CUT_PER_PT;
-  if (r.type === ROOM_GREEN) return GREEN_MAX / GREEN_PER_PT;
-  if (r.type === ROOM_NEWS)  return NEWS_MAX / NEWS_PER_PT;
-  if (r.type === ROOM_LIB)   return LIB_MAX / LIB_PER_PT;
-  return 0;
+  const r = a;
+  if (!r || typeof r.type !== 'string') return 0;
+  return roomCeiling(stationOfRoom(r), r.type);
+}
+/** The station a room points at, or null if its index is stale. */
+function stationOfRoom(r){
+  if (!r || !S || !Array.isArray(S.stations)) return null;
+  return S.stations[Math.floor(readNum(r, 'station', -1))] || null;
 }
 function roomWasted(r, load){ return Math.max(0, roomPower(r, load) - roomCeiling(r)); }
 
@@ -638,13 +713,9 @@ function buyBay(){
   S.bays = bayCount() + 1;
   return { ok: true, bays: S.bays, lease: bayLease(S.bays - 1) };
 }
-/** Put a room in a free bay.
-
-    A GRANDFATHERED room is free in both senses: it pays no lease and it does
-    not consume bay budget, so the budget test counts PAID rooms only. The two
-    ways one comes into existence — migrate()'s v6 seeding and the live sales
-    transition below — go through the same function, grantSalesFloors(), so the
-    load path and the play path cannot drift apart. */
+/** Put a room in a spare bay. One rule, no entitlements: a room the player did
+    not buy a bay for cannot exist, so there is no free-room accounting here and
+    none in sanitize() either. */
 function buildRoom(stationIdx, type){
   if (!S) return { ok: false, reason: 'nostate' };
   const idx = clamp(Math.floor(stationIdx || 0), 0, Math.max(0, stationCount() - 1));
@@ -654,73 +725,11 @@ function buildRoom(stationIdx, type){
   if (!roomServesStation(type, st)) return { ok: false, reason: 'medium' };
   if (roomAt(idx, type)) return { ok: false, reason: 'duplicate' };
   if (!Array.isArray(S.rooms)) S.rooms = [];
-  /* The per-station Sales Floor ENTITLEMENT, and it is the same rule read
-     twice. Once the empire has moved sales into rooms, every station is owed
-     one free Sales Floor — because before the move every station had the
-     empire-wide lever. So a Sales Floor on a station that lacks one is free
-     after the latch, which is what makes remove-and-rebuild symmetric instead
-     of a one-way loss of a bay. Before the latch it is a normal paid room, so
-     the first one still costs a bay and the feature stays inert at bays: 0. */
-  const entitled = type === ROOM_SALES && !!S.salesRoomed;
-  if (!entitled && paidRoomCount() >= bayCount()) return { ok: false, reason: 'nobay' };
-  if (S.rooms.length >= MAX_ROOMS) return { ok: false, reason: 'cap' };
-  const r = { id: newRoomId(), type, station: idx, staff: [], free: entitled };
+  if (paidRoomCount() >= bayCount()) return { ok: false, reason: 'nobay' };
+  if (S.rooms.length >= MAX_BAYS) return { ok: false, reason: 'cap' };
+  const r = { id: newRoomId(), type, station: idx, staff: [] };
   S.rooms.push(r);
-  /* THE LIVE TRANSITION. Building the first Sales Floor is the moment sales
-     stops being empire-wide, and without this line it would take 60% of the
-     revenue terms off every OTHER station the instant the player engaged with
-     the feature — measured at rep 88 with two skill-10 sellers: 2.518x on all
-     four stations before, 2.518x on station 0 and 1.000x on the other three
-     after. A penalty for engaging is the exact trap class this project keeps
-     paying for, and a warning modal does not fix it, it only announces it. */
-  if (type === ROOM_SALES && !S.salesRoomed) grantSalesFloors(S);
   return { ok: true, room: r };
-}
-/** Grandfather the empire-wide sales lever into rooms: a free, leaseless Sales
-    Floor on every station that lacks one, with the unroomed sellers spread
-    across them. Used by BOTH the v6 load path and the live transition — one
-    rule, one implementation, so a player cannot get a different answer
-    depending on whether they reloaded first.
-
-    Seats are filled a station at a time rather than a room at a time, in
-    roster order: one seller per station keeps each of them at load 1, which is
-    worth strictly more than stacking them (a stacked seat divides by its own
-    load). Roster order, NOT skill order — this file does not rank people by
-    skill anywhere, and a "best seller to the biggest station" rule would be
-    exactly the mechanic §5 defect B forbids.
-
-    Reads roster, roles and station count. No cash, revenue or payroll term. */
-function grantSalesFloors(s){
-  if (!s || !Array.isArray(s.stations)) return;
-  if (!Array.isArray(s.rooms)) s.rooms = [];
-  // The latch. One-way, and it lives in the save: see salesPointsAt() for what
-  // it stops, which is deleting your last Sales Floor to get the (stronger)
-  // v6 empire-wide multiplier back.
-  s.salesRoomed = true;
-  const floors = [];
-  for (let i = 0; i < s.stations.length; i++) {
-    let r = s.rooms.find(x => x && x.station === i && x.type === ROOM_SALES);
-    if (!r && s.rooms.length < MAX_ROOMS) {
-      r = { id: newRoomId(), type: ROOM_SALES, station: i, staff: [], free: true };
-      s.rooms.push(r);
-    }
-    if (r) floors.push(r);
-  }
-  if (!floors.length) return;
-  const seated = new Set();
-  for (const r of s.rooms) if (r && Array.isArray(r.staff)) for (const id of r.staff) seated.add(id);
-  const sellers = (Array.isArray(s.staff) ? s.staff : [])
-    .filter(p => p && typeof p === 'object' && p.role === 'sales' &&
-                 typeof p.id === 'string' && !seated.has(p.id));
-  let k = 0;
-  for (let pass = 0; pass < ROOM_SEATS && k < sellers.length; pass++) {
-    for (const r of floors) {
-      if (k >= sellers.length) break;
-      if (!Array.isArray(r.staff)) r.staff = [];
-      if (r.staff.length > pass) continue;          // already took one this pass
-      r.staff.push(sellers[k++].id);
-    }
-  }
 }
 /** Reversible in one click, deliberately: unlike gear there is no ratchet
     here, which is half the answer to the negative-feedback rule-check. */
@@ -731,8 +740,8 @@ function removeRoom(roomId){
   S.rooms.splice(at, 1);
   return true;
 }
-/** Seat someone. No role check: ROOM_FIT already prices a DJ in the sales
-    floor at 0.55 and an engineer at 0.20, and a hard role gate would delete
+/** Seat someone. No role check: ROOM_FIT already prices a seller in the
+    Newsroom at 0.55 and an engineer at 0.35, and a hard role gate would delete
     the "who can I spare" question the room decision is made of. */
 function seatInRoom(roomId, staffId){
   const r = roomById(roomId);
@@ -1052,10 +1061,6 @@ function newState(call){
     // zero, which is where the whole feature is inert.
     bays: 0,
     rooms: [],
-    // One-way: set the day the empire's first Sales Floor is built, never
-    // cleared. See salesPointsAt() — clearing it would be an exploit, not a
-    // refund.
-    salesRoomed: false,
     day: 1,
     cash: 800,
     listeners: 40,
@@ -1193,68 +1198,36 @@ function engBonus(){ return Math.min(0.42, roleStrength('eng') * 0.035); }
    must stay that way — the day the ad rate learns what the player earns, the
    game is solved (see the Purr & Power note in CLAUDE.md).
 
-   v7 re-sites the OPPORTUNITY COST, which is the half a ceiling cannot fix.
-   Sales points now come out of a SALES FLOOR ROOM: a seat costs a bay lease,
-   costs `attn` on every station that person works, and costs fatigue — and it
-   lands on ONE station rather than on the whole empire at once. The two cap
-   formulas below are unchanged; this is a re-siting, not a retune. */
+   v7 TRIED to re-site the opportunity cost into a Sales Floor room and the
+   attempt is CUT — measured net-negative at every seller count, for the
+   structural reason written out above ROOM_TYPES_FALLBACK. These five
+   functions are therefore exactly what shipped in 1916875: empire-wide,
+   reputation-capped, no station argument, no room term, no latch. That is the
+   live fix for the sales-dominance defect and it must not move. */
 const FILL_CAP_BASE = 0.55, FILL_CAP_PER_REP = 0.0040, FILL_CAP_MAX = 0.95;
 const PRICE_CAP_BASE = 1.00, PRICE_CAP_PER_REP = 0.0045, PRICE_CAP_MAX = 1.45;
-/** Most inventory a station of this reputation can actually move. `st` is
-    accepted and documented rather than used because rep is still empire-wide
-    (per-station rep is out of scope per CONTRACT.md); the ceiling is already
-    read per station everywhere, so the day rep splits, only this line moves. */
-function fillCap(st){ return clamp(FILL_CAP_BASE + FILL_CAP_PER_REP * S.rep, FILL_CAP_BASE, FILL_CAP_MAX); }
+/** Per point of sales strength. Named rather than inline so the ceiling
+    arithmetic in salesWasted() cannot drift from the terms it bounds; the
+    values are 1916875's literals. */
+const SALES_FILL_PER_PT = 0.040, SALES_PRICE_PER_PT = 0.030;
+/** Most inventory a station of this reputation can actually move. Empire-wide,
+    because S.rep is: the day reputation splits per station, this one line and
+    priceCap() below are what move. Callers may pass a station; it is ignored,
+    deliberately, so a per-station call site is not a lie today. */
+function fillCap(){ return clamp(FILL_CAP_BASE + FILL_CAP_PER_REP * S.rep, FILL_CAP_BASE, FILL_CAP_MAX); }
 /** Most a station of this reputation can charge for it. */
-function priceCap(st){ return clamp(PRICE_CAP_BASE + PRICE_CAP_PER_REP * S.rep, PRICE_CAP_BASE, PRICE_CAP_MAX); }
-
-/** Sales points working on one station.
-
-    THE COMPATIBILITY BRIDGE, and it is deliberate. Until the empire holds a
-    Sales Floor anywhere, sales reads EXACTLY as it did in v6: the empire-wide
-    roleStrength. That is what makes the feature inert at bays: 0 — a run that
-    never enters the building programme is bit-identical, which is the property
-    the five harness policies are measured against.
-
-    The moment the first Sales Floor exists, sellers are worth what their SEAT
-    is worth and unroomed sellers are worth nothing, on every station. That is
-    the intended shape (§11 item 1) and it is why migrate() grants a live save
-    a free Sales Floor with its sellers already in it — the transition must
-    never happen underneath a player who paid for the multiplier.
-
-    Note the proof's measurement-neutrality argument in §3.2 is now STALE: it
-    rested on "no harness policy has ever hired a salesperson", which stopped
-    being true when the reputation ceilings landed and `solo`/`empire` started
-    buying sellers. Without this bridge, moving sales into a room would delete
-    a live revenue multiplier from every existing policy and every existing
-    save, which is a balance change wearing a refactor's clothes.
-
-    THE LATCH IS ONE-WAY, and it is a save field rather than a test on whether
-    a Sales Floor currently exists. Reading room existence live looks tidier
-    and is an EXPLOIT: the v6 empire-wide reading is the STRONGER of the two
-    (one seller lifts four stations), so "build a Sales Floor, then delete it"
-    would hand the player back a better multiplier than the one the room can
-    produce, for free, in two clicks. It would also be a second cliff, in the
-    opposite direction, for a player merely rearranging their building. Once
-    the empire has crossed into rooms it stays there; deleting a Sales Floor
-    costs that STATION its points, which is the ordinary reversible behaviour
-    every other room already has, and the entitlement in buildRoom() means the
-    rebuild is free. */
-function salesPointsAt(st, load){
-  if (!S || !S.salesRoomed) return roleStrength('sales');
-  return roomPtsFor(st || activeStation(), ROOM_SALES, load);
-}
-function salesFill(st, load){
-  return clamp(0.50 + salesPointsAt(st, load) * SALES_FILL_PER_PT, 0.50, fillCap(st));
-}
-function salesPrice(st, load){
-  return clamp(1 + salesPointsAt(st, load) * SALES_PRICE_PER_PT, 1, priceCap(st));
-}
+function priceCap(){ return clamp(PRICE_CAP_BASE + PRICE_CAP_PER_REP * S.rep, PRICE_CAP_BASE, PRICE_CAP_MAX); }
+/** The two revenue terms sales moves, both hard-capped by reputation. Sellers
+    are read empire-wide through roleStrength's geometric decay — one seller
+    lifts every callsign, the second is worth 0.40 of the first — and NOTHING
+    here reads a room, a station or a bay. */
+function salesFill(){ return clamp(0.50 + roleStrength('sales') * SALES_FILL_PER_PT, 0.50, fillCap()); }
+function salesPrice(){ return clamp(1 + roleStrength('sales') * SALES_PRICE_PER_PT, 1, priceCap()); }
 /** Sales points beyond what reputation can carry — the number the UI has to
     show, because a seller earning nothing looks identical to one earning. */
-function salesWasted(st, load){
-  const need = Math.max((fillCap(st) - 0.50) / SALES_FILL_PER_PT, (priceCap(st) - 1) / SALES_PRICE_PER_PT);
-  return Math.max(0, salesPointsAt(st, load) - need);
+function salesWasted(){
+  const need = Math.max((fillCap() - 0.50) / SALES_FILL_PER_PT, (priceCap() - 1) / SALES_PRICE_PER_PT);
+  return Math.max(0, roleStrength('sales') - need);
 }
 
 /** How many slots a DJ is booked on across the WHOLE empire — working every
@@ -1270,8 +1243,8 @@ function djLoad(id){
   }
   // v7: a room seat is an assignment here too. Seating a host in a room is the
   // second of the two costs of a seat (the first is `attn`), and without this
-  // line a room would be free for anyone already on the air — which is exactly
-  // the "no opportunity cost" defect the Sales Floor exists to close.
+  // line a room would be free for anyone already on the air — which is the
+  // "no opportunity cost" shape every room in this file is built to avoid.
   for (const r of roomList()) {
     if (r && Array.isArray(r.staff) && r.staff.indexOf(id) >= 0) n++;
   }
@@ -1281,17 +1254,13 @@ function djLoad(id){
     every morning drive in the network wears one person down exactly as hard as
     working four slots on one station did in v2.
 
-    The Green Room shrinks the COEFFICIENT, not the count, and it does so on
-    one station: the same double-booked host is less worn out on the station
-    with the couch than on the one without. `st` omitted (ui's fatigue readout,
-    which has no station context) reads the v6 constant 0.18 exactly.
-
-    The trap this creates is real and is meant to be surfaced, not removed: a
-    Green Room seat raises its OWN occupant's djLoad, which is the fatigue the
-    room exists to fix. Monotone and bounded, so no spiral — but a naive player
-    can make things strictly worse, which is what §7 readout #9 is for. */
+    NO ROOM READS THIS ANY MORE. The Green Room shrank the coefficient; it is
+    cut, so the coefficient is the flat v3..v6 constant on every station and the
+    only cure for fatigue is the free one the player always had — spread the
+    work. `st` and `load` are still accepted so every call site (including ui's
+    station-less readout) keeps its signature; both are unread. */
 function djFatigue(id, st, load){
-  return clamp(1 - fatiguePer(st, load) * (djLoad(id) - 1), 0.40, 1);
+  return clamp(1 - FATIGUE_PER_LOAD * (djLoad(id) - 1), 0.40, 1);
 }
 
 /** The people actually on a slot, lead first, orphan ids skipped. */
@@ -1557,18 +1526,22 @@ function slotPull(st, partId, load){
   const slot = st.schedule[partId];
   const show = SHOWS[slot.show];
   const seg = segmentOf(st.segment);
-  /* The Newsroom multiplies show.appeal on this station's TALK and NEWS slots
-     and nothing else — on an all-music station it is worth exactly $0 however
-     many points sit in it, which is half of §2a's calibration-free proof that
-     no fixed room priority is optimal (the Record Library, whose support is
-     the complementary set, is the other half).
+  /* The two schedule rooms, at ONE site and in ONE form (v2 §3a). The Newsroom
+     multiplies show.appeal on this station's TALK and NEWS slots; the Record
+     Library multiplies it on MUSIC slots; `ads` is served by neither. Each is
+     worth exactly $0 on a station whose schedule does not run its shows,
+     however many points sit in the room, because the ceiling is 3.0 points per
+     served daypart and min(pts, 0) is 0 — that is the calibration-free proof
+     that no fixed room priority is optimal, and it is structural in three
+     directions rather than two.
 
      Applied HERE and not to the `quality` simulateDay() averages into
      repPressure, for the same reason condOf() is: rep is proportional-recovery
      with additive damage, and a multiplicative rep term is a loop nobody has
      bounded. The newsroom still moves rep the way it always did — through
      SHOWS.news.rep on the slots you scheduled. */
-  const appeal = show.appeal * (newsroomServes(slot.show) ? newsMul(st, load) : 1);
+  const appeal = show.appeal * (newsroomServes(slot.show) ? newsMul(st, load)
+                              : libraryServes(slot.show)  ? libMul(st, load) : 1);
   const quality = appeal * djTerm(slot, st, load) * ((show.parts && show.parts[partId]) || 1);
   /* condOf(st) is the ONLY place signal condition enters the economy. It is
      deliberately applied here and not folded into `quality`, because `quality`
@@ -1663,13 +1636,12 @@ function simulateDay(){
      answer at sixteen times the cost. */
   const load = staffSlotLoad();
 
-  /* Sales is PER STATION now (§11 item 1): a Sales Floor sells the inventory
-     of the station it stands on, capped by reputation. Computed once per
-     station per day rather than per slot — nothing inside the daypart loop
-     moves either term. Identical across the empire, and identical to v6, until
-     the first Sales Floor is built (see salesPointsAt). */
-  const salesBy = new Map();
-  for (const st of S.stations) salesBy.set(st, { fill: salesFill(st, load), price: salesPrice(st, load) });
+  /* Sales is EMPIRE-WIDE and reputation-capped: one pair of terms for the
+     whole network, hoisted out of the daypart loop because nothing inside it
+     moves either one. (The v7 Sales Floor would have made this per station; it
+     measured net-negative at every seller count and was cut.) */
+  const fill = salesFill();
+  const price = salesPrice();
   const repRevMul = 1 + S.rep / 140;
 
   let totalAudience = 0, revenue = 0, qualitySum = 0, repPressure = 0, slotCount = 0;
@@ -1695,20 +1667,25 @@ function simulateDay(){
       const seg = segmentOf(st.segment);
       const { audience } = shareFrom(st, part.id, pulls);
 
-      const sale = salesBy.get(st) || { fill: 0.50, price: 1 };
-      let slotRev = audience * show.adRate * AD_VALUE * sale.fill * sale.price * repRevMul;
+      let slotRev = audience * show.adRate * AD_VALUE * fill * price * repRevMul;
 
       // Mechanic 3: the fault roll is per slot, and the reputation damage is
       // proportional to the LOAD the player chose, not to the revenue lost.
       // That asymmetry is the mechanic — a cheap overnight slot running three
       // co-hosts on news is where the engineer earns their salary, not the
       // expensive morning drive with one host on music.
-      const load = loadFactor(slot);
+      /* `lf`, not `load`: this is the slot's technical load factor, a NUMBER,
+         and the empire assignment map above is also called `load`. Naming both
+         the same shadowed the map for the rest of this block, so djTerm() was
+         handed a number where it expects the map and the Green Room's fatigue
+         cut quietly read as "everyone is at load 1". Invisible at bays: 0,
+         where the map is unread, which is exactly why it survived. */
+      const lf = loadFactor(slot);
       if (Math.random() < slotRisk(slot, seg)) {
         slotRev *= FAULT_REV_MUL;
-        faultRep += FAULT_REP_PER_LOAD * load;
+        faultRep += FAULT_REP_PER_LOAD * lf;
         faultCount++;
-        if (!firstFault) firstFault = { call: st.call, part: part.id, load };
+        if (!firstFault) firstFault = { call: st.call, part: part.id, load: lf };
       }
 
       const quality = show.appeal * djTerm(slot, st, load) * ((show.parts && show.parts[part.id]) || 1);
@@ -1758,21 +1735,26 @@ function simulateDay(){
      which is what gives Talk and News an economic identity instead of a purely
      reputational one.
 
-     PER STATION as of v7, because the Record Library is per station and an
-     empire-wide music share would charge a talk station for its neighbour's
-     records — and would make the room's own readout ("N music slots on KXYZ")
-     a lie. This is arithmetically identical to v6's empire-wide form whenever
-     the stations share a music share, which includes every case v6 could
-     produce on one station and every harness policy on four. The rate cut is
-     bounded at LIB_MAX and the whole line is floored at zero; it moves one
-     book line and the ledger identity is untouched. */
+     NO ROOM TOUCHES THIS LINE. royaltyCut() is deleted (v2 §3a): a rate cut is
+     bounded at ROYALTY_RATE·musicShare — 2.475% of music revenue at most, when
+     the Newsroom's appeal multiplier reaches ~7% — and closing that six-to-one
+     gap needs ROYALTY_RATE at 0.12, which manufactures a $253/day problem in
+     order to sell the cure. The Library is an appeal multiplier now, at the
+     same site as the Newsroom, and the flat rate stays the v3..v6 constant.
+     What remains here is the Library's natural counterbalance, for free:
+     royalties tax exactly the revenue the Library creates.
+
+     Still summed PER STATION rather than empire-wide, because a shared rate on
+     a shared music share is only the same number when the stations run the
+     same schedule; per station, a talk callsign is never billed for its
+     neighbour's records. The line is floored at zero. */
   let royalties = 0;
   for (const st of S.stations) {
     const rev = revBySt.get(st) || 0;
     if (rev <= 0) continue;
     const share = (musicBySt.get(st) || 0) / DAYPARTS.length;
-    if (share <= 0) continue;             // no music slots: the library is worth exactly $0 here
-    royalties += rev * ROYALTY_RATE * share * (1 - royaltyCut(st, load));
+    if (share <= 0) continue;             // no music slots: no records, no royalties
+    royalties += rev * ROYALTY_RATE * share;
   }
   royalties = Math.max(0, royalties);
   const payroll = payrollTotal();
@@ -2230,22 +2212,34 @@ function bankruptCause(){
   // available, and the easiest to have not made.
   if (sts.length >= 2 && staffedPerStation.some(n => n === 0))
     return { key: 'causeOverExpanded', vars: { n: sts.length } };
-  /* Bays are charged EMPTY, on a ladder that reaches $6,000/day against a
+  /* Bays are charged EMPTY, on a ladder that bills every morning against a
      revenue line that is hard-capped — so "four bays, one staffed" is its own
      way to die and deserves its own name. Sited after over-expansion (a bigger
      mistake that also produces this) and before all-ads (a smaller one).
      Silent at bays: 0, where both tests are 0 > 1 and 0 < 0. */
   if (bayCount() > 0) {
-    // PAID rooms only. A grandfathered Sales Floor costs nothing, so an empty
-    // one is not evidence of overbuilding — counting it would misdiagnose a
-    // player whose actual bays are all working, and a post-mortem that names
-    // the wrong mistake is worse than the generic one.
-    const rooms = roomList().filter(r => r && !r.free);
+    // Every room costs a bay, so every room counts here.
+    const rooms = roomList().filter(r => !!r);
     const staffedRooms = rooms.filter(r => Array.isArray(r.staff) && r.staff.length).length;
     let power = 0, ceiling = 0;
     for (const r of rooms) { power += roomPower(r); ceiling += roomCeiling(r); }
+    /* `n` and `k` because that is what the authored line interpolates
+       ("paying for {n} bays and staffing {k}"); the older names are kept
+       beside them so nothing that already reads them starts reading
+       undefined. */
     if (bayCount() > staffedRooms + 1 || (ceiling > 0 && power < 0.5 * ceiling))
-      return { key: 'causeOverbuilt', vars: { bays: bayCount(), staffed: staffedRooms } };
+      return { key: 'causeOverbuilt',
+               vars: { n: bayCount(), k: staffedRooms, bays: bayCount(), staffed: staffedRooms } };
+    /* THE COLD BUILDING — the failure only the served-slot ceiling can produce,
+       and the reason that ceiling has to be structural. Rooms with people in
+       them, a lease on every bay, and a schedule that serves none of them: the
+       ceiling is 0, so every point in them earns exactly $0 while the salaries
+       and the leases bill in full. Sited immediately after causeOverbuilt (an
+       EMPTY room is the cruder mistake and wins the tie) and before
+       causeAdsOnly. Reads seats and schedule only — no money term, like every
+       other room reading in this file. */
+    const cold = rooms.filter(r => roomPower(r) > 0 && roomCeiling(r) <= 0).length;
+    if (cold > 0) return { key: 'causeRoomsCold', vars: { k: cold, n: cold } };
   }
   // ads pays today and burns the rep the ad rate multiplies by.
   if (slots > 0 && adsSlots / slots >= 0.5)
@@ -2546,48 +2540,37 @@ function migrate(data){
 
   /* ---- v7: the building programme ----
 
-     THE MIGRATION TRAP, and it is the reason this block exists at all. A live
-     v6 save with salespeople on payroll is earning a real revenue multiplier
-     through the empire-wide salesFill/salesPrice — measured at 2.70x for two
-     skill-10 sellers. Moving sales into a Sales Floor without seeding one
-     would DELETE something the player paid for, silently, on an update. Same
-     class as the v6 `cond: 1.00` seeding, and it ships in the same commit as
-     the shape change.
+     NO ECONOMY MIGRATION IS OWED HERE, and that is worth stating because the
+     first v7 draft owed a large one. Sales stayed empire-wide, so a v6 save's
+     salesFill/salesPrice read identically the moment it becomes a v7 save;
+     nothing the player paid for is deleted by loading. A v<=6 save therefore
+     migrates to `bays: 0` and no rooms, which is the inert state.
 
-     The grandfathered rooms cost NO bay and NO lease: the player never bought
-     them, so charging $40/day — or eating a bay they did buy — would be the
-     same theft in the other direction.
-
-     One per STATION, not one for the empire, because the lever being replaced
-     was empire-wide: a v6 four-station save was selling at the seller-driven
-     rate on all four callsigns, and seeding a single room on station 0 would
-     take 60% of the revenue terms off the other three. Seats are filled one
-     station at a time so each seller stays at load 1 (grantSalesFloors()).
-
-     Seats are capped at ROOM_SEATS per room like any other. A save with more
-     sellers than seats loses nothing real: three skill-10 sellers are 30
-     points against a ceiling of at most 15 at rep 100, so the surplus was
-     already worth exactly zero under the v6 roleStrength decay too. */
+     A v7 save from the discarded mid-build may carry a `sales` room and a
+     `salesRoomed` flag. The room is copied through here like any other and
+     then dropped by sanitize(), which knows only four room ids; the flag is
+     read by nothing and dies with the rest of the payload. No throw, no
+     special case, and a bay the player bought stays bought. */
   s.bays = clamp(Math.floor(readNum(data, 'bays', 0)), 0, MAX_BAYS);
   s.rooms = [];
-  s.salesRoomed = false;
   if (v >= 7) {
     const list = Array.isArray(data.rooms) ? data.rooms : [];
-    for (const raw of list.slice(0, MAX_ROOMS)) {
+    /* Sliced generously (the discarded build allowed one free room per station
+       on top of the bays) so that reading a mid-build save drops the SALES
+       rooms rather than whichever real rooms happened to sort last. sanitize()
+       applies the real bound, rooms <= MAX_BAYS, after the unknown types are
+       gone. */
+    for (const raw of list.slice(0, MAX_BAYS + MAX_STATIONS)) {
       if (!raw || typeof raw !== 'object') continue;
       s.rooms.push({
         id: readStr(raw, 'id', '') || newRoomId(),
         type: readStr(raw, 'type', ''),
         station: readNum(raw, 'station', 0),
-        free: readBool(raw, 'free', false),
         // Filtered against the roster and de-duplicated by sanitize(), which
         // is the single funnel for both load paths.
         staff: Array.isArray(raw.staff) ? raw.staff.filter(x => typeof x === 'string' && x) : []
       });
     }
-    s.salesRoomed = readBool(data, 'salesRoomed', false);
-  } else if (s.staff.some(p => p && typeof p === 'object' && p.role === 'sales')) {
-    grantSalesFloors(s);
   }
 
   s.v = STATE_VER;
@@ -2858,7 +2841,9 @@ function sanitize(s){
      types are dropped rather than resolved to an empty fit table, the station
      index is clamped into the array it indexes, seats are capped, ids that are
      not on the roster are dropped (a fired person keeps earning otherwise) and
-     an id repeated inside one room is counted once. */
+     an id repeated inside one room is counted once. The unknown-type drop is
+     also what disposes of a `sales` room left behind by the mid-build v7: it
+     is silent, and the save loads with one fewer room. */
   s.bays = clamp(Math.floor(n(s.bays, 0)), 0, MAX_BAYS);
   {
     const src = Array.isArray(s.rooms) ? s.rooms : [];
@@ -2872,24 +2857,21 @@ function sanitize(s){
       // A content row deleted between builds, or a type this build never had.
       if (!isRoomType(type)) continue;
       const station = clamp(Math.floor(n(raw.station, 0)), 0, s.stations.length - 1);
-      // One room type per station, max — two Sales Floors on one callsign
-      // would double a bounded effect and read as one room in every list.
+      // One room type per station, max — two Newsrooms on one callsign would
+      // double a bounded effect and read as one room in every list.
       const key = station + ' ' + type;
       if (usedTypeAtStation.has(key)) continue;
       usedTypeAtStation.add(key);
       let id = readStr(raw, 'id', '');
       if (!id || usedRoomIds.has(id)) id = newRoomId();
       usedRoomIds.add(id);
-      /* `free` is an entitlement, and an entitlement a save can grant itself
-         is a lease-dodge: a hand-edited `free: true` on six Newsrooms would be
-         six bays nobody paid for. Only a Sales Floor can be free (the one-per-
-         station rule above already bounds those at MAX_STATIONS), and the
-         rooms that are NOT free are capped at the bays that are. */
-      const free = raw.free === true && type === ROOM_SALES;
-      if (!free) {
-        if (paid >= MAX_BAYS) continue;
-        paid++;
-      }
+      /* ONE budget rule, no exemptions. There is no `free` flag any more: an
+         entitlement a hand-edited save can grant itself is a lease-dodge, and
+         a `free: true` planted on six Newsrooms was six bays nobody paid for.
+         The field is read by nothing, so a save carrying it loads with the
+         room simply costing a bay like every other. */
+      if (paid >= MAX_BAYS) continue;
+      paid++;
       const staff = [];
       const rawStaff = Array.isArray(raw.staff) ? raw.staff : [];
       for (const sid of rawStaff) {
@@ -2898,21 +2880,15 @@ function sanitize(s){
         if (staff.length >= ROOM_SEATS) break;
         staff.push(sid);
       }
-      out.push({ id, type, station, staff, free });
-      // Rooms are bounded by the programme, not by the current bay count: the
-      // grandfathered Sales Floors are leaseless and legitimate, and clamping
-      // to s.bays here would throw them away on the first load.
-      if (out.length >= MAX_ROOMS) break;
+      out.push({ id, type, station, staff });
+      /* Bounded by the PROGRAMME (MAX_BAYS), not by the current bay count: a
+         player who is one bay short after a hand-edit keeps their rooms and
+         buildRoom() refuses the next one, rather than having rooms deleted
+         underneath them on load. */
+      if (out.length >= MAX_BAYS) break;
     }
     s.rooms = out;
   }
-  /* The sales latch. Forced TRUE whenever a Sales Floor exists, never the
-     other way round: a save that kept its rooms but cleared the flag would
-     otherwise read the v6 empire-wide multiplier AND its room points at the
-     same time — the double-dip version of the exploit salesPointsAt()
-     documents. It is never cleared here, because a player who deleted their
-     last Sales Floor has not un-crossed the transition. */
-  s.salesRoomed = !!s.salesRoomed || s.rooms.some(r => r.type === ROOM_SALES);
 
   // A clock stamp from the future (system time moved back) would make the
   // catch-up window negative; treat it as "just now".

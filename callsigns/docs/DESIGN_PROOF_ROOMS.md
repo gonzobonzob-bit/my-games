@@ -572,3 +572,87 @@ Harness work rides with #2: one `rooms` policy, one `builder` policy, three new
 assertions (§3), 11/11 → 14/14. Constants in §1 are the balance harness's to
 retune; the **shapes** — disjoint newsroom/library supports, state-set ceilings,
 zero gear-term at TX0, no money in any formula — are not.
+
+---
+
+## 12. VERDICT AFTER BUILDING IT: NOT SHIPPED (2026-08-15)
+
+The feature was built to this proof, measured against the gate this proof
+specified in §3.3, and **failed it**. Per §10 — "the ROOMS ARE NOT A SHOPPING
+LIST assertion ships with the code, not after it. If a fixed room priority
+matches the state-reading policy, this proof is wrong and the feature does not
+merge" — rooms are not merging. This section records why, so the next attempt
+starts from evidence rather than from this document's optimism.
+
+### What the gate read
+
+```
+rooms (state-reading)  $6,749,347   bays 1  rooms 1
+alwaysLib              $6,740,930   bays 1  rooms 1     <- 0.1% behind
+roomsFlagship          $6,637,903
+alwaysMaint            $6,574,519
+alwaysGreen            $6,574,519   <- identical to alwaysMaint
+alwaysNews             $6,529,600
+roundRobin             $6,529,600   <- identical to alwaysNews
+empire (NO rooms)      $6,636,776   <- beats four of the six room policies
+lean + rooms           $6,647,155
+lean, no rooms         $6,604,311   <- rooms worth 0.6% to a short-staffed player
+```
+
+Every strategy lands within 3% of every other and within 2% of building nothing,
+against a p10-p90 spread of $4.6M-$7.3M. The gate demanded the state-reading
+policy beat the best fixed priority by 5%; it managed **0.1%**.
+
+### Why, measured directly rather than inferred
+
+Marginal value of one room at a realistic mid-game state (4 stations, TX2/ANT2,
+fully crewed, rep 80), net of its bay lease:
+
+| room | net | why |
+|---|---|---|
+| news | **+$393/day** | works, and correctly prefers the station with talk slots |
+| library | **+$60/day** | works |
+| maint | −$20/day | only pays near the top of the gear ladder, exactly as §2b predicted |
+| green | $0/day | no fatigue to cut unless people are double-booked |
+| sales | −$670 to −$3,871/day | **structurally impossible** — see below |
+
+**§2a is not wrong.** The Newsroom and Record Library really do have disjoint
+supports and really do flip with the schedule. The problem is magnitude: one
+room is worth six times the other, so "which room" collapses to "the Newsroom,
+unless this station has no talk slots". A real distinction, too small to be a
+decision.
+
+### The Sales Floor was structurally impossible, not merely mistuned
+
+§11 item 1 assumed moving sales into a room was an improvement. It is not, and
+no constant fixes it: the empire-wide reading stacks every seller geometrically
+(0.40^i) and applies the total to EVERY station, while a per-station room splits
+the same people up so each station gets fewer points against its ceiling. At rep
+80 with six sellers, per-station reads 2.184x against empire-wide 2.366x. **A
+room that divides people can never beat one that shares them.** It was cut, and
+the sales dominance defect it was meant to fix was solved instead by the
+reputation ceiling in commit 1916875, which shipped and works.
+
+### Two instrument defects found on the way, both worth remembering
+
+- The first cohort staffed one person per slot, so nobody was ever double-booked
+  and the Green Room was judged in the one state where its value is
+  structurally zero. A `lean` policy was added to give it a real support.
+- `simulateDay()` had an inner `const load = loadFactor(slot)` shadowing the
+  empire assignment map, so `djTerm()` received a number and the Green Room's
+  fatigue cut silently read "everyone at load 1". Invisible at bays 0, which is
+  why nothing caught it. Fixed regardless of whether rooms ever ship.
+
+### What survives, and what a second attempt should start from
+
+Everything except the feature: `tests/rooms.mjs` (54 invariants, pure sim, ~1s)
+pins both condition prohibitions and is worth keeping whatever happens; the
+condition-coupling rules in §3 held perfectly (the wear identity at TX0/ANT0 is
+exact, and idle still dies day 369); and the transition/exploit findings are
+recorded above.
+
+**The honest read is that this is one good idea — disjoint supports — rather
+than five rooms' worth of decision.** A second attempt should either make the
+supports comparable in magnitude, or drop to two or three rooms that each move
+a genuinely different lever, and it should not begin until something makes
+surplus person-hours actually scarce at the point rooms unlock.

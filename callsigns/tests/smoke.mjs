@@ -435,6 +435,58 @@ async function main(){
       salesCap.highOne.fill > salesCap.lowOne.fill && salesCap.highOne.price > salesCap.lowOne.price,
       JSON.stringify(salesCap));
 
+    /* ---- 3f. buying gear must price the CONDITION it costs ----
+
+       A blind playtest maxed a transmitter and watched that station's condition
+       target collapse to the floor with no warning anywhere on the buy card.
+       The lease step was already shown; the wear was not. Assert the warning
+       appears on a station where the upgrade actually hurts, and does NOT
+       appear where it does not — a warning that always fires is wallpaper. */
+    const gearWarn = await evaluate(`(function(){
+      const st = S.stations[0];
+      const grab = () => {
+        const d = document.createElement('div');
+        d.innerHTML = viewGear();
+        return d.textContent.replace(/\\s+/g, ' ');
+      };
+      /* The station must be STAFFED for this to mean anything: with attn 0 the
+         condition target is pinned at COND_MIN whatever the gear, so there is
+         genuinely nothing to warn about and the card is right to stay quiet.
+         Testing it unstaffed asks the warning to fire in the one state where it
+         should not — the same mistake that made the Green Room measure zero. */
+      const keepStaff = S.staff.slice();
+      for (const part of ['morning','midday','evening','night']) {
+        const d = makePerson('dj', 8); d.skill = 8; S.staff.push(d);
+        addDj(0, part, d.id);
+      }
+      const keep = { tx: st.tx, ant: st.ant };
+      st.tx = 0; st.ant = 0;
+      const small = grab();
+      // Big plant, thin attention: the same upgrade is a real hit.
+      st.tx = 3; st.ant = 3;
+      const big = grab();
+      st.tx = keep.tx; st.ant = keep.ant;
+      S.staff = keepStaff;
+      for (const part of ['morning','midday','evening','night']) st.schedule[part].djs = [];
+      const drop = txt => { const m = txt.match(/settles at (\\d+)% condition instead of (\\d+)%/);
+                            return m ? (+m[2] - +m[1]) : 0; };
+      return { smallWarns: /settles at/.test(small), bigWarns: /settles at/.test(big),
+               smallDrop: drop(small), bigDrop: drop(big),
+               sample: (big.match(/Wears faster[^.]*\\./) || [''])[0] };
+    })()`);
+    assert('the gear card warns when an upgrade costs real condition',
+      gearWarn.bigWarns, JSON.stringify(gearWarn));
+    /* EVERY gear step costs condition, so firing at TX0 is correct rather than
+       wallpaper. And the cost per step is roughly CONSTANT, not accelerating:
+       c* = 1 - wear/(COND_GAIN*attn) is linear in the gear index, so each
+       transmitter tier costs about WEAR_PER_TX*COND_WEAR/(COND_GAIN*attn)
+       = 4.6 points at attn 1.0. Measured 5 and 4, which is that number twice
+       with rounding — I predicted it would accelerate and the arithmetic says
+       otherwise. Assert the real property: the warning quantifies a drop worth
+       knowing about, at both ends of the ladder. */
+    assert('the gear warning quantifies a real cost at both ends of the ladder',
+      gearWarn.smallDrop >= 3 && gearWarn.bigDrop >= 3, JSON.stringify(gearWarn));
+
     /* ---- 4. save persists ----
 
        An ASSIGNED engineer goes on the schedule before the save, because that

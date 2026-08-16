@@ -347,6 +347,142 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .cov-legend i.covered{background:var(--green);}
 .cov-legend i.risky{background:var(--amber);}
 .cov-legend i.exposed{background:var(--red);}
+/* The fourth state the bay matrix has, which coverage does not: a room with
+   people in it that is measured at $0/day. Grey, because it is not a fault —
+   it is a room doing exactly what it can do, which happens to be nothing. */
+.cov-legend i.inert{background:var(--dim);}
+
+/* ---------- building programme: the bays x callsigns matrix ----------
+   §7 readout #1: ONE grid, never six per-bay panels. Rows are bays (the thing
+   you buy and pay a rising lease on), columns are callsigns (the thing a room
+   lands on), and a cell IS the room — which is what a room is: a bay pointed
+   at a signal.
+
+   Sized for the phone first. The gutter carries "3" over "$340" rather than
+   "Bay 3 — $340/day", because at 320px there is nothing left to give. The full
+   sentence is on the cell's aria-label, so nothing is lost to a screen reader
+   or to a long-press.
+
+   RE-MEASURED IN A HEADLESS BROWSER at THREE room types (the Sales Floor and
+   the Green Room are both cut), four callsigns, six bays, six rooms — 24 cells
+   on screen. The cut moved NOTHING here, and that is the point of the shape:
+   the columns are CALLSIGNS (capped at MAX_STATIONS = 4) and the rows are BAYS
+   (capped at MAX_BAYS = 6), so no number in this grid can move when a room
+   type is added or removed. Measured 54.00 x 48.00 at 320, 56.50 x 48.00 at
+   360, 64.00 x 48.00 at 390, with no horizontal overflow at any of them.
+
+   The earlier note here did the arithmetic by hand, dropped the 8px scrollbar
+   and the card's 1px border, and quoted 56px — the real figure at 320px is 54,
+   and the walk that gets there is:
+
+     320 viewport - 8 scrollbar - 16 .content padding = 296 card
+     296 - 2 card border - 20 card padding            = 274 grid
+     274 - 46 gutter - 4 gaps x 3px                   = 216 / 4 = 54.00 x 48px
+
+   and at 390 (the design target) the same walk gives 64.00 x 48px. 359px is
+   the worst case in the whole range at 63.75; 360px flips to the wider gutter
+   and 4px gaps and lands at 56.50. Every one of those clears the 44px floor on
+   both axes.
+
+   HEIGHT, measured at the worst case the game can produce (six bays, six rooms,
+   four callsigns): 322.5px at 320px and 328.5px at 390px, six rows of 48 plus
+   the head. Rows used to be "one per bay, PLUS one per granted Sales Floor" —
+   a grandfathered floor paid no lease and ate no bay — so the same empire could
+   reach ten rows and ~525px of grid, scrolling on a 760px phone that also
+   carries a HUD and a tab bar. Rows are exactly the bays now, and no row can
+   appear without a lease beside it, which is the honest version of the same
+   change.
+
+   Cells are 48px, above the 44px floor, and the two states that are NOT
+   controls (an occupied bay's other columns) are spans rather than buttons —
+   so there is no 20px target anywhere in the grid and nothing to mis-tap. */
+:root{ --bay-gutter:56px; }
+.bay-grid{display:grid;gap:4px;}
+.bay-head{
+  display:grid;gap:4px;
+  font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;font-weight:700;
+}
+.bay-head span{text-align:center;padding-bottom:2px;overflow:hidden;text-overflow:ellipsis;}
+.bay-head span:first-child{text-align:left;}
+.bay-row{display:grid;gap:4px;align-items:stretch;}
+.bay-lbl{
+  display:flex;flex-direction:column;justify-content:center;line-height:1.1;
+  overflow:hidden;
+}
+.bay-lbl b{font-size:13px;font-weight:900;color:var(--muted);}
+/* 10px, not 9: this is the lease — the price of the whole feature — and it
+   sits on --panel at 4.63:1 for --dim, which passes AA at this size. */
+.bay-lbl i{font-size:10px;font-style:normal;color:var(--dim);font-variant-numeric:tabular-nums;}
+.bay-cell{
+  min-height:48px;border-radius:8px;border:1px solid var(--border);
+  background:var(--panel2);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;
+  font:inherit;color:inherit;padding:3px;
+}
+.bay-cell.filled{border-color:rgba(52,211,153,.45);}
+/* Idle is amber and OVER-CEILING is red, in the grid as well as in the words:
+   a room whose points are being thrown away has to be findable at a glance,
+   not by reading six rows of prose. */
+.bay-cell.filled.idle{border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.07);}
+.bay-cell.filled.over{border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.09);}
+/* Staffed, inside its ceiling, and still returning $0/day — a Maintenance Bay
+   on a Part 15 rig, or a schedule room whose one served slot is worth less than
+   the attention its seats cost. Points alone cannot show this: the meter can
+   read a healthy 4.0/10.0 while the dollars are zero. Grey is the non-textual
+   signal for it, so the state is findable in the grid rather than only in the
+   prose three cards down. A room whose SCHEDULE gives it a ceiling of zero is
+   not this state and must not be painted as it — every point in it is wasted,
+   so it takes .over (red) from waste, and the meter it gets is all bar. */
+.bay-cell.filled.zeroed{border-color:rgba(134,142,192,.45);}
+.bay-cell.filled.zeroed .bc-meter i{background:var(--dim);}
+.bay-cell.filled.zeroed .bc-pts{color:var(--dim);}
+.bay-cell.open{
+  border-style:dashed;border-color:rgba(34,211,238,.42);color:var(--cyan);
+  font-size:18px;font-weight:800;background:transparent;
+}
+/* Not a control and not a state — this bay is simply not pointed at this
+   callsign. Empty, solid-bordered and aria-hidden, so it never reads as the
+   dashed "build here" cell and never puts 2:1 text on the screen. */
+.bay-cell.off{
+  border:1px solid rgba(44,52,104,.5);background:transparent;
+}
+.bc-ico{font-size:15px;line-height:1;}
+.bc-meter{
+  width:100%;height:4px;border-radius:2px;background:rgba(0,0,0,.4);
+  display:flex;overflow:hidden;
+}
+.bc-meter i{display:block;height:100%;background:var(--green);}
+.bc-meter b{display:block;height:100%;background:var(--red);}
+.bay-cell.filled.idle .bc-meter i{background:var(--amber);}
+.bc-pts{font-size:10px;font-weight:800;letter-spacing:.2px;font-variant-numeric:tabular-nums;color:var(--muted);}
+.bay-cell.filled.over .bc-pts{color:var(--red);}
+
+/* Readout #3, the one this whole tab is built around: points above the
+   ceiling are struck through and counted, because they are worth exactly
+   nothing while the salary is still due. */
+.struck{text-decoration:line-through;text-decoration-thickness:2px;opacity:.75;}
+.pts-line{font-variant-numeric:tabular-nums;}
+.pts-line.bad{color:var(--red);}
+/* WHAT SET THE CEILING, riding on the same line as the figure it explains:
+   "7.0 / 3.0 pts — 4.0 wasted · ceiling set by one talk or news slot".
+
+   Since v2 the ceiling is 3.0 points per SERVED DAYPART, so the wasted number
+   is a statement about the SCHEDULE and is misread as a statement about the
+   payroll unless its cause is attached to it. It is deliberately quieter than
+   the figure — 12px/600 against the figure's 13px/800 — because it is the
+   subordinate clause, not the number.
+
+   Contrast, measured rather than asserted: --dim #868ec0 on --panel2 #1e2550
+   is 4.63:1, and on --panel #171d40 (the room card behind the picker rows) it
+   is 5.17:1. WCAG AA for body text is 4.5:1, so both pass, and 12px keeps it
+   above this tab's 11px floor — the failure mode here is never the hue, it is
+   putting a load-bearing sentence at 9px. */
+.cap-cause{font-size:12px;font-weight:600;color:var(--dim);}
+/* Readout #4. 11px, not 10: this is the line that says what a seat COSTS, and
+   it is the difference between a room built out of surplus and a room built by
+   robbing the air. */
+.seat-line{font-size:11px;line-height:1.35;margin-top:2px;}
+.seat-line b{color:var(--text);font-weight:700;}
 
 /* ---------- generic list rows ---------- */
 .row{
@@ -538,6 +674,15 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .row.warnrow{border-color:rgba(251,191,36,.5);}
 .delta-tag{font-size:11px;font-weight:800;white-space:nowrap;}
 .delta-tag.up{color:var(--green);} .delta-tag.down{color:var(--red);}
+/* A measured ZERO. Every one of the three rooms is worth exactly nothing in a
+   state a player reaches without noticing — a Newsroom on a board with no talk
+   hour, a Record Library on a board with no music hour, a Maintenance Bay with
+   no plant to protect — and "+$0" in the green style reads as a small win while
+   an omitted tag reads as "not measured". This is neither.
+   --dim (#868ec0) on --panel2 (#1e2550) measures 4.63:1, and at 11px/800 that
+   clears AA; it is deliberately NOT --red, because a room returning nothing is
+   not the same fault as a room returning less than nothing. */
+.delta-tag.zero{color:var(--dim);}
 
 /* ---------- founding flow ---------- */
 .seg-grid{display:grid;gap:8px;}
@@ -691,6 +836,7 @@ body.pad-on .pad-hint{display:flex;}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
   .two-col .card{margin-bottom:0;}
   .cov-head,.cov-row{grid-template-columns:88px repeat(4,1fr);}
+  :root{ --bay-gutter:88px; }
 }
 
 /* ---------- 320px ----------
@@ -707,6 +853,17 @@ body.pad-on .pad-hint{display:flex;}
   .card{padding:12px 10px;}
   .cov-head,.cov-row{grid-template-columns:42px repeat(4,1fr);gap:3px;}
   .cov-call{font-size:10px;}
+  /* Measured, not derived: 54.00 x 48px a cell across four callsigns at 320px
+     (the full walk is above .bay-grid, and it includes the 8px scrollbar the
+     old hand-count here missed). The cell keeps its 48px height; only the
+     gutter and the gaps give. Six tabs also share 320px here: the labels are
+     10px and the widest is "Studio", so nothing wraps. */
+  :root{ --bay-gutter:46px; }
+  .bay-grid{gap:3px;}
+  .bay-head,.bay-row{gap:3px;}
+  .bay-lbl b{font-size:12px;}
+  .bay-lbl i{font-size:10px;}
+  .tab{padding:8px 2px;}
   .slot{padding:9px 5px;min-height:104px;}
   .stat-val{font-size:15px;}
   .readout-grid{gap:4px;}
@@ -752,6 +909,12 @@ body.pad-on .pad-hint{display:flex;}
   .slot{min-height:96px;padding:8px 5px;}
   .slot-icon{font-size:20px;}
   .card{padding:11px;margin-bottom:9px;}
+  /* The matrix keeps its 44px floor in landscape — the cells are the build and
+     edit control for the whole feature, so the padding gives and the target
+     does not. Six rows of 44 (the whole programme, since rooms no longer add
+     rows of their own) scroll; a 32px row would not be tappable. */
+  .bay-cell{min-height:44px;}
+  .bc-ico{font-size:14px;}
   .tab{min-height:46px;padding:5px 4px;}
   .tab-icon{font-size:16px;}
   .modal-back{padding:0;align-items:stretch;}
@@ -842,6 +1005,7 @@ body.no-motion *::after{
       </div>
       <div class="tabpane" id="pane-gear"></div>
       <div class="tabpane" id="pane-staff"></div>
+      <div class="tabpane" id="pane-build"></div>
       <div class="tabpane" id="pane-empire"></div>
       <div class="tabpane" id="pane-log"></div>
     </div>
