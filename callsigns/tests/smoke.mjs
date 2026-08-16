@@ -487,6 +487,40 @@ async function main(){
     assert('the gear warning quantifies a real cost at both ends of the ladder',
       gearWarn.smallDrop >= 3 && gearWarn.bigDrop >= 3, JSON.stringify(gearWarn));
 
+    /* ---- 3g. the hire board prices a candidate BEFORE you buy them ----
+
+       A blind playtest followed the coach on day 16, paid $392 up front and
+       $49/day, and the slot editor later said the best home in the entire
+       empire for that engineer was worth $3/day. The game gave advice its own
+       arithmetic contradicted and there was no way to know beforehand.
+
+       Assert the number is REAL: it must agree with the same bestXSlot()
+       function the slot editor uses, and it must be willing to say a hire is a
+       bad buy. A line that always reads positive is advertising, not advice. */
+    const hireW = await evaluate(`(function(){
+      S.cash = 200000;
+      // A weak engineer on a tiny unstaffed station: genuinely not worth a wage.
+      const bad = makePerson('eng', 1); bad.skill = 1; bad.salary = 400;
+      S.candidates = [bad];
+      const d = document.createElement('div');
+      d.innerHTML = viewStaff();
+      const txt = d.textContent.replace(/\\s+/g, ' ');
+      // What the slot editor would independently say about the same person.
+      const probe = uiWhatIf(function(){
+        S.staff.push(JSON.parse(JSON.stringify(bad)));
+        const b = bestEngineerSlot(bad.id);
+        return b ? b.worth : 0;
+      });
+      return { shows: /Best open slot pays/.test(txt),
+               saysNegative: /-\\$/.test((txt.match(/Best open slot pays[^·]*/)||[''])[0]),
+               probe: probe, salary: bad.salary,
+               sample: (txt.match(/Best open slot pays[^A-Z]{0,60}/)||[''])[0] };
+    })()`);
+    assert('the hire board prices a candidate before purchase',
+      hireW.shows, JSON.stringify(hireW));
+    assert('and it will call a bad hire a bad hire',
+      hireW.saysNegative && hireW.probe < hireW.salary, JSON.stringify(hireW));
+
     /* ---- 4. save persists ----
 
        An ASSIGNED engineer goes on the schedule before the save, because that

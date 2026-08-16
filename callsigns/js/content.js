@@ -86,6 +86,12 @@ const STR = {
     unstaffed: 'Automation — about a third of a hosted slot, at the same lease.',
     // A sales agent has no daypart to be missing from; they work the ad log.
     unstaffedSales: 'Works the ad log, not a daypart — no slot to assign them to.',
+    /* What a hire is worth BEFORE you buy them. A playtest followed the
+       coach's advice, paid $392 + $49/day, and was later told by the game's own
+       slot editor that the best home in the empire for that engineer was worth
+       $3/day. Advice the game's own arithmetic contradicts is worse than no
+       advice. */
+    hireWorth: 'Best open slot pays {worth}/day — {net}/day after their salary',
     hireBoardClears: 'clears in {n} days',
     hireBoardLast: 'last day for this board',
 

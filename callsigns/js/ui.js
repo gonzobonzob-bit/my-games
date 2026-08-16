@@ -594,6 +594,29 @@ function engineerWorth(st, partId, engId, V){
   const withEng = slotNet(st, partId, { engs: others.concat([engId]).slice(0, uiMaxEng()) }, v);
   return withEng - withOut;
 }
+/** Best home in the whole empire for a given DJ — the same question
+    bestEngineerSlot() answers for engineers, and the reason the hire board can
+    price a host before you buy them. Compares each slot's net with this person
+    added against the slot as it stands, so an already-crowded slot correctly
+    prices a fourth voice at nothing. */
+function bestDjSlot(djId){
+  const V = repValue();
+  let best = null;
+  allStations().forEach((st, i) => {
+    for (const p of DAYPARTS) {
+      const slot = stSlot(st, p.id);
+      const cur = slotDjs(slot);
+      if (cur.indexOf(djId) >= 0) continue;
+      if (cur.length >= uiMaxCrew()) continue;
+      const before = slotNet(st, p.id, { djs: cur }, V);
+      const after  = slotNet(st, p.id, { djs: cur.concat([djId]) }, V);
+      const worth = after - before;
+      if (!best || worth > best.worth) best = { idx: i, part: p.id, worth, st };
+    }
+  });
+  return best;
+}
+
 /** Best home in the WHOLE empire for a given engineer — the cross-station
     comparison the player cannot do in their head once there are 16 slots. */
 function bestEngineerSlot(engId){
@@ -2518,6 +2541,39 @@ function viewStaff(){
           // The fee and the salary are two different numbers; the button used
           // to show only the first, directly under a line showing only the second.
           '<div class="row-sub" style="color:var(--dim)">' + esc(t('hireTerms', { amt: money(p.salary) })) + '</div>' +
+          /* WHAT THIS PERSON IS ACTUALLY WORTH, before you pay for them.
+
+             A blind playtest followed the coach's advice on day 16, paid $392
+             up front and $49/day, and the slot editor later told them the best
+             home in the entire empire for that engineer was worth $3/day. The
+             game gave advice its own arithmetic contradicted, and there was no
+             way to know before buying. Measured on a clone through the same
+             functions the slot editor uses, so the number here and the number
+             there can never disagree. */
+          (function(){
+            if (typeof uiWhatIf !== 'function') return '';
+            const worth = uiWhatIf(function(){
+              const fresh = JSON.parse(JSON.stringify(p));
+              S.staff.push(fresh);
+              if (p.role === 'eng' && typeof bestEngineerSlot === 'function') {
+                const best = bestEngineerSlot(fresh.id);
+                return best ? best.worth : 0;
+              }
+              if (p.role === 'dj' && typeof bestDjSlot === 'function') {
+                const best = bestDjSlot(fresh.id);
+                return best ? best.worth : 0;
+              }
+              return null;
+            });
+            if (worth === null || !isFinite(worth)) return '';
+            const net = worth - (p.salary || 0);
+            const cls = net >= 0 ? 'green' : 'red';
+            return '<div class="row-sub" style="color:var(--' + cls + ')">' +
+              esc(t('hireWorth', {
+                worth: money(Math.round(worth)),
+                net: (net >= 0 ? '+' : '') + money(Math.round(net))
+              })) + '</div>';
+          })() +
         '</div>' +
         '<div class="row-act">' +
           '<button class="btn buy" data-hire="' + p.id + '"' + (S.cash >= fee ? '' : ' disabled') + '>' +
