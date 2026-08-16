@@ -284,6 +284,7 @@ const UI_STR = {
   onSlots: 'On {n} other slots today',
   onSlotsNamed: 'Also on {list}',
   capped: '· at your reputation ceiling',
+  condWhatItDoes: 'Condition multiplies every listener this signal pulls. At 70% you are paying a full lease for seven tenths of an audience.',
   salesWastedLbl: 'Sales going nowhere',
   salesWastedPts: 'pts — your name cannot carry them',
   chemGood: 'good chemistry', chemBad: 'clashes',
@@ -918,16 +919,18 @@ const COACH = [
                   return heavy && !slotEngs(sl).length;
                 })),
     text: () => tt('coach4'),
-    // Hiring is only the answer when there is nobody to assign. With an
-    // engineer already on payroll the fix is a slot away, so send them there.
+    /* Hiring is only the answer when there is nobody to assign — but when an
+       engineer IS on payroll this step must NOT open the slot editor, because
+       doing so performs step 5's action and therefore kills step 5's trigger.
+       A blind playtest confirmed the consequence: step 5 never fired once, so
+       the tutorial's only real strategy sentence ("put them on the slot
+       carrying the most load, which is usually not the slot making the most
+       money") was unreachable to anyone who followed the tutorial. Teach load
+       here, hand the assignment to step 5, which exists to explain it. */
     btn:  () => {
       const eng = staffOf('eng')[0];
       if (!eng) return { label: tt('coach4Btn'), run: () => setTab('staff') };
-      const best = bestEngineerSlot(eng.id);
-      return {
-        label: tt('coach4BtnAssign'),
-        run: () => { if (best) { setStation(best.idx); openSlotEditor(best.idx, best.part); } else setTab('staff'); }
-      };
+      return null;
     }
   },
   {
@@ -966,6 +969,18 @@ const COACH = [
    So: show the first ready actionable step if there is one, and let the
    informational steps fill the gaps. They stay pending, in order, and still get
    their turn — just never in front of something the player needs now. */
+/** Which lesson this is, counted by PROGRESS rather than by array position.
+
+    The number used to be the step's index in COACH. Deferring acknowledge-only
+    steps (so they cannot block actionable ones) means the player can reach
+    step 4 before step 3, and a blind playtest duly reported being shown
+    "First days · 1, 2, 4, 3". The player has no idea the array exists; what
+    they can see is that the count went backwards, which reads as a bug. */
+function coachSeq(){
+  let done = 0;
+  for (const c of COACH) if (coachDone[c.id]) done++;
+  return done + 1;
+}
 function coachStep(){
   if (!S) return null;
   let firstAck = null;
@@ -975,8 +990,8 @@ function coachStep(){
     let on = false;
     try { on = !!c.when(); } catch (e) { on = false; }
     if (!on) continue;
-    if (c.ack) { if (!firstAck) firstAck = { c, n: i + 1 }; continue; }
-    return { c, n: i + 1 };
+    if (c.ack) { if (!firstAck) firstAck = { c, n: coachSeq() }; continue; }
+    return { c, n: coachSeq() };
   }
   return firstAck;
 }
@@ -1128,6 +1143,11 @@ function conditionCard(st){
       '<span class="card-title">' + esc(tt('condTitle')) + '</span>' +
       '<span class="card-note">' + esc(tt('condSettling', { pct: Math.round(target * 100) })) + '</span>' +
     '</div>' +
+    /* Say what the number COSTS, and say it at EVERY value. The only line that
+       explained the consequence ("everything it airs goes out weak") rendered
+       at <=37%, which is after the run is already lost — a blind playtest read
+       the whole gauge without ever learning that condition multiplies pull. */
+    '<div class="pick-sub">' + esc(tt('condWhatItDoes')) + '</div>' +
     '<div class="row"><div class="row-icon">📡</div><div class="row-body">' +
       '<div class="row-title">' + pct + '% ' + arrow +
         ' <span class="row-sub" style="display:inline">' +
@@ -1378,7 +1398,10 @@ function viewStaff(){
           '<div class="row-sub" style="color:var(--' + (booked.length ? 'cyan' : 'red') + ')">' +
             (booked.length
               ? esc(booked.map(b => b.call + ' ' + partShort(b.part)).join(' · '))
-              : esc(t('unstaffed'))) +
+              // A sales agent has no slot to be missing from — the roster used to
+              // label them "Automation", which describes an empty daypart they
+              // could never have filled.
+              : esc(t(p.role === 'sales' ? 'unstaffedSales' : 'unstaffed'))) +
           '</div>' +
           '<div class="meter"><div class="meter-fill amber" style="width:' + (p.skill * 10) + '%"></div></div>' +
         '</div>' +
@@ -1393,7 +1416,17 @@ function viewStaff(){
   }
   h += '</div>';
 
-  h += '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('hireTitle')) + '</span></div>';
+  /* The board CLEARS on refreshCandidates(), and nothing said so. A blind
+     playtest lost the DJ the tutorial had just named to them, mid-click, about
+     35 real seconds after first seeing it — the candidate pool is the game's
+     one permanently scarce resource and it was expiring invisibly. */
+  const hireDays = Math.max(0, Math.ceil((S.nextHireDay || S.day) - S.day));
+  h += '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('hireTitle')) + '</span>' +
+    (S.candidates.length
+      ? '<span class="card-note' + (hireDays <= 1 ? ' warn' : '') + '">' +
+          esc(t(hireDays <= 1 ? 'hireBoardLast' : 'hireBoardClears', { n: hireDays })) + '</span>'
+      : '') +
+    '</div>';
   if (!S.candidates.length) {
     h += '<div class="empty">' + esc(t('noCandidates')) + '</div>';
   } else {
@@ -2605,6 +2638,13 @@ function wire(){
       const step = COACH.find(c => c.id === coachB.dataset.coach);
       const btn = step && step.btn ? step.btn() : null;
       if (btn && btn.run) btn.run();
+      /* An acknowledge-only step has no state change to retire it — its `when`
+         stays true forever — so pressing its call to action has to mark it done
+         explicitly. Without this it reappeared after the player had acted on it,
+         which a blind playtest reported. Action steps are left alone: they
+         disappear when their `when` goes false, and if the player cancels out of
+         the thing they were sent to do, the lesson SHOULD still be waiting. */
+      if (step && step.ack) coachAck(step.id);
       return;
     }
     const coachAckB = e.target.closest('[data-coachack]');

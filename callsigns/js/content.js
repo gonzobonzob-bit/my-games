@@ -57,6 +57,10 @@ const STR = {
     // so automation is about a third of a decent host — and the lease is
     // identical either way, which is the part that kills runs.
     unstaffed: 'Automation — about a third of a hosted slot, at the same lease.',
+    // A sales agent has no daypart to be missing from; they work the ad log.
+    unstaffedSales: 'Works the ad log, not a daypart — no slot to assign them to.',
+    hireBoardClears: 'clears in {n} days',
+    hireBoardLast: 'last day for this board',
 
     // Onboarding. nextGoal() picks the first unmet item; the intro modal runs
     // once, on the first day of a brand new station.
@@ -158,7 +162,13 @@ const STR = {
     coHosts: 'On mic', addCoHost: 'Add co-host', leadHost: 'Lead', dropHost: 'Off mic',
     // CREW_WEIGHTS in sim.js is [1, 0.55, 0.30] and LOAD_PER_COHOST is 0.45.
     // If either moves, this sentence moves in the same commit.
-    coHostNote: 'The lead counts full. Second chair counts 55%, third counts 30% — and each one adds 0.45 to this slot\'s load.',
+    /* The load arithmetic is loadFactor = 1 + 0.45*(n-1), so the FIRST host adds
+       nothing and each one AFTER the lead adds 0.45. The old wording said "each
+       one adds 0.45", which prices a solo host's slot at 1.45 instead of 1.00 —
+       a blind playtest checked it against the number on screen and found it
+       wrong. Copy that disagrees with the sim teaches the player to distrust the
+       readouts, which are the only thing they have. */
+    coHostNote: 'The lead counts full. Second chair counts 55%, third counts 30% — and every chair AFTER the lead adds 0.45 to this slot\'s load.',
     coHostCap: 'Three voices is the most one slot will hold.',
     coHostElsewhere: 'Already on {call} {part} — same hour, one place.',
     chemLbl: 'Chemistry',
