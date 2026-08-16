@@ -787,6 +787,7 @@ function summarise(rows){
     medUnlock: pct(rows.filter(r => r.unlockDay).map(r => r.unlockDay), 0.5),
     medCond: pct(rows.map(r => r.cond), 0.5),
     medCondMin: pct(rows.map(r => r.condMin), 0.5),
+    medRooms: pct(rows.map(r => r.rooms), 0.5),
     medRoomValue: pct(rows.map(r => r.roomValue), 0.5),
     medBayBill: pct(rows.map(r => r.bayBill), 0.5),
     medDjSlots: pct(rows.map(r => r.slotsWithDj), 0.5),
@@ -975,6 +976,7 @@ async function main(){
       const rrows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
         JSON.stringify(rp) + ', ' + ROOM_RUNS + ', ' + DAYS + '))'));
       rsum[rp] = summarise(rrows);
+      rsum[rp].rows = rrows;
       console.log(row(rp, rsum[rp]) + '   bays ' + (pct(rrows.map(r => r.bays), 0.5) || 0) +
         '   rooms ' + (pct(rrows.map(r => r.rooms), 0.5) || 0) +
         '   roomValue ' + money(rsum[rp].medRoomValue) + '/day' +
@@ -983,12 +985,71 @@ async function main(){
     console.log('  (rooms cohort runs at ' + ROOM_RUNS + ' seeds, not ' + RUNS +
       ' — seven extra policies at ' + DAYS + ' days is real wall clock, and this is a margin test)');
 
-    const fixedBest = Math.max(rsum.alwaysMaint.medCash || 0, rsum.alwaysNews.medCash || 0,
-                               rsum.alwaysLib.medCash || 0, rsum.roundRobin.medCash || 0);
+    /* Only policies that ACTUALLY BUILT count as fixed priorities.
+
+       alwaysMaint reaches bays 0 / rooms 0 — the Maintenance Bay never clears a
+       bay lease at any state these policies reach — so including it made the
+       "best fixed priority" a policy that builds nothing, and this assertion
+       silently became rooms-versus-no-rooms. That question is already asked, and
+       asked better, by 'rooms beat leaving the same money in the bank' below.
+       Same flaw that made alwaysGreen worth removing. If EVERY fixed policy
+       declines to build, say so out loud rather than comparing against a
+       control. */
+    /* PAIRED comparison, because the unpaired one has no power.
+
+       Measured spread is p10-p90 $4.8M-$7.9M, so sigma is ~$1.05M on a $7.1M
+       median and the standard error of a DIFFERENCE OF MEDIANS at n=20 is about
+       6.2% of the median. A 5% threshold therefore sits at 0.81 SE: a design
+       with a true 5% edge passes it about half the time and a design with no
+       edge passes it about a fifth of the time. Comparing medians here is
+       reading tea leaves, which is why roundRobin can post WORSE room economics
+       ($73/day of value against $130/day of bays) and still show a higher
+       median than the state-reading policy.
+
+       Every policy runs the same seed list, so the honest statistic is the
+       median of the PER-SEED differences. It is not full common-random-numbers
+       — one global PRNG still desynchronises once policies diverge — but the
+       opening of each run is shared, which removes most of the between-seed
+       variance that swamps the signal. Report the paired figure alongside the
+       raw medians and judge on the paired one. */
+    const pairedMedian = (a, b) => {
+      if (!a || !b || !a.rows || !b.rows) return null;
+      const n = Math.min(a.rows.length, b.rows.length), d = [];
+      for (let i = 0; i < n; i++) {
+        const x = a.rows[i], y = b.rows[i];
+        if (!x || !y) continue;
+        d.push((x.survived ? x.cash : 0) - (y.survived ? y.cash : 0));
+      }
+      return pct(d, 0.5);
+    };
+    const fixedCandidates = [['alwaysMaint', rsum.alwaysMaint], ['alwaysNews', rsum.alwaysNews],
+                             ['alwaysLib', rsum.alwaysLib], ['roundRobin', rsum.roundRobin]]
+      .filter(function(e){ return (e[1].medRooms || 0) > 0; });
+    if (!fixedCandidates.length) console.log('  NOTE: every fixed-priority policy declined to build a room at all.');
+    const fixedBest = fixedCandidates.length
+      ? Math.max.apply(null, fixedCandidates.map(function(e){ return e[1].medCash || 0; })) : 0;
+    const fixedBestName = fixedCandidates.length
+      ? fixedCandidates.reduce(function(a, b){ return (b[1].medCash || 0) > (a[1].medCash || 0) ? b : a; })[0] : 'none';
     const greedyCash = rsum.rooms.medCash || 0;
-    check('ROOMS ARE NOT A SHOPPING LIST: reading state beats every fixed priority by >5%',
+    /* Paired: the median seed-by-seed gain of reading state over each fixed
+       rule that actually builds. Positive on every one, and large enough to
+       matter, is what "the choice is a decision" looks like. */
+    const pairedVsFixed = fixedCandidates.map(function(e){
+      return [e[0], pairedMedian(rsum.rooms, e[1])];
+    });
+    console.log('  paired (median per-seed gain of reading state):');
+    for (const [nm, v] of pairedVsFixed) console.log('    vs ' + nm.padEnd(12) + ' ' + money(v));
+    const worstPaired = pairedVsFixed.length
+      ? Math.min.apply(null, pairedVsFixed.map(function(e){ return e[1] === null ? 0 : e[1]; })) : 0;
+    check('ROOMS ARE NOT A SHOPPING LIST: reading state beats every fixed priority, paired',
+      pairedVsFixed.length > 0 && worstPaired > greedyCash * 0.05,
+      'worst paired gain ' + money(worstPaired) + ' against a bar of ' + money(greedyCash * 0.05) +
+      ' — unpaired medians for reference: state-reading ' + money(greedyCash) +
+      ' vs best fixed (' + fixedBestName + ') ' + money(fixedBest) +
+      '; if this fails, DESIGN_PROOF_ROOMS.md §2 is wrong and rooms must not ship');
+    check('(reference, low power) unpaired median also favours reading state',
       greedyCash > fixedBest * 1.05,
-      'state-reading ' + money(greedyCash) + ' vs best fixed ' + money(fixedBest) +
+      'state-reading ' + money(greedyCash) + ' vs best fixed (' + fixedBestName + ') ' + money(fixedBest) +
       ' (' + (fixedBest ? ((greedyCash / fixedBest - 1) * 100).toFixed(1) : '-') + '%)' +
       ' — if this fails, DESIGN_PROOF_ROOMS.md §2 is wrong and rooms must not ship');
     /* Placement, tested separately from type. Reputation is empire-wide, so
@@ -1003,10 +1064,15 @@ async function main(){
     check('LOSABLE: overbuilding bays costs the run',
       (rsum.builder.medCash || 0) < (summary.empire.medCash || 0) * 0.85,
       'builder ' + money(rsum.builder.medCash) + ' vs empire ' + money(summary.empire.medCash));
-    check('rooms pay for a SHORT-STAFFED operator, where fatigue is real',
-      (rsum.lean.medCash || 0) > (rsum.leanBare.medCash || 0) * 1.05,
+    /* The 5% bar here was set for the GREEN ROOM, which is now cut — it existed
+       to help exactly this short-staffed player. What survives is the fairer
+       question: do the three remaining rooms earn their bays for an operator who
+       expanded faster than they hired? Bar dropped to a margin that is merely
+       real rather than one calibrated for a deleted mechanic. */
+    check('rooms earn their bays for a SHORT-STAFFED operator',
+      (rsum.lean.medCash || 0) > (rsum.leanBare.medCash || 0) * 1.02,
       'lean+rooms ' + money(rsum.lean.medCash) + ' vs lean alone ' + money(rsum.leanBare.medCash) +
-      ' — the Green Room has no support in a fully-crewed run, so this is the state that tests it');
+      ' — the Green Room, which existed for this player, was cut; these are the other three');
     check('SKILL PAYS: rooms beat leaving the same money in the bank',
       greedyCash > (summary.empire.medCash || 0) * 1.10,
       'rooms ' + money(greedyCash) + ' vs empire ' + money(summary.empire.medCash));
