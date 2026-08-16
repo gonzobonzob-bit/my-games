@@ -82,6 +82,18 @@ const LOAD_CROSSOVER = 1.616;
 // Only used to scale the load bar, so it is a display bound, not a rule.
 const LOAD_BAR_MAX = 2.55;
 
+/* The three world constants the v3 revenue line is written in. READ FROM SIM,
+   never chosen here — the fallbacks exist only so a bridge miss renders the
+   shipped no-rooms line instead of throwing, and they are the design proof's
+   own figures (§3b, §3c). If sim retunes one, this file follows automatically;
+   the day these two disagree is the day the preview lies about the purchase. */
+const UI_LOCAL_BASE   = (typeof LOCAL_BASE_NOPROD !== 'undefined') ? LOCAL_BASE_NOPROD : 0.55;
+const UI_LOCAL_PREM   = (typeof LOCAL_PREM        !== 'undefined') ? LOCAL_PREM        : 0.3841;
+const UI_REMNANT_RATE = (typeof REMNANT_RATE      !== 'undefined') ? REMNANT_RATE      : 0.35;
+
+/** The absolute bound of the CREW_WEIGHTS table — the most people the crew
+    arithmetic can price at all. The LIVE per-slot cap is simCrewCap(st), which
+    is 1 + air studios; this is only the ceiling that cap is clamped into. */
 function uiMaxCrew(){ return (typeof MAX_CREW !== 'undefined') ? MAX_CREW : 3; }
 /** v4: a slot may carry two engineers. Mirrors sim's MAX_ENG so a bridge miss
     degrades to the old single-engineer behaviour rather than throwing. */
@@ -195,10 +207,12 @@ function simRoomList(){
   if (typeof roomList === 'function') return roomList();
   return (S && Array.isArray(S.rooms)) ? S.rooms : [];
 }
-function simRoomsOn(idx){
-  if (typeof roomsOn === 'function') return roomsOn(idx);
-  return simRoomList().filter(r => r && r.station === idx);
-}
+/* simRoomsOn(idx) is GONE with the per-station room. sim's roomsOn() now
+   accepts an index and ignores it — every room is the building's — so a
+   wrapper that took a station it then discarded was a lie waiting for a
+   caller, exactly like the per-station sales wrappers removed above. The three
+   questions its callers were really asking are simRoomsOfType(),
+   simRoomTypeCap() and simRoomList(), and they now ask those. */
 function simRoomById(id){
   if (typeof roomById === 'function') return roomById(id);
   return simRoomList().find(r => r && r.id === id) || null;
@@ -212,28 +226,76 @@ function simCanBuyBay(){
 }
 function simRoomPower(r, load){ return typeof roomPower === 'function' ? roomPower(r, load) : 0; }
 function simRoomCeiling(r){ return typeof roomCeiling === 'function' ? roomCeiling(r) : 0; }
-/** The ceiling arithmetic from the other end: a station and a TYPE, with no
-    room built yet. This is the form the picker and the next-bay preview want. */
+/** The ceiling arithmetic from the other end: a TYPE, with no room built yet.
+    Every v3 ceiling is BUILDING-WIDE (the plant on every tower, Σ headroom
+    across the group, a flat clearance cap), so the station argument is a label
+    the picker still has to hand and sim ignores it. Kept in the signature
+    because all four call sites are station-shaped and would otherwise each
+    grow a comment explaining why they dropped it. */
 function simRoomCeilingFor(st, type){
-  if (typeof roomCeiling !== 'function' || !st) return 0;
-  return roomCeiling(st, type);
+  if (typeof roomCeiling !== 'function') return 0;
+  return roomCeiling(type);
 }
-/** How many of this station's four dayparts run a show this room is paid on.
-    Sim owns the support lists (NEWSROOM_SHOWS / LIBRARY_SHOWS) and this is the
-    SAME count its ceiling is computed from — the readout may not keep a second
-    idea of which slots serve which room. Null for the one room the schedule
-    does not set. */
-function simServedSlots(st, type){
-  if (!st) return 0;
-  if (typeof servedSlots === 'function') return servedSlots(st, type);
-  bridgeMiss('servedSlots');
+/* ---- v3 rooms: the three ceilings, and the two revenue-side effects ----
+   The whole of DESIGN_PROOF_ROOMS_V3 lands in these wrappers. Nothing below
+   re-derives a constant or a formula: LOCAL_PREM, REMNANT_RATE, remnantClear()
+   and prodAllotment() are sim's, and this file's job is to show what they
+   already decided. A missing one degrades to the INERT value — 0 points, 0
+   clearance, an empty allotment — which is exactly the no-rooms state, so a
+   bridge miss reads as "no rooms" rather than as a wrong number. */
+function simRoomTypeCap(type){
+  if (typeof roomTypeCap === 'function') return roomTypeCap(type);
+  return 1;
+}
+function simRoomsOfType(type){
+  if (typeof roomsOfType === 'function') return roomsOfType(type);
+  return simRoomList().filter(r => r && r.type === type);
+}
+/** Σ over the building of the plant units the Rack Room is paid on. Zero at
+    TX0/ANT0 on every signal, which is the room's structural zero. */
+function simPlantUnits(){ return typeof plantUnits === 'function' ? plantUnits() : 0; }
+/** What the market rolled for this signal at sign-on, and what is left of it
+    above the share one seller closes by phone. NOT player-set, either of them. */
+function simLocalBase(st){
+  if (typeof localBaseOf === 'function') return localBaseOf(st);
+  const v = st && st.localBase;
+  return (typeof v === 'number' && isFinite(v)) ? v : 0;
+}
+function simHeadroom(st){
+  if (typeof headroomOf === 'function') return headroomOf(st);
+  return Math.max(0, simLocalBase(st) - UI_LOCAL_BASE);
+}
+function simGroupHeadroom(){
+  if (typeof groupHeadroom === 'function') return groupHeadroom();
+  return allStations().reduce((a, st) => a + simHeadroom(st), 0);
+}
+/** The fraction of the UNSOLD log the Traffic Desk clears, and the per-slot
+    map of local-direct share the Production Room won. Both are exactly 0 /
+    empty with no room staffed. */
+function simRemClear(load){
+  if (typeof remnantClear === 'function') return remnantClear(load);
   return 0;
 }
-/** Whether this room's ceiling is set by the schedule at all. The Maintenance
-    Bay is the one that is not: its ceiling is the plant. */
-function simSchedRoom(type){
-  if (typeof roomShows === 'function') return !!roomShows(type);
-  return type === UI_RT.news || type === UI_RT.lib;
+function simProdMap(load){
+  if (typeof prodAllotment === 'function') return prodAllotment(load);
+  return new Map();
+}
+function simGearCut(load){ return typeof gearCut === 'function' ? gearCut(load) : 0; }
+/* ---- air studios (v3 §3d): the per-slot crew cap is state now ---- */
+function simStudios(st){ return typeof studiosOn === 'function' ? studiosOn(st) : 1; }
+function simMaxStudios(){ return (typeof MAX_STUDIOS !== 'undefined') ? MAX_STUDIOS : 2; }
+function simStudioCost(){ return typeof studioCost === 'function' ? studioCost() : 9500; }
+function simCanBuyStudio(idx){
+  if (typeof canBuyStudio === 'function') return canBuyStudio(idx) || { ok: false, reason: 'nostate' };
+  return { ok: false, reason: 'nostate' };
+}
+/** THE per-slot crew cap. One air studio comes with the licence, the second is
+    bought — so this is state, not the constant uiMaxCrew() used to return.
+    uiMaxCrew() survives as what it always really was: the absolute bound of the
+    CREW_WEIGHTS table, which is what the arithmetic can price at all. */
+function simCrewCap(st){
+  if (typeof crewCapOf === 'function') return crewCapOf(st);
+  return Math.min(uiMaxCrew(), 1 + simStudios(st));
 }
 function simRoomWasted(r, load){
   if (typeof roomWasted === 'function') return roomWasted(r, load);
@@ -260,11 +322,11 @@ function simCondTarget(st, load){
   if (typeof condTarget === 'function') return condTarget(st, load);
   return (typeof condOf === 'function') ? condOf(st) : 1;
 }
-/* simRoyaltyCut() lived here and is gone with royaltyCut() (v2 §3a): the
-   Record Library is an appeal multiplier on music slots now, mirroring the
-   Newsroom on talk/news, and NO room touches a money line any more. Royalties
-   are a flat ROYALTY_RATE on the music share and nothing in the building
-   programme moves them — so nothing on this tab may say it does. */
+/* simRoyaltyCut() lived here and is gone with royaltyCut() (v2 §3a), and
+   NOTHING has replaced it: royalties are a flat ROYALTY_RATE on the music
+   share and no room in the building moves them, so nothing on this tab may say
+   one does. What v3 rooms DO touch is the revenue line itself (Production and
+   Traffic) and wear (Rack) — see the mirrored revenue line above. */
 /** content.js owns the room's name, icon and copy, exactly as it owns a
     segment's. A missing row renders as its id rather than as blank. */
 function uiRoomName(type){ return typeof roomName === 'function' ? roomName(type) : type; }
@@ -319,12 +381,113 @@ function withSlot(st, partId, ov, fn){
   }
 }
 
-/** One slot's gross ad revenue for a day, in the sim's own arithmetic:
-      audience = marketShare(st, part).audience
-      revenue  = audience x adRate x AD_VALUE x fill x price x (1 + rep/140)
-    which is simulateDay()'s slot line with the fault roll left out (the fault
-    is priced separately, and as an expectation rather than a coin flip, by
-    slotNet below). */
+/* ============================================================
+   THE REVENUE LINE — MIRRORED FROM sim.js, v3 §3e, IN TWO PLACES
+   ============================================================
+   sim.js:
+
+     slotRev = gross * ( fill * (1 + LOCAL_PREM * dLocal)
+                       + (1 - fill) * remClear * REMNANT_RATE )
+
+   with gross = audience · adRate · AD_VALUE · price · repRevMul.
+
+   THIS IS THE WHOLE FEATURE. Every room preview on the Building tab is a
+   difference of two uiEmpireWorth() calls, uiEmpireWorth() is a sum of
+   uiStationWorth(), and uiStationWorth() and uiSlotRevenue() are the only two
+   places in this file that turn an audience into money. While they carried the
+   pre-v3 line — `... * fill * price * repRevMul`, with no dLocal and no
+   remClear in it — a Production Room and a Traffic Desk both measured EXACTLY
+   $0/day however many points were in them, because the only channel they move
+   was not in the arithmetic being differenced. The rooms worked; the preview
+   said they did not, and every policy reading the preview declined to buy one.
+
+   So both sites now go through uiSlotRevOf(), and the no-rooms branch is the
+   shipped expression character for character, exactly as sim's is, so a group
+   with no rooms measures bit-identically to before this pass.
+
+   dLocal is per SLOT and per STATION (prodAllotment ranks the whole group's
+   slots by gross x headroom); remClear is GROUP-WIDE, exactly like fill —
+   salesFill() takes no station argument, and neither does the desk. */
+let _roomsCtx = { key: '', val: null };
+/** { live, remClear, dMap } for the state as it stands. Memoised on the same
+    key the room economy is memoised on, because it reads the same things: the
+    rooms, who is in them, the schedule, the roster, the day and the rep.
+
+    The fast path matters as much as the arithmetic: with no rooms in the
+    building this returns the inert object WITHOUT building a key, calling
+    staffSlotLoad() or running prodAllotment() — so a run that never buys a bay
+    pays nothing at all for any of this, which is the inertness the whole
+    feature is built around.
+
+    MEASURED, not estimated, at 320x760 with four stations and five rooms: a
+    cold Building render (every memo dropped, which is what one in-game day
+    costs) is 7.1 ms median, a warm one 1.9 ms, and the Studio tab's daily
+    render — which pays for the rollup and the three brief chips — is 10.7 ms.
+    Once per in-game day, and the expensive halves stay lazy. */
+function uiRoomsCtx(){
+  if (!S || !simRoomList().length) return { live: false, remClear: 0, dMap: null };
+  const key = uiEconKey();
+  if (_roomsCtx.key === key && _roomsCtx.val) return _roomsCtx.val;
+  const load = simLoadMap();
+  const remClear = simRemClear(load);
+  const dMap = simProdMap(load);
+  const val = {
+    live: remClear > 0 || (dMap && dMap.size > 0),
+    remClear: remClear || 0,
+    dMap: dMap || null
+  };
+  _roomsCtx = { key, val };
+  return val;
+}
+/** One slot's ad revenue for a day, in sim's own arithmetic. `stIdx` is the
+    station's index in S.stations, which is what prodAllotment() keys its map
+    on — pass -1 for a station that is not in the list (a hypothetical on the
+    founding card), which correctly gets no production share. */
+function uiSlotRevOf(stIdx, partId, audience, adRate){
+  if (!S) return 0;
+  const adv = (typeof AD_VALUE !== 'undefined' ? AD_VALUE : 0.42);
+  // fill and price are empire-wide and reputation-capped — exactly what
+  // simulateDay() charges every slot on every signal.
+  const fill = simSalesFill(), price = simSalesPrice(), repRevMul = 1 + S.rep / 140;
+  const ctx = uiRoomsCtx();
+  // The shipped no-rooms line, verbatim. sim writes this branch out separately
+  // for bit-identity and so does this.
+  if (!ctx.live) return audience * adRate * adv * fill * price * repRevMul;
+  const dLocal = (ctx.dMap && stIdx >= 0) ? (ctx.dMap.get(stIdx + '|' + partId) || 0) : 0;
+  const gross = audience * adRate * adv * price * repRevMul;
+  return gross * (fill * (1 + UI_LOCAL_PREM * dLocal)
+                + (1 - fill) * ctx.remClear * UI_REMNANT_RATE);
+}
+/** The same line split into its three parts, for the readouts: what the sold
+    log would have earned with no production room, what the Production Room
+    added on top, and what the Traffic Desk cleared out of the unsold rest. */
+function uiSlotRevParts(stIdx, partId, audience, adRate){
+  if (!S) return { rev: 0, base: 0, prod: 0, rem: 0 };
+  const adv = (typeof AD_VALUE !== 'undefined' ? AD_VALUE : 0.42);
+  const fill = simSalesFill(), price = simSalesPrice(), repRevMul = 1 + S.rep / 140;
+  const ctx = uiRoomsCtx();
+  if (!ctx.live) {
+    // The shipped expression, in its shipped order, so the no-rooms empire
+    // measures to the last ulp of what it measured before this pass.
+    const flat = audience * adRate * adv * fill * price * repRevMul;
+    return { rev: flat, base: flat, prod: 0, rem: 0 };
+  }
+  const dLocal = (ctx.dMap && stIdx >= 0) ? (ctx.dMap.get(stIdx + '|' + partId) || 0) : 0;
+  const gross = audience * adRate * adv * price * repRevMul;
+  return {
+    // `rev` is sim's single expression, not the sum of the three parts below:
+    // float multiplication is not associative and the total the player is shown
+    // has to be the total the sim banks.
+    rev:  gross * (fill * (1 + UI_LOCAL_PREM * dLocal)
+                 + (1 - fill) * ctx.remClear * UI_REMNANT_RATE),
+    base: gross * fill,
+    prod: gross * fill * UI_LOCAL_PREM * dLocal,
+    rem:  gross * (1 - fill) * ctx.remClear * UI_REMNANT_RATE
+  };
+}
+/** One slot's ad revenue for a day, optionally with a hypothetical crew on it.
+    Composed from the REAL functions — marketShare().audience x the same ad
+    terms simulateDay() uses — rather than approximated. */
 function simSlotRevenue(st, partId, ov){
   if (typeof slotRevenue === 'function') return slotRevenue(st, partId, ov);
   return withSlot(st, partId, ov, () => uiSlotRevenue(st, partId));
@@ -335,10 +498,7 @@ function uiSlotRevenue(st, partId){
   const show = SHOWS[slot.show] || SHOWS.music;
   const ms = simShare(st, partId);
   const audience = ms && Number.isFinite(ms.audience) ? ms.audience : 0;
-  const adv = (typeof AD_VALUE !== 'undefined' ? AD_VALUE : 0.42);
-  // fill and price are empire-wide and reputation-capped — exactly what
-  // simulateDay() charges every slot on every signal.
-  return audience * show.adRate * adv * simSalesFill() * simSalesPrice() * (1 + S.rep / 140);
+  return uiSlotRevOf(allStations().indexOf(st), partId, audience, show.adRate);
 }
 
 /* ---------------- UI-side copy fallbacks ----------------
@@ -453,7 +613,36 @@ const UI_STR = {
   bayIdleLbl: 'Idle bays',
   bayCondPreview: 'Condition on {call}: {from}% → {to}%',
   bayRoomFull: 'Every seat is taken. Stand somebody down to make room.',
-  bayNoRoomHere: 'This signal already has one of each room you can build.',
+  bayNoRoomHere: 'The building already holds every room it can hold.',
+  /* §10 item 7, the backward-looking half. content.js owns the three sentences
+     (briefRack / briefLocal / briefRemnant); these are the labels around them
+     and the one figure the book has no dollar for — the Rack Room moves
+     condition, not a money line, so its column is measured rather than banked
+     and the caption has to say so. */
+  roomYieldTitle: 'What each room returned',
+  roomYieldNote: 'Yesterday',
+  // Before the first day closes there is no book to read, so the same split is
+  // taken from today's live state and labelled as such.
+  roomYieldToday: 'Today, so far',
+  roomYieldNone: 'No bay holds one.',
+  roomYieldMeasured: 'measured against today\'s plant',
+  roomWearHeld: 'Wear held down {pct}% group-wide.',
+  /* Where a production room would pay, per signal, BEFORE the bay is bought.
+     The percentages are the market's roll and the share above what a phone call
+     already closes — never a crossover, never a threshold. */
+  localTitle: 'Local trade by signal',
+  localHeadroom: '{pct} left to win',
+  localNone: 'Nothing left to win',
+  localOf: '{pct} local',
+  // Air studios (v3 §3d). A threshold, priced like any other capital purchase.
+  studioTitle: 'Air studios',
+  studioHave: '{n} of {max} · crew cap {cap} per slot',
+  studioBuy: 'Build a second studio',
+  studioNote: 'One studio comes with the licence, and one studio holds one voice. A second is what a co-host stands in — on this signal only.',
+  studioMaxed: 'Both studios built. Three voices is what the desk can carry.',
+  studioGain: 'Crew cap on {call}: {from} → {to} per slot.',
+  studioBought: '🎙️ Second studio on {call}. Its slots can carry {n} now.',
+  crewCapFull: 'Every studio on this signal is occupied. Build the second studio, or drop somebody.',
 
   // Brief / empire
   leaseTitle: 'Leases', empireLease: 'Lease/day', empireShare: 'Share',
@@ -607,7 +796,10 @@ function bestDjSlot(djId){
       const slot = stSlot(st, p.id);
       const cur = slotDjs(slot);
       if (cur.indexOf(djId) >= 0) continue;
-      if (cur.length >= uiMaxCrew()) continue;
+      // The cap is per STATION now — one air studio comes with the licence and
+      // the second is bought — so a signal with one studio correctly prices a
+      // co-host at nothing rather than offering a seat sim would refuse.
+      if (cur.length >= simCrewCap(st)) continue;
       const before = slotNet(st, p.id, { djs: cur }, V);
       const after  = slotNet(st, p.id, { djs: cur.concat([djId]) }, V);
       const worth = after - before;
@@ -691,7 +883,7 @@ function runwayDays(){
    §7 readouts 3, 5, 6 and 7 all want DOLLARS, and the design proof is explicit
    that they are to be computed from the closed forms rather than estimated —
    every one of them is closed-form in sim.js. The trap this is really here to
-   surface is §3's: seating an on-air engineer in the Maintenance Bay can make
+   surface is §3's: seating an on-air engineer in the Rack Room can make
    condition WORSE, not better (measured in the proof: c* 0.7905 -> 0.7548),
    because the seat steals the attention that was tending the plant. A readout
    that priced only the room's own points would show that as a GAIN.
@@ -706,15 +898,14 @@ function runwayDays(){
    idiom as withSlot() above, one level up.
 
    The two channels a room moves, both of them already in sim:
-     revenue   — show appeal, on the dayparts the room is paid on: newsMul()
-                 on talk/news, libMul() on music, and NEITHER on `ads`. Both
-                 reach slotPull() and therefore uiSlotRevenue(). Note what is
-                 NOT in this list: the ad log. Sales is empire-wide and no room
-                 touches it, so a room's measured value never contains a fill
-                 or rate term. Royalties are no longer in it either — the
-                 Library stopped being a rate cut in v2 §3a and no room effect
-                 touches a money line at all now;
-     condition — the Maintenance Bay cuts gear wear, and EVERY seat cuts
+     revenue   — the v3 line itself: the Production Room raises the LOCAL-DIRECT
+                 share of the sold log (up to a station's headroom) and the
+                 Traffic Desk clears part of the UNSOLD rest as remnant. Both
+                 arrive through uiSlotRevenue()/uiStationWorth(), which mirror
+                 sim's expression exactly. No room touches `fill` or `price` —
+                 sales is empire-wide and reputation-capped — and no room
+                 touches the royalty rate;
+     condition — the Rack Room cuts gear wear group-wide, and EVERY seat cuts
                  attention. Neither moves today's cond, they move the fixed
                  point c* it is heading to, so that term is priced at today's
                  sensitivity: d(revenue)/dc = revenue * (1 - share) / c, which
@@ -757,18 +948,25 @@ function uiWhatIf(fn){
     two states, which is why the condition term can be a destination rather than
     a flow — the level cancels, the change does not. */
 function uiStationWorth(st){
-  if (!st) return { rev: 0, roy: 0, cond: 0, share: 0, music: 0, talk: 0, worth: 0 };
-  const adv = (typeof AD_VALUE !== 'undefined' ? AD_VALUE : 0.42);
-  const fill = simSalesFill(), price = simSalesPrice();
-  let rev = 0, shareRev = 0, music = 0, talk = 0;
+  if (!st) return { rev: 0, roy: 0, cond: 0, share: 0, music: 0, talk: 0,
+                    prod: 0, rem: 0, worth: 0 };
+  /* SITE TWO OF THE MIRRORED REVENUE LINE. This is the one every room preview
+     is measured through — uiRoomEcon() differences uiEmpireWorth(), which is a
+     sum of these — so a room effect missing from HERE is a room the game
+     prices at exactly $0 whatever sim actually pays it. */
+  const stIdx = allStations().indexOf(st);
+  let rev = 0, shareRev = 0, music = 0, talk = 0, prod = 0, rem = 0;
   for (const part of DAYPARTS) {
     const slot = stSlot(st, part.id);
     const show = SHOWS[slot.show] || SHOWS.music;
     const ms = simShare(st, part.id);
     const share = (ms && Number.isFinite(ms.share)) ? ms.share : 0;
     const audience = (ms && Number.isFinite(ms.audience)) ? ms.audience : 0;
-    const r = audience * show.adRate * adv * fill * price * (1 + S.rep / 140);
+    const parts = uiSlotRevParts(stIdx, part.id, audience, show.adRate);
+    const r = parts.rev;
     rev += r;
+    prod += parts.prod;
+    rem += parts.rem;
     shareRev += share * r;
     if (slot.show === 'music') music++;
     else if (slot.show === 'talk' || slot.show === 'news') talk++;
@@ -781,12 +979,27 @@ function uiStationWorth(st){
   const roy = rev * UI_ROYALTY * (music / DAYPARTS.length);
   const c = (typeof condOf === 'function') ? condOf(st) : 1;
   const cond = rev * (1 - share) * (simCondTarget(st) - c) / Math.max(0.05, c);
-  return { rev, roy, cond, share, music, talk, worth: rev - roy + cond };
+  return { rev, roy, cond, share, music, talk, prod, rem, worth: rev - roy + cond };
 }
 function uiEmpireWorth(){
   let w = 0;
   for (const st of allStations()) w += uiStationWorth(st).worth;
   return w;
+}
+/** The two revenue-side rooms' contribution to the empire's revenue TODAY, as
+    two separate dollar figures (§9). Backward-looking figures come off
+    S.lastDay; this is the same split for the state as it stands right now,
+    which is what the founding-to-first-bay stretch has instead of a book. */
+function uiEmpireRoomRev(){
+  let prod = 0, rem = 0, sold = 0;
+  for (const st of allStations()) {
+    const w = uiStationWorth(st);
+    prod += w.prod; rem += w.rem;
+    // What the sold log would have billed with no production room — the same
+    // denominator the book-derived local share uses, so the two paths agree.
+    sold += w.rev - w.prod - w.rem;
+  }
+  return { prod, rem, sold };
 }
 
 /** A seat worth EXACTLY one point, for "what is the next point worth". Pushed
@@ -850,7 +1063,11 @@ function uiIdleBays(){
   for (let i = 0; i < simBayCount(); i++) {
     const r = paid[i];
     if (!r || !Array.isArray(r.staff) || !r.staff.length) { n++; lease += simBayLease(i); }
-    else if (uiRoomIsZero(r.type, stations[r.station])) cold++;
+    // Staffed and structurally worth nothing — a Rack Room at Part 15, a
+    // Production Room in a group with no local trade left, a Traffic Desk on a
+    // sold-out log — or pointed at the one signal that can never pay it.
+    else if (uiRoomIsZero(r.type, stations[r.station]) ||
+             uiProdMispointed(r.type, stations[r.station])) cold++;
   }
   return { n, lease, cold };
 }
@@ -866,8 +1083,11 @@ function uiIdleBays(){
    programme never pays for any of this, which is the inertness the feature is
    built around. It DOES run at bays 0 on the Building tab itself, deliberately:
    readout #6 (what the first bay would return) is most load-bearing on the
-   screen where the player has not bought one yet. Measured at 320x760 with four
-   stations: ~11 ms, once per in-game day, only while that tab is open. */
+   screen where the player has not bought one yet. RE-MEASURED after the v3
+   rooms landed, at 320x760 with four stations and five rooms: a cold Building
+   render is 7.1 ms median and a warm one 1.9 ms, once per in-game day and only
+   while that tab is open — the revenue-line mirror added a prodAllotment() pass
+   per distinct world state and it did not move this figure out of its band. */
 let _econMemo = { key: '', val: null };
 // The two EXPENSIVE halves are memoised separately and computed lazily, because
 // the Daily Brief needs the rollup every day on the Studio tab and needs
@@ -877,18 +1097,33 @@ let _econMemo = { key: '', val: null };
 let _margMemo = { key: '', map: null };
 let _bestMemo = { key: '', val: undefined };
 /** Everything the programme's arithmetic is cached on, dropped in one call
-    after any mutation so three memos cannot disagree about the world. */
+    after any mutation so FOUR memos cannot disagree about the world.
+
+    _roomsCtx belongs in here and its absence was a real defect, found by
+    measuring rather than by reading: with the rooms context left behind, a
+    Production Room whose headroom had just gone to zero measured +$118/day —
+    because the base reading used the stale allotment while the hypothetical it
+    was differenced against rebuilt a fresh one. A memo that survives a mutation
+    does not produce an obviously wrong number; it produces a confident, plausible,
+    wrong one, which is exactly the class of bug the vault's rule 5 is about. */
 function uiEconDirty(){
   _econMemo = { key: '', val: null };
   _margMemo = { key: '', map: null };
   _bestMemo = { key: '', val: undefined };
+  _roomsCtx = { key: '', val: null };
 }
 function uiEconKey(){
   if (!S) return 'nostate';
   const rooms = simRoomList().map(r => r.id + ':' + r.type + ':' + r.station + ':' +
     (Array.isArray(r.staff) ? r.staff.join('-') : '')).join(',');
   const staff = S.staff.map(p => p.id + p.skill + p.role).join(',');
+  /* localBase is in here even though nothing in normal play can change it after
+     founding — and a founding already moves this key by adding a station. It is
+     the denominator of the Production Room's whole ceiling, so a cache that
+     cannot see it change is a cache that will one day be confidently wrong;
+     three characters of fingerprint is a cheap price for that not being true. */
   const sched = allStations().map(st => st.tx + '/' + st.ant + '/' + (st.cond || 0).toFixed(3) + '/' +
+    simLocalBase(st).toFixed(3) + '/' +
     DAYPARTS.map(p => {
       const sl = stSlot(st, p.id);
       return sl.show + slotDjs(sl).join('') + slotEngs(sl).join('');
@@ -976,14 +1211,26 @@ function uiBestBay(){
   if (S && simBayCount() < simMaxBays()) {
     const base = uiRoomEcon().base;
     const stations = allStations();
-    for (let i = 0; i < stations.length; i++) {
+    if (stations.length) {
+      /* ONE PASS PER ROOM TYPE, not one per type per callsign. Rooms are
+         building objects: a Rack Room measured against KAIL and the same Rack
+         Room measured against KDKD are the same room and the same number, and
+         the old nested loop paid for four identical hypotheticals to find that
+         out. The Production Room is the one type where the index means
+         anything, and its best index is a headroom question with a closed-form
+         answer, so it does not need a search either. */
       for (const type of simRoomTypeIds()) {
-        if (!simRoomServes(type, stations[i])) continue;
-        if (simRoomsOn(i).some(r => r && r.type === type)) continue;
+        const at = (type === UI_RT.prod) ? uiBestProdStation() : curIndex();
+        const st = stations[at];
+        if (!st || !simRoomServes(type, st)) continue;
+        // sim's own budget: one tech core, one log, production one short of the
+        // callsigns you own. Reading "does one exist" would have capped
+        // Production at one room the moment a group owned three signals.
+        if (simRoomsOfType(type).length >= simRoomTypeCap(type)) continue;
         const pick = uiBestSeatFor(type, null);
         const worth = uiWhatIf(() => {
           S.bays = simBayCount() + 1;
-          const res = (typeof buildRoom === 'function') ? buildRoom(i, type) : null;
+          const res = (typeof buildRoom === 'function') ? buildRoom(at, type) : null;
           if (!res || !res.ok) return null;
           if (pick && typeof seatInRoom === 'function') seatInRoom(res.room.id, pick.id);
           return uiEmpireWorth();
@@ -991,7 +1238,7 @@ function uiBestBay(){
         if (worth === null) continue;
         const gain = worth - base;
         if (!best || gain > best.gain) {
-          best = { gain, type, station: i, who: pick ? pick.id : null, call: stationCall(stations[i]) };
+          best = { gain, type, station: at, who: pick ? pick.id : null, call: stationCall(st) };
         }
       }
     }
@@ -1114,13 +1361,19 @@ function paintTabs(){
        than a sentence three scrolls down inside a tab nobody opened. Read from
        state, never from the measured economy — this runs on every tick.
 
-       A COLD room lights the same dot. Its cause is on another tab entirely —
-       the player changed a daypart's format and a room's ceiling went to zero —
-       so the Building tab is the last place they would think to look, which is
-       exactly why the tab has to raise its hand. */
+       A COLD room lights the same dot, and in v3 its cause is never on this tab
+       either: the plant it was protecting was never bought, the market it was
+       cutting spots for has nothing left to win, or the sellers finally sold
+       the log the desk lived on. The Building tab is the last place a player
+       would think to look for any of those, which is exactly why it has to
+       raise its hand.
+
+       A STALE TRAFFIC DESK lights it too. That one is the room the player is
+       supposed to CLOSE, and a room that should be closed looks identical to a
+       room that is fine — right up until the lease has eaten a season. */
     if (b.dataset.tab === 'build') {
       const idle = S ? uiIdleBays() : { n: 0, cold: 0 };
-      b.classList.toggle('has-badge', idle.n > 0 || idle.cold > 0);
+      b.classList.toggle('has-badge', idle.n > 0 || idle.cold > 0 || uiTrafficStale());
     }
   });
 }
@@ -1209,6 +1462,9 @@ function noteHudDeltas(){
     rep:       hudDelta(Math.round(S.rep), Math.round(prevHud.rep), n => String(Math.round(n)))
   };
   prevHud = { cash: S.cash, listeners: S.listeners, rep: S.rep };
+  // Once a day, on the same seam sim's tick() already calls: the room states
+  // that would otherwise only be visible as a number quietly shrinking.
+  uiRoomWatch();
   clearTimeout(hudDeltaTimer);
   hudDeltaTimer = setTimeout(() => {
     hudDeltaHtml = { cash: '', listeners: '', rep: '' };
@@ -1662,6 +1918,22 @@ function viewBrief(){
           ? ' ' + esc(t('briefBaysIdle', { n: econ.idle, amt: money(econ.idleLease) }))
           : '') +
       '</div>';
+      /* ...and then the SPLIT, because the rollup above is exactly the figure
+         that hides the decision: a Traffic Desk decaying to nothing while a
+         Production Room grows nets out to a flat line. Three rooms, three
+         dollar lines, every day (§9). */
+      if (simRoomList().length) {
+        h += '<div class="yield-strip">';
+        for (const row of uiRoomYield(econ).rows) {
+          const zero = row.val === null || Math.abs(row.val) < 0.5;
+          h += '<span class="yield-chip' + (row.built ? '' : ' off') + '">' +
+            uiRoomIcon(row.type) + ' <b class="' + (zero ? 'zero' : row.val >= 0 ? 'up' : 'down') + '">' +
+            esc(row.val === null ? '—'
+              : zero ? money(0)
+              : (row.val >= 0 ? '+' : '−') + money(Math.abs(row.val))) + '</b></span>';
+        }
+        h += '</div>';
+      }
     }
     // Per-station lease lines once there is more than one signal to compare.
     if (stationCount() > 1) {
@@ -1864,24 +2136,28 @@ function coverageCard(compact){
              on this tab counts doubled-up people any more, because no room is
              paid for them. */
 const UI_RT = {
-  maint: (typeof ROOM_MAINT !== 'undefined') ? ROOM_MAINT : 'maint',
-  news:  (typeof ROOM_NEWS  !== 'undefined') ? ROOM_NEWS  : 'news',
-  lib:   (typeof ROOM_LIB   !== 'undefined') ? ROOM_LIB   : 'library'
+  rack:    (typeof ROOM_RACK    !== 'undefined') ? ROOM_RACK    : 'rack',
+  prod:    (typeof ROOM_PROD    !== 'undefined') ? ROOM_PROD    : 'prod',
+  traffic: (typeof ROOM_TRAFFIC !== 'undefined') ? ROOM_TRAFFIC : 'traffic'
 };
+/* The order the three rooms are always listed in, everywhere: plant, market,
+   misses. One order, so the player learns where to look rather than re-reading
+   three headings on every card. */
+const UI_RT_ORDER = [UI_RT.rack, UI_RT.prod, UI_RT.traffic];
 
 function uiPts(n){ return (Math.round((n || 0) * 10) / 10).toFixed(1); }
 /* Every measured per-day figure on this tab goes through here, so that ZERO
    reads AS zero.
 
    This is not cosmetic. Every one of the three rooms is worth EXACTLY $0 in a
-   state the player can be in without noticing: a Newsroom on a board with no
-   talk or news hour and a Record Library on a board with no music hour both
-   have a ceiling of zero however many people are sitting in them, and the
-   Maintenance Bay is worth nothing at all until there is plant to protect.
-   Two of those three are set by the SCHEDULE, which is the lesson. money(0) inside the
-   green "+" tag renders "+$0" — which reads as a small gain, not as "this room
-   does nothing" — and an omitted tag reads as "not measured yet". Both are the
-   ambiguous blank. A room earning nothing says so, in its own tag, in --dim
+   state the player can be in without noticing: a Rack Room with no plant to
+   protect, a Production Room in a group whose every signal was rolled at or
+   below the share one seller closes by phone, a Traffic Desk on a log that is
+   selling out. NOT ONE OF THE THREE is set by the schedule any more, which is
+   the v3 lesson — they are set by the plant, by a founding roll and by your
+   sellers. money(0) inside the green "+" tag renders "+$0" — which reads as a
+   small gain, not as "this room does nothing" — and an omitted tag reads as
+   "not measured yet". Both are the ambiguous blank. A room earning nothing says so, in its own tag, in --dim
    (#868ec0 on --panel2 = 4.63:1 at 11px/800, AA) rather than in green.
 
    Half a dollar a day is the zero band: sim's figures are fractional, and
@@ -1901,62 +2177,120 @@ function uiRoomBay(roomId){
   const i = simRoomList().filter(Boolean).findIndex(r => r.id === roomId);
   return i < 0 ? null : { idx: i, lease: simBayLease(i) };
 }
+/** What to call a room on screen.
+
+    ONLY the Production Room gets a callsign, and it gets one because it is the
+    only room whose ceiling is per station: Σ headroom is spent down a ranking
+    of the group's slots, and a room pointed at a signal the market rolled flat
+    is a room whose copy has something to say (roomProdNoHead). The Rack Room
+    and the Traffic Desk are one-per-building and serve every signal at once, so
+    naming a callsign beside them would be the exact claim v3 removed. */
+function uiRoomTitle(r){
+  if (!r) return '';
+  const name = uiRoomName(r.type);
+  if (r.type !== UI_RT.prod) return name;
+  const st = allStations()[r.station];
+  return st ? t('roomHead', { room: name, call: stationCall(st) }) : name;
+}
+/** The unsold share of the group's log — 1 − fill, which is the only thing the
+    Traffic Desk is ever paid out of. Group-wide, like salesFill() itself. */
+function uiUnsold(){ return clamp(1 - simSalesFill(), 0, 1); }
+/** The heaviest plant in the building, for the Rack Room's ceiling line: one
+    chief engineer covers every rack, so the sentence names the group's biggest
+    rig rather than whichever callsign the card happens to be sitting on. */
+function uiTopPlant(){
+  let tx = 0, ant = 0;
+  for (const st of allStations()) {
+    if ((st.tx || 0) > tx) tx = st.tx || 0;
+    if ((st.ant || 0) > ant) ant = st.ant || 0;
+  }
+  return { tx: (TX[tx] || {}).name || '—', ant: (ANT[ant] || {}).name || '—' };
+}
 /** Readout #2. content.js authored one ceiling line per room, each naming the
     state that sets it; this supplies that line's variables and nothing else
     invents copy. Every variable the key expects is passed — an unsupplied one
     prints a literal {brace} at the player, which the smoke suite asserts against.
 
-    Three rooms, three variable lists: maint {tx},{ant} · news {n},{call} ·
-    library {n},{call}. The two schedule rooms' {n} is sim's own servedSlots()
-    — the SAME count roomCeiling() divides by 3.0 — so the sentence and the
-    number under it can never disagree. `cap` is still taken and no longer read:
-    every remaining room's line names a piece of the WORLD rather than quoting
-    its own point ceiling back. The parameter stays because all four call sites
-    have the number to hand. */
+    THREE ROOMS, THREE VARIABLE LISTS, and all three changed in v3:
+      rack     {tx},{ant}   the heaviest rig in the BUILDING, not on `st`
+      prod     {call},{pct} that station's rolled localBase, as a percentage
+      traffic  {pct}        the share of the group's log that went out unsold
+
+    Not one of them is a schedule any more, which is the whole v3 repair: the
+    player can re-format a board between one morning and the next, and could
+    therefore set a ceiling they were about to be paid by. Plant, a founding
+    roll and the sellers' misses are none of them settable that way.
+
+    `cap` is taken and not read — every line names a piece of the WORLD rather
+    than quoting its own point ceiling back — and stays because all four call
+    sites have the number to hand. */
 function uiCeilingLine(type, st, cap){
-  if (!st) return '';
-  if (type === UI_RT.maint) return uiRoomCeilingText(type, {
-    tx: (TX[st.tx] || {}).name || '—', ant: (ANT[st.ant] || {}).name || '—'
-  });
-  if (type === UI_RT.news || type === UI_RT.lib) return uiRoomCeilingText(type, {
-    n: simServedSlots(st, type), call: stationCall(st) });
+  if (type === UI_RT.rack) {
+    const p = uiTopPlant();
+    return uiRoomCeilingText(type, { tx: p.tx, ant: p.ant });
+  }
+  if (type === UI_RT.prod) {
+    if (!st) return '';
+    return uiRoomCeilingText(type, {
+      call: stationCall(st), pct: Math.round(simLocalBase(st) * 100) + '%' });
+  }
+  if (type === UI_RT.traffic) {
+    return uiRoomCeilingText(type, { pct: Math.round(uiUnsold() * 100) + '%' });
+  }
   return '';
 }
-/* THE LINE THE WHOLE FEATURE NOW STANDS ON (v2 §3a).
+/** The ceiling line with its label, and WITHOUT the stutter. Two of content's
+    three ceiling sentences open with the word "Ceiling" — "Ceiling is the local
+    trade WJMK was signed into..." — and prefixing those with "Ceiling: " on
+    four separate cards produced "Ceiling: Ceiling is the local trade...". The
+    label is dropped when the sentence already carries it, which is a decision
+    about this file's punctuation, not an edit to content's copy. */
+function uiCeilingLabelled(type, st, cap){
+  const line = uiCeilingLine(type, st, cap);
+  if (!line) return '';
+  const lbl = t('roomCeilingLbl');
+  return line.slice(0, lbl.length).toLowerCase() === lbl.toLowerCase()
+    ? line : lbl + ': ' + line;
+}
+/* WHAT SET THE CEILING, in four words, riding under the points figure:
 
-   The ceiling stopped being a flat 10 points and became 3.0 x the number of
-   DAYPARTS running a format the room is paid on. So the wasted-points readout
-   is no longer "you over-hired" — it is "you did not schedule it", and unless
-   the card says which of the four slots set the ceiling, the player reads a
-   wasted number with no cause attached and hires their way at it. Content
-   wrote the causes; this picks one:
+     7.0 / 4.4 pts — 2.6 wasted · ceiling set by the plant on your towers
 
-     7.0 / 3.0 pts — 4.0 wasted · ceiling set by one talk or news slot
-
-   Singular and plural are separate keys, chosen by count, exactly as
-   seatDiluted/seatDiluted1 already are: "ceiling set by 1 talk or news slots"
-   reads as a bug on the one line whose whole job is to be trusted. */
+   The wasted number without its cause reads as "you over-hired", and the true
+   answer is never that: it is that the world has not given this room any more
+   work. Content wrote one cause per room plus the zero; this picks one, and
+   asks SIM for the ceiling rather than keeping a second idea of it here. */
 function uiCapCause(type, st){
-  if (!st) return '';
-  if (!simSchedRoom(type)) return t('roomCapMaint');
-  const n = simServedSlots(st, type);
-  if (n <= 0) return t('roomCapZero');
-  if (type === UI_RT.news) return n === 1 ? t('roomCapNews1') : t('roomCapNews', { n: n });
-  if (type === UI_RT.lib)  return n === 1 ? t('roomCapLib1')  : t('roomCapLib',  { n: n });
+  if (uiRoomIsZero(type, st)) return t('roomCapZero');
+  if (type === UI_RT.rack)    return t('roomCapRack');
+  if (type === UI_RT.prod)    return t('roomCapProd');
+  if (type === UI_RT.traffic) return t('roomCapTraffic');
   return '';
 }
-/** True when this room's effect is structurally zero on this station whatever
-    is sitting in it — an all-music Newsroom, a Maintenance Bay on a Part 15
-    rig. The proof's disjoint supports, said out loud.
+/** True when this room's effect is structurally zero however many points are
+    in it — the proof's disjoint supports, said out loud:
 
-    For the two schedule rooms this is now exactly "the ceiling is zero", asked
-    of sim rather than recounted here, so the warning and the 0.0 next to it are
-    the same fact and cannot drift apart. */
+      rack     tx = ant = 0 across the building: the wear bracket is 1 for
+               every value of gearCut, so the room cannot move a dime
+      prod     Σ headroom = 0: every signal the group owns was rolled at or
+               below the share one seller closes by phone
+      traffic  the group is sold out: (1 − fill) = 0 and there is nothing left
+               expiring for the desk to clear
+
+    The first two are asked of sim's own ceiling, so the warning and the 0.0
+    beside it are the same fact and cannot drift. The third is not a ceiling —
+    the desk's point ceiling is a flat 6.0 — so it is asked of fill. */
 function uiRoomIsZero(type, st){
-  if (!st) return false;
-  if (type === UI_RT.maint) return !(st.tx > 0 || st.ant > 0);
-  if (simSchedRoom(type)) return simServedSlots(st, type) === 0;
-  return false;
+  if (type === UI_RT.traffic) return uiUnsold() <= 0.0005;
+  return !(simRoomCeilingFor(st, type) > 0);
+}
+/** The one state that is NOT a structural zero and still earns nothing: a
+    Production Room pointed at a signal with no local trade left, while other
+    signals in the group have some. Content wrote roomProdNoHead for exactly
+    this, and it is true as written — prodAllotment() skips a station with zero
+    headroom entirely, so not one point ever lands on that callsign. */
+function uiProdMispointed(type, st){
+  return type === UI_RT.prod && !!st && simHeadroom(st) <= 0 && simGroupHeadroom() > 0;
 }
 
 /** One row per bay. Every room leases a bay — there is no granted, leaseless
@@ -1976,21 +2310,33 @@ function uiBayRows(){
   return rows;
 }
 
-/** Readout #1. Rows are bays, columns are callsigns, and a cell is the room —
-    which is exactly what a room IS: a bay pointed at a signal. Empty cells in
-    an empty bay are the build control, so the overview is also the surface. */
+/** Readout #1. Rows are bays; the cell IS the room.
+
+    THE CALLSIGN COLUMNS ARE GONE, and their removal is the v3 re-siting made
+    visible. Every room is a BUILDING object now — one chief engineer covers
+    every rack, one traffic desk builds one log, and production capacity is
+    pooled across the group — so a grid that put a room under exactly one
+    callsign was drawing a claim the simulation had stopped making. content.js
+    says it outright on this card: "Nothing in here belongs to a single
+    callsign."
+
+    What the column bought was never information, either. Four columns at
+    320px is a 54px cell that can hold an icon and a number; one column is
+    225px and holds the room's NAME, its points against its ceiling, its meter
+    and its measured return — the four things the row is read for — without a
+    long-press or a screen reader. Re-measured below the card's CSS. */
 function bayMatrix(econ){
   const list = allStations();
   if (!list.length) return '';
   const rows = uiBayRows();
-  const cols = 'grid-template-columns:var(--bay-gutter) repeat(' + list.length + ',1fr)';
+  const cols = 'grid-template-columns:var(--bay-gutter) 1fr';
 
   let h = '<div class="card"><div class="card-head">' +
-    '<span class="card-title">' + esc(tt('bayShort')) + ' × ' + esc(tt('stationsLbl')) + '</span>' +
+    '<span class="card-title">' + esc(tt('bayShort') + ' × ' + t('roomLbl')) + '</span>' +
     '<span class="card-note">' + esc(t('bayMatrixNote')) + '</span></div>' +
     '<div class="bay-grid">' +
     '<div class="bay-head" style="' + cols + '"><span>' + esc(tt('bayShort')) + '</span>' +
-      list.map(st => '<span>' + esc(st.call) + '</span>').join('') + '</div>';
+      '<span>' + esc(t('roomLbl')) + '</span></div>';
 
   for (const row of rows) {
     const r = row.room;
@@ -1998,54 +2344,56 @@ function bayMatrix(econ){
     h += '<div class="bay-row" style="' + cols + '">' +
       '<span class="bay-lbl"><b>' + (row.bay + 1) + '</b>' +
         '<i>' + esc(money(row.lease)) + '</i></span>';
-    for (let j = 0; j < list.length; j++) {
-      if (r && r.station === j) {
-        const pts = e ? e.pts : 0, cap = e ? e.cap : 0, waste = e ? e.waste : 0;
-        /* A ZERO CEILING IS ALL BAR, NO FILL. The served-slot rule makes cap 0
-           a routine state — a Newsroom on an all-music board — and the old
-           "no ceiling, so call it full" fallback painted exactly that case
-           green at 100%. Every point in a zero-ceiling room is wasted, so the
-           meter is 100% red and the cell takes the `over` class from waste. */
-        const fill = cap > 0 ? clamp(pts / cap * 100, 0, 100) : 0;
-        const over = cap > 0 ? clamp((pts - cap) / cap * 100, 0, 100)
-                             : (pts > 0.05 ? 100 : 0);
-        /* Four states, in the order they matter: throwing points away, nobody
-           in it, staffed-but-worth-nothing, working. The third is what a room
-           inside its ceiling but on a schedule that barely serves it looks
-           like — real points, no dollars — and points alone would show that as
-           a working room. */
-        const val = e ? e.value : null;
-        const inert = val !== null && Math.abs(val) < 0.5;
-        const cls = waste > 0.05 ? ' over'
-          : (!r.staff || !r.staff.length) ? ' idle'
-          : inert ? ' zeroed' : '';
-        h += '<button type="button" class="bay-cell filled' + cls + '" data-openroom="' + esc(r.id) + '" ' +
-          'aria-label="' + esc(t('roomHead', { room: uiRoomName(r.type), call: stationCall(list[j]) }) + ' — ' +
-            (waste > 0.05
-              ? t('roomWaste', { pts: uiPts(pts), cap: uiPts(cap), waste: uiPts(waste) })
-              : t('roomPts',   { pts: uiPts(pts), cap: uiPts(cap) })) +
-            // What SET that ceiling, in the label as well as on the card: the
-            // grid cell is 54px wide and can carry a number and a meter and
-            // nothing else, so the cause travels with the screen-reader text.
-            ' · ' + uiCapCause(r.type, list[j]) +
-            (val === null ? '' : ' — ' +
-              (inert ? money(0) + tt('perDay')
-                : (val > 0 ? '+' : '−') + money(Math.abs(val)) + tt('perDay')))) + '">' +
-          '<span class="bc-ico">' + uiRoomIcon(r.type) + '</span>' +
+    if (r) {
+      const st = list[r.station];
+      const pts = e ? e.pts : 0, cap = e ? e.cap : 0, waste = e ? e.waste : 0;
+      /* A ZERO CEILING IS ALL BAR, NO FILL. Two of the three rooms have a
+         reachable zero ceiling — a Rack Room at Part 15, a Production Room in a
+         group with no local trade left — and the old "no ceiling, so call it
+         full" fallback painted exactly that case green at 100%. Every point in
+         a zero-ceiling room is wasted, so the meter is all red. */
+      const fill = cap > 0 ? clamp(pts / cap * 100, 0, 100) : 0;
+      const over = cap > 0 ? clamp((pts - cap) / cap * 100, 0, 100)
+                           : (pts > 0.05 ? 100 : 0);
+      /* Four states, in the order they matter: throwing points away, nobody in
+         it, staffed-but-worth-nothing, working. The third is the one points
+         alone cannot show — a Traffic Desk on a group that has started selling
+         out reads a healthy 4.0/6.0 with the dollars already gone. */
+      const val = e ? e.value : null;
+      const inert = val !== null && Math.abs(val) < 0.5;
+      const cls = waste > 0.05 ? ' over'
+        : (!r.staff || !r.staff.length) ? ' idle'
+        : inert ? ' zeroed' : '';
+      const ptsTxt = waste > 0.05
+        ? t('roomWaste', { pts: uiPts(pts), cap: uiPts(cap), waste: uiPts(waste) })
+        : t('roomPts',   { pts: uiPts(pts), cap: uiPts(cap) });
+      h += '<button type="button" class="bay-cell filled wide' + cls + '" data-openroom="' + esc(r.id) + '" ' +
+        'aria-label="' + esc(uiRoomTitle(r) + ' — ' + ptsTxt + ' · ' + uiCapCause(r.type, st) +
+          (val === null ? '' : ' — ' +
+            (inert ? money(0) + tt('perDay')
+              : (val > 0 ? '+' : '−') + money(Math.abs(val)) + tt('perDay')))) + '">' +
+        '<span class="bc-ico">' + uiRoomIcon(r.type) + '</span>' +
+        '<span class="bc-main">' +
+          '<span class="bc-name">' + esc(uiRoomTitle(r)) + '</span>' +
           '<span class="bc-meter"><i style="width:' + fill + '%"></i>' +
             (over > 0 ? '<b style="width:' + over + '%"></b>' : '') + '</span>' +
-          '<span class="bc-pts">' + esc(uiPts(pts)) + (waste > 0.05 ? ' ⚠' : '') + '</span>' +
-        '</button>';
-      } else if (!r) {
-        h += '<button type="button" class="bay-cell open" data-buildroom="' + row.bay + '|' + j + '" ' +
-          'aria-label="' + esc(t('roomAssign') + ' — ' + t('bayLine', { n: row.bay + 1, amt: money(row.lease) }) +
-            ' · ' + stationCall(list[j])) + '">+</button>';
-      } else {
-        // Deliberately empty and aria-hidden: this bay is simply not pointed at
-        // this callsign, which the empty cell says on its own. A glyph here
-        // would be 2:1 text carrying no information.
-        h += '<span class="bay-cell off" aria-hidden="true"></span>';
-      }
+        '</span>' +
+        '<span class="bc-side">' +
+          '<span class="bc-pts">' + esc(uiPts(pts)) + ' / ' + esc(uiPts(cap)) +
+            (waste > 0.05 ? ' ⚠' : '') + '</span>' +
+          (val === null ? ''
+            : '<span class="bc-val ' + (inert ? 'zero' : val >= 0 ? 'up' : 'down') + '">' +
+                esc(inert ? money(0) : (val >= 0 ? '+' : '−') + money(Math.abs(val))) + '</span>') +
+        '</span>' +
+      '</button>';
+    } else {
+      // The build control, full width: 225px x 48px at 320, against the 54px
+      // cell four callsign columns used to leave it.
+      h += '<button type="button" class="bay-cell open wide" data-buildroom="' + row.bay + '" ' +
+        'aria-label="' + esc(t('roomAssign') + ' — ' + t('bayLine', { n: row.bay + 1, amt: money(row.lease) })) + '">' +
+        '<span class="bc-ico">+</span>' +
+        '<span class="bc-main"><span class="bc-name">' + esc(t('roomAssign')) + '</span></span>' +
+      '</button>';
     }
     h += '</div>';
   }
@@ -2071,9 +2419,10 @@ function bayRoomRows(econ){
   const list = allStations();
   const rooms = simRoomList();
   /* The rule, once, at the top of the list rather than repeated on every row:
-     every daypart you point at a room raises its ceiling, and hiring does not.
-     It sits directly above the first "x / y pts" figure, which is the only
-     place it can do any work. */
+     a ceiling is set by the world — the plant on your towers, the local trade
+     the market rolled, the log you failed to sell — and hiring fills a ceiling
+     without ever raising one. It sits directly above the first "x / y pts"
+     figure, which is the only place it can do any work. */
   let h = '<div class="card"><div class="card-head">' +
     '<span class="card-title">' + esc(t('roomLbl')) + '</span>' +
     '<span class="card-note">' + esc(t('roomFitNote').split('.')[0]) + '</span></div>';
@@ -2095,11 +2444,12 @@ function bayRoomRows(econ){
 
        The cause rides on the same line, subordinate to the figure:
 
-         7.0 / 3.0 pts — 4.0 wasted · ceiling set by one talk or news slot
+         7.0 / 4.4 pts — 2.6 wasted · ceiling set by the plant on your towers
 
        Without that tail the reading is "hire fewer people". With it, the
-       reading is the one this tab exists to teach: the ceiling is the
-       SCHEDULE, and hiring cannot move it. */
+       reading is the one this tab exists to teach: the ceiling is the WORLD —
+       the plant, the market's roll, the log you failed to sell — and hiring
+       cannot move any of the three. */
     const cause = uiCapCause(r.type, st);
     let ptsLine;
     if (e.waste > 0.05) {
@@ -2116,9 +2466,9 @@ function bayRoomRows(econ){
       : (margin > 0.5 ? t('roomMargin', { amt: money(margin) }) : t('roomMarginNone'));
     const val = e.value;
     /* Return against the bill. A room's measured value is gross of its bay
-       lease, and the Maintenance Bay is the room that exposes the gap: it
-       measured −$20/day NET at TX2/ANT2 while still showing a healthy positive
-       return, because the lease was on a different card. Same invisible-trap
+       lease, and the Rack Room is the room that exposes the gap: it measured
+       −$20/day NET at TX2/ANT2 while still showing a healthy positive return,
+       because the lease was on a different card. Same invisible-trap
        class as the gear ladder before the wear preview — so the comparison is
        on the room, in content's own words (bayBuyThin), the moment the room is
        returning less than the bay it sits in. Skipped while the room is empty:
@@ -2126,10 +2476,15 @@ function bayRoomRows(econ){
        one line too many. */
     const bay = uiRoomBay(r.id);
     const thin = bay && val !== null && seated > 0 && val < bay.lease;
+    // THE COUNTER-CYCLICAL ROOM, said out loud on the room itself rather than
+    // left to be inferred from a number that quietly shrinks. `stale` is the
+    // moment content wrote roomTrafficStale for: the desk cleared less remnant
+    // yesterday than the bay under it costs, because the sellers got better.
+    const stale = r.type === UI_RT.traffic && uiTrafficStale();
     h += '<div class="row">' +
       '<div class="row-icon">' + uiRoomIcon(r.type) + '</div>' +
       '<div class="row-body">' +
-        '<div class="row-title">' + esc(t('roomHead', { room: uiRoomName(r.type), call: stationCall(st) })) + '</div>' +
+        '<div class="row-title">' + esc(uiRoomTitle(r)) + '</div>' +
         '<div class="row-sub" style="font-size:13px;font-weight:800">' + ptsLine +
           ' <span style="color:var(--dim);font-weight:600">· ' +
           esc(t('roomSeats', { n: seated, max: econ.seats })) + '</span></div>' +
@@ -2139,9 +2494,24 @@ function bayRoomRows(econ){
               ? t('roomHeadroom', { n: uiPts(headroom) })
               : t('roomAtCeiling')) + '</div>') +
         '<div class="row-sub" style="color:var(--dim)">' +
-          esc(t('roomCeilingLbl')) + ': ' + esc(uiCeilingLine(r.type, st, e.cap)) + '</div>' +
+          esc(uiCeilingLabelled(r.type, st, e.cap)) + '</div>' +
         (uiRoomIsZero(r.type, st)
           ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' + esc(uiRoomZeroText(r.type)) + '</div>'
+          : '') +
+        // A production room pointed at a market with nothing left to win. Not
+        // the same state as the structural zero above it — the group's other
+        // signals may still be paying this room — so it is its own sentence.
+        (uiProdMispointed(r.type, st)
+          ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' +
+              esc(t('roomProdNoHead', { call: stationCall(st) })) + '</div>'
+          : '') +
+        // The desk's own thesis, on the desk, from the day it is built: it is
+        // paid out of what sales missed and it is designed to shrink.
+        (r.type === UI_RT.traffic && !stale
+          ? '<div class="row-sub" style="color:var(--dim)">' + esc(t('roomTrafficCounter')) + '</div>'
+          : '') +
+        (stale
+          ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' + esc(t('roomTrafficStale')) + '</div>'
           : '') +
         (marg ? '<div class="row-sub" style="color:var(--cyan)">' + esc(marg) + '</div>' : '') +
         (thin
@@ -2159,6 +2529,182 @@ function bayRoomRows(econ){
     '</div>';
   }
   return h + '</div>';
+}
+
+/* ============================================================
+   §10 ITEM 7 — WHAT EACH ROOM ACTUALLY RETURNED, BACKWARD-LOOKING
+   ============================================================
+   Three rooms, three separate dollar lines, the way a GM reads a month-end:
+   not "the building programme returned $214" but which of the three rooms that
+   was. The proof's §9 requires a room earning nothing to be DISTINGUISHABLE
+   from one earning, and a single rolled-up figure cannot do that — a Traffic
+   Desk decaying to nothing while a Production Room grows nets out to a flat
+   line and the player never sees either move.
+
+   TWO OF THE THREE COME STRAIGHT OUT OF THE BOOK. sim stamps S.lastDay.prodRev
+   and .remRev as subsets of the revenue it already banked, so these are dollars
+   that happened, not an estimate of dollars that might. The third cannot be:
+   the Rack Room's channel is WEAR, which moves condition, which moves pull,
+   which moves tomorrow's audience — there is no dollar line in yesterday's
+   ledger with its name on it. So its column is the measured per-day value the
+   Building tab already prices every room at, and the caption says so rather
+   than letting three columns look like three of the same thing.
+
+   NO CROSSOVER, NO THRESHOLD, NO "BUILD TRAFFIC UNTIL REP 26". Printing the
+   number the player is solving for is the Purr & Power failure verbatim and the
+   proof calls it out by name. These lines say what each room DID. Working out
+   when one overtakes another is the game. */
+function uiRoomYield(econ){
+  const d = (S && S.lastDay) || {};
+  /* DAY ONE HAS NO YESTERDAY. Reading the book before a day has closed prints
+     $0 against a room that is visibly working three inches further down the
+     screen, which teaches the player that the room does nothing on the exact
+     screen where they just bought it. So before the first close the same split
+     is taken from the live state through the mirrored revenue line — the same
+     arithmetic, one day earlier — and the card says which it is showing. */
+  const closed = !!(S && S.day > 1 && Number.isFinite(d.revenue) && d.revenue > 0);
+  const live = closed ? null : uiEmpireRoomRev();
+  const prodRev = closed ? (Number.isFinite(d.prodRev) ? d.prodRev : 0) : live.prod;
+  const remRev  = closed ? (Number.isFinite(d.remRev)  ? d.remRev  : 0) : live.rem;
+  const cut     = (typeof gearCut === 'function' && !closed)
+    ? simGearCut(simLoadMap())
+    : (Number.isFinite(d.gearCut) ? d.gearCut : 0);
+  /* The local-direct share of yesterday's billing, derived from the book rather
+     than measured a second time. The fault roll scales slotRev, slotProd and
+     slotRem by the same FAULT_REV_MUL, so the identity holds exactly:
+       revenue = soldBase + prodRev + remRev
+     and therefore avg dLocal = prodRev / (LOCAL_PREM · soldBase). Adding the
+     no-production baseline back gives the share content's briefLocal asks for. */
+  const sold = closed ? Math.max(0, (d.revenue || 0) - prodRev - remRev) : Math.max(0, live.sold);
+  const dLocal = (sold > 0.0001 && UI_LOCAL_PREM > 0) ? prodRev / (UI_LOCAL_PREM * sold) : 0;
+  const rackRoom = econ ? econ.rooms.find(r => r.type === UI_RT.rack) : null;
+  const rows = [];
+  for (const type of UI_RT_ORDER) {
+    const built = simRoomsOfType(type).length;
+    let val, note;
+    if (type === UI_RT.rack) {
+      // null (a clone that would not measure) is a different answer from zero
+      // and uiValueTag already keeps the two apart.
+      val = rackRoom ? rackRoom.value : 0;
+      note = built
+        ? (cut > 0
+            ? t('briefRack') + ' ' + tt('roomWearHeld', { pct: Math.round(cut * 100) })
+            : uiCapCause(type, null))
+        : tt('roomYieldNone');
+    } else if (type === UI_RT.prod) {
+      val = prodRev;
+      note = built
+        ? t('briefLocal', { pct: Math.round(clamp(UI_LOCAL_BASE + dLocal, 0, 1) * 100) + '%' })
+        : tt('roomYieldNone');
+    } else {
+      val = remRev;
+      note = built ? t('briefRemnant', { amt: money(remRev) }) : tt('roomYieldNone');
+    }
+    rows.push({ type, built, val, note });
+  }
+  return { closed, rows };
+}
+/** The card. Rendered on the Building tab and, in the same shape, under the
+    Daily Brief — one function, so the two can never quote different figures. */
+function roomYieldCard(econ){
+  const y = uiRoomYield(econ);
+  let h = '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + esc(tt('roomYieldTitle')) + '</span>' +
+    '<span class="card-note">' + esc(tt(y.closed ? 'roomYieldNote' : 'roomYieldToday')) + '</span></div>';
+  for (const row of y.rows) {
+    h += '<div class="yield-row' + (row.built ? '' : ' off') + '">' +
+      '<span class="yield-ico">' + uiRoomIcon(row.type) + '</span>' +
+      '<span class="yield-body">' +
+        '<span class="yield-name">' + esc(uiRoomName(row.type)) + '</span>' +
+        '<span class="yield-note">' + esc(row.note) + '</span>' +
+      '</span>' +
+      uiValueTag(row.val) +
+    '</div>';
+  }
+  // The one caption that keeps the three columns honest: two are banked, one is
+  // measured, and a reader who assumes otherwise is being misled by a layout.
+  return h + '<div class="row-sub" style="color:var(--dim);margin-top:2px">' +
+    esc(uiRoomName(UI_RT.rack) + ' — ' + tt('roomYieldMeasured')) + '</div></div>';
+}
+
+/** WHERE A PRODUCTION ROOM WOULD PAY, before one is bought.
+
+    headroom(st) = max(0, localBase − 0.55) is the single number the Production
+    Room's whole value is bounded by, it is rolled at founding, and the player
+    never sets it. Which makes it exactly the kind of thing that must be ON THE
+    BUILD SCREEN: without it, "buy a Production Room" is a purchase whose payoff
+    is decided by a hidden per-station roll, and a station that can never pay
+    for one looks identical to a station that would pay handsomely.
+
+    The percentages are descriptive — what the market carries, and what is still
+    to be won. There is no threshold here and no "build here first". */
+function localTradeCard(){
+  const list = allStations();
+  if (!list.length) return '';
+  let h = '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + esc(t('segLocalLbl')) + '</span>' +
+    '<span class="card-note">' + esc(uiRoomName(UI_RT.prod)) + '</span></div>';
+  for (const st of list) {
+    const base = simLocalBase(st);
+    const head = simHeadroom(st);
+    const pct = clamp(base * 100, 0, 100);
+    const gain = clamp(head * 100, 0, 100);
+    h += '<div class="row">' +
+      '<div class="row-icon">📻</div>' +
+      '<div class="row-body">' +
+        '<div class="row-title">' + esc(stationCall(st)) + ' <span style="color:var(--dim);font-weight:600">' +
+          esc(tt('localOf', { pct: Math.round(pct) + '%' })) + '</span></div>' +
+        /* Two-tone meter: the flat share one seller closes by phone, then the
+           part a production room can still walk up. The second band IS the
+           headroom, so the figure and the bar cannot disagree. */
+        '<div class="meter local"><div class="meter-fill dim" style="width:' + (pct - gain) + '%"></div>' +
+          '<div class="meter-fill cyan" style="width:' + gain + '%"></div></div>' +
+        '<div class="row-sub" style="color:var(--' + (head > 0 ? 'cyan' : 'dim') + ')">' +
+          esc(head > 0 ? tt('localHeadroom', { pct: Math.round(gain) + '%' }) : tt('localNone')) + '</div>' +
+        // A signal with none says so plainly, in content's own words for it.
+        (head > 0 ? '' :
+          '<div class="row-sub" style="color:var(--dim)">' + esc(uiRoomZeroText(UI_RT.prod)) + '</div>') +
+      '</div>' +
+    '</div>';
+  }
+  return h + '<div class="hint" style="margin:8px 0 0">' + esc(t('foundLocalNote')) + '</div></div>';
+}
+
+/** Once a day, off noteHudDeltas(): the two states the player would otherwise
+    have to notice by watching a number quietly change.
+
+    THE TRAFFIC DESK IS THE FIRST ASSET IN THIS GAME THE PLAYER SHOULD CLOSE. It
+    is paid out of the log the sellers failed to move, so it shrinks as they get
+    good — and a room that is slowly becoming worthless looks exactly like a
+    room that is fine, right up until the bay lease has eaten a season of
+    profit. content wrote roomTrafficStale for that moment; this is what makes
+    the moment arrive. Edge-triggered on both sides, so it fires when the desk
+    goes stale and can fire again if it recovers and goes stale a second time. */
+/** The test itself, kept in ONE place and deliberately free: it compares the
+    remnant the desk actually cleared yesterday (sim's own S.lastDay.remRev)
+    against the bay it sits in. No hypothetical, no clone, no load map — so the
+    daily watcher below can run on any tab, on any day, at no cost. The room
+    card asks the same function, so the toast and the card cannot disagree. */
+function uiTrafficStale(){
+  if (!S || S.day < 2) return false;
+  const desk = simRoomsOfType(UI_RT.traffic)[0];
+  if (!desk || !Array.isArray(desk.staff) || !desk.staff.length) return false;
+  const bay = uiRoomBay(desk.id);
+  if (!bay) return false;
+  const rem = (S.lastDay && Number.isFinite(S.lastDay.remRev)) ? S.lastDay.remRev : 0;
+  return rem < bay.lease;
+}
+let _trafficStale = false;
+function uiRoomWatch(){
+  const stale = uiTrafficStale();
+  if (stale && !_trafficStale) {
+    // Amber, not red: nothing has gone wrong. The sellers got better, which is
+    // the thing the player was trying to do, and the desk shrinking is the
+    // consequence — so it gets the "decide something" colour, not the alarm.
+    toast(uiRoomIcon(UI_RT.traffic) + ' ' + t('roomTrafficStale'), 'warn');
+    addLog(t('roomTrafficStale'), 'big');
+  }
+  _trafficStale = stale;
 }
 
 /** Readout #4, for somebody already seated: what the seat COSTS, not what it
@@ -2236,8 +2782,11 @@ function bayBuyCard(econ){
             ? t('bayBuyThin', { n: n, amt: money(lease), ret: money(Math.max(0, ret)) })
             : t('bayBuyValue', { ret: money(ret) })) +
           '</div>' +
+          // Only Production carries a callsign — see uiRoomTitle().
           '<div class="row-sub" style="color:var(--dim)">' +
-            esc(uiRoomName(best.type) + ' · ' + t('roomOn', { call: best.call })) + '</div>' +
+            esc(best.type === UI_RT.prod
+              ? t('roomHead', { room: uiRoomName(best.type), call: best.call })
+              : uiRoomName(best.type)) + '</div>' +
           /* And WHAT SETS that room's ceiling, before the money moves. The bay
              ladder is [40, 90, 180, 320, 520, 800] now, so rungs 3 and 4 sit
              inside the band real rooms are worth and this comparison decides
@@ -2247,8 +2796,7 @@ function bayBuyCard(econ){
              without the slots that set them is the gear ladder's old
              invisible-trap shape. */
           '<div class="row-sub" style="color:var(--dim)">' +
-            esc(t('roomCeilingLbl')) + ': ' +
-            esc(uiCeilingLine(best.type, allStations()[best.station],
+            esc(uiCeilingLabelled(best.type, allStations()[best.station],
               simRoomCeilingFor(allStations()[best.station], best.type))) +
             ' · ' + esc(uiCapCause(best.type, allStations()[best.station])) + '</div>'
       : '') +
@@ -2324,9 +2872,17 @@ function viewBuild(){
   if (!simBayCount() && !simRoomList().length) {
     h += '<div class="card"><div class="row-sub" style="color:var(--muted)">' + esc(t('bayNone')) + '</div></div>';
   } else {
+    // Realised first, structure second: "which room paid" is the question, and
+    // the grid under it is how you act on the answer.
+    if (simRoomList().length) h += roomYieldCard(econ);
     h += bayMatrix(econ);
     h += bayRoomRows(econ);
   }
+  // WHERE a production room would pay, on the screen where one is bought, and
+  // shown whether or not a bay exists yet — it is the number that decides
+  // whether the purchase is worth making at all, and it is unknowable from
+  // anywhere else in the game.
+  h += localTradeCard();
   h += bayBuyCard(econ);
   return h;
 }
@@ -2345,7 +2901,56 @@ function viewGear(){
   return h + '<div class="two-col">' +
     gearCard('tx', TX, st.tx, t('transmitter'), '📡', 'reach') +
     gearCard('ant', ANT, st.ant, t('antenna'), '🗼', 'fid') +
-  '</div>';
+  '</div>' + studioCard(st);
+}
+
+/** The second air studio (v3 §3d) — the one capital purchase that buys a RULE
+    rather than a multiplier: crewCapOf(st) = 1 + studios, so a one-studio
+    signal can carry a lead and nothing else.
+
+    It lives on the Gear tab with the transmitter and the antenna because it is
+    the same kind of decision — per station, one-off cash, permanent — and
+    because that is where a player goes looking for "what can I buy for this
+    signal". It was reachable from nowhere at all before this card: the cap
+    simply refused a co-host, on a screen with no way to lift it.
+
+    NO LEASE LINE, deliberately: unlike a transmitter tier, a studio adds
+    nothing to leaseFor(). Printing a "+$0/day" row would invent a cost sim
+    does not charge. */
+function studioCard(st){
+  const idx = allStations().indexOf(st);
+  const have = simStudios(st), max = simMaxStudios();
+  const cost = simStudioCost();
+  const can = simCanBuyStudio(idx);
+  const capNow = simCrewCap(st);
+  const capNext = Math.min(uiMaxCrew(), capNow + 1);
+
+  let h = '<div class="card" style="margin-top:10px"><div class="card-head">' +
+    '<span class="card-title">🎙️ ' + esc(tt('studioTitle')) + '</span>' +
+    '<span class="card-note">' + have + ' / ' + max + '</span></div>' +
+    '<div class="row"><div class="row-icon">🎙️</div><div class="row-body">' +
+      '<div class="row-title">' + esc(tt('studioHave', { n: have, max: max, cap: capNow })) + '</div>' +
+      '<div class="meter"><div class="meter-fill cyan" style="width:' + (have / max * 100) + '%"></div></div>' +
+      '<div class="row-sub">' + esc(tt('studioNote')) + '</div>' +
+    '</div></div>';
+
+  if (have >= max) {
+    return h + '<div style="text-align:center;padding:10px">' +
+      '<span class="pill max">' + esc(t('maxTier')) + '</span>' +
+      '<div class="row-sub" style="margin-top:6px">' + esc(tt('studioMaxed')) + '</div></div></div>';
+  }
+  return h + '<div class="row"><div class="row-icon">⬆️</div><div class="row-body">' +
+      '<div class="row-title">' + esc(tt('studioBuy')) + '</div>' +
+      // What it BUYS, as the rule it changes, before the money moves.
+      '<div class="row-sub" style="color:var(--green)">' +
+        esc(tt('studioGain', { call: stationCall(st), from: capNow, to: capNext })) + '</div>' +
+    '</div>' +
+    '<div class="row-act">' +
+      '<button class="btn buy" data-buystudio="' + idx + '"' + (can.ok ? '' : ' disabled') + '>' +
+        (can.ok ? esc(t('upgrade')) + ' · ' + money(cost)
+          : esc(t('short', { amt: money(can.short || cost) }))) +
+      '</button>' +
+    '</div></div></div>';
 }
 
 function gearCard(key, arr, idx, title, icon, statKey){
@@ -2768,7 +3373,10 @@ function viewFounding(){
   let h = '<div class="card"><div class="card-head">' +
     '<span class="card-title">🏙️ ' + esc(tt('foundTitle')) + '</span>' +
     '<span class="card-note">' + money(cost) + '</span></div>' +
-    '<div class="pick-sub">' + esc(tt('foundSub')) + '</div>';
+    '<div class="pick-sub">' + esc(tt('foundSub')) + '</div>' +
+    // The one thing about a new signal the player will never be able to change
+    // and cannot find out until the money is spent. Said before the money.
+    '<div class="pick-sub" style="color:var(--dim)">' + esc(t('foundLocalNote')) + '</div>';
 
   if (!all) {
     // SEGMENTS is content.js's table (CONTRACT). No invented rows here — a
@@ -2816,7 +3424,24 @@ function viewFounding(){
         // call site. It is the one line that explains what the number means.
         '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
           esc(tt('segCompSub')) +
-        '</div>';
+        '</div>' +
+        /* LOCAL TRADE, as a BAND and never as a number. st.localBase is rolled
+           the morning the licence issues and does not exist while this card is
+           on screen, so a figure here would be a lie on the one card the player
+           reads before spending five figures. The band is knowable; the roll is
+           not — which is exactly the property that makes the Production Room's
+           ceiling unchoosable, and it is worth seeing before the choice. */
+        (function(){
+          const band = (typeof segLocalRange === 'function') ? segLocalRange(id) : null;
+          if (!band) return '';
+          return '<div class="row-sub" style="margin-top:5px;color:var(--muted);font-size:11px">' +
+            esc(t('segLocalLbl')) + ' ' +
+            '<b style="color:var(--cyan)">' + Math.round(band.min * 100) + '–' +
+              Math.round(band.max * 100) + '%</b>' +
+            (typeof segLocalText === 'function' && segLocalText(id)
+              ? '<br>' + esc(segLocalText(id)) : '') +
+          '</div>';
+        })();
       })() +
     '</button>';
   }
@@ -2977,6 +3602,31 @@ function buyGear(key){
   render();
 }
 
+/** The second air studio. sim owns the price, the cap and the cash movement
+    (buyStudio books it as capex, exactly like a transmitter tier), so this only
+    calls it, says what changed IN THE RULE THE PLAYER CARES ABOUT — the crew
+    cap — and redraws. */
+function buyStudio2(idx){
+  if (typeof buyStudio !== 'function') { bridgeMiss('buyStudio'); return; }
+  const st = allStations()[idx];
+  if (!st) return;
+  const res = buyStudio(idx);
+  if (!res || !res.ok) {
+    toast(res && res.reason === 'cash'
+      ? t('short', { amt: money(res.short || 0) })
+      : tt('studioMaxed'), 'bad');
+    return;
+  }
+  const cap = simCrewCap(st);
+  addLog(tt('studioBought', { call: stationCall(st), n: cap }), 'big');
+  toast(tt('studioBought', { call: stationCall(st), n: cap }), 'good');
+  flySpend('[data-buystudio="' + idx + '"]', res.cost);
+  sfxBuy();
+  uiEconDirty();
+  saveGame(true);
+  render();
+}
+
 function hirePerson(id){
   const p = S.candidates.find(c => c.id === id);
   if (!p) return;
@@ -3112,6 +3762,17 @@ function reviewFounding(){
       row(tt('commitTalent'), tt('commitTalentVal', { staff: djs, slots: slotsAfter }), thin ? 'red' : 'green') +
     '</div>' +
     (thin ? '<p style="font-size:12px;color:var(--red);margin-top:10px">⚠️ ' + esc(tt('commitWarn')) + '</p>' : '') +
+    // The local-trade band, on the sheet where the buildout is committed. It is
+    // the ceiling of everything a Production Room could ever do on this signal
+    // and it is settled by the licence, not by the player.
+    (function(){
+      const band = (typeof segLocalRange === 'function') ? segLocalRange(pendingSegment) : null;
+      if (!band) return '';
+      return '<p style="font-size:12px;color:var(--muted);margin-top:10px">' +
+        esc(t('segLocalLbl')) + ' <b style="color:var(--cyan)">' +
+        Math.round(band.min * 100) + '–' + Math.round(band.max * 100) + '%</b> — ' +
+        esc(t('foundLocalNote')) + '</p>';
+    })() +
     '<p style="font-size:12px;color:var(--muted);margin-top:10px">' + esc(tt('foundSub')) + '</p>';
 
   openModal(tt('commitTitle'), tt('commitSub', { seg: seg.name }), body, [
@@ -3149,6 +3810,16 @@ function doFoundStation(segId){
   toast('🏙️ ' + tt('foundedMsg2', {
     call: stationCall(res.station), seg: seg ? seg.name : segId
   }), 'good');
+  /* THE ROLL, REVEALED THE MOMENT IT IS KNOWN AND ONLY THEN. sim rolls
+     st.localBase inside newStation() from the segment's band, and this is the
+     first instant it exists. It goes in the LOG rather than a toast because it
+     is a permanent fact about a signal the player will still own in three
+     hundred days — and because a toast that carries the one number the
+     Production Room is bounded by would be a number that scrolls away. */
+  addLog(t('localRolled', {
+    call: stationCall(res.station),
+    pct: Math.round(simLocalBase(res.station) * 100) + '%'
+  }), 'big');
   // A new callsign on the air is one of the four moments fx.js reserves a
   // sting for; sfxOnAir() is the generic good-news chime and this is not that.
   if (typeof sfxSignOn === 'function') sfxSignOn(); else sfxOnAir();
@@ -3252,8 +3923,15 @@ function openSlotEditor(stIdx, partId, redraw){
   }
 
   /* --- crew --- */
-  body += '<div class="' + hdrCls + '">' + esc(tt('pickCrew')) + ' · ' + crew.length + '/' + uiMaxCrew() + '</div>' +
-    '<div class="pick-sub">' + esc(tt('coHostNote')) + '</div>';
+  /* THE CAP IS crewCapOf(st), NOT A CONSTANT (v3 §3d). One air studio comes
+     with the licence and holds one voice; the second is a capital purchase on
+     the Gear tab. Reading MAX_CREW here would offer a third seat sim refuses,
+     which is the worst kind of control: one that looks available. */
+  const crewCap = simCrewCap(st);
+  body += '<div class="' + hdrCls + '">' + esc(tt('pickCrew')) + ' · ' + crew.length + '/' + crewCap + '</div>' +
+    '<div class="pick-sub">' + esc(tt('coHostNote')) + '</div>' +
+    '<div class="pick-sub">' + esc(tt('studioHave', {
+      n: simStudios(st), max: simMaxStudios(), cap: crewCap })) + '</div>';
 
   if (!crew.length) {
     body += '<div class="empty" style="padding:14px;color:var(--red)">' + esc(t('unstaffed')) + '</div>';
@@ -3292,13 +3970,19 @@ function openSlotEditor(stIdx, partId, redraw){
   // A full crew used to hide the bench entirely, so at the exact moment you
   // are deciding WHO to swap out you could no longer see who was available.
   // The bench now always renders; a full crew greys it and says why.
-  const crewFull = crew.length >= uiMaxCrew();
+  const crewFull = crew.length >= crewCap;
   if (crewFull) {
     body += '<div class="pick-sub" style="margin-top:8px">' + esc(tt('crewFull')) + '</div>';
   }
   if (crewFull && bench.length) {
+    // WHY it is full, and the way out. A cap the player cannot see the cause of
+    // reads as an arbitrary rule; a cap that names the missing studio is a
+    // purchase decision, which is what §3d made it.
     body += '<div class="pick-sub" style="margin-top:2px">' +
-      esc(cur.length + ' / ' + uiMaxCrew() + ' on air · drop someone above to free a seat') + '</div>';
+      esc(cur.length + ' / ' + crewCap + ' on air') + '</div>' +
+      (simStudios(st) < simMaxStudios()
+        ? '<div class="pick-sub" style="color:var(--amber)">' + esc(tt('crewCapFull')) + '</div>'
+        : '<div class="pick-sub">' + esc(tt('studioMaxed')) + '</div>');
   }
   if (!bench.length) {
     body += '<div class="empty" style="padding:12px">' + esc(t('noCandidates')) + '</div>';
@@ -3454,7 +4138,12 @@ function addCrew(ref, id){
     if (typeof sfxChem === 'function' && st) sfxChem(simChem(stSlot(st, part)));
     else sfxClick();
   } else if (res && res.reason === 'full') {
-    toast(tt('crewFull'), 'bad');
+    /* "Full" is a STUDIO now, not a constant, and a refusal that does not say
+       which is a refusal the player cannot act on. sim hands back the cap it
+       used; if a second studio is still buyable on this signal, the toast says
+       so and the Gear tab has the control. */
+    const st = allStations()[idx];
+    toast(st && simStudios(st) < simMaxStudios() ? tt('crewCapFull') : tt('crewFull'), 'bad');
   }
   afterSlotChange(ref);
 }
@@ -3539,8 +4228,12 @@ function openRoomEditor(roomId, redraw){
   const r = simRoomById(roomId);
   if (!r) return;
   const list = allStations();
-  const st = list[r.station];
-  if (!st) return;
+  // The index is a LABEL on a building object now, so a room whose station has
+  // been outlived (or a save with a stale index) still opens — it just has no
+  // callsign on it. Returning early here used to strand a bay nobody could
+  // reach, still billing.
+  const st = list[r.station] || null;
+  if (!list.length) return;
   if (!redraw) modalPause();
 
   const e = uiEconOf(roomId) || { pts: simRoomPower(r), cap: simRoomCeiling(r), waste: 0, value: null };
@@ -3556,9 +4249,9 @@ function openRoomEditor(roomId, redraw){
       (wasted ? '<s class="struck">' + esc(uiPts(e.pts)) + '</s>' : esc(uiPts(e.pts))) +
       ' / ' + esc(uiPts(e.cap)) + '</div>' +
       '<div class="ro-lbl">' + esc(t('roomCeilingLbl')) + '</div></div>' +
-    /* Zero is a real answer here and gets said out loud: a Newsroom on a board
-       with no talk hour returns EXACTLY $0/day however many people are in it,
-       and "+$0" in the positive style would read as a small win. */
+    /* Zero is a real answer here and gets said out loud: a Production Room in
+       a group with no local trade left returns EXACTLY $0/day however many
+       people are in it, and "+$0" in the positive style would read as a win. */
     '<div class="ro ' + ((e.value === null || e.value >= 0) ? 'neutral' : 'bad') + '">' +
       '<div class="ro-val">' + (e.value === null ? '—'
         : Math.abs(e.value) < 0.5 ? esc(money(0)) + esc(tt('perDay'))
@@ -3585,10 +4278,24 @@ function openRoomEditor(roomId, redraw){
     '</div>';
   // The rule under the readout, carrying no constant of its own.
   body += '<div class="readout-note" style="color:var(--dim)">' + esc(t('roomCeilingRule')) + '</div>';
-  body += '<div class="readout-note">' + esc(t('roomCeilingLbl')) + ': ' +
-    esc(uiCeilingLine(r.type, st, e.cap)) + '</div>';
+  body += '<div class="readout-note">' + esc(uiCeilingLabelled(r.type, st, e.cap)) + '</div>';
   if (uiRoomIsZero(r.type, st)) {
     body += '<div class="readout-note" style="color:var(--amber)">⚠️ ' + esc(uiRoomZeroText(r.type)) + '</div>';
+  }
+  // Pointed at a market with nothing left to win, while the group has some
+  // somewhere else — a different state from the structural zero above, and the
+  // one the Point-it-at control at the bottom of this sheet exists for.
+  if (uiProdMispointed(r.type, st)) {
+    body += '<div class="readout-note" style="color:var(--amber)">⚠️ ' +
+      esc(t('roomProdNoHead', { call: stationCall(st) })) + '</div>';
+  }
+  // The desk's whole shape, on the desk: it is paid out of what sales missed,
+  // and the day it returns less than its bay it says so instead of shrinking
+  // quietly (content's roomTrafficCounter / roomTrafficStale).
+  if (r.type === UI_RT.traffic) {
+    const stale = uiTrafficStale();
+    body += '<div class="readout-note" style="color:var(--' + (stale ? 'amber' : 'dim') + ')">' +
+      (stale ? '⚠️ ' : '') + esc(t(stale ? 'roomTrafficStale' : 'roomTrafficCounter')) + '</div>';
   }
   const margin = uiRoomMarginOf(roomId);
   if (margin !== null) {
@@ -3596,8 +4303,8 @@ function openRoomEditor(roomId, redraw){
       esc(margin > 0.5 ? t('roomMargin', { amt: money(margin) }) : t('roomMarginNone')) + '</div>';
   }
   // The bill this room is running up, against what it returns. Same line as the
-  // room card and the picker, so a Maintenance Bay reading +$320 on a $340 bay
-  // says it is losing money in every one of the three places it appears.
+  // room card and the picker, so a Rack Room reading +$320 on a $340 bay says
+  // it is losing money in every one of the three places it appears.
   const bay = uiRoomBay(roomId);
   if (bay && e.value !== null && seated.length && e.value < bay.lease) {
     body += '<div class="readout-note" style="color:var(--red)">' + esc(t('bayBuyThin', {
@@ -3696,24 +4403,33 @@ function openRoomEditor(roomId, redraw){
     });
   }
 
-  /* --- move the bay to another signal, and strip it --- */
-  if (list.length > 1) {
-    body += '<div class="pick-head">' + esc(t('roomMove')) + '</div><div class="seg" style="flex-wrap:wrap">';
+  /* --- point the production room at another signal ---
+     ONLY the Production Room. Re-pointing a Rack Room or a Traffic Desk was
+     always a no-op in v3 — both are one-per-building and their effect does not
+     read the index — and a control that changes nothing is worse than no
+     control: it teaches a rule the simulation does not have. The headroom each
+     signal still has is on the button, because that is the whole reason to
+     move it, and the copy for a market with none is under the row. */
+  if (r.type === UI_RT.prod && list.length > 1) {
+    body += '<div class="pick-head">' + esc(t('roomMove')) + '</div>' +
+      '<div class="pick-sub">' + esc(t('segLocalLbl')) + '</div>' +
+      '<div class="seg" style="flex-wrap:wrap">';
     list.forEach((s2, j) => {
-      const dup = j !== r.station && simRoomsOn(j).some(x => x && x.type === r.type);
-      const serves = simRoomServes(r.type, s2);
+      const head = simHeadroom(s2);
       body += '<button class="seg-btn' + (j === r.station ? ' on' : '') + '" ' +
         'data-moveroom="' + esc(roomId + '|' + j) + '"' +
-        ((dup || !serves || j === r.station) ? ' disabled' : '') + '>' + esc(s2.call) + '</button>';
+        (j === r.station ? ' disabled' : '') + '>' + esc(s2.call) + ' · ' +
+        esc(head > 0 ? Math.round(head * 100) + '%' : '0%') + '</button>';
     });
     body += '</div>';
-    if (list.some((s2, j) => j !== r.station && simRoomsOn(j).some(x => x && x.type === r.type))) {
-      body += '<div class="pick-sub" style="margin-top:6px">' + esc(t('roomDup')) + '</div>';
+    if (uiProdMispointed(r.type, st)) {
+      body += '<div class="pick-sub" style="margin-top:6px;color:var(--amber)">' +
+        esc(t('roomProdNoHead', { call: stationCall(st) })) + '</div>';
     }
   }
 
   openModal(
-    t('roomHead', { room: uiRoomName(r.type), call: stationCall(st) }),
+    uiRoomTitle(r),
     uiRoomBlurb(r.type),
     body,
     [
@@ -3724,40 +4440,63 @@ function openRoomEditor(roomId, redraw){
   );
 }
 
-/** Which room to put in a free bay, priced per type against THIS station:
-    the ceiling, what sets it, whether it is structurally zero here, and what
-    it would actually return with the best person you have.
+/** Which room to put in a free bay, priced per type against the BUILDING: the
+    ceiling, what sets it, whether it is structurally zero, and what it would
+    actually return with the best person you have.
 
-    This is the last screen before the build, so it is where a room that is
-    worth nothing ON THIS CALLSIGN has to say so before the bay is committed.
-    Each row prints the ceiling this station's SCHEDULE would give that room —
-    a Newsroom offered against a four-music board reads a ceiling of 0.0 with
-    the zero warning and a $0/day tag, and the Library beside it reads 12.0 —
-    which is the choice the whole feature is, made on one screen. The
-    Maintenance Bay's line names the plant instead, because it is the one room
-    the schedule does not set. */
+    THE PICKER IS NO LONGER PER CALLSIGN. Every room serves the whole group, so
+    the choice is between three rooms, not between three rooms times four
+    signals. The one place a signal still enters is the Production Room, whose
+    Σ headroom is spent per station — so it is offered pointed at the signal
+    with the most local trade left to win, and can be re-pointed afterwards.
+
+    This is the last screen before the money moves, so a room that is worth
+    nothing has to say so here: a Rack Room offered to a Part 15 group reads a
+    ceiling of 0.0 with the zero warning and a $0/day tag, and the Traffic Desk
+    beside it reads 6.0 — which is the whole decision, on one screen, and it
+    moves the moment the plant, the market or the sellers do. */
+function uiBestProdStation(){
+  const list = allStations();
+  let best = 0, top = -1;
+  for (let i = 0; i < list.length; i++) {
+    const h = simHeadroom(list[i]);
+    if (h > top) { top = h; best = i; }
+  }
+  return best;
+}
 function openRoomPicker(bayIdx, stIdx){
   const list = allStations();
-  const st = list[stIdx];
-  if (!st) return;
+  if (!list.length) return;
+  const here = clamp(Number.isFinite(stIdx) ? stIdx : curIndex(), 0, list.length - 1);
   modalPause();
   const lease = simBayLease(bayIdx);
   const base = uiEmpireWorth();
-  const types = simRoomTypeIds().filter(id => simRoomServes(id, st));
-  const open = types.filter(id => !simRoomsOn(stIdx).some(r => r && r.type === id));
+  // The building's own budget, asked of sim: one tech core, one log, and
+  // production capped at one short of the callsigns you own.
+  const open = simRoomTypeIds().filter(id =>
+    simRoomServes(id, list[here]) && simRoomsOfType(id).length < simRoomTypeCap(id));
 
   let body = '<div class="readout"><div class="readout-note">' +
-    esc(t('bayLine', { n: bayIdx + 1, amt: money(lease) })) + ' · ' +
-    esc(t('roomOn', { call: stationCall(st) })) + '</div>' +
+    esc(t('bayLine', { n: bayIdx + 1, amt: money(lease) })) + '</div>' +
     '<div class="readout-note">' + esc(t('bayThesis')) + '</div></div>';
 
   if (!open.length) {
     body += '<div class="empty">' + esc(tt('bayNoRoomHere')) + '</div>';
+    // Which cap it hit, in content's own words — "already has one" is a
+    // different sentence from "production runs one short of your signals".
+    const prodCap = simRoomTypeCap(UI_RT.prod);
+    body += '<div class="pick-sub">' + esc(t('roomDup')) + '</div>' +
+      '<div class="pick-sub">' + esc(list.length > 1
+        ? t('roomProdCap', { max: prodCap }) : t('roomProdCapNone')) + '</div>';
   }
   for (const type of open) {
+    // Only the Production Room carries a signal; the other two are the
+    // building's and the index is a label sim never reads.
+    const stIdxFor = (type === UI_RT.prod) ? uiBestProdStation() : here;
+    const st = list[stIdxFor];
     const pick = uiBestSeatFor(type, null);
     const worth = uiWhatIf(() => {
-      const res = (typeof buildRoom === 'function') ? buildRoom(stIdx, type) : null;
+      const res = (typeof buildRoom === 'function') ? buildRoom(stIdxFor, type) : null;
       if (!res || !res.ok) return null;
       if (pick && typeof seatInRoom === 'function') seatInRoom(res.room.id, pick.id);
       return uiEmpireWorth();
@@ -3766,9 +4505,9 @@ function openRoomPicker(bayIdx, stIdx){
     const zero = uiRoomIsZero(type, st);
     // Measured return against the bill this bay is already running up. A room
     // that cannot clear its own lease is flagged as a warning row whether or
-    // not its effect is structurally zero — the Maintenance Bay at the bottom
-    // of the gear ladder is the case this exists for, and it does not trip the
-    // zero test because its effect is real, just smaller than the lease.
+    // not its effect is structurally zero — the Rack Room at the bottom of the
+    // gear ladder is the case this exists for, and it does not trip the zero
+    // test because its effect is real, just smaller than the lease.
     const thin = gain !== null && pick && gain < lease;
     const cap = simRoomCeilingFor(st, type);
     /* THE NUMBER FIRST, then the sentence. Three rows offered against one
@@ -3786,8 +4525,8 @@ function openRoomPicker(bayIdx, stIdx){
             esc(t('roomPts', { pts: uiPts(0), cap: uiPts(cap) })) + '</span>' +
           '<span class="cap-cause"> · ' + esc(uiCapCause(type, st)) + '</span></div>' +
         '<div class="row-sub">' + esc(uiRoomBlurb(type)) + '</div>' +
-        '<div class="row-sub" style="color:var(--dim)">' + esc(t('roomCeilingLbl')) + ': ' +
-          esc(uiCeilingLine(type, st, cap)) + '</div>' +
+        '<div class="row-sub" style="color:var(--dim)">' +
+          esc(uiCeilingLabelled(type, st, cap)) + '</div>' +
         (zero ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' + esc(uiRoomZeroText(type)) + '</div>' : '') +
         (thin
           ? '<div class="row-sub" style="color:var(--red)">' + esc(t('bayBuyThin', {
@@ -3823,9 +4562,11 @@ function doBuildRoom(bayIdx, stIdx, type){
         : t('roomAssign'), 'bad');
     return;
   }
-  const st = allStations()[stIdx];
-  addLog(t('roomHead', { room: uiRoomName(type), call: stationCall(st) }), 'big');
-  toast(uiRoomIcon(type) + ' ' + t('roomHead', { room: uiRoomName(type), call: stationCall(st) }), 'good');
+  // uiRoomTitle names a callsign only where one means something (Production);
+  // the other two are the building's and are logged as themselves.
+  const title = uiRoomTitle(res.room);
+  addLog(title, 'big');
+  toast(uiRoomIcon(type) + ' ' + title, 'good');
   sfxBuy();
   uiEconDirty();
   saveGame(true);
@@ -3864,10 +4605,11 @@ function doStripRoom(roomId){
   saveGame(true);
   render();
 }
-/** Move = strip and rebuild, because sim owns "one of each per callsign" and a
-    ui-side reassignment of room.station would sail straight past it. The seats
-    are carried over, and if the rebuild is refused the room goes back exactly
-    where it was rather than evaporating. */
+/** Re-point a Production Room. Still a strip-and-rebuild rather than a write to
+    r.station, because sim owns the type cap and the bay budget and a ui-side
+    reassignment would sail straight past both. The seats are carried over, and
+    if the rebuild is refused the room goes back exactly where it was rather
+    than evaporating. */
 function doMoveRoom(roomId, stIdx){
   const r = simRoomById(roomId);
   if (!r || r.station === stIdx) return;
@@ -3932,8 +4674,8 @@ function buyBayFlow(){
     // resting on four.
     (best
       ? '<p style="font-size:12px;color:var(--dim);margin-top:6px">' +
-          esc(uiRoomName(best.type)) + ' · ' + esc(t('roomCeilingLbl')) + ': ' +
-          esc(uiCeilingLine(best.type, allStations()[best.station],
+          esc(uiRoomName(best.type)) + ' · ' +
+          esc(uiCeilingLabelled(best.type, allStations()[best.station],
             simRoomCeilingFor(allStations()[best.station], best.type))) +
           ' · ' + esc(uiCapCause(best.type, allStations()[best.station])) + '</p>'
       : '') +
@@ -4239,6 +4981,9 @@ function wire(){
     const buy = e.target.closest('[data-buy]');
     if (buy && !buy.disabled) return buyGear(buy.dataset.buy);
 
+    const studioB = e.target.closest('[data-buystudio]');
+    if (studioB && !studioB.disabled) return buyStudio2(+studioB.dataset.buystudio);
+
     const hireB = e.target.closest('[data-hire]');
     if (hireB && !hireB.disabled) return hirePerson(hireB.dataset.hire);
 
@@ -4303,11 +5048,9 @@ function wire(){
       const bits = pickRoomB.dataset.pickroom.split('|');
       return doBuildRoom(+bits[0], +bits[1], bits[2]);
     }
+    // One value now, not "bay|station": a bay is not pointed at a callsign.
     const buildB = e.target.closest('[data-buildroom]');
-    if (buildB) {
-      const bits = buildB.dataset.buildroom.split('|');
-      return openRoomPicker(+bits[0], +bits[1]);
-    }
+    if (buildB) return openRoomPicker(+buildB.dataset.buildroom.split('|')[0], curIndex());
     const roomB = e.target.closest('[data-openroom]');
     if (roomB) return openRoomEditor(roomB.dataset.openroom);
     const bayB = e.target.closest('#btn-buy-bay');
@@ -4446,7 +5189,12 @@ const FOCUS_SEL = '.mbtn:not(:disabled), .tab, .btn:not(:disabled), .slot, .swit
   // The building programme: the matrix cells ARE the build/edit control, and
   // the seat rows are how a room is staffed. A pad player who can buy a bay but
   // cannot put anybody in it has half the feature.
-  '.bay-cell.filled, .bay-cell.open, [data-seatadd], [data-seatdrop], [data-pickroom]';
+  '.bay-cell.filled, .bay-cell.open, [data-seatadd], [data-seatdrop], [data-pickroom], ' +
+  // ...and the two v3 controls that are not a .btn: re-pointing a Production
+  // Room, and the second air studio. `data-buystudio` IS a .btn and is already
+  // matched, but naming it here keeps the list a readable inventory of the
+  // building programme rather than a set of selectors that happen to cover it.
+  '[data-moveroom]:not(:disabled), [data-buildroom], [data-openroom], [data-buystudio]:not(:disabled)';
 
 let padOn = false;
 let padIdx = -1;

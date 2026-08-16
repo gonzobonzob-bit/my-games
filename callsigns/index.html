@@ -352,50 +352,39 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
    it is a room doing exactly what it can do, which happens to be nothing. */
 .cov-legend i.inert{background:var(--dim);}
 
-/* ---------- building programme: the bays x callsigns matrix ----------
-   §7 readout #1: ONE grid, never six per-bay panels. Rows are bays (the thing
-   you buy and pay a rising lease on), columns are callsigns (the thing a room
-   lands on), and a cell IS the room — which is what a room is: a bay pointed
-   at a signal.
+/* ---------- building programme: the bay strip ----------
+   §7 readout #1: ONE grid, never six per-bay panels. Rows are bays — the thing
+   you buy and pay a rising lease on — and the cell IS the room in it.
 
-   Sized for the phone first. The gutter carries "3" over "$340" rather than
-   "Bay 3 — $340/day", because at 320px there is nothing left to give. The full
-   sentence is on the cell's aria-label, so nothing is lost to a screen reader
-   or to a long-press.
+   THE CALLSIGN COLUMNS ARE GONE (rooms v3). Every room is sited in the
+   BUILDING now: one chief engineer covers every rack, one traffic desk builds
+   one log for the group, and production capacity is pooled across the signals
+   by headroom. A grid with a room sitting under exactly one callsign was
+   drawing a claim the simulation had stopped making — and content.js says so
+   on the card itself ("Nothing in here belongs to a single callsign").
 
-   RE-MEASURED IN A HEADLESS BROWSER at THREE room types (the Sales Floor and
-   the Green Room are both cut), four callsigns, six bays, six rooms — 24 cells
-   on screen. The cut moved NOTHING here, and that is the point of the shape:
-   the columns are CALLSIGNS (capped at MAX_STATIONS = 4) and the rows are BAYS
-   (capped at MAX_BAYS = 6), so no number in this grid can move when a room
-   type is added or removed. Measured 54.00 x 48.00 at 320, 56.50 x 48.00 at
-   360, 64.00 x 48.00 at 390, with no horizontal overflow at any of them.
+   RE-MEASURED IN A HEADLESS BROWSER at four callsigns, four bays, three rooms:
 
-   The earlier note here did the arithmetic by hand, dropped the 8px scrollbar
-   and the card's 1px border, and quoted 56px — the real figure at 320px is 54,
-   and the walk that gets there is:
+     320px viewport — cell 225.00 x 48.00, grid 220.50 tall, overflowX 0
+     390px viewport — cell 268.00 x 48.00, grid 224.50 tall, overflowX 0
 
-     320 viewport - 8 scrollbar - 16 .content padding = 296 card
-     296 - 2 card border - 20 card padding            = 274 grid
-     274 - 46 gutter - 4 gaps x 3px                   = 216 / 4 = 54.00 x 48px
+   against 54.00 x 48.00 for the same card before this pass. Nothing on the tab
+   measures under 44px on either axis at either width (checked by walking every
+   button in #pane-build, not by eye). The width is what bought the row: the old
+   54px cell could hold an icon and one number, and which room it was and what
+   it returned were reachable only through the aria-label or by opening the
+   sheet. 225px carries the name, the meter, the points against the ceiling and
+   the measured return, at 48px, on one line each.
 
-   and at 390 (the design target) the same walk gives 64.00 x 48px. 359px is
-   the worst case in the whole range at 63.75; 360px flips to the wider gutter
-   and 4px gaps and lands at 56.50. Every one of those clears the 44px floor on
-   both axes.
+   HEIGHT: 220.50 at four bays, so a row pitch of 51 (48 + 3px gap) and about
+   325px at the six-bay cap — the same order as the four-column version it
+   replaces (322.5 at six rows), on a 760px phone that also carries a HUD and a
+   tab bar. Rows are exactly the bays, and no row can appear without a lease
+   beside it.
 
-   HEIGHT, measured at the worst case the game can produce (six bays, six rooms,
-   four callsigns): 322.5px at 320px and 328.5px at 390px, six rows of 48 plus
-   the head. Rows used to be "one per bay, PLUS one per granted Sales Floor" —
-   a grandfathered floor paid no lease and ate no bay — so the same empire could
-   reach ten rows and ~525px of grid, scrolling on a 760px phone that also
-   carries a HUD and a tab bar. Rows are exactly the bays now, and no row can
-   appear without a lease beside it, which is the honest version of the same
-   change.
-
-   Cells are 48px, above the 44px floor, and the two states that are NOT
-   controls (an occupied bay's other columns) are spans rather than buttons —
-   so there is no 20px target anywhere in the grid and nothing to mis-tap. */
+   There are no non-control spans left in the grid at all: the "this bay is not
+   pointed at this callsign" cell was the only one, and it went with the
+   columns. Every cell in the strip is a button. */
 :root{ --bay-gutter:56px; }
 .bay-grid{display:grid;gap:4px;}
 .bay-head{
@@ -440,12 +429,23 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   border-style:dashed;border-color:rgba(34,211,238,.42);color:var(--cyan);
   font-size:18px;font-weight:800;background:transparent;
 }
-/* Not a control and not a state — this bay is simply not pointed at this
-   callsign. Empty, solid-bordered and aria-hidden, so it never reads as the
-   dashed "build here" cell and never puts 2:1 text on the screen. */
-.bay-cell.off{
-  border:1px solid rgba(44,52,104,.5);background:transparent;
+/* THE ONE-COLUMN CELL. 225px at 320 buys a real row: icon, name over meter,
+   and the two numbers that decide anything — points against ceiling, and the
+   measured return — right-aligned in a column of their own so they line up
+   down the strip and can be compared without reading. */
+.bay-cell.wide{
+  flex-direction:row;align-items:center;justify-content:flex-start;
+  gap:8px;padding:6px 9px;text-align:left;
 }
+.bay-cell.wide .bc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+.bc-name{
+  font-size:12px;font-weight:800;color:var(--muted);line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.bay-cell.open .bc-name{color:var(--cyan);font-weight:700;white-space:normal;}
+.bc-side{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;}
+.bc-val{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;}
+.bc-val.up{color:var(--green);} .bc-val.down{color:var(--red);} .bc-val.zero{color:var(--dim);}
 .bc-ico{font-size:15px;line-height:1;}
 .bc-meter{
   width:100%;height:4px;border-radius:2px;background:rgba(0,0,0,.4);
@@ -456,6 +456,46 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .bay-cell.filled.idle .bc-meter i{background:var(--amber);}
 .bc-pts{font-size:10px;font-weight:800;letter-spacing:.2px;font-variant-numeric:tabular-nums;color:var(--muted);}
 .bay-cell.filled.over .bc-pts{color:var(--red);}
+
+/* ---------- what each room returned (§10 item 7) ----------
+   Three rows, three dollar figures, always all three — a room earning nothing
+   has to be visibly different from a room earning, and the only way to show
+   that is to put them next to each other. A type with no room in a bay is
+   dimmed rather than dropped, because "you do not have one" and "you have one
+   and it returned nothing" are different answers and the card is read for
+   exactly that difference. */
+.yield-row{
+  display:flex;align-items:center;gap:9px;padding:7px 0;
+  border-bottom:1px solid rgba(44,52,104,.45);
+}
+.yield-row:last-of-type{border-bottom:0;}
+.yield-row.off{opacity:.55;}
+.yield-ico{font-size:17px;line-height:1;flex:none;width:22px;text-align:center;}
+.yield-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.yield-name{font-size:12px;font-weight:800;color:var(--muted);}
+/* 11px, not 10, and the reason is size rather than colour: --dim (#868ec0) on
+   --panel (#171d40) measures 5.17:1, comfortably past the 4.5:1 AA floor for
+   body text — but this line carries a whole SENTENCE of explanation, and a
+   sentence at 10px is a texture. Measured, not guessed: --muted is 5.50:1 and
+   --dim 5.17:1 on --panel; the same two on --panel2 are 4.92:1 and 4.63:1. */
+.yield-note{font-size:11px;color:var(--dim);line-height:1.35;}
+/* The compact form, in the Daily Brief: three chips, one per room, so the
+   split is visible every single day on the tab the player lives on without
+   spending five lines of a card that is already full. */
+.yield-strip{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:5px;
+  font-size:11px;color:var(--dim);
+}
+.yield-chip{white-space:nowrap;}
+.yield-chip.off{opacity:.5;}
+.yield-chip b{font-variant-numeric:tabular-nums;}
+.yield-chip b.up{color:var(--green);} .yield-chip b.down{color:var(--red);} .yield-chip b.zero{color:var(--dim);}
+
+/* Local trade: two bands in one meter — what a phone call already closes, and
+   the part a production room can still win. The second band IS the headroom,
+   so the bar and the figure beside it are the same fact. */
+.meter.local{display:flex;}
+.meter-fill.dim{background:rgba(134,142,192,.45);}
 
 /* Readout #3, the one this whole tab is built around: points above the
    ceiling are struck through and counted, because they are worth exactly
@@ -764,6 +804,10 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 }
 .toast.good{border-color:rgba(52,211,153,.5);}
 .toast.bad{border-color:rgba(248,113,113,.5);}
+/* The third kind, and the Traffic Desk is what it exists for: nothing has gone
+   wrong, and there is still a decision to make. Red would read as a fault the
+   player caused; green would read as "carry on". Amber is neither. */
+.toast.warn{border-color:rgba(251,191,36,.55);}
 @media (prefers-reduced-motion:no-preference){
   .toast{animation:toastIn .25s ease;}
   @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
@@ -853,12 +897,14 @@ body.pad-on .pad-hint{display:flex;}
   .card{padding:12px 10px;}
   .cov-head,.cov-row{grid-template-columns:42px repeat(4,1fr);gap:3px;}
   .cov-call{font-size:10px;}
-  /* Measured, not derived: 54.00 x 48px a cell across four callsigns at 320px
-     (the full walk is above .bay-grid, and it includes the 8px scrollbar the
-     old hand-count here missed). The cell keeps its 48px height; only the
-     gutter and the gaps give. Six tabs also share 320px here: the labels are
-     10px and the widest is "Studio", so nothing wraps. */
+  /* Measured, not derived: 225.00 x 74.50 a cell at 320px with the one-column
+     bay strip (the full walk is above .bay-grid). The gutter still gives here —
+     46px carries "3" over "$340" and nothing more — but the cell no longer
+     needs to: there is one of it per row instead of four. Six tabs also share
+     320px: the labels are 10px and the widest is "Studio", so nothing wraps. */
   :root{ --bay-gutter:46px; }
+  .bay-cell.wide{padding:6px 7px;gap:6px;}
+  .bc-name{font-size:11px;}
   .bay-grid{gap:3px;}
   .bay-head,.bay-row{gap:3px;}
   .bay-lbl b{font-size:12px;}

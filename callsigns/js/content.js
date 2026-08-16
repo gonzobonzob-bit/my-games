@@ -17,14 +17,24 @@
 //   - Event pool expanded to 20, every one writing only to cash / rep / buzz,
 //     because those three fields exist in the v2 and v3 state shapes both.
 //
-// Bays-and-rooms content pass (DESIGN_PROOF_ROOMS.md, revised by
-// DESIGN_PROOF_ROOMS_V2.md). What landed here:
+// Bays-and-rooms content pass (DESIGN_PROOF_ROOMS.md, revised by _V2.md and
+// REPLACED WHOLESALE by DESIGN_PROOF_ROOMS_V3.md). What landed here:
 //   - BAY_LEASE, the empire-wide building ladder, paid empty. Re-rungged in v2:
 //     the old ladder's top three rungs cost more than the best room in the game
 //     was worth, so the measured player bought one bay and stopped.
-//   - ROOM_TYPES: THREE rooms, all serves:['radio'], keyed on ROLE fit and never
+//   - ROOM_TYPES: THREE rooms — rack, prod, traffic — all serves:['radio'], all
+//     sited on the BUILDING and not on a callsign, keyed on ROLE fit and never
 //     on skill rank (everyone is skill 10 by hour 2 — §5 defect B).
-//     TWO ROWS HAVE BEEN CUT AND NEITHER COMES BACK:
+//     FOUR ROWS HAVE BEEN CUT AND NONE OF THEM COMES BACK:
+//       Newsroom — v3 §4. Its value was inserts x rep, and inserts are
+//         proportional to the music dayparts the player schedules, for free and
+//         reversibly, knowing the room exists. That is Purr & Power's
+//         cost-basis self-reference wearing a schedule instead of money. The
+//         News Director survives as a person and SHOWS.news.rep = 2.20 already
+//         pays for airing news.
+//       Record Library — there is no music-library room in 2026. The library is
+//         a database inside the scheduling system and the librarian is a Music
+//         Director wearing a second hat. Person kept, room cut.
 //       Sales Floor — structurally negative at every seller count (−$3,871/day at
 //         three sellers, −$670/day at six). The empire-wide reading stacks
 //         sellers geometrically and applies the total to every station; a
@@ -41,8 +51,13 @@
 //     the same way SEGMENTS is, so the two cannot drift.
 //   - The §7 readouts: ceiling, wasted points, seat cost, bay-purchase preview
 //     and causeOverbuilt.
-// MAX_BAYS, ROOM_SEATS and roomPower() are sim.js's; nothing here duplicates
-// them, for the reason in house rule 2 below.
+//   - v3: SEGMENTS[id].localRange, the band a station's local-advertiser base is
+//     ROLLED from at sign-on. The player never sets it and never sees it before
+//     the buildout is paid — that is the repair for the defect that sank v1 and
+//     v2, where every room ceiling was a schedule the player could set for free.
+// MAX_BAYS (6 bays, empire-wide) and ROOM_SEATS are sim.js's, as is roomPower();
+// nothing here duplicates them, for the reason in house rule 2 below. Three room
+// types against six bays is deliberate: bays are the scarce thing, not types.
 //
 // TWO HOUSE RULES THIS FILE IS HELD TO, both learned off the vault's repeat
 // failure mode (copy that lies):
@@ -267,6 +282,17 @@ const STR = {
     foundSub: 'Pick the slice of the market you are going after. It is fixed once the licence issues.',
     foundCost: 'Buildout {amt}',
     foundLease: 'Lease from day one: {amt}/day, before you fit any gear.',
+    /* THE FOUNDING CARD'S LOCAL-TRADE LINE, and the reason it names no number:
+       localBase is rolled inside SEGMENTS[seg].localRange the morning the
+       licence issues, and it is NOT KNOWN while this card is on screen. A
+       figure here would be a lie on the one card the player reads before
+       spending five figures. The segment's character is knowable; the roll is
+       not. Per-segment prose lives in STR.en.seg[id].local and is stamped onto
+       the SEGMENTS rows, exactly like taste and rule. */
+    segLocalLbl: 'Local trade',
+    foundLocalNote: 'How much of a signal\'s billing local shops can carry is settled when the licence issues, somewhere inside this segment\'s band. You do not pick it, and no room, seller or transmitter raises it afterwards.',
+    // After the buildout is paid: the roll, once, in the log.
+    localRolled: '{call} signed on. Local advertisers there can carry {pct} of its billing, and that is the whole of what a production room could ever chase.',
     foundWarn: 'It arrives with a transmitter and no people. Morning drive on it happens at the same 6 AM as morning drive on this one.',
     foundSplit: 'Two of your own signals in one segment split one pool. Total audience barely moves; the lease and the payroll both double.',
     foundCapNote: 'Four signals is the licence cap. Past that the only thing left to buy is better people.',
@@ -311,7 +337,7 @@ const STR = {
     uncovered: 'Uncovered today', uncoveredNone: 'Every slot has a voice on it.',
     uncoveredSlot: '{call} {part} — automation',
 
-    /* ---- v7: bays and rooms (DESIGN_PROOF_ROOMS.md §7) ----
+    /* ---- bays and rooms (DESIGN_PROOF_ROOMS_V3.md §2, §9) ----
        This game has twice shipped a mechanic nobody could see — rival capacity
        rendered a static constant for a whole version, and signal condition
        needed a gauge retrofitted. These keys are the nine readouts the proof
@@ -329,22 +355,29 @@ const STR = {
          seatDiluted {n}               seatEngWarn {call}
          briefBayLease {amt}           briefRooms {amt},{cost}
          briefBaysIdle {n},{amt}       goalBay {amt}
-         roomCapNews {n}               roomCapLib {n}
+         briefRemnant {amt}            briefLocal {pct}
+         briefRack — none              roomProdCap {max}
+         roomProdNoHead {call}         localRolled {call},{pct}
+         roomCapRack / roomCapProd / roomCapTraffic / roomCapZero /
+           roomTrafficCounter / roomTrafficStale / roomProdCapNone /
+           foundLocalNote / segLocalLbl — no vars
          room.<id>.ceiling — its own variable list is on the table below.
        Amounts arrive already formatted by ui.js's money helper, as everywhere
-       else in this file; {pts}/{cap}/{waste} are one-decimal point figures. */
+       else in this file; {pts}/{cap}/{waste} are one-decimal point figures and
+       every {pct} is a whole-number percentage WITHOUT its sign. */
     bayTitle: 'Building Programme',
-    baySub: 'Six bays for the whole empire, not six per signal. One room to a bay, and the room works on one callsign.',
+    baySub: 'Six bays for the whole group, not six per signal. What sits in them works for every callsign in the building.',
     // The thesis of the whole feature, in one line, on the screen where it is
     // about to be got wrong. Everything else here is detail underneath it.
-    // v2 moved the first sentence: the ceiling is now 3.0 points per SERVED
-    // SLOT, so an all-music station's Newsroom caps at zero however many people
-    // are sitting in it. Schedule first, roster second.
-    bayThesis: 'A room is worth your schedule, not your roster. Seat someone who is already on the air and you have moved them, not multiplied them.',
-    bayMatrixNote: 'Every bay against every signal, one grid. A room is a bay pointed at a callsign.',
+    // v3 moved it again, and this time off the schedule entirely: a room is now
+    // ceilinged by the plant on the tower, the local trade the market rolled at
+    // sign-on, and the airtime you failed to sell. None of the three is a thing
+    // the player can set for free between one morning and the next.
+    bayThesis: 'A room is worth what it is pointed at, not who is in it — the plant on your towers, the local trade in the market, the airtime you did not sell. Seating someone moves them; it does not multiply them.',
+    bayMatrixNote: 'Three rooms, six bays, one building. Nothing in here belongs to a single callsign.',
     // For nextGoal(), if ui.js wants a rung between "found a station" and the
     // end of the ladder. Names the cost, because the lease is the price.
-    goalBay: 'A bay is affordable — {amt}/day, one room, one signal (Building)',
+    goalBay: 'A bay is affordable — {amt}/day, and it bills empty (Building)',
     bayNone: 'No bays. Everything you own is on the air and nothing is standing behind it.',
     bayLine: 'Bay {n} — {amt}/day',
     bayEmpty: 'Empty bay — {amt}/day',
@@ -360,8 +393,13 @@ const STR = {
     bayLeaseLbl: 'Bay leases',
 
     roomLbl: 'Room', roomAssign: 'Put a room in this bay', roomOn: 'On {call}',
-    roomMove: 'Move to another signal', roomClear: 'Strip the bay',
-    roomDup: 'This signal already has one. One of each per callsign.',
+    roomMove: 'Point it at another signal', roomClear: 'Strip the bay',
+    roomDup: 'The building already has one, and one is all it needs — it covers every callsign.',
+    /* Production is the exception and the real cluster's shape: rooms run one
+       short of signals, so a group can never produce local spots for everything
+       it owns. {max} is stationCount() - 1. */
+    roomProdCap: 'Production tops out at {max} rooms — one short of the callsigns you own. Somebody is always waiting on copy.',
+    roomProdCapNone: 'One signal, no production room. There is nothing to share it with yet.',
     roomHead: '{room} — {call}',
     roomPts: '{pts} / {cap} pts',
     // THE readout. Points above the ceiling are worth zero dollars — not fewer
@@ -371,25 +409,35 @@ const STR = {
     roomWasteNote: 'Points past the ceiling earn nothing. Not less — nothing. The salaries are still due.',
     roomHeadroom: '{n} points of headroom before this room stops paying.',
     roomAtCeiling: 'At the ceiling. The next person in here is payroll and nothing else.',
+    /* A Production Room on a station with no headroom is the one case where the
+       player has bought something entirely real that does nothing at all here.
+       Say it plainly, once, and say where it would work instead. */
+    roomProdNoHead: 'Every spot this room cuts for {call} is a real spot that moves no number. That market has no local trade left to win — point the bay at another signal or strip it.',
+    /* The Traffic Desk is the game's first counter-cyclical asset: it is paid
+       out of the inventory your sellers could NOT move, so it is worth most on
+       your worst week and least on your best. This line is the warning that it
+       is designed to work its way out of a job. */
+    roomTrafficCounter: 'This desk lives on what sales missed. Every point of sellout you gain takes work off it — the first thing you will own that you should one day close.',
+    // Fires when the desk's realised return falls under the bay lease. Not a
+    // reprimand and not a congratulation: the room got smaller because the
+    // sellers got better, which is the shape of the whole asset.
+    roomTrafficStale: 'The desk returned less than the bay under it. Nothing has gone wrong — there is simply less going unsold. Strip the bay and put the person back on the air.',
     roomMargin: 'Next point ≈ +{amt}/day',
     roomMarginNone: 'Next point ≈ nothing. Raise the ceiling or move the people.',
     roomEmpty: 'Nobody seated. The bay bills anyway.',
     /* The tail of the card, after the wasted-points figure and subordinate to
-       it: "7.0 / 3.0 pts — 4.0 wasted · ceiling set by 1 talk slot". Four
-       dayparts, so {n} is 0-4 and only the two schedule rooms take one. Two
-       forms each, because "1 talk or news slots" reads as a bug on the one line
-       whose whole job is to be trusted — the same idiom as seatDiluted1. */
-    roomCapNews:   'ceiling set by {n} talk or news slots',
-    roomCapNews1:  'ceiling set by one talk or news slot',
-    roomCapLib:    'ceiling set by {n} music slots',
-    roomCapLib1:   'ceiling set by one music slot',
-    roomCapMaint:  'ceiling set by the plant, not the schedule',
-    roomCapZero:   'nothing on this board serves this room — ceiling zero',
-    // The rule under the readout. Deliberately carries no constant: the ceiling
-    // per served slot is sim.js's ROOM_PTS_PER_SERVED_SLOT and the balance pass
-    // is licensed to move it, so this line says the SHAPE and lets the numbers
-    // come from the ceiling figure itself.
-    roomCeilingRule: 'Every daypart you point at a room raises its ceiling. Hiring does not.',
+       it: "7.0 / 3.0 pts — 4.0 wasted · ceiling set by the plant on the tower".
+       One form per room, each naming the piece of the WORLD that set the number
+       — never a schedule, because no room is paid on the schedule any more. */
+    roomCapRack:    'ceiling set by the plant on your towers',
+    roomCapProd:    'ceiling set by the local trade this market has',
+    roomCapTraffic: 'ceiling set by the airtime you failed to sell',
+    roomCapZero:    'nothing here for this room to work on — ceiling zero',
+    // The rule under the readout. Deliberately carries no constant: every per-
+    // point rate is sim.js's and the balance pass is licensed to move all of
+    // them, so this line says the SHAPE and lets the numbers come from the
+    // ceiling figure itself.
+    roomCeilingRule: 'A ceiling is set by the world — your plant, your market, your unsold log. Hiring fills a ceiling. It never raises one.',
     roomCeilingLbl: 'Ceiling', roomSeatsLbl: 'Seats', roomSeats: '{n} of {max} seats',
     roomFitLbl: 'Seat value by role',
     // Defect B, stated as copy: everyone is skill 10 eventually, so the decision
@@ -416,6 +464,11 @@ const STR = {
     briefBayLease: 'Bay leases {amt}/day',
     briefRooms: 'Rooms returned {amt} against {cost} of bay lease.',
     briefBaysIdle: '{n} bays stood empty. {amt} out, nothing back.',
+    // One line per room effect that actually moved money yesterday, so a room
+    // earning nothing is visibly different from a room earning (v3 §9).
+    briefRemnant: 'Traffic cleared {amt} of airtime that would have expired unsold.',
+    briefLocal: 'Local direct carried {pct} of the billing. The rest went out through a rep firm and an agency, and both took their cut.',
+    briefRack: 'The rack room held wear down on every signal in the group.',
 
     logTitle: 'Station Log', noLog: 'Nothing logged yet.',
 
@@ -466,14 +519,13 @@ const STR = {
     // (DESIGN_PROOF_ROOMS.md §4). {n} is bays owned, {k} is rooms with anyone
     // actually sitting in them.
     causeOverbuilt: 'You were paying for {n} bays and staffing {k}. An empty room bills every morning and bills back nothing.',
-    /* NEW, and it needs one branch in ui.js's cause picker or it never fires:
-       {k} rooms that had people in them and a served-slot ceiling of zero —
-       roomCeiling(st, type) === 0 with roomPower > 0. That is the specific
-       failure the v2 ceiling makes possible and the old flat-10 ceiling could
-       not: a fully staffed building earning nothing at all. Site it directly
-       after causeOverbuilt; an empty room is the cruder mistake and should win
-       the tie. */
-    causeRoomsCold: '{k} rooms staffed over a schedule that served none of them. Ceiling zero, so every point in them earned zero. The leases and the salaries did not.',
+    /* Needs one branch in ui.js's cause picker or it never fires: {k} rooms
+       that had people in them and a ceiling of zero — roomCeiling === 0 with
+       roomPower > 0. In v3 there are exactly three ways to be in that state and
+       the line names all three, because a player who reaches this screen is
+       owed the specific one. Site it directly after causeOverbuilt; an empty
+       room is the cruder mistake and should win the tie. */
+    causeRoomsCold: '{k} rooms staffed against a ceiling of zero — no plant worth protecting, no local trade to win, or a log with nothing left unsold. Every point in them earned nothing. The leases and the salaries did not.',
     causeTalentThin: '{n} people against {slots} slots. Most of the empire aired automation at a third quality while you paid full lease for the privilege.',
     causeGearHeavy: 'The transmitter ladder ran three tiers ahead of the billing. Reach you cannot sell is just a bigger lease.',
     causeAdsOnly: 'The log was full and the reputation was gone. Paid programming pays today and closes every gear tier you had left.',
@@ -492,10 +544,18 @@ const STR = {
     // `taste` describes the row's `fit` multipliers and nothing else — if a fit
     // number moves, its taste line moves with it.
     seg: {
+      /* `local` describes the row's localRange band and NOTHING ELSE. It is
+         read on the founding card, before the roll exists, so no line here may
+         name a figure — it says what kind of advertiser is out there and how
+         they buy. If a localRange moves, its line moves in the same commit
+         (house rule 1); quadrangle's especially, because its band tops out at
+         exactly the no-production baseline and the line has to say so rather
+         than hedge. */
       citywide: {
         name: 'Downtown Hit Radio',
         blurb: 'The biggest pool in the market with four incumbents already standing in it. Glass storefront studio, tower space rented by the foot.',
         taste: 'Wants music. Tolerates talk. Punishes a brokered hour.',
+        local: 'A real local trade — car dealers, furniture rows, a hospital group — and a good share of it already booked through an agency downtown.',
         rule: 'No house rule. Just everybody else.'
       },
       /* RETUNED (DESIGN_PROOF_ROOMS_V2.md §4, change #7). `fit` moved from
@@ -509,12 +569,14 @@ const STR = {
         name: 'County Line Talk and Trade',
         blurb: 'A swap-shop hour, the noon market report, obituaries read on air and every school closing in two counties. The tower sits on leased pasture forty minutes out, which is why the rent is cheap.',
         taste: 'News pulls hardest, talk just behind it, and it is the only crowd in the market that sits through the ads. Music is the one format this segment does nothing for.',
+        local: 'The strongest local trade on the dial, and nearly all of it closable in person. The feed store, the implement dealer and the funeral home buy direct or not at all.',
         rule: 'No house rule. Remote broadcasts are half the job.'
       },
       ledger: {
         name: 'News, Weather and Business',
         blurb: 'Morning-loaded, dead by nine at night, and the incumbents swing hard week to week. Nobody forgives a missed top-of-hour.',
         taste: 'News and talk pull hardest here. Music is close to wasted.',
+        local: 'Thin local trade. Most of this billing is placed out of town by an agency that has never heard your morning show, and it arrives already discounted.',
         // Checked against sim.js: segRiskMul() is applied to EVERY slot on the
         // segment, unconditionally — it is not gated on whether an engineer is
         // assigned. The first draft of this line said "15% higher without one",
@@ -526,12 +588,14 @@ const STR = {
         name: 'Night Shift Rhythm',
         blurb: 'Hospital corridors, warehouse floors, the long drive home at one in the morning. Small pool, and almost nobody fighting you for it.',
         taste: 'Music, heavily. News least of all — they have already heard it.',
+        local: 'Middling local trade, bought by the people who are also awake: the all-night diner, the tow yard, the twenty-four-hour pharmacy. There are not many of them.',
         rule: 'No house rule. This audience is awake when yours is not.'
       },
       quadrangle: {
         name: 'Campus and Specialty',
         blurb: 'A reserved-band licence, a student board op learning live on the air, and the best Thursday night in the market. Daytime is nearly empty.',
         taste: 'The strongest music pull in the game and the weakest tolerance for ads.',
+        local: 'Barely any local trade at all. A reserved-band licence takes underwriting, not spots, and there is nothing here a produced commercial can win. A production room on this signal will earn nothing, ever.',
         rule: 'No house rule. The cheapest lease you will ever sign.'
       }
     },
@@ -541,50 +605,70 @@ const STR = {
        and the two can never drift.
 
        `ceiling` is the line the whole feature stands on. Every room's output has
-       a ceiling set by state the player chose, and a point above it is worth
-       EXACTLY zero dollars — so each ceiling line names the state that sets it,
-       in the player's own terms, and says what happens at the wrong end of it.
-       Variables, by room, and UNCHANGED from v1 so ui.js's uiCeilingLine()
-       keeps supplying exactly what each key asks for:
-         maint   {tx},{ant}       news {n},{call}       library {n},{call}
-       Newsroom and Record Library are deliberately written as mirror images:
-       their supports are disjoint (talk/news against music, with paid
-       programming served by neither), and reading the two lines side by side is
-       how a player learns that no fixed room order is right.
+       a ceiling, and a point above it is worth EXACTLY zero dollars — so each
+       ceiling line names the state that sets it, in the player's own terms, and
+       says what happens at the wrong end of it. Variables, by room:
+         rack    {tx},{ant}     the heaviest transmitter and antenna standing in
+                                the whole GROUP, not on one callsign — the room
+                                is one tech core covering every signal
+         prod    {call},{pct}   the station's rolled local-advertiser base as a
+                                whole-number percentage, no sign
+         traffic {pct}          the share of the GROUP's log that went UNSOLD
+                                yesterday, whole-number percentage, no sign.
+                                NO {call}, DELIBERATELY: salesFill() takes no
+                                station argument and fillCap() reads the global
+                                S.rep, so sellout — and therefore remnant — is
+                                empire-wide. A per-callsign figure on this card
+                                would be a number the simulation does not have.
+                                It is also the truer object: one continuity
+                                manager builds ONE daily log for the cluster.
 
-       THE CEILING IS THE SCHEDULE, AND THAT IS THE LESSON. v2 replaced the flat
-       ten points with 3.0 points per SERVED SLOT — a daypart running a show the
-       room is paid on — so a Newsroom on the default music/music/talk/music
-       board caps at 3 points, and one skill-10 DJ brings 7. The card reads
-       "7.0 / 3.0 pts — 4.0 wasted", and four of those points are the salary of
-       somebody achieving nothing. No line here may imply that hiring raises a
-       ceiling. It does not. Airing the format does.
+       THE TWO ARE ASYMMETRIC ON PURPOSE. Production is measured per station
+       because a local-advertiser base genuinely is per signal; Traffic is
+       measured on the group because the log and the sellout level genuinely are.
+       If the Building screen ever reads oddly for it, the fix is to show the two
+       in separate groups, not to invent a per-station remnant number.
 
-       THE ORDER CHANGES WITH THE STATE, which is why no line ranks the rooms.
-       Measured per station per day at $4,680/day of station revenue: a
-       four-music-slot signal pays the Library +$1,806 and the Newsroom exactly
-       $0; a three-talk signal reverses it to +$822 and $0. Under-crewed on a big
-       plant the Maintenance Bay beats both at +$679 — and the week you finish
-       hiring, the same bay on the same station drops to +$169 and should come
-       out. Stripping a bay is one free click. */
+       THE CEILING IS NO LONGER THE SCHEDULE, AND THAT IS THE WHOLE V3 REPAIR.
+       v1 and v2 paid rooms in proportion to dayparts, which the player sets for
+       free, instantly and reversibly, knowing the room exists — the same
+       self-reference class as Purr & Power pricing off its own cost basis. Every
+       ceiling here is now something the player cannot set on the morning they
+       want it:
+         rack     the plant on the towers, bought for reach and fidelity, and
+                  every tier of it RAISES wear before this room cuts any
+         prod     st.localBase, rolled at sign-on inside the segment's band and
+                  revealed only after the buildout is paid
+         traffic  the inventory the sellers failed to move, which no player
+                  raises on purpose — remnant nets about a third of rate against
+                  a sold unit's full dollar
+       No line here may imply that hiring raises a ceiling, or that anything on
+       the schedule does.
+
+       THE ORDER CHANGES WITH WHO WALKS IN THE DOOR, which is why no line ranks
+       the rooms and no line prints a crossover. Same day, same cash, same
+       building: a spare DJ makes Production the better seat and a spare seller
+       makes it Traffic, because the fits invert (dj 0.85/0.35, sales 0.30/0.80).
+       And on a campus signal Production is worth nothing at any point total, for
+       ever, which its `zero` line says outright rather than hedging. */
     room: {
-      maint: {
-        name: 'Maintenance Bay',
-        blurb: 'Spare modules on the shelf and somebody who drives to the site before it fails. Cuts the wear your transmitter and antenna cause, and only that.',
-        ceiling: 'The one room the schedule does not set. What its points are worth is the plant: {tx} on a {ant}. Small rig, small return, whoever sits in here.',
-        zero: 'A Part 15 rig with a whip on it has no wear worth paying somebody to prevent. Buy plant first, protect it second.'
+      rack: {
+        name: 'Rack Room',
+        blurb: 'The tech core: a rack per callsign in one room, and a chief engineer who gets to the site before the site calls. Holds down the wear your plant causes, on every signal in the group.',
+        ceiling: 'The one ceiling nothing on the air can move — it is the plant. Heaviest rig in the group is a {tx} on a {ant}, and wear is all this room touches.',
+        zero: 'A Part 15 rig with a whip on it wears at the floor rate already. There is nothing here for an engineer to save. Buy plant first, protect it second.'
       },
-      news: {
-        name: 'Newsroom',
-        blurb: 'A scanner, two phone lines and someone making calls at five in the morning. Lifts the talk and news hours on this signal and touches nothing else.',
-        ceiling: 'Ceiling is the board, not the payroll: {n} of four dayparts on {call} run talk or news. Every point past what those slots carry is worth nothing.',
-        zero: 'Not one talk or news hour on this signal. The scanner is on and there is nowhere to put what comes over it — change the board or move the bay.'
+      prod: {
+        name: 'Production Room',
+        blurb: 'Where spec spots get cut — a finished commercial made for a shop that has not bought anything yet. Radio sells better played than pitched, and what it wins is billing that comes to you direct instead of through a rep firm.',
+        ceiling: 'Ceiling is the local trade {call} was signed into: local advertisers there can carry {pct} of its billing, and this room only walks it up to that. The market set that number the day the licence issued.',
+        zero: 'No local trade here worth cutting a spot for. A seller with a phone already reaches everything this market has, so every point in this room is worth zero dollars and always will be.'
       },
-      library: {
-        name: 'Record Library',
-        blurb: 'Everything catalogued, cleared and logged the way the rights people want it, and someone who knows what follows what. The music hours on this signal pull harder for it.',
-        ceiling: 'Ceiling is the board, not the payroll: {n} of four dayparts on {call} run music. Every point past what those slots carry is worth nothing.',
-        zero: 'No music hours on this signal at all. The shelves are full and nothing going out is playing off them.'
+      traffic: {
+        name: 'Traffic Desk',
+        blurb: 'Continuity: orders in from sales, spots placed into avails, the daily log out by morning. An unsold minute cannot be stored — it expires. This desk clears what is left as remnant, at about a third of rate.',
+        ceiling: 'Ceiling is what the group did not sell: {pct} of the log went out unsold across every callsign, and remnant is the only thing that can still be paid for it. Sell more and this desk has less to work with.',
+        zero: 'The group is sold out. Nothing is expiring unsold on any callsign, so there is nothing left for this desk to clear — and the bay bills all the same.'
       }
     }
   }
@@ -817,6 +901,23 @@ const ROLES = {
      pop            — POP(p), the finite audience per daypart
      comp           — { base, dayAmp } rival pull
      leaseMul       — multiplies the whole lease line for this segment
+     localRange     — [floor, ceiling] of the LOCAL-ADVERTISER BASE, as a share
+                      of billing. sim.js's newStation() rolls st.localBase
+                      uniformly inside this band ONCE, at sign-on, and nothing
+                      the player owns, hires or schedules moves it afterwards.
+                      This is the ceiling the Production Room is measured
+                      against, and it is here rather than on the station row
+                      because a per-station ROLL is not choosable while a
+                      per-segment TABLE would have been: pick the segment, pick
+                      the number. The bands are the design proof's (v3 §10.3)
+                      and they overlap on purpose, so no segment is a guaranteed
+                      production play and none but one is a guaranteed refusal.
+                      `quadrangle` tops out at exactly the share a seller closes
+                      by phone with no produced spot, so a Production Room on a
+                      campus signal is worth ZERO at every point total, for
+                      ever — a structural zero, not a small number. Its
+                      STR.en.seg.quadrangle.local line says so in as many words,
+                      and if this band ever moves that line moves with it.
      fit            — per-show multiplier on pull. A segment is an audience with
                       a taste, and it is the second live decision the design
                       proof asks for: which segment you found into changes which
@@ -857,6 +958,7 @@ const SEGMENTS = {
     // premium here silently falsifies that promise for every new game.
     // Segment lease character belongs to the non-default rows.
     leaseMul: 1.00,
+    localRange: [0.62, 0.80],
     fit:  { music: 1.05, talk: 0.95, news: 0.95, ads: 0.90 },
     staffRules: {}
   },
@@ -872,7 +974,16 @@ const SEGMENTS = {
        Library at min(k, N−k)/N = 25% of total room value, k being how many of
        your segments lean talk. Tipping this one row to talk makes k = 2 and
        doubles that ceiling to 50%. `pop` and `comp` above are deliberately
-       untouched; only `fit` moved, and STR.en.seg.countyline moved with it. */
+       untouched; only `fit` moved, and STR.en.seg.countyline moved with it.
+       v3 FOOTNOTE: the two rooms that argument was made for are both cut, so the
+       reason above is history — but the row STAYS as it is. A talk-and-trade
+       segment that leans talk is simply true, the segment mix is no longer 3:1
+       music, and reverting a shipped balance number to restore a dead
+       justification would move audience for no reason at all. */
+    // The widest and highest band in the table: a swap-shop market is where a
+    // produced spot is worth the most, and it is the segment a Production Room
+    // is genuinely built for.
+    localRange: [0.80, 0.95],
     fit:  { music: 0.90, talk: 1.15, news: 1.20, ads: 1.05 },
     staffRules: {}
   },
@@ -881,6 +992,7 @@ const SEGMENTS = {
     pop:  { morning: 4400, midday: 2400, evening: 2600, night: 900 },
     comp: { base: 1500, dayAmp: 0.30 },
     leaseMul: 1.10,
+    localRange: [0.55, 0.70],
     fit:  { music: 0.75, talk: 1.20, news: 1.30, ads: 0.95 },
     staffRules: { wantsEng: true, riskMul: 1.15 }
   },
@@ -889,6 +1001,7 @@ const SEGMENTS = {
     pop:  { morning: 1200, midday: 1500, evening: 2600, night: 2000 },
     comp: { base: 400, dayAmp: 0.18 },
     leaseMul: 0.70,
+    localRange: [0.60, 0.76],
     fit:  { music: 1.18, talk: 1.00, news: 0.80, ads: 0.85 },
     staffRules: {}
   },
@@ -897,6 +1010,9 @@ const SEGMENTS = {
     pop:  { morning: 700, midday: 1400, evening: 1600, night: 2400 },
     comp: { base: 260, dayAmp: 0.12 },
     leaseMul: 0.55,
+    // Tops out at the no-production baseline. Production headroom here is 0 at
+    // every roll — structural, not a tuning accident. See the row-shape note.
+    localRange: [0.45, 0.55],
     fit:  { music: 1.22, talk: 1.02, news: 0.88, ads: 0.70 },
     staffRules: {}
   }
@@ -911,18 +1027,35 @@ for (const segId in SEGMENTS) {
   SEGMENTS[segId].blurb = t('seg.' + segId + '.blurb');
   SEGMENTS[segId].taste = t('seg.' + segId + '.taste');
   SEGMENTS[segId].rule  = t('seg.' + segId + '.rule');
+  SEGMENTS[segId].local = t('seg.' + segId + '.local');
 }
 const SEGMENT_IDS = Object.keys(SEGMENTS);
 function segName(id){ return (SEGMENTS[id] && SEGMENTS[id].name) || id; }
 function segBlurb(id){ return (SEGMENTS[id] && SEGMENTS[id].blurb) || ''; }
 function segTaste(id){ return (SEGMENTS[id] && SEGMENTS[id].taste) || ''; }
 function segRuleText(id){ return (SEGMENTS[id] && SEGMENTS[id].rule) || ''; }
+/** The founding card's local-trade line. Names the SEGMENT's character only —
+    st.localBase does not exist yet when this is read. */
+function segLocalText(id){ return (SEGMENTS[id] && SEGMENTS[id].local) || ''; }
+/** The band sim.js rolls st.localBase inside. Returned as {min,max} as well as
+    read straight off the row as a [lo,hi] array, because two files own the two
+    ends of this and one of them should not have to guess the shape. Falls back
+    to the default segment's band rather than to zero: a missing band that rolls
+    0 would silently make every Production Room worthless with no error. */
+function segLocalRange(id){
+  const row = SEGMENTS[id] || SEGMENTS.citywide;
+  const r = (row && Array.isArray(row.localRange)) ? row.localRange : [0.62, 0.80];
+  return { min: r[0], max: r[1] };
+}
 
 /* ============================================================
-   ROOM_TYPES — what a bay can hold (DESIGN_PROOF_ROOMS.md §1)
+   ROOM_TYPES — what a bay can hold (DESIGN_PROOF_ROOMS_V3.md §2)
    ============================================================
-   A bay is a purchasable slot in the empire's building programme; the room in
-   it lands its effect on ONE station. Read by sim.js through roomPower():
+   A bay is a purchasable slot in the group's building programme, and ALL THREE
+   ROOMS ARE SITED ON THE BUILDING, not on a callsign — which is how a real
+   cluster is laid out: one tech core with a rack per station, one traffic and
+   continuity desk building every log, and production rooms shared out one short
+   of the number of signals. Read by sim.js through roomPower():
 
        roomPower(r) = Σ over p in r.staff of  fit[r.type][p.role] · p.skill / load[p.id]
 
@@ -953,51 +1086,77 @@ function segRuleText(id){ return (SEGMENTS[id] && SEGMENTS[id].rule) || ''; }
                     and the load divisor are the whole decision.
 
    THE CEILINGS, which are what the player is actually solving for. A point above
-   the ceiling is worth EXACTLY ZERO DOLLARS, and every ceiling is set by state
-   the player chose rather than bought:
-     Maintenance Bay  gear      cuts the gear term of stationWear() only; at
-                                tx=ant=0 that term is 1 for every value of the
-                                cut, so the room is arithmetically worth zero.
-                                The one room the schedule does not reach
-     Newsroom         schedule  talk/news slots only, 3.0 points of ceiling per
-                                served daypart — 0 on an all-music board, 12 on
-                                a station that gives the whole day to it
-     Record Library   schedule  the same shape on music slots, and since v2 it
-                                is the same MECHANISM: an appeal multiplier on
-                                the slots it serves, not a cut to the royalty
-                                bill it used to shave
-   Newsroom and Record Library have DISJOINT supports, and paid programming is
-   served by NEITHER: the schedule that makes one worth 7% of station revenue
-   makes the other worth exactly nothing, and a station full of brokered hours
-   wants no schedule room at all. Those zeros are structural, not numeric — no
-   retune of any constant can produce a fixed room priority list, which is the
-   non-constancy the design gate demands.
+   the ceiling is worth EXACTLY ZERO DOLLARS, and not one of the three ceilings
+   is a thing the player can set on the morning they would like it set:
+     Rack Room     plant       cuts the GEAR term of stationWear() for every
+                               station at once; at tx=ant=0 that term is 1 for
+                               any value of the cut, so a Part 15 group gets
+                               exactly zero. Plant is bought for reach and
+                               fidelity and it RAISES wear — nobody buys a
+                               transmitter to make this room pay
+     Production    market      min(pts, headroom) where headroom is
+                               st.localBase − the share one seller closes by
+                               phone. localBase is ROLLED at sign-on inside
+                               SEGMENTS[seg].localRange and revealed only after
+                               the buildout is paid
+     Traffic Desk  your misses (1 − fill) × the remnant clearance × ~35% of
+                               rate, and EMPIRE-WIDE — salesFill() takes no
+                               station argument and fillCap() reads the global
+                               S.rep, so one log, one sellout level, one desk.
+                               Its copy names the group and never a callsign
+                               (see the note above STR.en.room). It pays out of
+                               inventory the player failed to sell, and
+                               sandbagging fill to feed it gives up a full
+                               dollar to gain about a third of one
+   The three are anti-correlated in different directions, which is why no fixed
+   order exists: Production and Traffic invert on WHICH SPARE PERSON the hiring
+   stream handed you (dj 0.85 vs 0.35, sales 0.30 vs 0.80), and on a campus
+   signal Production is a structural zero at every point total while Traffic is
+   at its most valuable exactly when the group is worst at selling.
 
-   THREE ROOMS. Two rows have been cut and the reasons are at the head of this
-   file: the Sales Floor for being structurally negative at every seller count,
-   and the Green Room for paying only in a state the player can fix for free by
-   putting a second DJ on the slot. A fourth row is a scope decision, not a
-   content one, and neither of those two is it.
+   THE TRAFFIC DESK IS COUNTER-CYCLICAL, AND IT IS THE FIRST ASSET IN THIS GAME
+   THE PLAYER SHOULD EVENTUALLY CLOSE. Everything else compounds; this one decays
+   as reputation lifts fillCap() and the sellers get good, until the bay lease
+   outruns it. The copy says so on the room itself (roomTrafficCounter) rather
+   than waiting for the player to discover it from a shrinking number.
+
+   THREE ROOMS. Four rows have now been cut and the reasons are at the head of
+   this file: Sales Floor (structurally negative at every seller count), Green
+   Room (paid only in a state the player fixes for free), Newsroom (paid in
+   proportion to a schedule the player sets for free, knowing the room exists —
+   the self-reference class this whole version exists to remove), Record Library
+   (no such room exists in a 2026 station; it is a database). A fifth row is a
+   scope decision, not a content one, and none of those four is it.
 
    NOTHING HERE READS CASH, REVENUE, PAYROLL OR ANY COST, and nothing may. The
    day a ceiling learns what the player earns, the game is solved — the Purr &
    Power self-reference trap CLAUDE.md rule 1 exists to prevent. */
 const ROOM_TYPES = {
-  // The only room an engineer is first pick for. It is also the one whose order
-  // moves most: under-crewed on a big plant it beats both schedule rooms, and
-  // the week you finish hiring it drops to a third of them and should come out.
-  maint:   { icon: '🔧', serves: ['radio'], fit: { dj: 0.20, eng: 1.00, sales: 0.10 } },
-  // Talk people first, and a seller's phone list is half a source list — this is
-  // the room where a sales agent comes closest to a host (0.55 against 0.70).
-  news:    { icon: '🗞️', serves: ['radio'], fit: { dj: 0.70, eng: 0.35, sales: 0.55 } },
-  library: { icon: '🗃️', serves: ['radio'], fit: { dj: 0.65, eng: 0.30, sales: 0.35 } }
-  /* NO `green` ROW, AND DO NOT PUT ONE BACK — the same standing instruction the
-     cut Sales Floor carries. The Green Room's payoff needed somebody
-     double-booked, and spreading DJs to one slot each is free and strictly
-     better: at DJ load 4 the room at full points recovered djTerm +19%, a second
-     DJ on the slot recovers +34% and costs no bay. sanitize() in sim.js drops
-     the id off an old save as an unknown type, which is the same path `sales`
-     already takes. */
+  /* THE FITS ARE WHAT MAKE THE DECISION FLIP, and they are the reason this table
+     is worth having at all. Production and Traffic are near-mirrors on the two
+     roles the hiring stream actually hands out: a spare DJ is worth 0.85 in
+     Production against 0.35 in Traffic, a spare seller 0.80 in Traffic against
+     0.30 in Production. Same building, same day, same cash — the better bay is
+     settled by which body walked in, and it reverses when the next one does.
+     Move either row and the whole decision goes constant; that is a balance
+     change with a design gate on it, not a tuning nudge. */
+  // The only room an engineer is first pick for, and it is one room for the
+  // whole group — one chief engineer covering every signal, which is how
+  // clusters have run for twenty years. Fit unchanged from the room it replaces.
+  rack:    { icon: '🔧', serves: ['radio'], fit: { dj: 0.20, eng: 1.00, sales: 0.10 } },
+  // Voices first: a spec spot is written, read and cut, and a host does all
+  // three. The engineer is genuinely useful at the desk; the seller who cut the
+  // deal is the least useful person in the room while it is being made.
+  prod:    { icon: '🎛️', serves: ['radio'], fit: { dj: 0.85, eng: 0.55, sales: 0.30 } },
+  // Sellers first: traffic is orders, avails and the log, which is the work a
+  // seller already half does. A host in here is doing paperwork.
+  traffic: { icon: '🗂️', serves: ['radio'], fit: { dj: 0.35, eng: 0.30, sales: 0.80 } }
+  /* NO `green`, `sales`, `news` OR `library` ROW, AND DO NOT PUT ONE BACK. Each
+     was cut for a different structural reason and all four reasons are written
+     at the head of this file; the two newest are the important ones, because a
+     Newsroom or a Record Library reads like an obvious omission from a radio
+     game and neither is. sanitize() in sim.js drops an unknown type off an old
+     save, so a v7 save carrying maint/news/library migrates by losing them. */
 };
 for (const roomId in ROOM_TYPES) {
   ROOM_TYPES[roomId].id    = roomId;
@@ -1023,9 +1182,9 @@ function roomsForMedium(medium){
    the length of BAY_LEASE and MAX_BAYS in sim.js both. */
 const BAY_MILESTONES = {
   1: 'One bay. It bills tomorrow morning whether you put anything in it or not.',
-  2: 'Two bays. They do not have to sit on the same signal, and usually should not.',
+  2: 'Two bays. Three kinds of room exist and every one of them works for the whole group.',
   3: 'Three bays. Three rooms to fill, against the same two or three names a week.',
-  4: 'Four bays. Each one bills whether the schedule underneath it serves the room or not.',
+  4: 'Four bays. Each one bills whether there is anything in this market for the room to work on.',
   5: 'Five bays. The building has a corridor, and people have started leaving mugs in it.',
   6: 'Six bays, which is the whole programme. Everything left to change is on the air, not in the building.'
 };
