@@ -126,6 +126,19 @@ Two tells worth memorising: **two things that should differ producing identical
 output are the same run, not a close result**; and a statistic whose noise is
 wider than its effect has no opinion, so neither should you.
 
+**And a third: when two measurements of one mechanic disagree, neither is the
+answer — the variable that separates them is.** Do not pick the one you like,
+and do not average them. Strip the more complicated measurement one ingredient
+at a time until the sign moves; if no ingredient moves it, the difference is in
+the fixture, not the process. Callsigns' voice-tracking cohort said the mechanic
+was decoration and a four-line probe said it was decisive, on every seed. Eight
+rungs of stripping found nothing, because the answer was a term neither of them
+reported: the cohort hired hosts of skill 3.5 and the probe pinned skill 8, and
+the break-even sits between them. Acting on the first verdict would have bolted
+a second mechanic onto a game that already worked. **The verdict a cohort
+returns is true of the cohort; whether it is true of the game is a separate
+question, and the columns you did not print are where it hides.**
+
 ### 6. Every pass leaves the process better than it found it
 Fixing the bug is half the job. The other half is asking what rule, check or
 agent instruction would have caught it, and writing that down where the next
