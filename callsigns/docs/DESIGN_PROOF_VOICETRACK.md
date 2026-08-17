@@ -1,5 +1,25 @@
 # Callsigns — design proof, voice-tracking
 
+> ## ⚠ §8's claimed axis is REFUTED — corrected 2026-08-17
+>
+> This proof predicted the better mode would reverse on **roster depth**: live
+> for a deep roster, tracked for a thin one. Measured, it does not. Both arms
+> prefer live, and an eight-rung ladder stripping the thin policy one ingredient
+> at a time finds no rung where the sign flips.
+>
+> **The axis is HOST SKILL.** `djTerm = 0.58 + 0.052·skill·fatigue`, and
+> `TRACK_APPEAL` multiplies all of it — including the flat 0.58 a host earns
+> just for being a voice on the air — while fatigue relief reaches only the
+> second term. A weak host tracked is a weak host with a haircut; a star tracked
+> is a star who is no longer working four dayparts at fatigue 0.46. Break-even
+> is around skill 4–5, and `hireBest()` staffs the cohort at 3.5.
+>
+> Gate VT-1(b) has been rewritten against the real axis and the refuted one is
+> pinned as a standing check, so it cannot quietly come back. §4's arithmetic
+> below is sound; what was wrong is which variable it was read against. See
+> `BALANCE_VOICETRACK.md` for the measurements and `tests/vtprobe.mjs` for the
+> instrument.
+
 Reasons forward from `RESEARCH_RADIO_OPERATIONS.md` §5
 ([FCC unattended operation](https://www.fcc.gov/media/radio/unattended-operation),
 [Wikipedia: voice-tracking](https://en.wikipedia.org/wiki/Voice-tracking) — one

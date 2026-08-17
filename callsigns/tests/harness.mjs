@@ -91,7 +91,7 @@ const DAYS = arg('--days', 540);          // ~1.5 in-game years
 const AS_JSON = process.argv.includes('--json');
 /* Which gates to run. Everything, by default — a partial run is a debugging
    convenience and must never be what a report is written from. */
-const GATES = strArg('--gate', 'core,r3,ladder,vt').split(',').map(x => x.trim());
+const GATES = strArg('--gate', 'core,r3,ladder,vt,vtrec').split(',').map(x => x.trim());
 const gateOn = g => GATES.indexOf(g) >= 0;
 const VT_RUNS = arg('--vt-runs', 60);     // gate VT-1 asks for N >= 60
 /* VT-1 (c) is a cross-BUILD identity: a run that never tracks must reproduce
@@ -972,6 +972,127 @@ window.__rig = (function(){
     }
   };
 
+  /* ---- THE SKILL COHORT: the axis the mechanic actually turns on ----
+
+     Gate VT-1(b) as designed asked whether the better mode reverses on ROSTER
+     DEPTH. It does not, and eight rungs of the ladder below confirm no
+     ingredient of the thin policy is hiding a reversal. The axis is HOST SKILL:
+
+       djTerm = 0.58 + 0.052 * skill * fatigue
+
+     TRACK_APPEAL multiplies all of that, including the flat 0.58 a host earns
+     just by being a voice on the air. Fatigue relief only reaches the second
+     term. So a weak host tracked is a weak host with a haircut, while a strong
+     host tracked is a strong host who is no longer exhausted — and the two have
+     opposite signs. The cohort never saw it because hireBest() staffs the game
+     at mean skill 3.5 (thin) and 4.19 (deep), both under the break-even.
+
+     THIS IS A FIXTURE COHORT, NOT A PLAY-THE-GAME COHORT, and it says so: it
+     plants a roster of a chosen skill, holds one station, hires nobody, expands
+     never, and funds the run so that solvency is not what is being measured.
+     Everything the arms do not share would otherwise be free to explain the
+     result. The play-the-game cohorts are above; this one isolates one term. */
+  function vtPlant(skill, track, day){
+    if (day === 1) {
+      S.cash = 1e6;                       // declared: solvency is not the question here
+      S.stations.forEach(function(st, i){
+        st.tx = 2; st.ant = 1; st.cond = 1;
+        const p = makePerson('dj', S.rep);
+        p.skill = skill; p.salary = salaryFor('dj', skill);
+        S.staff.push(p);
+        PARTS.forEach(function(part){
+          const slot = st.schedule[part];
+          slot.djs = [p.id]; slot.engs = []; slot.mode = 'live';
+        });
+        bump('plant');
+      });
+    }
+    if (day === 2 && track) allButOneStep();
+  }
+
+  /* ---- THE RECONCILIATION LADDER ----
+
+     tests/vtprobe.mjs measures the same trade this cohort measures — one host
+     across four dayparts, three of them tracked — and gets the OPPOSITE SIGN on
+     30 seeds out of 30. Two measurements of one mechanic disagreeing is the
+     rule-5 tell in its purest form: one of them is not measuring what it says.
+
+     The probe is four lines of fixture and nothing moves in it, so the moving
+     parts are here. This ladder is the cohort's OWN thin arm with exactly one
+     ingredient removed per rung — same helpers, same seeds, same days — so the
+     rung where never-minus-tracked changes sign names the ingredient that owns
+     the disagreement. Removing them one at a time rather than all at once is
+     the point: "static" (all off) would only tell us that something in the
+     pile matters, which we already know.
+
+     "flipOnce" is the one rung that is not a subtraction: it sets the modes
+     once on day 2 instead of re-asserting them every fourth day. Read it with
+     care — a station founded on day 300 comes up live and stays live, so it
+     confounds with expansion by construction. It is here because "the policy
+     spends the run fighting its own roster rebuild" is a live hypothesis. */
+  const LADDER_DEFAULTS = { sales: true, sched: true, gear: true, expand: true, rebuild: true, flipOnce: false };
+  const LADDER = {
+    base:      {},                    // the cohort's thin arm, unmodified
+    noExp:     { expand: false },
+    noSales:   { sales: false },
+    noGear:    { gear: false },
+    noSched:   { sched: false },
+    noRebuild: { rebuild: false },
+    flipOnce:  { flipOnce: true },
+    static:    { expand: false, sales: false, gear: false, sched: false, rebuild: false, flipOnce: true }
+  };
+  /** vtStaff(false) with each ingredient behind a flag. Deliberately a COPY of
+      the thin branch rather than a refactor of it: gate VT-1 has to keep
+      reporting exactly what it reported before, and a shared helper edited for
+      the ladder is how a "no other changes" claim quietly becomes false. */
+  function vtStaffOpt(o){
+    const nStations = Math.max(1, S.stations.length);
+    if (S.day % 3 === 0) {
+      hireBest('dj', nStations);
+      if (o.sales && S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
+    }
+    const shape = staffRole('dj').length + ':' + S.stations.length;
+    if (o.rebuild && shape !== vtShape) {
+      vtShape = shape;
+      S.stations.forEach(function(st, i){
+        PARTS.forEach(function(p){
+          const slot = st.schedule && st.schedule[p];
+          if (!slot || !Array.isArray(slot.djs)) return;
+          slot.djs.slice().forEach(function(id){ removeDj(i, p, id); });
+        });
+      });
+    }
+    vtFill();
+    if (o.sched   && S.day % 7 === 0) setSchedules();
+    if (o.gear    && S.day % 7 === 0) upgradeGear(6000);
+    if (o.expand  && S.day % 5 === 0) tryExpand(2.2);
+  }
+  /* Two skills either side of the measured break-even, and one on it. 3 is what
+     the game hands you early; 8 is a star you have to develop and be lucky to
+     draw (makePerson caps at 3 + 2 + floor(rep/22), so skill 8 needs high
+     reputation AND a good roll) — which is the progression the mechanic is
+     really attached to. */
+  const PLANT_SKILLS = { Weak: 3, Even: 5, Star: 8 };
+  for (const name of Object.keys(PLANT_SKILLS)) {
+    const sk = PLANT_SKILLS[name];
+    POLICIES['vt' + name + 'Never'] = function(day){ vtPlant(sk, false, day); };
+    POLICIES['vt' + name + 'Track'] = function(day){ vtPlant(sk, true,  day); };
+  }
+
+  for (const key of Object.keys(LADDER)) {
+    const o = Object.assign({}, LADDER_DEFAULTS, LADDER[key]);
+    const cap = key.charAt(0).toUpperCase() + key.slice(1);
+    POLICIES['ld' + cap + 'Never'] = function(day){
+      vtStaffOpt(o);
+      if (!o.flipOnce && day % 4 === 0) neverTrackStep();
+    };
+    POLICIES['ld' + cap + 'Track'] = function(day){
+      vtStaffOpt(o);
+      if (o.flipOnce) { if (day === 2) allButOneStep(); }
+      else if (day % 4 === 0) allButOneStep();
+    };
+  }
+
   function runOne(policyName, seedN, days){
     seed(seedN);
     S = sanitize(newState());
@@ -1080,6 +1201,17 @@ window.__rig = (function(){
         let m = 0;
         for (const p of S.staff) if (p.role === 'dj') m = Math.max(m, l[p.id] || 0);
         return +m.toFixed(3);
+      })(),
+      /* Mean DJ skill at the end of the run. Reported because the tracked-live
+         trade turns out to run on it: djTerm is 0.58 + 0.052*skill*fatigue, so
+         the 0.58 takes the full TRACK_APPEAL haircut while only the second term
+         gets the fatigue relief back. Below roughly skill 4 tracking is a
+         straight loss and above it a straight win, which no arm of this cohort
+         reports and which vtprobe.mjs measures directly. A cohort that hires
+         its way across that line mid-run is averaging two opposite answers. */
+      djSkill: (function(){
+        const d = S.staff.filter(function(p){ return p.role === 'dj'; });
+        return d.length ? +(d.reduce(function(a, p){ return a + p.skill; }, 0) / d.length).toFixed(2) : 0;
       })(),
       condTrace: S.stations.map(function(st){ return +(+st.cond).toFixed(10); }),
       cond: S.stations.length
@@ -1586,6 +1718,7 @@ async function main(){
         '   tracked ' + String(pct(rows.map(r => r.tracked), 0.5)).padStart(2) +
         '/' + String(pct(rows.map(r => r.slotsTotal), 0.5)) +
         '   djLoad ' + String(pct(rows.map(r => r.djLoadMax), 0.5)).padStart(5) +
+        '   djSkill ' + String(pct(rows.map(r => r.djSkill), 0.5)).padStart(5) +
         '   attn ' + String(pct(rows.map(r => r.attn), 0.5)).padStart(6) +
         '   c* ' + String(pct(rows.map(r => r.condT), 0.5)));
     }
@@ -1659,11 +1792,63 @@ async function main(){
     const thinH = paired(v.vtThinNever, v.vtThinHalf);
     console.log('  DEEP roster  never - trackBottomHalf   = ' + band(deepH) + '   [diagnostic]');
     console.log('  THIN roster  never - trackBottomHalf   = ' + band(thinH) + '   [diagnostic]');
-    check('GATE VT-1(b): the better mode REVERSES on roster depth, both signs significant',
-      reversed && deepSig && thinSig,
-      'deep never-minus-tracked ' + money(deepD.med) + ' (CI ' + money(deepD.ciLo) + '..' + money(deepD.ciHi) +
+    /* THE DESIGN'S CLAIMED AXIS IS REFUTED, and this asserts that it stays
+       refuted rather than quietly dropping it. DESIGN_PROOF_VOICETRACK.md 8
+       predicted deep POSITIVE and thin NEGATIVE; both come out positive, and
+       the eight-rung ladder in gate vtrec shows no ingredient of the thin
+       policy hiding a reversal. If this check ever fails, the game has changed
+       under the docs and the design proof needs revisiting — that is the point
+       of keeping it. */
+    check('VT-1: roster depth is NOT the axis (the v9 design proof 8 claim, refuted and pinned)',
+      !(reversed && deepSig && thinSig),
+      'deep ' + money(deepD.med) + ' (CI ' + money(deepD.ciLo) + '..' + money(deepD.ciHi) +
       '), thin ' + money(thinD.med) + ' (CI ' + money(thinD.ciLo) + '..' + money(thinD.ciHi) +
-      ') — the design predicts deep POSITIVE and thin NEGATIVE. No reversal means the mode toggle is decoration.');
+      ') — this now reverses on depth, which the docs say it does not. Re-derive before trusting either.');
+
+    /* ---- (b), CORRECTED: the axis is HOST SKILL ----
+
+       Same trade, same fixture, one term different: how good the host is. A
+       weak host tracked is a weak host with a 12% haircut on the flat 0.58
+       everyone earns for being on the air; a strong host tracked is a strong
+       host who is no longer working four dayparts at fatigue 0.46. The signs
+       are opposite, which is what makes the toggle a decision — just not the
+       decision the design proof claimed. */
+    const SKILL_ARMS = ['Weak','Even','Star'];
+    const sk = {};
+    for (const nm of SKILL_ARMS) {
+      for (const arm of ['Never','Track']) {
+        const key = 'vt' + nm + arm;
+        const rows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
+          JSON.stringify(key) + ', ' + VT_RUNS + ', ' + DAYS + '))'));
+        sk[key] = summarise(rows); sk[key].rows = rows;
+      }
+    }
+    console.log('\n  planted rosters — one host per station on four dayparts, three tracked:');
+    const skD = {};
+    for (const nm of SKILL_ARMS) {
+      const d = paired(sk['vt' + nm + 'Never'], sk['vt' + nm + 'Track']);
+      skD[nm] = d;
+      console.log('    ' + nm.padEnd(5) + ' (skill ' + (nm === 'Weak' ? 3 : nm === 'Even' ? 5 : 8) + ')  ' +
+        'never - tracked = ' + band(d) +
+        '   djSkill ' + pct(sk['vt' + nm + 'Track'].rows.map(r => r.djSkill), 0.5));
+    }
+    /* RE-READ the action counts. `acts` above is a snapshot taken before these
+       arms ran, so checking the plant counter against it reported 0 plants for
+       three arms that had visibly planted rosters — the djSkill column read
+       exactly 3, 5 and 8. A stale instrument is the failure this whole file is
+       built around; it failed loudly here, which is the only reason it is a
+       two-line fix instead of a wrong number in a report. */
+    const acts2 = JSON.parse(await evaluate('JSON.stringify(window.__rig.acts())'));
+    check('VT instrument: the planted arms actually planted a roster',
+      SKILL_ARMS.every(nm => (acts2['vt' + nm + 'Track'] || {}).plant > 0 &&
+                             (acts2['vt' + nm + 'Never'] || {}).plant > 0),
+      JSON.stringify(SKILL_ARMS.map(nm => [nm, (acts2['vt' + nm + 'Track'] || {}).plant || 0,
+                                               (acts2['vt' + nm + 'Never'] || {}).plant || 0])));
+    check('GATE VT-1(b): the better mode REVERSES on HOST SKILL, both signs significant',
+      skD.Weak.ciLo > 0 && skD.Star.ciHi < 0,
+      'weak never-minus-tracked ' + money(skD.Weak.med) + ' (CI ' + money(skD.Weak.ciLo) + '..' +
+      money(skD.Weak.ciHi) + '), star ' + money(skD.Star.med) + ' (CI ' + money(skD.Star.ciLo) + '..' +
+      money(skD.Star.ciHi) + ') — a weak host must be worse tracked and a star better, or the toggle is decoration.');
 
     /* ---- (a) reading state must beat BOTH fixed rules ----
 
@@ -1783,6 +1968,97 @@ async function main(){
       (v.trackEverything.survivalRate * 100).toFixed(0) + '% vs idle ' + idleDeath + ' / survive ' +
       (v.idle.survivalRate * 100).toFixed(0) +
       '% — outliving an abandoned station means tracking mints attention somewhere');
+    }
+
+    /* ================= THE RECONCILIATION LADDER =============================
+
+       Why this exists: tests/vtprobe.mjs measures the same trade as gate VT-1's
+       thin arm and gets the opposite sign on 30 of 30 seeds. Rather than pick
+       the measurement we like, strip the cohort's thin arm one ingredient at a
+       time and watch for the rung where never-minus-tracked changes sign. That
+       rung is the disagreement.
+
+       Read the sign, not the size: POSITIVE means never-tracking wins (what the
+       cohort reported), NEGATIVE means tracking wins (what the probe reports on
+       every seed). The base rung must come out positive or the ladder is not
+       wired to the thing it claims to be stripping. */
+    if (gateOn('vtrec')) {
+    console.log('\n--- RECONCILIATION: which cohort ingredient owns the sign? ---');
+    console.log('  (thin arm, one DJ per station. + = never-track wins, - = tracking wins)');
+    const RUNGS = ['base','noExp','noSales','noGear','noSched','noRebuild','flipOnce','static'];
+    const WHAT = {
+      base:      'the cohort thin arm, unmodified',
+      noExp:     'no expansion — stays at one station',
+      noSales:   'no sellers hired',
+      noGear:    'no gear upgrades',
+      noSched:   'no setSchedules() churn',
+      noRebuild: 'no roster wipe when the shape changes',
+      flipOnce:  'modes set once on day 2, not re-asserted',
+      static:    'all of the above off at once'
+    };
+    const REC_RUNS = arg('--rec-runs', 30);
+    const rec = {};
+    for (const rung of RUNGS) {
+      const cap = rung.charAt(0).toUpperCase() + rung.slice(1);
+      for (const armSuffix of ['Never', 'Track']) {
+        const name = 'ld' + cap + armSuffix;
+        const rows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
+          JSON.stringify(name) + ', ' + REC_RUNS + ', ' + DAYS + '))'));
+        rec[name] = summarise(rows); rec[name].rows = rows;
+      }
+    }
+    const recActs = JSON.parse(await evaluate('JSON.stringify(window.__rig.acts())'));
+    let flipped = [];
+    for (const rung of RUNGS) {
+      const cap = rung.charAt(0).toUpperCase() + rung.slice(1);
+      const n = rec['ld' + cap + 'Never'], t = rec['ld' + cap + 'Track'];
+      const d = paired(n, t);
+      const trk = pct(t.rows.map(r => r.tracked), 0.5);
+      const sig = d.ciLo > 0 ? '+' : (d.ciHi < 0 ? '-' : '0');
+      if (sig === '-') flipped.push(rung);
+      console.log('  ' + sig + ' ' + rung.padEnd(10) + money(d.med).padStart(12) +
+        '   95% CI [' + money(d.ciLo) + ' .. ' + money(d.ciHi) + ']  t=' + d.t.toFixed(2) +
+        '   tracked ' + String(trk).padStart(2) + '/' + pct(t.rows.map(r => r.slotsTotal), 0.5) +
+        '   staff ' + String(t.medStaff).padStart(2) +
+        '   djLoad ' + String(pct(t.rows.map(r => r.djLoadMax), 0.5)).padStart(5) +
+        '   djSkill ' + String(pct(t.rows.map(r => r.djSkill), 0.5)).padStart(5) +
+        '   — ' + WHAT[rung]);
+    }
+    console.log('  (' + REC_RUNS + ' seeds per arm, paired by seed, ' + DAYS + ' days)');
+    /* An arm that never flipped a slot is its own never-track arm wearing a
+       different name, and would report a flat $0 that reads as "this
+       ingredient does not matter". Assert the tracking arms tracked. */
+    check('LADDER instrument: every tracking rung actually flipped slots',
+      RUNGS.every(r => {
+        const nm = 'ld' + r.charAt(0).toUpperCase() + r.slice(1) + 'Track';
+        return (recActs[nm] || {}).toTracked > 0;
+      }),
+      JSON.stringify(RUNGS.map(r => {
+        const nm = 'ld' + r.charAt(0).toUpperCase() + r.slice(1) + 'Track';
+        return [r, (recActs[nm] || {}).toTracked || 0];
+      })));
+    /* AGREEMENT IN SIGN, not significance. The gate runs 60 seeds and this
+       ladder runs 30 by default, and at 30 the thin arm's own margin does not
+       clear zero (t≈1.6 here against t≈2.5 there) — demanding a significant
+       base rung would fail the ladder for being cheaper than the gate, which is
+       a statement about seed count and not about the game. What must hold is
+       that the ladder is stripping the same arm: same direction, and no
+       significant win for TRACKING, which would mean the base rung is not the
+       cohort's thin arm at all. */
+    const baseD = paired(rec.ldBaseNever, rec.ldBaseTrack);
+    check('LADDER: the base rung agrees in sign with gate VT-1 (never-track ahead in the thin arm)',
+      baseD.med > 0 && baseD.ciHi > 0,
+      'base ' + money(baseD.med) + ', 95% CI ' + money(baseD.ciLo) + '..' + money(baseD.ciHi) +
+      ' — a base rung favouring tracking means the ladder is not stripping the arm the gate ran');
+    console.log('\n  VERDICT: ' + (flipped.length
+      ? 'the sign flips to TRACKING WINS when these are removed: ' + flipped.join(', ')
+      : 'no single rung flips the sign, so the disagreement with vtprobe.mjs is not ' +
+        'an ingredient of this policy — it is DJ SKILL, which the probe pins and the ' +
+        'cohort hires. djTerm is 0.58 + 0.052*skill*fatigue: the 0.58 takes the full ' +
+        'TRACK_APPEAL haircut while only the second term gets fatigue relief back, so ' +
+        'the trade has a break-even around skill 4-5 (measured: skill 3 loses $41k, ' +
+        'skill 4 loses $19k, skill 5 wins $4k, skill 8 wins $76k, all 30/30 seeds). ' +
+        'Compare the djSkill column above against that line.'));
     }
 
     check('no page errors during any run', pageErrors.length === 0, pageErrors.slice(0, 3).join(' ;; '));
