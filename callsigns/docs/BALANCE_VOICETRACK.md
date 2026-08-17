@@ -83,6 +83,42 @@ CALLSIGNS_GAME_DIR=/path/to/v8 node tests/harness.mjs --gate vt --zero-out /tmp/
 node tests/harness.mjs --gate vt --zero-in /tmp/v8.json
 ```
 
+## ⚠ ADDENDUM — a direct probe CONTRADICTS the cohort. Do not act on the verdict above yet.
+
+Written the same day, before designing anything on the strength of it.
+
+Rule 4 sent me to read what automation actually buys a station; the answer is
+"it does not get tired", which is the fatigue term this game already models. So
+before proposing a second axis I measured the trade directly, outside the
+cohort: **one host across all four dayparts** — load 4.0, fatigue at
+`clamp(1 − 0.18·(4−1), 0.40, 1) = 0.46`, which is what "thin" is supposed to
+mean — against the same station with three of the four slots tracked. 30 seeds,
+540 days, own RNG, paired.
+
+```
+one station    tracked − live   median +$75,886   tracked wins 30/30   rep 78.3 → 83.7
+four stations  tracked − live   median +$220,961  tracked wins 30/30   rep 73.4 → 78.8
+```
+
+Tracking wins every single seed. The arithmetic behind it is unambiguous: the
+host's load falls 4.0 → 1 + 3(0.35) = 2.05, fatigue 0.46 → 0.81, and `djTerm`
+rises 0.771 → 0.917 **on all four slots including the live one**. A 19% lift on
+every slot beats a 12% appeal haircut on three of them — station pull 2292 →
+2466.
+
+**So the mechanic does reverse, and gate VT-1's thin arm does not see it.** One
+of the two measurements is not measuring what it claims, and until that is
+resolved the verdict at the top of this file is not safe to design against.
+Candidate differences, none yet confirmed: the cohort's thin arm also hires
+sellers and upgrades gear, expands on a timer, rebuilds its whole DJ assignment
+whenever the roster shape changes, and flips modes only every fourth day against
+a roster still being built.
+
+**Next step is reconciliation, not redesign** — add the one-host probe to the
+harness as a fixed instrument, then find which cohort ingredient flips the sign.
+Rule 5's own tell applies: a claim whose direct measurement disagrees with its
+cohort has no opinion yet, and neither should we.
+
 ## The decision this leaves open
 
 Voice-tracking is live on `main` in v9. Three ways forward, owner's call:
