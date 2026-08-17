@@ -219,6 +219,17 @@ function simRoomById(id){
 }
 function simBayLease(i){ return typeof bayLease === 'function' ? bayLease(i) : 0; }
 function simBayLeaseTotal(){ return typeof bayLeaseTotal === 'function' ? bayLeaseTotal() : 0; }
+/* Bays with nothing in them, and the most rooms that could ever exist. Both
+   degrade to a value that hides the give-back row rather than showing a
+   broken one: spare 0 renders nothing, and a cap of 0 never fires the "you
+   cannot fill these" note. */
+function simSpareBays(){ return typeof spareBays === 'function' ? spareBays() : 0; }
+function simUsableRoomCap(){ return typeof usableRoomCap === 'function' ? usableRoomCap() : 0; }
+function simCloseBay(){
+  if (typeof closeBay === 'function') return closeBay() || { ok: false, reason: 'nostate' };
+  bridgeMiss('closeBay');
+  return { ok: false, reason: 'nostate' };
+}
 function simCanBuyBay(){
   if (typeof canBuyBay === 'function') return canBuyBay() || { ok: false, reason: 'nostate' };
   bridgeMiss('canBuyBay');
@@ -3150,6 +3161,34 @@ function bayBuyCard(econ){
     '</button>' +
   '</div></div>';
 
+  /* GIVE A BAY BACK. Bays were the only purchase in the game with no undo,
+     while rooms have always been removable in one click — and the shop would
+     sell six when at most five can ever hold a room (1 tech core + 1 traffic
+     log + max(1, stations-1) production). At one station only three are
+     fillable, so bays 4-6 were $1,640/day of empty space with no way out.
+     Found by the owner playing, not by any suite here.
+
+     Shown only when a bay is actually empty, and it names the money rather
+     than the count — "$800/day you no longer owe" is the fact being decided
+     on. The extra line about the room ceiling appears only while the empty
+     bays cannot be filled at all, because that is the case where the player
+     is not being impatient, they are stuck. */
+  const spare = simSpareBays();
+  if (spare > 0) {
+    const back = simBayLease(simBayCount() - 1);
+    const capped = simRoomList().length >= simUsableRoomCap();
+    h += '<div class="row"><div class="row-icon">↩️</div><div class="row-body">' +
+      '<div class="row-title">' + esc(t('bayClose', { amt: money(back) })) + '</div>' +
+      '<div class="row-sub"' + (capped ? ' style="color:var(--amber)"' : '') + '>' +
+        esc(capped
+          ? t('bayCloseStuck', { spare: spare, cap: simUsableRoomCap() })
+          : t('bayCloseSub', { spare: spare })) +
+      '</div></div>' +
+    '<div class="row-act">' +
+      '<button class="btn" id="btn-close-bay">' + esc(t('bayCloseBtn')) + '</button>' +
+    '</div></div>';
+  }
+
   /* WHAT SETS THAT ROOM'S CEILING, before the money moves — on the rate card
      rather than as three grey lines under a buy button. The bay ladder is
      [40, 90, 180, 320, 520, 800], so rungs 3 and 4 sit inside the band real
@@ -5426,6 +5465,57 @@ function doMoveRoom(roomId, stIdx){
   if (res && res.ok) openRoomEditor(res.room.id, true); else { closeModal(); render(); }
 }
 
+/** Hand a bay back. The mirror of buyBayFlow(), and it confirms for the same
+    reason that one does: the buildout does NOT come back, so the sheet says so
+    in the one place the player is looking. What it prices is the lease saved
+    against the net it restores — the only two numbers that change.
+
+    Deliberately not a silent one-click action even though it is beneficial:
+    the count is what limits how many rooms the player can hold, and someone
+    who closes a bay to save $800/day and then cannot build the room they were
+    saving for has been ambushed by their own button. */
+function closeBayFlow(){
+  if (simSpareBays() <= 0) return;
+  modalPause();
+  const bays = simBayCount();
+  const saved = simBayLease(bays - 1);
+  const netNow = (S.lastDay && S.lastDay.net) || 0;
+  const netAfter = netNow + saved;
+  const capped = simRoomList().length >= simUsableRoomCap();
+
+  const row = (lbl, val, cls, total) =>
+    '<div class="commit-row' + (total ? ' total' : '') + '">' +
+      '<span>' + esc(lbl) + '</span>' +
+      '<span' + (cls ? ' style="color:var(--' + cls + ')"' : '') + '>' + esc(val) + '</span></div>';
+
+  const body = '<div class="commit">' +
+      row(t('bayLeaseLbl'), '+' + money(saved) + '/day', 'green') +
+      row(tt('commitNow'), (netNow >= 0 ? '+' : '') + money(netNow) + '/day', netNow >= 0 ? 'green' : 'red') +
+      row(tt('commitAfter'), (netAfter >= 0 ? '+' : '') + money(netAfter) + '/day', netAfter >= 0 ? 'green' : 'red', true) +
+    '</div>' +
+    '<p style="font-size:12px;color:var(--muted);margin-top:10px">' + esc(t('bayCloseNote')) + '</p>' +
+    (capped
+      ? '<p style="font-size:12px;color:var(--amber);margin-top:6px">' +
+          esc(t('bayCloseStuck', { spare: simSpareBays(), cap: simUsableRoomCap() })) + '</p>'
+      : '');
+
+  openModal(t('bayClose', { amt: money(saved) }), t('bayCloseSub', { spare: simSpareBays() }), body, [
+    { label: t('cancel'), cls: 'ghost', act: closeModal },
+    { label: t('bayCloseBtn'), act: () => {
+        const res = simCloseBay();
+        if (!res || !res.ok) {
+          toast(t('bayCloseFail'), 'bad');
+          closeModal(); render(); return;
+        }
+        toast('↩️ ' + t('bayClosedToast', { amt: money(res.saved) }), 'good');
+        uiEconDirty();
+        closeModal();
+        saveGame(true);
+        render();
+      } }
+  ]);
+}
+
 /** The bay itself. Same rule as founding a station: the buildout is one
     payment and the LEASE IS FOREVER, so the confirmation prices the lease
     against what a room in it could actually return today (readout #6) and
@@ -5877,6 +5967,8 @@ function wire(){
     if (roomB) return openRoomEditor(roomB.dataset.openroom);
     const bayB = e.target.closest('#btn-buy-bay');
     if (bayB && !bayB.disabled) return buyBayFlow();
+    const closeB = e.target.closest('#btn-close-bay');
+    if (closeB && !closeB.disabled) return closeBayFlow();
 
     const slotEl = e.target.closest('[data-openslot]');
     if (slotEl) {

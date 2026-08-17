@@ -490,6 +490,23 @@ const STR = {
     // Fires when lease > return. The gear ladder was an invisible trap until the
     // wear preview landed; this is that preview, for bays.
     bayBuyThin: '{amt}/day of lease against {ret}/day of room. Bay {n} loses money until a ceiling rises.',
+    /* GIVING A BAY BACK. Every one of these names the money rather than the
+       count, because the count is not what hurt — the owner found this by
+       paying $1,640/day for three bays that nothing could ever occupy. The
+       lease is the fact; "one spare bay" is the footnote.
+
+       bayCloseStuck is the one that has to be exactly right: it fires only
+       when the empty bays CANNOT be filled at any price, so it must not read
+       as a nudge to build. It is the game admitting it sold something
+       unusable. Says the cap and the reason, no advice. */
+    bayClose: 'Give a bay back — save {amt}/day',
+    bayCloseSub: '{spare} standing empty. The lease stops tomorrow morning.',
+    bayCloseBtn: 'Give it back',
+    bayCloseNote: 'The buildout does not come back. What stops is the lease.',
+    bayCloseStuck: '{spare} empty, and nothing can go in them: {cap} rooms is the most this group can hold until you sign on another signal.',
+    bayClosedToast: '{amt}/day you no longer owe',
+    bayClosedMsg: 'You gave a bay back. That is {saved} a day you no longer owe.',
+    bayCloseFail: 'Every bay has a room in it. Strip one first.',
     bayLocked: 'Bays open at {rep} reputation with {cash} in the bank.',
     bayCapped: 'Six bays is the whole programme. What is left to change is what the signals under them are airing.',
     bayLeaseLbl: 'Bay leases',

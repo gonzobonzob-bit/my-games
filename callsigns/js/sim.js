@@ -1053,6 +1053,54 @@ function buyBay(){
   S.bays = bayCount() + 1;
   return { ok: true, bays: S.bays, lease: bayLease(S.bays - 1) };
 }
+/** How many rooms could EVER exist right now: one tech core, one traffic log,
+    and production at max(1, stations-1). At one station that is 3, at the full
+    four it is 5 — against MAX_BAYS of 6, so the sixth bay has never had a legal
+    occupant at any station count.
+
+    This is the number the owner found by playing: six bays, three rooms. It is
+    reported to the UI rather than used as a purchase block, because closeBay()
+    is the chosen remedy and because the room roster is being researched — a
+    hard gate here would have to move every time a room type is added. */
+function usableRoomCap(){
+  if (!S) return 0;
+  return roomTypeCap(ROOM_RACK) + roomTypeCap(ROOM_TRAFFIC) + roomTypeCap(ROOM_PROD);
+}
+/** Bays with no room in them. What closeBay() is allowed to act on. */
+function spareBays(){ return Math.max(0, bayCount() - paidRoomCount()); }
+
+/** Hand a bay back and stop its lease.
+
+    Bays were permanent while rooms have always been removable in one click,
+    which made a bay the only purchase in the game you could not undo — and the
+    game would happily sell six of them when at most five can ever hold a room.
+    A player at one station could commit $1,640/day (bays 4, 5 and 6) to empty
+    space with no way out.
+
+    NO CASH REFUND. The $2,500 build cost is spent; what stops is the recurring
+    lease, from tomorrow, because bayLeaseTotal() reads bayCount() fresh each
+    day and simulateDay() has already booked today. Refunding capex would make
+    a bay a free option to hold, which is a different mechanic and a worse one.
+
+    Always closes the TOP bay, which is the dearest — bayLease is indexed, so
+    dropping the count sheds bayLease(bays-1). There is no "which bay" question
+    to ask: bays are identical except for price, and rooms are stored against
+    their own ids rather than a bay slot, so no occupant is disturbed. */
+function closeBay(){
+  if (!S) return { ok: false, reason: 'nostate' };
+  const bays = bayCount();
+  if (bays <= 0) return { ok: false, reason: 'none' };
+  // Refuse while every bay is occupied. The alternative — evicting a room to
+  // free the bay — would delete a staffed room as a side effect of a button
+  // labelled "close bay", and destructive surprises are how saves get lost.
+  if (spareBays() <= 0) return { ok: false, reason: 'occupied' };
+  const saved = bayLease(bays - 1);
+  S.bays = bays - 1;
+  addLog(tOr('bayClosedMsg', 'You gave back a bay. That is {saved} a day you no longer owe.',
+    { saved: money(saved) }), 'good');
+  return { ok: true, bays: S.bays, saved };
+}
+
 /** Put a room in a spare bay. One rule, no entitlements: a room the player did
     not buy a bay for cannot exist, so there is no free-room accounting here and
     none in sanitize() either.
@@ -3557,7 +3605,21 @@ function sanitize(s){
   // station switcher.
   const usedCalls = new Set(), usedFreqs = new Set();
   for (const st of s.stations) {
-    while (usedCalls.has(st.call)) st.call = randomCall();
+    /* GUARDED, like the dial loop below it. randomCall() is the only escape
+       from a duplicate, so an RNG that stops varying — a pinned Math.random in
+       a suite, a seeded rig, a hostile page that has replaced it — turns this
+       into a hang inside save loading, with no error and no frame. Four
+       stations against 2x26^3 callsigns means the guard never fires in play;
+       when it does, the letter is walked deterministically so the result is
+       still unique rather than still duplicated. */
+    let callGuard = 0;
+    while (usedCalls.has(st.call) && callGuard++ < 200) st.call = randomCall();
+    if (usedCalls.has(st.call)) {
+      const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let i = 0; i < L.length && usedCalls.has(st.call); i++) {
+        st.call = String(st.call).slice(0, 3) + L[i];
+      }
+    }
     usedCalls.add(st.call);
     let guard = 0;
     while (usedFreqs.has(st.freq) && guard++ < 200) st.freq = (92.1 + randInt(0, 79) * 0.2).toFixed(1);

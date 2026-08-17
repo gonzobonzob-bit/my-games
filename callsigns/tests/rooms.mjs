@@ -361,5 +361,90 @@ const long = run(`
 ok('540 days with three staffed rooms: no NaN, invariants in range, ledger reconciles',
   long.worst < 1e-6 && long.bad === 0, JSON.stringify(long));
 
+/* 13. GIVING A BAY BACK.
+
+   The owner found this by playing: the shop sells six bays, and at one station
+   only three rooms can ever exist (one rack, one traffic log, max(1, n-1)
+   production), so bays 4-6 were $1,640/day of empty space with no undo — the
+   only purchase in the game that could not be reversed, while a room has always
+   been one click to strip. closeBay() is the remedy, and these are the three
+   things about it that could silently rot:
+
+     THE LEASE IS WHAT STOPS, NOT THE CAPEX. If a refund ever appears, holding a
+     bay becomes a free option and the whole build-or-wait decision goes away.
+     Asserted as an exact equality on cash AND on book.capex, not a range.
+
+     IT ALWAYS SHEDS THE DEAREST RUNG. bayLease is indexed, so closing must drop
+     bayLease(bays-1); shedding the cheapest instead would still look like it
+     worked on a two-bay building and would quietly under-refund every larger
+     one.
+
+     IT NEVER EVICTS A ROOM. A button labelled "give it back" that deletes a
+     staffed room is how a save gets lost, so an occupied building refuses. */
+const giveBack = run(`
+  S = sanitize(newState('KBAY'));
+  S.cash = 1e7; S.rep = 60; S.unlockedExpansion = true;
+  const capOne = usableRoomCap();
+  foundStation('countyline'); foundStation('quadrangle'); foundStation('ledger');
+  const capFour = usableRoomCap();
+  S.bays = 4; S.rooms = [];
+  const leaseBefore = bayLeaseTotal(), dearest = bayLease(3);
+  const cashBefore = S.cash, capexBefore = S.book.capex;
+  const spareBefore = spareBays();
+  const r = closeBay();
+  const after = { bays: bayCount(), lease: bayLeaseTotal(), cash: S.cash, capex: S.book.capex };
+  // strip to one bay, put a room in it, and the next give-back must refuse
+  S.bays = 1; S.rooms = [{ id:'r', type:'rack', station:0, staff:[] }];
+  const occupied = closeBay();
+  S.rooms = [];
+  const emptied = closeBay();
+  const none = closeBay();
+  const survives = sanitize(JSON.parse(JSON.stringify(S))).bays;
+  return { capOne, capFour, maxBays: MAX_BAYS, spareBefore,
+           ok: r.ok, saved: r.saved, dearest, leaseBefore, after,
+           cashBefore, capexBefore, occupied: occupied.reason, emptied: emptied.ok,
+           none: none.reason, survives };
+`);
+ok('the sixth bay can never hold a room: the cap is 3 at one station and 5 at four',
+  giveBack.capOne === 3 && giveBack.capFour === 5 && giveBack.maxBays === 6, JSON.stringify(giveBack));
+ok('closing sheds the DEAREST rung and stops exactly that much lease',
+  giveBack.ok && giveBack.saved === giveBack.dearest && giveBack.after.bays === 3 &&
+  Math.abs(giveBack.leaseBefore - giveBack.after.lease - giveBack.dearest) < 1e-9, JSON.stringify(giveBack));
+ok('no cash refund and no capex reversal — the buildout stays spent',
+  giveBack.after.cash === giveBack.cashBefore && giveBack.after.capex === giveBack.capexBefore,
+  JSON.stringify(giveBack));
+ok('an occupied building refuses; emptying it lets the bay go; an empty programme refuses',
+  giveBack.occupied === 'occupied' && giveBack.emptied === true && giveBack.none === 'none',
+  JSON.stringify(giveBack));
+ok('the closed bay does not come back through sanitize()',
+  giveBack.survives === 0, JSON.stringify(giveBack));
+
+/* 14. sanitize() TERMINATES when the RNG stops varying.
+
+   Found by section 13 hanging: the duplicate-callsign repair was `while
+   (usedCalls.has(st.call)) st.call = randomCall()` with no guard, directly
+   above a dial-position loop that has one. Every line of this file after
+   section 2 runs with Math.random pinned to 1, so randomCall() returns the
+   same four letters forever and loading a save with two identical callsigns
+   never returns — no error, no frame, no way to tell it from a crash.
+
+   In play four stations against 2x26^3 callsigns make the collision path
+   effectively unreachable, which is exactly why it survived: the failure needs
+   a degenerate RNG, and a suite is where degenerate RNGs live. The assertion
+   is that the repair still produces DISTINCT calls under one. */
+const dupCalls = run(`
+  S = sanitize(newState('KDUP'));
+  S.cash = 1e7; S.rep = 60; S.unlockedExpansion = true;
+  foundStation('countyline'); foundStation('quadrangle');
+  const raw = JSON.parse(JSON.stringify(S));
+  raw.stations.forEach(st => { st.call = 'KDUP'; st.freq = '95.5'; });
+  const s = sanitize(raw);
+  const calls = s.stations.map(st => st.call), freqs = s.stations.map(st => st.freq);
+  return { n: s.stations.length, calls, freqs,
+           uniqueCalls: new Set(calls).size, uniqueFreqs: new Set(freqs).size };
+`);
+ok('three identical callsigns are repaired to three distinct ones under a frozen RNG',
+  dupCalls.n === 3 && dupCalls.uniqueCalls === 3, JSON.stringify(dupCalls));
+
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall v3 checks passed');
 process.exit(fails ? 1 : 0);
