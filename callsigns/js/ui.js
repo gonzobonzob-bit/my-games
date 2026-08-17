@@ -708,7 +708,80 @@ const UI_STR = {
   stationSub: '{freq} FM · {seg}',
   noSegment: 'Unassigned segment',
   briefShare: 'Audience share',
-  welcomeToast: 'You are on the air. Look for the amber card below the dial.'
+  welcomeToast: 'You are on the air. Look for the amber card below the dial.',
+
+  /* Tap-to-expand chrome. These are labels on a control, not copy about the
+     game, so they live here rather than in content.js's table — and they are
+     phrased as the QUESTION the panel behind them answers, because "Details"
+     on six panels teaches nothing about which one to open. */
+  foldMore: 'Details',
+  foldWhyRooms: 'How rooms and bays work',
+  foldRoomWhy: 'Points, ceiling and who is seated',
+  foldRoomNotes: 'What each room is paid out of',
+  foldLocal: 'Local trade, station by station',
+  foldNextBay: 'What the next bay would hold',
+  foldCond: 'What moves this number',
+  foldCoverage: 'Whole-empire coverage grid',
+  foldMarket: 'Market detail — rivals and local trade',
+  foldEmpireTotals: 'Totals since day one',
+  foldEffects: 'Ad log, rate and exposure',
+  foldPerson: 'Skill, training and where they are',
+  foldCandidate: 'What this hire is worth',
+  foldStudios: 'What a second studio buys',
+
+  /* RATE CARD stat keys. Every one names its unit or its referent in the KEY,
+     so the value can stay short enough not to wrap in a 256px card: "Points
+     seated / 3.0 of 18.5 pts" rather than a bare "3.0". */
+  rcPoints: 'Points seated',
+  rcWasted: 'Wasted points',
+  rcHeadroom: 'Room left',
+  rcSeated: 'People in it',
+  rcBanked: 'Banked yesterday',
+  rcNextPoint: 'Next point adds',
+  rcNothing: 'nothing',
+  rcBay: 'Bay {n} lease',
+  rcBayLease: 'Bay {n} lease',
+  rcPerDayMeasured: 'per day, measured today',
+  rcNetOfLease: 'Net of lease',
+  rcBuildCost: 'Build cost, one off',
+  rcCeilingSetBy: 'Ceiling set by',
+  rcSeatsPerRoom: 'Seats per room',
+  rcLocalChip: 'Market',
+  rcLeftToWin: 'of billing a room could still win',
+  rcLocalCarry: 'Local shops can carry',
+  rcLocalFloor: 'One seller closes',
+  rcLocalCeil: 'Production room',
+  rcLocalOpen: 'has work here',
+  localSummary: '{n} of your {of} signals still have local billing a production room could win.',
+  localSummaryNone: 'No signal you own has local billing left for a production room to win.',
+  foldStation: 'This signal\'s rate card',
+  foldSegments: 'Market detail on every segment',
+  rcTodayNet: 'today, after the lease',
+  rcTakeToday: 'Taking today',
+  rcCondition: 'Signal condition',
+  rcSinceDayOne: 'earned since day one',
+  rcListenersNow: 'Listeners now',
+  rcDaysOnAir: 'Days on air',
+  rcSkill: 'Skill',
+  rcSalary: 'Salary',
+  rcOnAir: 'On air',
+  rcAssignments: 'Assignments carried',
+  rcFatigue: 'Fatigue, 1.00 is rested',
+  rcTrain: 'Next skill point',
+  rcBestSlot: 'Best open slot pays',
+  rcSigningFee: 'Signing fee, one off',
+  rcNowhere: 'nowhere',
+  rcAdFill: 'Ad log filled',
+  rcAdRate: 'Ad rate',
+  rcWastedSales: 'Selling into nothing',
+  rcAtRisk: 'Slots at risk',
+  rcExposedSlots: 'Slots with nobody',
+  rcHeadcount: 'On payroll',
+  rcAfterSalary: 'per day, after their salary',
+  rcBaysChip: '{n} of {of} bays',
+  foldLogOlder: 'Earlier days',
+  foldLogCount: '{n} more entries',
+  fxWhatCaps: 'Your reputation caps both sales lines. Points above the cap earn nothing at all, however many sellers are pushing them.'
 };
 /** t() with a UI-side default. t() returns the key itself when it misses, so
     that is the signal to fall back. */
@@ -1922,6 +1995,182 @@ function viewCoach(){
     '▸ ' + esc(goal.text) + '</button>';
 }
 
+/* ---------------- TAP TO EXPAND ----------------
+
+   Rule 7's "everything else on demand", as ONE primitive shared by every tab,
+   so the player learns a single gesture instead of six.
+
+   The detail is RENDERED and hidden with [hidden], never omitted. Three things
+   fall out of that and all three are why it was chosen:
+     - hidden nodes are still in textContent, so nothing a screen reader or a
+       suite assertion can reach disappears when a line moves behind a tap;
+     - they are NOT in innerText, which is how the tab's actual reading load
+       drops rather than merely being reordered;
+     - [hidden] is display:none, so offsetParent is null and focusables()
+       already skips it. A max-height/opacity collapse would have looked
+       identical and quietly walked pad focus into a panel nobody can see.
+
+   Open state lives in a module Set and is NEVER persisted or saved. A panel
+   that remembers being open hands the next new player the exact wall this
+   pass removed. */
+let _folds = new Set();
+function foldOpen(key){ return _folds.has(key); }
+/** key — unique across every pane in the DOM at once (both tabpanes are live).
+    label — what is inside, in the player's words, not the system's.
+    body — already-composed HTML. Empty body renders nothing at all: a tap that
+    opens onto nothing is worse than no tap. */
+function fold(key, label, body, sub){
+  const k = String(key).replace(/[^A-Za-z0-9_.-]/g, '');
+  const open = foldOpen(k);
+  /* A FUNCTION body is LAZY: built only while the panel is open.
+
+     The default is eager, and deliberately so — an eager body stays in
+     textContent, which is what lets a line move behind a tap without leaving
+     a screen reader or an assertion unable to find it. Lazy is the exception
+     for a LIST, where the cost is multiplied by the roster: fourteen staff
+     rate cards built on every tick cost a measured ~13ms per repaint to
+     produce markup nobody is looking at. Use it only where nothing outside the
+     open panel depends on the strings — the hire board is eager for exactly
+     that reason, because the suite reads "Best open slot pays" out of it. */
+  if (typeof body === 'function') body = open ? body() : ' ';
+  if (!body) return '';
+  const id = 'fold-' + k.replace(/\./g, '-');
+  return '<div class="fold' + (open ? ' open' : '') + '">' +
+    '<button type="button" class="fold-btn" data-fold="' + k + '" ' +
+      'aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="' + id + '">' +
+      '<span class="fold-lbl">' + esc(label) +
+        (sub ? '<i class="fold-sub">' + esc(sub) + '</i>' : '') + '</span>' +
+      '<span class="fold-chev" aria-hidden="true">▾</span>' +
+    '</button>' +
+    '<div class="fold-body" id="' + id + '"' + (open ? '' : ' hidden') + '>' + body + '</div>' +
+  '</div>';
+}
+/** The one label this file uses for "there is more here", so the control reads
+    the same everywhere. Kept out of content.js's STR table on purpose: it is
+    chrome, not copy about the game. */
+function foldMore(){ return tt('foldMore'); }
+
+/** THE ROW IS THE CONTROL.
+
+    A separate "Details" button under every person, every candidate and every
+    station is fourteen extra 44px controls, fourteen repetitions of the word
+    "Details", and about 600px of scroll on a fourteen-person roster — paid to
+    say something the row itself could say by being tappable. So on list rows
+    the trigger IS the row: icon, name and status, with the chevron where the
+    eye already is.
+
+    Emitted as <span>, not <div>: this is a <button>, whose content model is
+    phrasing content, and .row-icon / .row-body / .row-title / .row-sub are all
+    divs at their other call sites. The CSS re-blockifies them for this one
+    context rather than the markup being quietly invalid.
+
+    `inner` is composed markup from the caller and is NOT escaped here; every
+    caller escapes its own values, exactly as the .row markup it replaces did. */
+function foldRow(key, inner, body){
+  const k = String(key).replace(/[^A-Za-z0-9_.-]/g, '');
+  const open = foldOpen(k);
+  // Same lazy-body contract as fold() — see the note there.
+  if (typeof body === 'function') body = open ? body() : ' ';
+  const id = 'fold-' + k.replace(/\./g, '-');
+  return '<button type="button" class="row-tap" data-fold="' + k + '" ' +
+      'aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="' + id + '">' +
+      inner +
+      '<span class="fold-chev" aria-hidden="true">▾</span>' +
+    '</button>' +
+    '<div class="fold-body" id="' + id + '"' + (open ? '' : ' hidden') + '>' + body + '</div>';
+}
+
+/** THE BODYLESS FOLD. Same key space, same control, same 44px, but the thing
+    it reveals is not a sibling div — it is regions inside markup this function
+    cannot wrap, because they live inside a <button> and a button cannot nest
+    one. The founding grid is exactly that case: every segment card IS a button,
+    and its rival breakdown has to stay inside it (the smoke suite reads the
+    card's own textContent, and a screen reader should hear the whole card as
+    one control). So the caller asks foldOpen(key) and stamps [hidden] on the
+    spans itself. One toggle for the whole grid rather than one per segment is
+    the right shape anyway: five identical controls teach nothing. */
+function foldToggle(key, label, sub){
+  const k = String(key).replace(/[^A-Za-z0-9_.-]/g, '');
+  const open = foldOpen(k);
+  return '<button type="button" class="fold fold-btn" data-fold="' + k + '" ' +
+    'aria-expanded="' + (open ? 'true' : 'false') + '">' +
+    '<span class="fold-lbl">' + esc(label) +
+      (sub ? '<i class="fold-sub">' + esc(sub) + '</i>' : '') + '</span>' +
+    '<span class="fold-chev" aria-hidden="true">▾</span>' +
+  '</button>';
+}
+
+/* ---------------- THE RATE CARD ----------------
+
+   What comes back on a tap is a CARD, not a drawer of extra lines, and the
+   reason is structural rather than decorative: a card is a constrained
+   container. Nobody can put 847 words on one. The format does the editing that
+   judgement failed to do the first time round — every one of those 847 words
+   was individually defensible, which is exactly why no individual judgement
+   call ever removed one.
+
+   It is also a real artifact, which rule 4 asks for. A RATE CARD is the sheet a
+   station hands an advertiser or an agency: the callsign and format at the top,
+   the market and coverage it claims, a daypart table with the rate against each
+   one, and the terms underneath. Radio sell sheets are the same object. So this
+   is not a tycoon-game flourish borrowed from a card battler — it is the
+   industry's own layout for precisely this information, applied to rooms,
+   people, signals and segments as well as to dayparts.
+
+   ANATOMY, and the cap is the feature:
+     id     the callsign / person / room name
+     chip   what kind of thing it is
+     art    the icon already in use, at a size that can carry the visual load,
+            so the numbers do not have to be interesting to look at
+     hero   THE one number, large, answering "how is this doing" at a glance
+     stats  THREE TO FIVE lines, each with its unit and its referent. Five is a
+            hard slice, not a guideline: if a sixth line wants in, something
+            already on the card has to leave, and being forced to choose is the
+            whole point of using a card at all.
+     note   one line of mechanism, in the player's words
+     foot   the terms — a warning or a condition, where a real card puts them
+
+   o = { id, chip, art, hero:{ val, lbl, cls }, stats:[{ k, v, cls }],
+         note, foot, footCls, cls }
+   Every field is optional except id. Values are plain text and are escaped
+   here; nothing composes markup into a card.                                */
+const RCARD_STAT_CAP = 5;
+function rateCard(o){
+  if (!o || !o.id) return '';
+  const stats = (o.stats || []).filter(s => s && s.v !== '' && s.v !== null && s.v !== undefined);
+  if (stats.length > RCARD_STAT_CAP) stats.length = RCARD_STAT_CAP;
+  let h = '<div class="rcard' + (o.cls ? ' ' + o.cls : '') + '">' +
+    '<div class="rcard-head">' +
+      '<span class="rcard-id">' + esc(o.id) + '</span>' +
+      (o.chip ? '<span class="rcard-chip">' + esc(o.chip) + '</span>' : '') +
+    '</div>';
+  if (o.art || o.hero) {
+    h += '<div class="rcard-body">' +
+      '<span class="rcard-art" aria-hidden="true">' + (o.art || '') + '</span>' +
+      (o.hero
+        ? '<span class="rcard-hero">' +
+            '<b class="' + (o.hero.cls || '') + '">' + esc(o.hero.val) + '</b>' +
+            (o.hero.lbl ? '<i>' + esc(o.hero.lbl) + '</i>' : '') +
+          '</span>'
+        : '') +
+    '</div>';
+  }
+  if (stats.length) {
+    h += '<dl class="rcard-stats">' + stats.map(s =>
+      '<div><dt>' + esc(s.k) + '</dt>' +
+      '<dd' + (s.cls ? ' class="' + s.cls + '"' : '') + '>' + esc(s.v) + '</dd></div>'
+    ).join('') + '</dl>';
+  }
+  /* The one field that takes MARKUP rather than text, and the only one: a
+     roster is one line per person and the stat block is capped at five, so a
+     three-seat room would blow the cap on its own. Callers pass HTML their own
+     esc() has already run over (uiSeatLine), never anything from a save. */
+  if (o.htmlRows) h += '<div class="rcard-rows">' + o.htmlRows + '</div>';
+  if (o.note) h += '<p class="rcard-note">' + esc(o.note) + '</p>';
+  if (o.foot) h += '<p class="rcard-foot' + (o.footCls ? ' ' + o.footCls : '') + '">' + esc(o.foot) + '</p>';
+  return h + '</div>';
+}
+
 /* ---------------- Studio: brief + schedule ---------------- */
 
 function brief(label, val, color){
@@ -2080,10 +2329,22 @@ function conditionCard(st){
         ' <span class="row-sub" style="display:inline">' +
         (net >= 0 ? '+' : '') + perWeek + esc(tt('condPerWeek')) + '</span></div>' +
       '<div class="meter"><div class="meter-fill ' + cls + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="row-sub" style="margin-top:5px">' +
+    '</div></div>' +
+    (c <= COND_MIN + 0.02
+      ? '<div class="row-sub" style="margin-top:4px;color:var(--bad)">' + esc(tt('condFloor')) + '</div>'
+      : '') +
+    /* THE BREAKDOWN GOES BEHIND THE TAP, and the "attention closes 2.3% of the
+       gap to full each day" line is the reason this whole pass exists: it is
+       exact, it is correct, and it is unreadable unless you already know what
+       "the gap" is. What survives above is what the player can act on — the
+       percentage and which way it is heading. Both sentences are still
+       rendered, still in textContent, and one tap away for the night somebody
+       wants to work out why. */
+    fold('cond.' + curIndex(), tt('foldCond'),
+      '<div class="row-sub">' +
         esc(tt('condWear', { pct: (wear * 100).toFixed(2), tx: TX[st.tx].name, ant: ANT[st.ant].name })) +
       '</div>' +
-      '<div class="row-sub">' +
+      '<div class="row-sub" style="margin-top:5px">' +
         /* Report attention as the SHARE OF THE GAP it closes per day, not as
            today's raw gain. Gain is COND_GAIN*attn*(1-c), so it shrinks as
            condition rises and equals wear exactly at the settling point — which
@@ -2092,11 +2353,7 @@ function conditionCard(st){
            that contradicts its own conclusion, and it is: the (1-c) term was
            invisible. Stated as a share of the gap, the equilibrium is obvious. */
         esc(tt('condTend', { pct: (COND_GAIN * attn * 100).toFixed(1), eng: engSlots, dj: djOnly })) +
-      '</div>' +
-    '</div></div>' +
-    (c <= COND_MIN + 0.02
-      ? '<div class="row-sub" style="margin-top:4px;color:var(--bad)">' + esc(tt('condFloor')) + '</div>'
-      : '') +
+      '</div>') +
   '</div>';
 }
 
@@ -2104,7 +2361,22 @@ function viewSchedule(){
   const st = curStation();
   if (!st) return '<div class="card"><div class="empty">' + esc(tt('emptyEmpire')) + '</div></div>';
   let h = '';
-  if (stationCount() > 1) h += coverageCard(true);
+  /* The whole-empire grid is the EMPIRE tab's card. On the Studio tab it was a
+     verbatim second copy — twelve to sixteen cells of callsigns and first
+     names, directly above a schedule showing four of the same slots in more
+     detail. It stays reachable here, because "is anything uncovered" is not a
+     question about the station you happen to be looking at, but it no longer
+     costs thirty words before the player reaches the board they came for. */
+  if (stationCount() > 1) {
+    // ...and the one thing a collapsed grid must not hide: a slot on air with
+    // nobody in the booth. The count rides on the control itself, so the state
+    // survives the collapse rather than the tap being the only way to find it.
+    const ex = empireExposure().exposed;
+    h += '<div class="card">' +
+      fold('cov.studio', tt('foldCoverage'), coverageCard(true),
+        ex ? tt('exposedShort', { n: ex }) : '') +
+    '</div>';
+  }
   h += conditionCard(st);
 
   h += '<div class="card"><div class="card-head">' +
@@ -2414,22 +2686,110 @@ function uiBayRows(){
   return rows;
 }
 
-/** Readout #1. Rows are bays; the cell IS the room.
+/** THE ROOM'S RATE CARD — everything that used to shout, on one constrained
+    sheet, in the layout a station actually uses to describe an asset.
 
-    THE CALLSIGN COLUMNS ARE GONE, and their removal is the v3 re-siting made
-    visible. Every room is a BUILDING object now — one chief engineer covers
-    every rack, one traffic desk builds one log, and production capacity is
-    pooled across the group — so a grid that put a room under exactly one
-    callsign was drawing a claim the simulation had stopped making. content.js
-    says it outright on this card: "Nothing in here belongs to a single
-    callsign."
+    Five stats, hard capped by rateCard() itself. That cap is what does the
+    editing: the old per-room block could carry eleven lines because nothing
+    ever forced a choice between them. Here, "banked yesterday" and "next point"
+    are competing for the same slot, and one of them has to lose.
 
-    What the column bought was never information, either. Four columns at
-    320px is a 54px cell that can hold an icon and a number; one column is
-    225px and holds the room's NAME, its points against its ceiling, its meter
-    and its measured return — the four things the row is read for — without a
-    long-press or a screen reader. Re-measured below the card's CSS. */
-function bayMatrix(econ){
+    Every value carries its unit and its referent — "3.0 of 18.5 pts", not
+    "3.0"; "−$90/day, bay 2", not "$90". */
+function roomRateCard(r, e, econ, st){
+  const bay = uiRoomBay(r.id);
+  const seated = Array.isArray(r.staff) ? r.staff.length : 0;
+  const headroom = Math.max(0, e.cap - e.pts);
+  const val = e.value;
+  const inert = val !== null && Math.abs(val) < 0.5;
+  const margin = uiRoomMarginOf(r.id);
+  const zero = uiRoomIsZero(r.type, st);
+  const stale = r.type === UI_RT.traffic && uiTrafficStale();
+  const thin = bay && val !== null && seated > 0 && val < bay.lease;
+
+  /* WHAT THE BOOK ACTUALLY PAID, beside what this room is measured at. Two of
+     the three rooms have a banked line in yesterday's ledger (sim stamps
+     prodRev and remRev as subsets of revenue it really took) and the Rack Room
+     cannot: its channel is wear, which moves condition, which moves tomorrow's
+     audience, and no line in yesterday's book carries its name. Putting the two
+     figures on the same card with different labels is the only honest way to
+     show a number that is measured next to numbers that were banked — and it
+     is why the separate "what each room returned" card could be deleted rather
+     than folded. */
+  const d = (S && S.lastDay) || {};
+  const banked = r.type === UI_RT.prod ? (Number.isFinite(d.prodRev) ? d.prodRev : null)
+               : r.type === UI_RT.traffic ? (Number.isFinite(d.remRev) ? d.remRev : null)
+               : null;
+
+  const stats = [];
+  stats.push({ k: tt('rcPoints'), v: uiPts(e.pts) + ' / ' + uiPts(e.cap) + ' pts',
+               cls: e.waste > 0.05 ? 'down' : e.cap > 0 ? '' : 'zero' });
+  if (e.waste > 0.05) {
+    stats.push({ k: tt('rcWasted'), v: uiPts(e.waste) + ' pts', cls: 'down' });
+  } else {
+    stats.push({ k: tt('rcHeadroom'), v: uiPts(headroom) + ' pts',
+                 cls: headroom > 0.05 ? 'cyan' : 'zero' });
+  }
+  stats.push({ k: tt('rcSeated'), v: seated + ' / ' + econ.seats, cls: seated ? '' : 'warn' });
+  if (banked !== null && S.day > 1) {
+    stats.push({ k: tt('rcBanked'), v: money(banked) + tt('perDay'), cls: banked > 0.5 ? 'up' : 'zero' });
+  } else if (margin !== null) {
+    stats.push({ k: tt('rcNextPoint'), v: margin > 0.5 ? '+' + money(margin) + tt('perDay') : tt('rcNothing'),
+                 cls: margin > 0.5 ? 'up' : 'zero' });
+  }
+  if (bay) stats.push({ k: tt('rcBay', { n: bay.idx + 1 }), v: '−' + money(bay.lease) + tt('perDay'), cls: 'down' });
+
+  /* The terms, where a rate card puts them: the one condition that changes what
+     this asset is worth. Most urgent first, and only one — a card that prints
+     four warnings has printed none. */
+  let foot = '', footCls = '';
+  if (zero)               { foot = uiRoomZeroText(r.type); footCls = 'warn'; }
+  else if (uiProdMispointed(r.type, st)) { foot = t('roomProdNoHead', { call: stationCall(st) }); footCls = 'warn'; }
+  else if (e.waste > 0.05){ foot = t('roomWasteNote'); footCls = 'bad'; }
+  else if (stale)         { foot = t('roomTrafficStale'); footCls = 'warn'; }
+  else if (!seated)       { foot = t('roomEmpty'); footCls = 'bad'; }
+  else if (thin)          { foot = t('bayBuyThin', { n: bay.idx + 1, amt: money(bay.lease), ret: money(Math.max(0, val)) }); footCls = 'bad'; }
+  else if (r.type === UI_RT.traffic) { foot = t('roomTrafficCounter'); }
+
+  return rateCard({
+    id: uiRoomTitle(r),
+    chip: tt('bayShort') + ' ' + (bay ? bay.idx + 1 : '—'),
+    art: uiRoomIcon(r.type),
+    hero: {
+      val: val === null ? '—' : (inert ? money(0) : (val >= 0 ? '+' : '−') + money(Math.abs(val))),
+      lbl: tt('rcPerDayMeasured'),
+      cls: val === null ? 'zero' : inert ? 'zero' : val >= 0 ? 'up' : 'down'
+    },
+    stats: stats,
+    // What sets the ceiling, in content's own sentence — the mechanism line.
+    note: uiCeilingLabelled(r.type, st, e.cap),
+    // Who is in it and what that seat costs the air. Rendered as rows rather
+    // than stats because it is one line per person and the stat cap is five.
+    htmlRows: seated ? r.staff.map(id => uiSeatLine(r, id)).join('') : '',
+    foot: foot, footCls: footCls
+  });
+}
+
+/** Readouts 1-5, in ONE card, bay by bay.
+
+    This was TWO cards plus a third. A matrix (name, meter, points, value), then
+    a list that repeated the name, the points and the value with up to eleven
+    lines of prose under each, then "what each room returned" repeating the
+    names a third time with a sentence apiece. Three rooms rendered nine
+    panels — about 430 of the Building tab's 819 measured words — and the
+    player read the same room's name three times before reaching anything new.
+
+    WHAT SURVIVES COLLAPSED is what this tab is opened for: what each room is
+    earning, and whether anything is earning nothing. The dollar figure is on
+    the cell, the state is a colour on its border and a ⚠ beside the figure,
+    and the bay's lease is in the gutter.
+
+    WHAT MOVES BEHIND THE TAP is every precise-but-unreadable line — points
+    against ceiling, the wasted count, what set the ceiling, the seat costs in
+    attention and fatigue, the lease comparison — onto that room's rate card.
+    Nothing is deleted. The aria-label on the cell still reads the points, the
+    cause and the dollars aloud, because a screen reader has no "collapsed". */
+function bayRoomsCard(econ){
   const list = allStations();
   if (!list.length) return '';
   const rows = uiBayRows();
@@ -2437,201 +2797,83 @@ function bayMatrix(econ){
 
   let h = '<div class="card"><div class="card-head">' +
     '<span class="card-title">' + esc(tt('bayShort') + ' × ' + t('roomLbl')) + '</span>' +
-    '<span class="card-note">' + esc(t('bayMatrixNote')) + '</span></div>' +
-    '<div class="bay-grid">' +
-    '<div class="bay-head" style="' + cols + '"><span>' + esc(tt('bayShort')) + '</span>' +
-      '<span>' + esc(t('roomLbl')) + '</span></div>';
+    '<span class="card-note">' + simBayCount() + ' / ' + simMaxBays() + '</span></div>';
+
+  if (!rows.length) {
+    return h + '<div class="empty">' + esc(t('bayNone')) + '</div></div>';
+  }
+  h += '<div class="bay-grid">';
 
   for (const row of rows) {
     const r = row.room;
-    const e = r ? (econ.rooms.find(x => x.id === r.id) || null) : null;
     h += '<div class="bay-row" style="' + cols + '">' +
       '<span class="bay-lbl"><b>' + (row.bay + 1) + '</b>' +
         '<i>' + esc(money(row.lease)) + '</i></span>';
-    if (r) {
-      const st = list[r.station];
-      const pts = e ? e.pts : 0, cap = e ? e.cap : 0, waste = e ? e.waste : 0;
-      /* A ZERO CEILING IS ALL BAR, NO FILL. Two of the three rooms have a
-         reachable zero ceiling — a Rack Room at Part 15, a Production Room in a
-         group with no local trade left — and the old "no ceiling, so call it
-         full" fallback painted exactly that case green at 100%. Every point in
-         a zero-ceiling room is wasted, so the meter is all red. */
-      const fill = cap > 0 ? clamp(pts / cap * 100, 0, 100) : 0;
-      const over = cap > 0 ? clamp((pts - cap) / cap * 100, 0, 100)
-                           : (pts > 0.05 ? 100 : 0);
-      /* Four states, in the order they matter: throwing points away, nobody in
-         it, staffed-but-worth-nothing, working. The third is the one points
-         alone cannot show — a Traffic Desk on a group that has started selling
-         out reads a healthy 4.0/6.0 with the dollars already gone. */
-      const val = e ? e.value : null;
-      const inert = val !== null && Math.abs(val) < 0.5;
-      const cls = waste > 0.05 ? ' over'
-        : (!r.staff || !r.staff.length) ? ' idle'
-        : inert ? ' zeroed' : '';
-      const ptsTxt = waste > 0.05
-        ? t('roomWaste', { pts: uiPts(pts), cap: uiPts(cap), waste: uiPts(waste) })
-        : t('roomPts',   { pts: uiPts(pts), cap: uiPts(cap) });
-      h += '<button type="button" class="bay-cell filled wide' + cls + '" data-openroom="' + esc(r.id) + '" ' +
-        'aria-label="' + esc(uiRoomTitle(r) + ' — ' + ptsTxt + ' · ' + uiCapCause(r.type, st) +
-          (val === null ? '' : ' — ' +
-            (inert ? money(0) + tt('perDay')
-              : (val > 0 ? '+' : '−') + money(Math.abs(val)) + tt('perDay')))) + '">' +
-        '<span class="bc-ico">' + uiRoomIcon(r.type) + '</span>' +
-        '<span class="bc-main">' +
-          '<span class="bc-name">' + esc(uiRoomTitle(r)) + '</span>' +
-          '<span class="bc-meter"><i style="width:' + fill + '%"></i>' +
-            (over > 0 ? '<b style="width:' + over + '%"></b>' : '') + '</span>' +
-        '</span>' +
-        '<span class="bc-side">' +
-          '<span class="bc-pts">' + esc(uiPts(pts)) + ' / ' + esc(uiPts(cap)) +
-            (waste > 0.05 ? ' ⚠' : '') + '</span>' +
-          (val === null ? ''
-            : '<span class="bc-val ' + (inert ? 'zero' : val >= 0 ? 'up' : 'down') + '">' +
-                esc(inert ? money(0) : (val >= 0 ? '+' : '−') + money(Math.abs(val))) + '</span>') +
-        '</span>' +
-      '</button>';
-    } else {
-      // The build control, full width: 225px x 48px at 320, against the 54px
-      // cell four callsign columns used to leave it.
+    if (!r) {
+      // The build control, full width: 225px x 48px at 320.
       h += '<button type="button" class="bay-cell open wide" data-buildroom="' + row.bay + '" ' +
         'aria-label="' + esc(t('roomAssign') + ' — ' + t('bayLine', { n: row.bay + 1, amt: money(row.lease) })) + '">' +
         '<span class="bc-ico">+</span>' +
         '<span class="bc-main"><span class="bc-name">' + esc(t('roomAssign')) + '</span></span>' +
-      '</button>';
+      '</button></div>';
+      continue;
     }
-    h += '</div>';
+    const st = list[r.station];
+    const e = econ.rooms.find(x => x.id === r.id) || { pts: 0, cap: 0, waste: 0, value: null };
+    /* A ZERO CEILING IS ALL BAR, NO FILL. Two of the three rooms have a
+       reachable zero ceiling — a Rack Room at Part 15, a Production Room in a
+       group with no local trade left — and a "no ceiling, so call it full"
+       fallback would paint exactly that case green at 100%. */
+    const fill = e.cap > 0 ? clamp(e.pts / e.cap * 100, 0, 100) : 0;
+    const over = e.cap > 0 ? clamp((e.pts - e.cap) / e.cap * 100, 0, 100)
+                           : (e.pts > 0.05 ? 100 : 0);
+    const seated = Array.isArray(r.staff) ? r.staff.length : 0;
+    const val = e.value;
+    const inert = val !== null && Math.abs(val) < 0.5;
+    /* Four states, in the order they matter: throwing points away, nobody in
+       it, staffed-but-worth-nothing, working. The third is the one points alone
+       cannot show — a Traffic Desk on a group that has started selling out
+       reads a healthy 4.0/6.0 with the dollars already gone. */
+    const cls = e.waste > 0.05 ? ' over'
+      : !seated ? ' idle'
+      : inert ? ' zeroed' : '';
+    const ptsTxt = e.waste > 0.05
+      ? t('roomWaste', { pts: uiPts(e.pts), cap: uiPts(e.cap), waste: uiPts(e.waste) })
+      : t('roomPts', { pts: uiPts(e.pts), cap: uiPts(e.cap) });
+    h += '<button type="button" class="bay-cell filled wide' + cls + '" data-openroom="' + esc(r.id) + '" ' +
+      'aria-label="' + esc(uiRoomTitle(r) + ' — ' + ptsTxt + ' · ' + uiCapCause(r.type, st) +
+        (val === null ? '' : ' — ' +
+          (inert ? money(0) + tt('perDay')
+            : (val > 0 ? '+' : '−') + money(Math.abs(val)) + tt('perDay')))) + '">' +
+      '<span class="bc-ico">' + uiRoomIcon(r.type) + '</span>' +
+      '<span class="bc-main">' +
+        '<span class="bc-name">' + esc(uiRoomTitle(r)) + '</span>' +
+        '<span class="bc-meter"><i style="width:' + fill + '%"></i>' +
+          (over > 0 ? '<b style="width:' + over + '%"></b>' : '') + '</span>' +
+      '</span>' +
+      '<span class="bc-side">' +
+        (val === null ? ''
+          : '<span class="bc-val ' + (inert ? 'zero' : val >= 0 ? 'up' : 'down') + '">' +
+              esc(inert ? money(0) : (val >= 0 ? '+' : '−') + money(Math.abs(val))) + '</span>') +
+        // The numbers left the cell; the ⚠ did not. Wasted points and an empty
+        // bay are the two states a player has to be able to find at a glance,
+        // and a glyph is not a readout.
+        (e.waste > 0.05 || !seated ? '<span class="bc-flag" aria-hidden="true">⚠</span>' : '') +
+      '</span>' +
+    '</button></div>';
+    // Lazy: uiSeatLine() runs a uiWhatIf clone per seated person to price the
+    // attention that seat costs, which is not a per-tick cost worth paying for
+    // a card that is closed.
+    h += fold('room.' + r.id, tt('foldRoomWhy'), function(){ return roomRateCard(r, e, econ, st); });
   }
   // The legend has to match the cell colours exactly: green is a working room,
   // AMBER is a room with nobody in it, GREY is a room with people in it that is
-  // measured at $0/day, RED is a room throwing points away. The first draft had
-  // amber and red the wrong way round, which is worse than no legend at all.
+  // measured at $0/day, RED is a room throwing points away.
   h += '</div>' +
     '<div class="cov-legend"><span><i class="covered"></i>' + esc(t('roomLbl')) + '</span>' +
     '<span><i class="risky"></i>' + esc(t('roomEmpty').split('.')[0]) + '</span>' +
-    // Grey is "staffed and worth nothing". The label is the figure itself
-    // rather than a sentence: it is the shortest true thing that can go here,
-    // and it needs no copy of its own to stay honest.
     '<span><i class="inert"></i>' + esc(money(0) + tt('perDay')) + '</span>' +
-    '<span><i class="exposed"></i>' + esc(t('roomWasteNote').split('.')[0]) + '</span></div>';
-  return h + '</div>';
-}
-
-/** Readouts 2-5, one row per room. A list, not six panels: the matrix above is
-    the overview, this is the detail under it, and every number in it is
-    measured by uiRoomEcon() rather than estimated. */
-function bayRoomRows(econ){
-  const list = allStations();
-  const rooms = simRoomList();
-  /* The rule, once, at the top of the list rather than repeated on every row:
-     a ceiling is set by the world — the plant on your towers, the local trade
-     the market rolled, the log you failed to sell — and hiring fills a ceiling
-     without ever raising one. It sits directly above the first "x / y pts"
-     figure, which is the only place it can do any work. */
-  let h = '<div class="card"><div class="card-head">' +
-    '<span class="card-title">' + esc(t('roomLbl')) + '</span>' +
-    '<span class="card-note">' + esc(t('roomFitNote').split('.')[0]) + '</span></div>';
-  if (!rooms.length) {
-    return h + '<div class="empty">' + esc(t(simBayCount() ? 'roomAssign' : 'bayNone')) + '</div></div>';
-  }
-  h += '<div class="hint" style="margin:0 0 10px">' + esc(t('roomCeilingRule')) + '</div>';
-  for (const r of rooms) {
-    const st = list[r.station];
-    const e = econ.rooms.find(x => x.id === r.id) || { pts: 0, cap: 0, waste: 0, value: null };
-    const seated = Array.isArray(r.staff) ? r.staff.length : 0;
-    const headroom = Math.max(0, e.cap - e.pts);
-
-    /* Readout #3, AND THE CENTRE OF THE WHOLE FEATURE. The overshoot is struck
-       through and counted, because points past the ceiling are worth EXACTLY
-       nothing while the salary still is. Composed through a sentinel so
-       content.js keeps owning the sentence and esc() still runs over every
-       character of it.
-
-       The cause rides on the same line, subordinate to the figure:
-
-         7.0 / 4.4 pts — 2.6 wasted · ceiling set by the plant on your towers
-
-       Without that tail the reading is "hire fewer people". With it, the
-       reading is the one this tab exists to teach: the ceiling is the WORLD —
-       the plant, the market's roll, the log you failed to sell — and hiring
-       cannot move any of the three. */
-    const cause = uiCapCause(r.type, st);
-    let ptsLine;
-    if (e.waste > 0.05) {
-      ptsLine = '<span class="pts-line bad">' +
-        esc(t('roomWaste', { pts: '\u0001', cap: uiPts(e.cap), waste: uiPts(e.waste) }))
-          .replace('\u0001', '<s class="struck">' + esc(uiPts(e.pts)) + '</s>') + '</span>';
-    } else {
-      ptsLine = '<span class="pts-line">' + esc(t('roomPts', { pts: uiPts(e.pts), cap: uiPts(e.cap) })) + '</span>';
-    }
-    if (cause) ptsLine += '<span class="cap-cause"> · ' + esc(cause) + '</span>';
-
-    const margin = uiRoomMarginOf(r.id);
-    const marg = (margin === null) ? ''
-      : (margin > 0.5 ? t('roomMargin', { amt: money(margin) }) : t('roomMarginNone'));
-    const val = e.value;
-    /* Return against the bill. A room's measured value is gross of its bay
-       lease, and the Rack Room is the room that exposes the gap: it measured
-       −$20/day NET at TX2/ANT2 while still showing a healthy positive return,
-       because the lease was on a different card. Same invisible-trap
-       class as the gear ladder before the wear preview — so the comparison is
-       on the room, in content's own words (bayBuyThin), the moment the room is
-       returning less than the bay it sits in. Skipped while the room is empty:
-       roomEmpty already says the bay bills anyway, and two lines saying it is
-       one line too many. */
-    const bay = uiRoomBay(r.id);
-    const thin = bay && val !== null && seated > 0 && val < bay.lease;
-    // THE COUNTER-CYCLICAL ROOM, said out loud on the room itself rather than
-    // left to be inferred from a number that quietly shrinks. `stale` is the
-    // moment content wrote roomTrafficStale for: the desk cleared less remnant
-    // yesterday than the bay under it costs, because the sellers got better.
-    const stale = r.type === UI_RT.traffic && uiTrafficStale();
-    h += '<div class="row">' +
-      '<div class="row-icon">' + uiRoomIcon(r.type) + '</div>' +
-      '<div class="row-body">' +
-        '<div class="row-title">' + esc(uiRoomTitle(r)) + '</div>' +
-        '<div class="row-sub" style="font-size:13px;font-weight:800">' + ptsLine +
-          ' <span style="color:var(--dim);font-weight:600">· ' +
-          esc(t('roomSeats', { n: seated, max: econ.seats })) + '</span></div>' +
-        (e.waste > 0.05
-          ? '<div class="row-sub" style="color:var(--red)">' + esc(t('roomWasteNote')) + '</div>'
-          : '<div class="row-sub">' + esc(headroom > 0.05
-              ? t('roomHeadroom', { n: uiPts(headroom) })
-              : t('roomAtCeiling')) + '</div>') +
-        '<div class="row-sub" style="color:var(--dim)">' +
-          esc(uiCeilingLabelled(r.type, st, e.cap)) + '</div>' +
-        (uiRoomIsZero(r.type, st)
-          ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' + esc(uiRoomZeroText(r.type)) + '</div>'
-          : '') +
-        // A production room pointed at a market with nothing left to win. Not
-        // the same state as the structural zero above it — the group's other
-        // signals may still be paying this room — so it is its own sentence.
-        (uiProdMispointed(r.type, st)
-          ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' +
-              esc(t('roomProdNoHead', { call: stationCall(st) })) + '</div>'
-          : '') +
-        // The desk's own thesis, on the desk, from the day it is built: it is
-        // paid out of what sales missed and it is designed to shrink.
-        (r.type === UI_RT.traffic && !stale
-          ? '<div class="row-sub" style="color:var(--dim)">' + esc(t('roomTrafficCounter')) + '</div>'
-          : '') +
-        (stale
-          ? '<div class="row-sub" style="color:var(--amber)">⚠️ ' + esc(t('roomTrafficStale')) + '</div>'
-          : '') +
-        (marg ? '<div class="row-sub" style="color:var(--cyan)">' + esc(marg) + '</div>' : '') +
-        (thin
-          ? '<div class="row-sub" style="color:var(--red)">' + esc(t('bayBuyThin', {
-              n: bay.idx + 1, amt: money(bay.lease), ret: money(Math.max(0, val)) })) + '</div>'
-          : '') +
-        (!seated
-          ? '<div class="row-sub" style="color:var(--red)">' + esc(t('roomEmpty')) + '</div>'
-          : r.staff.map(id => uiSeatLine(r, id)).join('')) +
-      '</div>' +
-      '<div class="row-act">' +
-        uiValueTag(val) +
-        '<button class="btn sm" data-openroom="' + esc(r.id) + '">' + esc(t('roomSeatsLbl')) + '</button>' +
-      '</div>' +
-    '</div>';
-  }
+    '<span><i class="exposed"></i>' + esc(tt('rcWasted')) + '</span></div>';
   return h + '</div>';
 }
 
@@ -2708,28 +2950,21 @@ function uiRoomYield(econ){
   }
   return { closed, rows };
 }
-/** The card. Rendered on the Building tab and, in the same shape, under the
-    Daily Brief — one function, so the two can never quote different figures. */
-function roomYieldCard(econ){
-  const y = uiRoomYield(econ);
-  let h = '<div class="card"><div class="card-head">' +
-    '<span class="card-title">' + esc(tt('roomYieldTitle')) + '</span>' +
-    '<span class="card-note">' + esc(tt(y.closed ? 'roomYieldNote' : 'roomYieldToday')) + '</span></div>';
-  for (const row of y.rows) {
-    h += '<div class="yield-row' + (row.built ? '' : ' off') + '">' +
-      '<span class="yield-ico">' + uiRoomIcon(row.type) + '</span>' +
-      '<span class="yield-body">' +
-        '<span class="yield-name">' + esc(uiRoomName(row.type)) + '</span>' +
-        '<span class="yield-note">' + esc(row.note) + '</span>' +
-      '</span>' +
-      uiValueTag(row.val) +
-    '</div>';
-  }
-  // The one caption that keeps the three columns honest: two are banked, one is
-  // measured, and a reader who assumes otherwise is being misled by a layout.
-  return h + '<div class="row-sub" style="color:var(--dim);margin-top:2px">' +
-    esc(uiRoomName(UI_RT.rack) + ' — ' + tt('roomYieldMeasured')) + '</div></div>';
-}
+/* roomYieldCard() USED TO BE HERE, and its deletion is the largest single
+   subtraction in this pass.
+
+   It drew a third card naming the same three rooms a third time, each with a
+   sentence of its own, under a caption explaining that two of its figures were
+   banked and one was measured — ~95 words and 12 numbers to say something the
+   Building tab said twice already in different units. Two dollar figures for
+   one room, on one screen, under two headings, is not "more info": it is
+   exactly the "text you cannot decode" half of the owner's note.
+
+   Nothing was lost. The banked figure is now a labelled stat ON that room's
+   rate card, directly beside the measured one, which is the only place the
+   distinction between them is legible at all. And the Daily Brief still carries
+   the three-chip yield strip every day — uiRoomYield() below is unchanged and
+   is what feeds it, so the split a player watches day to day is untouched. */
 
 /** WHERE A PRODUCTION ROOM WOULD PAY, before one is bought.
 
@@ -2742,36 +2977,49 @@ function roomYieldCard(econ){
 
     The percentages are descriptive — what the market carries, and what is still
     to be won. There is no threshold here and no "build here first". */
+/* THE WHOLE CARD IS BEHIND ONE TAP NOW. Its percentages are the brief's named
+   suspects — "88% local", "33% left to win" — and they are precise to whoever
+   wrote them: neither figure says what it is a percentage OF until you already
+   know that a Production Room walks local billing up toward a share rolled at
+   founding. The collapsed state keeps one line that says which signals still
+   have anything to win, as a COUNT, because that is the decision; the rate
+   cards behind the tap carry the percentages with their referents attached. */
 function localTradeCard(){
   const list = allStations();
   if (!list.length) return '';
-  let h = '<div class="card"><div class="card-head">' +
-    '<span class="card-title">' + esc(t('segLocalLbl')) + '</span>' +
-    '<span class="card-note">' + esc(uiRoomName(UI_RT.prod)) + '</span></div>';
-  for (const st of list) {
+  const withRoom = list.filter(st => simHeadroom(st) > 0).length;
+
+  const cards = list.map(st => {
     const base = simLocalBase(st);
     const head = simHeadroom(st);
-    const pct = clamp(base * 100, 0, 100);
-    const gain = clamp(head * 100, 0, 100);
-    h += '<div class="row">' +
-      '<div class="row-icon">📻</div>' +
-      '<div class="row-body">' +
-        '<div class="row-title">' + esc(stationCall(st)) + ' <span style="color:var(--dim);font-weight:600">' +
-          esc(tt('localOf', { pct: Math.round(pct) + '%' })) + '</span></div>' +
-        /* Two-tone meter: the flat share one seller closes by phone, then the
-           part a production room can still walk up. The second band IS the
-           headroom, so the figure and the bar cannot disagree. */
-        '<div class="meter local"><div class="meter-fill dim" style="width:' + (pct - gain) + '%"></div>' +
-          '<div class="meter-fill cyan" style="width:' + gain + '%"></div></div>' +
-        '<div class="row-sub" style="color:var(--' + (head > 0 ? 'cyan' : 'dim') + ')">' +
-          esc(head > 0 ? tt('localHeadroom', { pct: Math.round(gain) + '%' }) : tt('localNone')) + '</div>' +
-        // A signal with none says so plainly, in content's own words for it.
-        (head > 0 ? '' :
-          '<div class="row-sub" style="color:var(--dim)">' + esc(uiRoomZeroText(UI_RT.prod)) + '</div>') +
-      '</div>' +
-    '</div>';
-  }
-  return h + '<div class="hint" style="margin:8px 0 0">' + esc(t('foundLocalNote')) + '</div></div>';
+    const pct = Math.round(clamp(base * 100, 0, 100));
+    const gain = Math.round(clamp(head * 100, 0, 100));
+    return rateCard({
+      id: stationCall(st),
+      chip: tt('rcLocalChip'),
+      art: '📻',
+      // The one number that matters HERE is what is still winnable, not what is
+      // already local: the first is what a room would be paid for, the second
+      // arrives whether or not you build anything.
+      hero: { val: gain + '%', lbl: tt('rcLeftToWin'), cls: head > 0 ? 'cyan' : 'zero' },
+      stats: [
+        { k: tt('rcLocalCarry'), v: pct + '%' },
+        { k: tt('rcLocalFloor'), v: Math.round(UI_LOCAL_BASE * 100) + '%' },
+        { k: tt('rcLocalCeil'), v: head > 0 ? tt('rcLocalOpen') : tt('localNone'),
+          cls: head > 0 ? 'cyan' : 'zero' }
+      ],
+      note: head > 0 ? t('foundLocalNote') : uiRoomZeroText(UI_RT.prod),
+      footCls: 'warn'
+    });
+  }).join('');
+
+  return '<div class="card"><div class="card-head">' +
+    '<span class="card-title">' + esc(t('segLocalLbl')) + '</span>' +
+    '<span class="card-note">' + esc(uiRoomName(UI_RT.prod)) + '</span></div>' +
+    '<div class="row-sub">' + esc(tt(withRoom
+      ? 'localSummary' : 'localSummaryNone', { n: withRoom, of: list.length })) + '</div>' +
+    fold('build.local', tt('foldLocal'), cards) +
+  '</div>';
 }
 
 /** Once a day, off noteHudDeltas(): the two states the player would otherwise
@@ -2885,33 +3133,14 @@ function bayBuyCard(econ){
   const thin = ret < lease;
   h += '<div class="row"><div class="row-icon">🏢</div><div class="row-body">' +
     '<div class="row-title">' + esc(t('bayBuy', { n: n, amt: money(lease) })) + '</div>' +
+    // The one line worth keeping above the fold: the lease against what the
+    // best room available today would actually return. That IS the decision.
     (best
       ? '<div class="row-sub" style="color:var(--' + (thin ? 'red' : 'green') + ')">' +
           esc(thin
             ? t('bayBuyThin', { n: n, amt: money(lease), ret: money(Math.max(0, ret)) })
-            : t('bayBuyValue', { ret: money(ret) })) +
-          '</div>' +
-          // Only Production carries a callsign — see uiRoomTitle().
-          '<div class="row-sub" style="color:var(--dim)">' +
-            esc(best.type === UI_RT.prod
-              ? t('roomHead', { room: uiRoomName(best.type), call: best.call })
-              : uiRoomName(best.type)) + '</div>' +
-          /* And WHAT SETS that room's ceiling, before the money moves. The bay
-             ladder is [40, 90, 180, 320, 520, 800] now, so rungs 3 and 4 sit
-             inside the band real rooms are worth and this comparison decides
-             something — but only if the ceiling behind the return is on the
-             same card. A return measured against a 3-point ceiling evaporates
-             the day the player re-formats that station, and quoting the dollars
-             without the slots that set them is the gear ladder's old
-             invisible-trap shape. */
-          '<div class="row-sub" style="color:var(--dim)">' +
-            esc(uiCeilingLabelled(best.type, allStations()[best.station],
-              simRoomCeilingFor(allStations()[best.station], best.type))) +
-            ' · ' + esc(uiCapCause(best.type, allStations()[best.station])) + '</div>'
+            : t('bayBuyValue', { ret: money(ret) })) + '</div>'
       : '') +
-    // The reason a disabled button is disabled is ON the button; repeating it
-    // here as a row-sub printed "Needs 20 rep" twice, one line apart.
-    '<div class="row-sub" style="color:var(--dim)">' + esc(t('bayEmptyNote')) + '</div>' +
   '</div>' +
   '<div class="row-act">' +
     '<button class="btn buy" id="btn-buy-bay"' + (can.ok ? '' : ' disabled') + '>' +
@@ -2920,6 +3149,34 @@ function bayBuyCard(econ){
         : esc(t('needRep', { n: need }))) +
     '</button>' +
   '</div></div>';
+
+  /* WHAT SETS THAT ROOM'S CEILING, before the money moves — on the rate card
+     rather than as three grey lines under a buy button. The bay ladder is
+     [40, 90, 180, 320, 520, 800], so rungs 3 and 4 sit inside the band real
+     rooms are worth and this comparison decides something. It only decides
+     anything if the ceiling behind the return is legible, and "ceiling set by
+     the local trade this market has" pinned under a price was not. */
+  if (best) {
+    const bst = allStations()[best.station];
+    h += fold('build.nextbay', tt('foldNextBay'), rateCard({
+      id: best.type === UI_RT.prod
+        ? t('roomHead', { room: uiRoomName(best.type), call: best.call })
+        : uiRoomName(best.type),
+      chip: tt('bayShort') + ' ' + n,
+      art: uiRoomIcon(best.type),
+      hero: { val: (ret >= 0 ? '+' : '−') + money(Math.abs(ret)), lbl: tt('rcPerDayMeasured'),
+              cls: thin ? 'down' : 'up' },
+      stats: [
+        { k: tt('rcBayLease', { n: n }), v: '−' + money(lease) + tt('perDay'), cls: 'down' },
+        { k: tt('rcNetOfLease'), v: (ret - lease >= 0 ? '+' : '−') + money(Math.abs(ret - lease)) + tt('perDay'),
+          cls: ret - lease >= 0 ? 'up' : 'down' },
+        { k: tt('rcBuildCost'), v: money(cost) },
+        { k: tt('rcCeilingSetBy'), v: uiCapCause(best.type, bst).replace(/^ceiling set by (the )?/i, '') }
+      ],
+      note: uiCeilingLabelled(best.type, bst, simRoomCeilingFor(bst, best.type)),
+      foot: t('bayEmptyNote')
+    }));
+  }
 
   if (!can.ok && can.reason !== 'cap') {
     const cashPct = clamp(S.cash / Math.max(1, cost) * 100, 0, 100);
@@ -2961,31 +3218,45 @@ function viewBuild(){
       brief(tt('bayIdleLbl'), econ.idle ? econ.idle + ' · −' + money(econ.idleLease) : '0',
         econ.idle ? 'amber' : 'dim') +
     '</div>' +
-    '<div class="row-sub" style="margin-top:10px;text-align:center">' + esc(t('baySub')) + '</div>' +
-    '<div class="hint" style="margin:10px 0 0">' + esc(t('bayThesis')) + '</div>';
-  if (econ.idle > 0) {
-    h += '<div class="row-sub" style="margin-top:8px;color:var(--amber)">⚠️ ' + esc(t('bayEmptyNote')) + '</div>';
-  }
-  /* The other way to bleed, and the one this version of the feature created:
-     rooms with people in them over a schedule that serves none of them. Said at
-     the top, above the grid, because it is the answer to "why is the return
-     line red" and the grid below only shows it a cell at a time. Both strings
-     are content's and both are already true of this state — no new copy, and
-     no count invented in this file. */
+    /* ONE plain sentence saying what the thing is and how it works, once for
+       the whole tab. It replaces four: baySub, bayThesis, roomCeilingRule and
+       roomFitNote, which between them said the same thing from four angles at
+       the top of four different cards. All four are still authored, still
+       rendered, and one tap down. */
+    '<div class="row-sub" style="margin-top:10px;text-align:center">' + esc(tt('bayOneLine')) + '</div>';
+  /* Rooms with people in them and nothing in the world for those people to
+     work on. Said at the top, above the grid, because it is the answer to "why
+     is the return line red" — but WITHOUT the ceiling rule trailing after it,
+     which turned a four-word warning into a thirty-word paragraph. The idle-bay
+     line that used to sit beside it is gone outright: the IDLE BAYS tile three
+     inches above already carries the count and the money, in amber. */
   if (econ.cold > 0) {
     h += '<div class="row-sub" style="margin-top:8px;color:var(--red)">⚠️ ' +
-      esc(t('roomCapZero')) + ' · ' + esc(t('roomCeilingRule')) + '</div>';
+      esc(t('roomCapZero')) + '</div>';
   }
+  h += fold('build.how', tt('foldWhyRooms'), rateCard({
+    id: t('bayTitle'),
+    chip: tt('rcBaysChip', { n: simBayCount(), of: simMaxBays() }),
+    art: '🏢',
+    hero: { val: (net >= 0 ? '+' : '−') + money(Math.abs(net)) + tt('perDay'),
+            lbl: tt('rcNetOfLease'), cls: net >= 0 ? 'up' : 'down' },
+    stats: [
+      { k: t('bayLeaseLbl'), v: '−' + money(econ.lease) + tt('perDay'), cls: 'down' },
+      { k: tt('bayReturnLbl'), v: money(econ.returned) + tt('perDay'),
+        cls: econ.returned > 0.5 ? 'up' : 'zero' },
+      { k: tt('bayIdleLbl'), v: econ.idle ? econ.idle + ' · −' + money(econ.idleLease) + tt('perDay') : '0',
+        cls: econ.idle ? 'warn' : 'zero' },
+      { k: tt('rcSeatsPerRoom'), v: String(econ.seats) }
+    ],
+    note: t('bayThesis'),
+    foot: t('roomCeilingRule')
+  }));
   h += '</div>';
 
   if (!simBayCount() && !simRoomList().length) {
     h += '<div class="card"><div class="row-sub" style="color:var(--muted)">' + esc(t('bayNone')) + '</div></div>';
   } else {
-    // Realised first, structure second: "which room paid" is the question, and
-    // the grid under it is how you act on the answer.
-    if (simRoomList().length) h += roomYieldCard(econ);
-    h += bayMatrix(econ);
-    h += bayRoomRows(econ);
+    h += bayRoomsCard(econ);
   }
   // WHERE a production room would pay, on the screen where one is bought, and
   // shown whether or not a bay exists yet — it is the number that decides
@@ -3162,29 +3433,40 @@ function viewStaff(){
   // describe the empire's actual exposure.
   const exp = empireExposure();
   const slotsTotal = stationCount() * DAYPARTS.length;
+  const fillCapped = simSalesFill() >= simFillCap() - 1e-9;
+  const rateCapped = simSalesPrice() >= simPriceCap() - 1e-9;
+  /* FIVE READOUTS BECAME ONE HEADLINE AND A CARD. Four of the five — ad fill,
+     ad rate, the wasted-points figure and the at-risk count — answer questions
+     the player asks occasionally. Exactly one of them, "how many of my slots
+     are on air with nobody in the booth", is the thing this tab exists to fix
+     today, and it was the fourth line down in the same 12px grey as the rest.
+     "Sales going nowhere: 1.7 pts — your name cannot carry them" is the
+     brief's named suspect and is now a labelled stat on the card, where the
+     unit and the referent fit beside it. */
   h += '<div class="card"><div class="card-head">' +
     '<span class="card-title">📊 ' + esc(t('effectsTitle')) + '</span>' +
-    // No per-signal qualifier: the ad log is one empire-wide number again, and
-    // no room touches it. A Sales Floor would have split these sellers across
-    // stations for strictly less money; it is not in the game.
     '</div>' +
-    /* Both lines now say whether reputation is the thing holding them down.
-       Sales points above the cap earn exactly $0, and a seller earning nothing
-       looks identical to one earning unless the screen says so — the same
-       invisible-mechanic failure as the static rival number and the missing
-       condition gauge. The wasted count is the number that stops "hire another
-       seller" being the reflex answer. */
-    fxLine(t('fxAdFill'), Math.round(simSalesFill() * 100) + '%' +
-      (simSalesFill() >= simFillCap() - 1e-9 ? ' ' + esc(tt('capped')) : ''),
-      simSalesFill() >= simFillCap() - 1e-9 ? 'amber' : 'green') +
-    fxLine(t('fxAdRate'), simSalesPrice().toFixed(2) + '×' +
-      (simSalesPrice() >= simPriceCap() - 1e-9 ? ' ' + esc(tt('capped')) : ''),
-      simSalesPrice() >= simPriceCap() - 1e-9 ? 'amber' : 'green') +
-    (simSalesWasted() > 0.05
-      ? fxLine(tt('salesWastedLbl'), simSalesWasted().toFixed(1) + ' ' + esc(tt('salesWastedPts')), 'red')
-      : '') +
-    fxLine(tt('covExposed'), exp.exposed + ' / ' + slotsTotal, exp.exposed ? 'red' : 'green') +
-    fxLine(tt('covRisky'), exp.risky + ' / ' + slotsTotal, exp.risky ? 'amber' : 'green') +
+    fxLine(tt('rcExposedSlots'), exp.exposed + ' / ' + slotsTotal, exp.exposed ? 'red' : 'green') +
+    fold('staff.fx', tt('foldEffects'), rateCard({
+      id: t('effectsTitle'),
+      chip: tt('rcHeadcount') + ' ' + S.staff.length,
+      art: '📊',
+      hero: { val: exp.exposed + ' / ' + slotsTotal, lbl: tt('rcExposedSlots').toLowerCase(),
+              cls: exp.exposed ? 'down' : 'up' },
+      /* Both sales lines say whether REPUTATION is the thing holding them
+         down. Points above the cap earn exactly $0, and a seller earning
+         nothing looks identical to one earning unless the screen says so. */
+      stats: [
+        { k: tt('rcAdFill'), v: Math.round(simSalesFill() * 100) + '%' + (fillCapped ? ' · ' + tt('capped') : ''),
+          cls: fillCapped ? 'warn' : 'up' },
+        { k: tt('rcAdRate'), v: simSalesPrice().toFixed(2) + '×' + (rateCapped ? ' · ' + tt('capped') : ''),
+          cls: rateCapped ? 'warn' : 'up' },
+        { k: tt('rcWastedSales'), v: simSalesWasted().toFixed(1) + ' pts',
+          cls: simSalesWasted() > 0.05 ? 'down' : 'zero' },
+        { k: tt('rcAtRisk'), v: exp.risky + ' / ' + slotsTotal, cls: exp.risky ? 'warn' : 'up' }
+      ],
+      note: tt('fxWhatCaps')
+    })) +
   '</div>';
 
   h += '<div class="two-col">';
@@ -3198,33 +3480,83 @@ function viewStaff(){
       '<div style="font-weight:700;color:var(--muted)">' + esc(t('noPayroll')) + '</div>' +
       '<div style="margin-top:3px">' + esc(t('noPayrollNote')) + '</div></div>';
   } else {
+    /* THE ROSTER, LEAN. Every row used to carry five lines and two buttons —
+       name, role/skill/salary, where they are, a skill meter, a Train button
+       with its price and a Fire button — and at fourteen staff that is a
+       screen of nothing but people you are not currently deciding about.
+       On a fourteen-person roster the training prices alone were fourteen
+       four-figure numbers, none of which decides anything until you have
+       already picked the person.
+
+       What is left is the row a player scans: who they are, what they cost per
+       day, and where in the empire they actually are. Skill stays as the meter,
+       which is the non-textual form of the same fact. Everything else — the
+       skill figure, the training price, the fatigue, what their best open slot
+       pays, and both buttons — is on their card, one tap down. Fire being two
+       taps instead of one is not a regression on a destructive control. */
+    const load = simLoadMap();
     for (const p of S.staff) {
       const trainCost = trainCostFor(p.skill);
       const maxed = p.skill >= 10;
       const booked = bookingsOf(p.id);
+      /* bestDjSlot/bestEngineerSlot each price every slot in the empire on a
+         cloned state. That is fine for two candidates on the hire board and
+         emphatically not fine for fourteen staff on every tick — so the whole
+         card is a LAZY body (see fold()), built only for the person whose row
+         is actually open. Measured: 53ms per Staff repaint eager, against a
+         37ms baseline, for markup nobody was looking at. */
       h += '<div class="row">' +
-        '<div class="row-icon">' + ROLES[p.role].icon + '</div>' +
-        '<div class="row-body">' +
-          '<div class="row-title">' + esc(p.name) + '</div>' +
-          '<div class="row-sub">' + esc(roleName(p.role)) + ' · ' + esc(t('skill', { n: p.skill })) + ' · ' + esc(t('salary', { amt: money(p.salary) })) + '</div>' +
-          // Where this person actually is, across the whole empire. Without it
-          // a four-station roster is a list of names with no schedule attached.
-          '<div class="row-sub" style="color:var(--' + (booked.length ? 'cyan' : 'red') + ')">' +
-            (booked.length
-              ? esc(booked.map(b => b.call + ' ' + partShort(b.part)).join(' · '))
-              // A sales agent has no slot to be missing from — the roster used to
-              // label them "Automation", which describes an empty daypart they
-              // could never have filled.
-              : esc(t(p.role === 'sales' ? 'unstaffedSales' : 'unstaffed'))) +
-          '</div>' +
-          '<div class="meter"><div class="meter-fill amber" style="width:' + (p.skill * 10) + '%"></div></div>' +
-        '</div>' +
-        '<div class="row-act">' +
-          (maxed
-            ? '<span class="pill max">' + esc(t('maxSkill')) + '</span>'
-            : '<button class="btn sm" data-train="' + p.id + '"' + (S.cash >= trainCost ? '' : ' disabled') + '>' + esc(t('trainCost', { amt: money(trainCost) })) + '</button>') +
-          '<button class="btn sm danger" data-fire="' + p.id + '">' + esc(t('fire')) + '</button>' +
-        '</div>' +
+        foldRow('staff.' + p.id,
+          '<span class="row-icon">' + ROLES[p.role].icon + '</span>' +
+          '<span class="row-body">' +
+            '<span class="row-title">' + esc(p.name) + '</span>' +
+            '<span class="row-sub">' + esc(roleName(p.role)) + ' · ' + esc(t('salary', { amt: money(p.salary) })) + '</span>' +
+            // Where this person actually is, across the whole empire. Without it
+            // a four-station roster is a list of names with no schedule attached.
+            /* Red means "a slot is on air with nobody in it". A seller has no
+               slot to be missing from, so a seller gets --dim: same fact, and
+               not the alarm colour for a state that is entirely normal. */
+            '<span class="row-sub" style="color:var(--' +
+              (booked.length ? 'cyan' : p.role === 'sales' ? 'dim' : 'red') + ')">' +
+              (booked.length
+                ? esc(booked.map(b => b.call + ' ' + partShort(b.part)).join(' · '))
+                // A sales agent has no slot to be missing from — the roster used to
+                // label them "Automation", which describes an empty daypart they
+                // could never have filled.
+                : esc(t(p.role === 'sales' ? 'unstaffedSales' : 'unstaffed'))) +
+            '</span>' +
+            '<span class="meter"><span class="meter-fill amber" style="width:' + (p.skill * 10) + '%"></span></span>' +
+          '</span>',
+          function(){
+            const best = p.role === 'eng' ? bestEngineerSlot(p.id)
+                       : p.role === 'dj' ? bestDjSlot(p.id) : null;
+            return rateCard({
+              id: p.name,
+              chip: roleName(p.role),
+              art: ROLES[p.role].icon,
+              hero: { val: money(p.salary) + tt('perDay'), lbl: tt('rcSalary').toLowerCase(), cls: 'down' },
+              stats: [
+                { k: tt('rcSkill'), v: p.skill + ' / 10', cls: maxed ? 'up' : '' },
+                { k: tt('rcOnAir'), v: booked.length
+                    ? booked.map(b => b.call + ' ' + partShort(b.part)).join(', ')
+                    : tt('rcNowhere'),
+                  cls: booked.length ? 'cyan' : 'warn' },
+                { k: tt('rcAssignments'), v: uiPts(load[p.id] || 0) },
+                { k: tt('rcFatigue'), v: simFatigue(p.id).toFixed(2),
+                  cls: simFatigue(p.id) < 0.9 ? 'warn' : '' },
+                { k: tt('rcBestSlot'), v: best ? money(best.worth) + tt('perDay') : '',
+                  cls: best && best.worth > p.salary ? 'up' : 'zero' }
+              ],
+              note: roleDesc(p.role)
+            }) +
+            '<div class="rcard-acts">' +
+              (maxed
+                ? '<span class="pill max">' + esc(t('maxSkill')) + '</span>'
+                : '<button class="btn sm" data-train="' + p.id + '"' + (S.cash >= trainCost ? '' : ' disabled') + '>' +
+                    esc(t('trainCost', { amt: money(trainCost) })) + '</button>') +
+              '<button class="btn sm danger" data-fire="' + p.id + '">' + esc(t('fire')) + '</button>' +
+            '</div>';
+          }) +
       '</div>';
     }
   }
@@ -3247,15 +3579,17 @@ function viewStaff(){
     for (const p of S.candidates) {
       const fee = hireFee(p);
       h += '<div class="row">' +
-        '<div class="row-icon">' + ROLES[p.role].icon + '</div>' +
-        '<div class="row-body">' +
-          '<div class="row-title">' + esc(p.name) + '</div>' +
-          '<div class="row-sub">' + esc(roleName(p.role)) + ' · ' + esc(t('skill', { n: p.skill })) + ' · ' + esc(t('salary', { amt: money(p.salary) })) + '</div>' +
-          '<div class="row-sub" style="color:var(--dim)">' + esc(roleDesc(p.role)) + '</div>' +
-          // The fee and the salary are two different numbers; the button used
-          // to show only the first, directly under a line showing only the second.
-          '<div class="row-sub" style="color:var(--dim)">' + esc(t('hireTerms', { amt: money(p.salary) })) + '</div>' +
-          /* WHAT THIS PERSON IS ACTUALLY WORTH, before you pay for them.
+        // The Hire button is a SIBLING of the tappable row, never inside it: a
+        // button cannot contain a button, and reading a candidate must not be
+        // one mis-tap away from paying for them.
+        foldRow('cand.' + p.id,
+          '<span class="row-icon">' + ROLES[p.role].icon + '</span>' +
+          '<span class="row-body">' +
+            '<span class="row-title">' + esc(p.name) + '</span>' +
+            '<span class="row-sub">' + esc(roleName(p.role)) + ' · ' + esc(t('salary', { amt: money(p.salary) })) + '</span>' +
+          '</span>',
+          /* WHAT THIS PERSON IS ACTUALLY WORTH, before you pay for them, on
+             their own card.
 
              A blind playtest followed the coach's advice on day 16, paid $392
              up front and $49/day, and the slot editor later told them the best
@@ -3263,32 +3597,56 @@ function viewStaff(){
              game gave advice its own arithmetic contradicted, and there was no
              way to know before buying. Measured on a clone through the same
              functions the slot editor uses, so the number here and the number
-             there can never disagree. */
+             there can never disagree.
+
+             The card is the RIGHT home for it — a hire is the one place on this
+             tab where the player has genuinely stopped to decide, which is
+             exactly when five stats are wanted rather than skimmed past. The
+             row above stays down to a name, a role and a wage. */
           (function(){
-            if (typeof uiWhatIf !== 'function') return '';
-            const worth = uiWhatIf(function(){
-              const fresh = JSON.parse(JSON.stringify(p));
-              S.staff.push(fresh);
-              if (p.role === 'eng' && typeof bestEngineerSlot === 'function') {
-                const best = bestEngineerSlot(fresh.id);
-                return best ? best.worth : 0;
-              }
-              if (p.role === 'dj' && typeof bestDjSlot === 'function') {
-                const best = bestDjSlot(fresh.id);
-                return best ? best.worth : 0;
-              }
-              return null;
-            });
-            if (worth === null || !isFinite(worth)) return '';
-            const net = worth - (p.salary || 0);
-            const cls = net >= 0 ? 'green' : 'red';
-            return '<div class="row-sub" style="color:var(--' + cls + ')">' +
-              esc(t('hireWorth', {
+            let worth = null;
+            if (typeof uiWhatIf === 'function') {
+              worth = uiWhatIf(function(){
+                const fresh = JSON.parse(JSON.stringify(p));
+                S.staff.push(fresh);
+                if (p.role === 'eng' && typeof bestEngineerSlot === 'function') {
+                  const b = bestEngineerSlot(fresh.id); return b ? b.worth : 0;
+                }
+                if (p.role === 'dj' && typeof bestDjSlot === 'function') {
+                  const b = bestDjSlot(fresh.id); return b ? b.worth : 0;
+                }
+                return null;
+              });
+            }
+            const priced = worth !== null && isFinite(worth);
+            const net = priced ? worth - (p.salary || 0) : 0;
+            return rateCard({
+              id: p.name,
+              chip: roleName(p.role),
+              art: ROLES[p.role].icon,
+              hero: priced
+                ? { val: (net >= 0 ? '+' : '−') + money(Math.abs(Math.round(net))) + tt('perDay'),
+                    lbl: tt('rcAfterSalary'), cls: net >= 0 ? 'up' : 'down' }
+                : { val: money(p.salary) + tt('perDay'), lbl: tt('rcSalary').toLowerCase(), cls: 'down' },
+              stats: [
+                { k: tt('rcSkill'), v: p.skill + ' / 10' },
+                { k: tt('rcSalary'), v: money(p.salary) + tt('perDay'), cls: 'down' },
+                { k: tt('rcSigningFee'), v: money(fee), cls: 'down' },
+                { k: tt('rcBestSlot'),
+                  v: priced ? money(Math.round(worth)) + tt('perDay') : '',
+                  cls: priced && net >= 0 ? 'up' : 'down' }
+              ],
+              note: roleDesc(p.role),
+              // hireWorth is the sentence the suite reads. It stays authored,
+              // rendered and reachable — it has simply stopped being the fifth
+              // grey line on a row the player is only scanning.
+              foot: priced ? t('hireWorth', {
                 worth: money(Math.round(worth)),
                 net: (net >= 0 ? '+' : '') + money(Math.round(net))
-              })) + '</div>';
-          })() +
-        '</div>' +
+              }) : t('hireTerms', { amt: money(p.salary) }),
+              footCls: priced && net < 0 ? 'bad' : ''
+            });
+          })()) +
         '<div class="row-act">' +
           '<button class="btn buy" data-hire="' + p.id + '"' + (S.cash >= fee ? '' : ' disabled') + '>' +
             (S.cash >= fee
@@ -3390,10 +3748,22 @@ function viewEmpire(){
       brief(t('empireNet'), money(S.stats.totalEarned), earnCls) +
       brief(t('day', { n: '' }).trim() || 'Day', String(S.day), 'amber') +
     '</div>' +
-    '<div style="margin-top:9px;text-align:center;font-size:12px;color:var(--muted)">' +
-      esc(t('empireCosts')) + ' <span style="color:var(--red);font-weight:700">' + money(S.stats.totalCosts) + '</span>' +
-      ' · ' + esc(t('empirePeak')) + ' <span style="color:var(--cyan);font-weight:700">' + num(S.stats.peakListeners) + '</span>' +
-    '</div>' +
+    // Lifetime totals are a scoreboard, not a decision — nothing a player does
+    // today changes what was spent since day one. Behind the tap, as a card.
+    fold('empire.totals', tt('foldEmpireTotals'), rateCard({
+      id: t('empireTitle'),
+      chip: stationCount() + ' / ' + uiMaxStations(),
+      art: '🏙️',
+      hero: { val: money(S.stats.totalEarned), lbl: tt('rcSinceDayOne'),
+              cls: S.stats.totalEarned >= 0 ? 'up' : 'down' },
+      stats: [
+        { k: t('empireCosts'), v: money(S.stats.totalCosts), cls: 'down' },
+        { k: t('empirePeak'), v: num(S.stats.peakListeners), cls: 'cyan' },
+        { k: tt('rcListenersNow'), v: num(S.listeners) },
+        { k: tt('empireLease'), v: '−' + money(leases) + tt('perDay'), cls: 'down' },
+        { k: tt('rcDaysOnAir'), v: String(S.day) }
+      ]
+    })) +
   '</div>';
 
   h += coverageCard(false);
@@ -3412,28 +3782,57 @@ function viewEmpire(){
     const lease = simLease(st);
     const e = exp.per[i];
     h += '<div class="row' + (i === curIndex() ? ' on' : '') + '">' +
-      '<div class="row-icon">' + esc(seg && seg.icon ? seg.icon : '📻') + '</div>' +
-      '<div class="row-body">' +
-        '<div class="row-title">' + esc(st.call) + ' ' +
-          (e.exposed ? '<span class="pill locked">' + esc(tt('exposedShort', { n: e.exposed })) + '</span>'
-           : e.risky ? '<span class="pill warn">' + e.risky + ' ' + esc(tt('covRisky')) + '</span>'
-           : '<span class="pill max">' + esc(tt('allCovered')) + '</span>') +
-        '</div>' +
-        '<div class="row-sub">' + esc(tt('stationSub', { freq: st.freq, seg: seg ? seg.name : tt('noSegment') })) + '</div>' +
-        // Today's take against today's lease, on one line, per signal — this
-        // is the "should this station exist" number and it is the whole reason
-        // founding can be the wrong move.
-        '<div class="row-sub">' +
-          '<span style="color:var(--green)">' + money(today) + '</span> in · ' +
-          '<span style="color:var(--red)">−' + money(lease) + '</span> ' + esc(tt('empireLease')) +
-          ' · <span style="color:var(--' + (today - lease >= 0 ? 'green' : 'red') + ');font-weight:700">' +
-            (today - lease >= 0 ? '+' : '') + money(today - lease) + '</span>' +
-        '</div>' +
-        (Number.isFinite(st.totalEarned)
-          ? '<div class="row-sub" style="color:var(--dim)">' +
-              esc(t('empireNet')) + ' ' + money(st.totalEarned) + '</div>'
-          : '') +
-      '</div>' +
+      foldRow('empire.st.' + i,
+        '<span class="row-icon">' + esc(seg && seg.icon ? seg.icon : '📻') + '</span>' +
+        '<span class="row-body">' +
+          '<span class="row-title">' + esc(st.call) + ' ' +
+            (e.exposed ? '<span class="pill locked">' + esc(tt('exposedShort', { n: e.exposed })) + '</span>'
+             : e.risky ? '<span class="pill warn">' + e.risky + ' ' + esc(tt('covRisky')) + '</span>'
+             : '<span class="pill max">' + esc(tt('allCovered')) + '</span>') +
+          '</span>' +
+          '<span class="row-sub">' + esc(tt('stationSub', { freq: st.freq, seg: seg ? seg.name : tt('noSegment') })) + '</span>' +
+          // Today's take against today's lease, on one line, per signal — this
+          // is the "should this station exist" number and it is the whole reason
+          // founding can be the wrong move.
+          '<span class="row-sub">' +
+            '<span style="color:var(--green)">' + money(today) + '</span> in · ' +
+            '<span style="color:var(--red)">−' + money(lease) + '</span> ' + esc(tt('empireLease')) +
+            ' · <span style="color:var(--' + (today - lease >= 0 ? 'green' : 'red') + ');font-weight:700">' +
+              (today - lease >= 0 ? '+' : '') + money(today - lease) + '</span>' +
+          '</span>' +
+        '</span>',
+    /* THE STATION'S OWN RATE CARD, and the one place in this game where the
+       format is not a metaphor: this is the sheet a group sells a signal off.
+       Callsign and format at the top, the dial position, what the market
+       carries, the condition of the plant, and the lifetime line that used to
+       sit as a fifth grey row under every station in the list. */
+      rateCard({
+      id: st.call,
+      chip: (st.freq || '—') + ' FM',
+      art: (seg && seg.icon) ? seg.icon : '📻',
+      hero: { val: (today - lease >= 0 ? '+' : '−') + money(Math.abs(today - lease)),
+              lbl: tt('rcTodayNet'), cls: today - lease >= 0 ? 'up' : 'down' },
+      stats: [
+        { k: tt('rcTakeToday'), v: money(today) + tt('perDay'), cls: 'up' },
+        { k: tt('empireLease'), v: '−' + money(lease) + tt('perDay'), cls: 'down' },
+        { k: tt('rcCondition'), v: Math.round(condOf(st) * 100) + '%',
+          cls: condOf(st) >= 0.85 ? 'up' : condOf(st) >= 0.6 ? 'warn' : 'down' },
+        { k: tt('rcLocalCarry'), v: Math.round(simLocalBase(st) * 100) + '%' },
+        { k: t('empireNet'), v: Number.isFinite(st.totalEarned) ? money(st.totalEarned) : '—',
+          cls: (st.totalEarned || 0) >= 0 ? 'up' : 'down' }
+      ],
+      /* A real rate card describes its MARKET here, not its own callsign
+         again — the chip already carries the dial position and the row above
+         carries the format. content.js has written that paragraph per segment
+         since v3 (segLocalText) and it has only ever been shown on the
+         founding screen, before the licence issues; on a signal you already
+         own it is the sentence that explains why its local base is what it
+         is. */
+      note: (typeof segLocalText === 'function' && st.segment && segLocalText(st.segment))
+        || (seg ? seg.name : ''),
+      foot: e.exposed ? tt('warnExposed', { n: e.exposed }) : '',
+      footCls: 'bad'
+    })) +
       '<div class="row-act">' +
         '<button class="btn sm" data-station="' + i + '">' + esc(tt('switchStation')) + '</button>' +
       '</div>' +
@@ -3482,10 +3881,7 @@ function viewFounding(){
   let h = '<div class="card"><div class="card-head">' +
     '<span class="card-title">🏙️ ' + esc(tt('foundTitle')) + '</span>' +
     '<span class="card-note">' + money(cost) + '</span></div>' +
-    '<div class="pick-sub">' + esc(tt('foundSub')) + '</div>' +
-    // The one thing about a new signal the player will never be able to change
-    // and cannot find out until the money is spent. Said before the money.
-    '<div class="pick-sub" style="color:var(--dim)">' + esc(t('foundLocalNote')) + '</div>';
+    '<div class="pick-sub">' + esc(tt('foundSub')) + '</div>';
 
   if (!all) {
     // SEGMENTS is content.js's table (CONTRACT). No invented rows here — a
@@ -3494,6 +3890,24 @@ function viewFounding(){
     return h + '<div class="empty">Segment data unavailable.</div></div>';
   }
 
+  /* ONE toggle for the whole grid, not one per segment.
+
+     Five segment cards each carried the same four blocks: a network-by-network
+     breakdown, a lease premium, the sentence explaining what "rivals" means,
+     and a local-trade band with a paragraph of flavour. That is ~35 numbers and
+     ~150 words of boilerplate repeated five times on a card the player reads
+     once per expansion — and the sentence explaining the rival number was
+     rendered FIVE TIMES on one screen, which is the definition of a wall
+     nobody added deliberately.
+
+     It cannot be a fold() with a body: .seg-card is a <button> and a button
+     cannot nest one. So the detail stays inside each card behind [hidden] —
+     which keeps the whole card as one control for a screen reader, keeps
+     rivalSnapshot's live figure inside the element the suite reads, and still
+     costs the collapsed view nothing, because [hidden] is display:none and
+     innerText does not see it. */
+  const segOpen = foldOpen('empire.market');
+  h += foldToggle('empire.market', tt('foldSegments'));
   h += '<div class="seg-grid">';
   for (const id in all) {
     const seg = all[id];
@@ -3522,35 +3936,52 @@ function viewFounding(){
         const d = snap.open > 0 ? snap.total / snap.open : 1;
         const arrow = d > 1.04 ? ' <span class="pill warn">▲ gaining</span>'
                     : d < 0.96 ? ' <span class="pill good">▼ losing ground</span>' : '';
+        const hid = segOpen ? '' : ' hidden';
+        /* THE ONE LINE THAT STAYS: how much capacity the incumbents hold, and
+           which way it is going. It is the number that decides whether this
+           slice of the dial is worth $115,000, and the arrow beside it is the
+           non-textual half — a pill, coloured, not an eleventh grey sentence. */
         return '<div class="row-sub" style="margin-top:7px;color:var(--muted)">' +
           esc(tt('segComp')) + ' ' + Math.round(snap.total) + arrow +
-          ' · ' + esc(tt('segLease')) + ' ×' + ((seg.leaseMul || 1).toFixed(2)) +
         '</div>' +
-        '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
-          snap.nets.map(n => esc(n.icon + ' ' + n.name) + ' ' + Math.round(n.k)).join(' · ') +
-        '</div>' +
-        // segCompSub has been authored in content.js since v3 and never had a
-        // call site. It is the one line that explains what the number means.
-        '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
-          esc(tt('segCompSub')) +
-        '</div>' +
-        /* LOCAL TRADE, as a BAND and never as a number. st.localBase is rolled
-           the morning the licence issues and does not exist while this card is
-           on screen, so a figure here would be a lie on the one card the player
-           reads before spending five figures. The band is knowable; the roll is
-           not — which is exactly the property that makes the Production Room's
-           ceiling unchoosable, and it is worth seeing before the choice. */
-        (function(){
-          const band = (typeof segLocalRange === 'function') ? segLocalRange(id) : null;
-          if (!band) return '';
-          return '<div class="row-sub" style="margin-top:5px;color:var(--muted);font-size:11px">' +
-            esc(t('segLocalLbl')) + ' ' +
-            '<b style="color:var(--cyan)">' + Math.round(band.min * 100) + '–' +
-              Math.round(band.max * 100) + '%</b>' +
-            (typeof segLocalText === 'function' && segLocalText(id)
-              ? '<br>' + esc(segLocalText(id)) : '') +
-          '</div>';
-        })();
+        '<span class="seg-more"' + hid + '>' +
+          '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
+            esc(tt('segLease')) + ' ×' + ((seg.leaseMul || 1).toFixed(2)) +
+          '</div>' +
+          '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
+            snap.nets.map(n => esc(n.icon + ' ' + n.name) + ' ' + Math.round(n.k)).join(' · ') +
+          '</div>' +
+          // segCompSub is the one line that explains what the number means. It
+          // is authored once and rendered five times; behind [hidden] that is
+          // five copies of nothing, and open it is on the card it explains.
+          '<div class="row-sub" style="margin-top:3px;color:var(--muted);font-size:11px">' +
+            esc(tt('segCompSub')) +
+          '</div>' +
+          /* LOCAL TRADE, as a BAND and never as a number. st.localBase is rolled
+             the morning the licence issues and does not exist while this card is
+             on screen, so a figure here would be a lie on the one card the player
+             reads before spending five figures. The band is knowable; the roll is
+             not — which is exactly the property that makes the Production Room's
+             ceiling unchoosable, and it is worth seeing before the choice. */
+          (function(){
+            const band = (typeof segLocalRange === 'function') ? segLocalRange(id) : null;
+            if (!band) return '';
+            return '<div class="row-sub" style="margin-top:5px;color:var(--muted);font-size:11px">' +
+              esc(t('segLocalLbl')) + ' ' +
+              '<b style="color:var(--cyan)">' + Math.round(band.min * 100) + '–' +
+                Math.round(band.max * 100) + '%</b>' +
+              (typeof segLocalText === 'function' && segLocalText(id)
+                ? '<br>' + esc(segLocalText(id)) : '') +
+            '</div>';
+          })() +
+          // The one thing about a new signal the player can never change and
+          // cannot find out until the money is spent. It used to be printed
+          // once at the top of this card, where it was the second paragraph
+          // before the first control; it belongs beside the band it describes.
+          '<div class="row-sub" style="margin-top:5px;color:var(--dim);font-size:11px">' +
+            esc(t('foundLocalNote')) +
+          '</div>' +
+        '</span>';
       })() +
     '</button>';
   }
@@ -3570,13 +4001,33 @@ function viewFounding(){
   return h + '</div>';
 }
 
+/* How many entries the log shows before the rest goes behind a tap.
+
+   The log is the one tab whose words ARE the game — every line is authored
+   event copy and none of it is a readout that could be compressed. It was
+   still 411 words, because a run of a dozen days puts a dozen entries on
+   screen and roughly fifteen of them are the same fault sentence with a
+   different callsign in it.
+
+   So the subtraction here is not editing: it is a WINDOW. The most recent days
+   are what a player opens this tab for; everything before them is history, and
+   history is exactly what "everything else behind a tap" was written for.
+   Eight is the number of entries that fits a 760px screen under the HUD
+   without scrolling, measured, which makes the fold the boundary of the fold
+   rather than an arbitrary count. */
+const LOG_RECENT = 8;
 function viewLog(){
   let h = '<div class="card"><div class="card-head"><span class="card-title">' + esc(t('logTitle')) + '</span></div>';
   if (!S.log.length) return h + '<div class="empty">' + esc(t('noLog')) + '</div></div>';
-  for (const e of S.log) {
-    h += '<div class="log-item ' + e.kind + '">' +
-      '<div class="log-day">' + esc(t('dayShort', { n: e.day })) + '</div>' + esc(e.msg) +
-    '</div>';
+  const item = e => '<div class="log-item ' + e.kind + '">' +
+    '<div class="log-day">' + esc(t('dayShort', { n: e.day })) + '</div>' + esc(e.msg) +
+  '</div>';
+  const recent = S.log.slice(0, LOG_RECENT);
+  const older  = S.log.slice(LOG_RECENT);
+  for (const e of recent) h += item(e);
+  if (older.length) {
+    h += fold('log.older', tt('foldLogOlder'), older.map(item).join(''),
+      tt('foldLogCount', { n: older.length }));
   }
   return h + '</div>';
 }
@@ -5294,7 +5745,26 @@ function wire(){
   document.addEventListener('click', e => {
     // One shared click blip for any interactive control; buy/hire/train get
     // their own richer sfxBuy() on top of this further down.
-    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn:not(:disabled), .switch, .slot, .st-chip, .cov-cell, .seg-card, .bay-cell.filled, .bay-cell.open, .vt-btn')) sfxClick();
+    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn:not(:disabled), .switch, .slot, .st-chip, .cov-cell, .seg-card, .bay-cell.filled, .bay-cell.open, .vt-btn, .fold-btn, .row-tap')) sfxClick();
+
+    /* Tap to expand. First, above every other handler: a fold button can sit
+       inside a .row that also carries data-openroom, and the detail must win
+       over the sheet or opening the detail would open a modal instead. */
+    const foldB = e.target.closest('[data-fold]');
+    if (foldB) {
+      const k = foldB.dataset.fold;
+      if (_folds.has(k)) _folds.delete(k); else _folds.add(k);
+      render();
+      // render() replaces the node, so a pad player's cursor would otherwise
+      // land on whatever now occupies that index. Put it back on the control
+      // they just pressed, which is also where the new content appeared.
+      if (padOn) {
+        const again = document.querySelector('[data-fold="' + k + '"]');
+        const i = again ? focusables().indexOf(again) : -1;
+        if (i >= 0) setFocus(i);
+      }
+      return;
+    }
 
     // Station switching comes first: the chips carry data-station and nothing
     // else in the file does, and the Empire tab's "Switch" buttons reuse it.
@@ -5537,6 +6007,12 @@ const PAD = { A:0, B:1, X:2, Y:3, LB:4, RB:5, LT:6, RT:7, BACK:8, START:9, UP:12
 // as not shipping the button.
 const FOCUS_SEL = '.mbtn:not(:disabled), .tab, .btn:not(:disabled), .slot, .switch, .seg-btn:not(:disabled), ' +
   '.hud-btn, .st-chip, .cov-cell, .seg-card, .hint, .hud-warn:not([hidden]), ' +
+  // Tap-to-expand. Every panel on every tab now hides its detail behind one of
+  // these, so a pad player who could not reach them would be playing a
+  // strictly smaller game than a player with a thumb. The bodies are
+  // display:none when closed, which the offsetParent filter below already
+  // rejects, so a closed fold contributes exactly one focus stop.
+  '.fold-btn, .row-tap, ' +
   '[data-setshow], [data-addcrew], [data-dropcrew], [data-leadcrew], [data-seteng], ' +
   // Live / voice-tracked. The mechanic has exactly ONE control and this is it;
   // leaving it out of this list would ship a feature a pad player can read the

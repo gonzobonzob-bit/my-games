@@ -91,7 +91,14 @@ const STR = {
 
     tabStudio: 'Studio', tabGear: 'Gear', tabStaff: 'Staff', tabEmpire: 'Empire', tabLog: 'Log',
 
-    schedule: 'Broadcast Schedule', scheduleNote: 'Tap a slot to change the show',
+    schedule: 'Broadcast Schedule',
+    /* The two bare numbers on every tile — "×1.00 · 6.9%" — are load and the
+       chance of a fault today, and neither carried a unit or a referent. The
+       fix is a caption ONCE on the card rather than a label repeated on four
+       tiles: the tiles are a grid to be compared down a column, and labels
+       inside them would double the text on the busiest control in the game to
+       explain something the player needs told exactly once. */
+    scheduleNote: 'Tap a slot to change the show. Each tile ends with its load and the chance of a fault there today.',
     dailyBrief: 'Daily Brief',
     noDj: 'No DJ',
     // States the fact and its size instead of the mood. djTerm() returns a flat
@@ -99,8 +106,14 @@ const STR = {
     // so automation is about a third of a decent host — and the lease is
     // identical either way, which is the part that kills runs.
     unstaffed: 'Automation — about a third of a hosted slot, at the same lease.',
-    // A sales agent has no daypart to be missing from; they work the ad log.
-    unstaffedSales: 'Works the ad log, not a daypart — no slot to assign them to.',
+    /* A sales agent has no daypart to be missing from; they work the ad log.
+       Shortened from "Works the ad log, not a daypart — no slot to assign them
+       to." That trailing clause turned a STATUS into an apology, it rendered
+       once per seller down the roster, and it was rendered in the same red the
+       roster uses for a host who is genuinely on nothing — so four people
+       doing their job read as four problems. The full explanation is on the
+       person's card, once, where roleDesc already says it properly. */
+    unstaffedSales: 'Works the ad log, not a daypart.',
     /* What a hire is worth BEFORE you buy them. A playtest followed the
        coach's advice, paid $392 + $49/day, and was later told by the game's own
        slot editor that the best home in the empire for that engineer was worth
@@ -305,10 +318,25 @@ const STR = {
     condPerWeek: '%/week',
     condWear: 'Wear −{pct}%/day · {tx} on a {ant}. Bigger plant, faster wear.',
     gearWearWarn: 'Wears faster: this station settles at {to}% condition instead of {from}%.',
-    /* Phrased as a share of the GAP, because the raw daily gain shrinks as
-       condition rises — printing it against wear made the card look like it
-       contradicted its own settling figure. */
-    condTend: 'Attention closes {pct}% of the gap to full each day · {eng} slots with an engineer, {dj} with hosts only. People spread thin bring less of themselves.',
+    /* THE WORST LINE IN THE GAME, and the one the whole subtraction pass was
+       named after. It read:
+
+         "Attention closes 2.3% of the gap to full each day · 0 slots with an
+          engineer, 4 with hosts only. People spread thin bring less of
+          themselves."
+
+       Exact, correct, and unreadable unless you already know that "the gap" is
+       (1 − condition) — a term that appears nowhere else in the game and has
+       no unit a player could attach to it. It was phrased that way for a good
+       reason (the raw daily gain shrinks as condition rises, so printing it
+       beside wear made the card contradict its own settling figure), and a
+       good reason for a number is not the same thing as a reader for it.
+
+       Rewritten in the player's terms: WHO mends it, HOW MANY of them there
+       are, and WHERE it stops — the settling figure is on the same card, two
+       lines up, which is the referent the percentage never had. The two counts
+       stay because they are things the player can go and change today. */
+    condTend: 'Attention is what mends it, and attention is people: {eng} dayparts on this signal have an engineer, {dj} have hosts only. More of them here mends it faster — and it stops mending where the card says it settles.',
     condFloor: 'This signal is as degraded as it gets. Everything it airs goes out weak, and the lease has not moved.',
 
     /* ---- voice-tracking (docs/DESIGN_PROOF_VOICETRACK.md §6) ----
@@ -429,6 +457,17 @@ const STR = {
        else in this file; {pts}/{cap}/{waste} are one-decimal point figures and
        every {pct} is a whole-number percentage WITHOUT its sign. */
     bayTitle: 'Building Programme',
+    /* THE ONE SENTENCE FOR THE WHOLE TAB. It replaces four that each opened a
+       different card — baySub, bayThesis, roomCeilingRule and roomFitNote —
+       and between them said the same thing from four angles in ~110 words.
+       All four are still authored below and all four are one tap down; what
+       changed is that the tab no longer opens with a lecture.
+
+       Written to answer the two questions in the owner's note in order: what
+       is this (rented rooms behind the studios, shared by every callsign), and
+       how does it work (they bill daily and earn from what the world gives
+       them, not from who you put in them). */
+    bayOneLine: 'Six rented rooms behind the studios, shared by every callsign you own. Each bills every morning and earns from what the world gives it to work on.',
     baySub: 'Six bays for the whole group, not six per signal. What sits in them works for every callsign in the building.',
     // The thesis of the whole feature, in one line, on the screen where it is
     // about to be got wrong. Everything else here is detail underneath it.

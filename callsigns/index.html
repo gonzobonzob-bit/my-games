@@ -489,6 +489,15 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .bay-cell.filled.idle .bc-meter i{background:var(--amber);}
 .bc-pts{font-size:10px;font-weight:800;letter-spacing:.2px;font-variant-numeric:tabular-nums;color:var(--muted);}
 .bay-cell.filled.over .bc-pts{color:var(--red);}
+/* The points readout left the cell for the room's rate card; the ⚠ did not.
+   Wasted points and an empty bay are the two states that have to be findable
+   in the strip at a glance, and a glyph is a signal rather than a readout —
+   which is the distinction the collapsed view is drawn on. */
+.bc-flag{font-size:11px;line-height:1;color:var(--amber);}
+.bay-cell.filled.over .bc-flag{color:var(--red);}
+/* A fold sits between bay rows in the same single-column grid, which already
+   supplies the 4px gap. */
+.bay-grid>.fold{margin-top:0;}
 
 /* ---------- what each room returned (§10 item 7) ----------
    Three rows, three dollar figures, always all three — a room earning nothing
@@ -571,8 +580,16 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   background:rgba(255,255,255,.05);border:1px solid var(--border);
 }
 .row-body{flex:1;min-width:0;}
-.row-title{font-weight:700;font-size:14px;}
-.row-sub{font-size:11px;color:var(--muted);}
+/* overflow-wrap, measured not guessed: at 320px the icon (42) + gap + the
+   fixed .row-act column squeeze .row-body to ~59px, and single tokens like
+   "$520/day," or "permanently" are wider than that on their own. min-width:0
+   is already set, so this is not the flexbox default — it is one unbreakable
+   word. Without this the text spilled its box by 7-11px (Gear's "+$40/day
+   lease, permanently", Build's "Buy bay 5 — $520/day, from tomorrow on").
+   Wrapping mid-token is ugly; ellipsis would have been worse, because the word
+   it eats is "permanently" — the one that tells you the lease never ends. */
+.row-title{font-weight:700;font-size:14px;overflow-wrap:anywhere;}
+.row-sub{font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
 /* 10px, not 5px: Train and the destructive Fire stack here, and a 5px gap
    between a 40px-tall pair is a mis-tap waiting to happen. */
 .row-act{flex-shrink:0;display:flex;flex-direction:column;gap:10px;align-items:stretch;}
@@ -981,6 +998,185 @@ body.pad-on .pad-hint{display:flex;}
 }
 .locked-panel{text-align:center;padding:30px 16px;}
 .locked-icon{font-size:40px;margin-bottom:10px;opacity:.5;}
+
+/* ---------- tap to expand ----------
+   One control shape for "there is more here", on every tab.
+
+   44px minimum on the button and it is FULL WIDTH — this is the one control in
+   the file that had no density argument for being small, so it does not get to
+   be. Nothing sits beside it, so nothing can collide with its hit area.
+
+   The body is display:none when closed (via [hidden]) rather than clipped to
+   zero height. That is deliberate and load-bearing: focusables() rejects
+   elements whose offsetParent is null, and only display:none produces that.
+   A max-height collapse leaves every control inside a closed panel pad-
+   focusable and invisible at the same time.
+
+   Colour maths, measured not guessed: --muted #8b93c4 on the button's own
+   background (rgba(255,255,255,.03) over --panel #171d40, composited #1e2446)
+   is 5.06:1, and --text on the same ground is 12.7:1 — both clear AA 4.5:1 at
+   the 11px this renders at. The chevron is --cyan at 8.3:1. */
+.fold{margin-top:9px;}
+.fold-btn{
+  width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:9px 11px;border-radius:var(--r-sm);text-align:left;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.3px;
+}
+.fold-btn:active{transform:scale(.985);}
+/* Keyed off aria-expanded rather than the wrapper's .open class, because
+   foldToggle() renders a fold with NO wrapper — the button is the whole
+   control. One selector covers both shapes, and it cannot drift out of step
+   with the state a screen reader is being told. */
+.fold-btn[aria-expanded="true"]{color:var(--text);border-color:var(--border-lit);background:rgba(34,211,238,.06);}
+.fold-lbl{min-width:0;}
+.fold-sub{display:block;font-style:normal;font-weight:600;color:var(--dim);margin-top:1px;}
+.fold-chev{flex-shrink:0;color:var(--cyan);font-size:13px;line-height:1;}
+@media (prefers-reduced-motion:no-preference){
+  .fold-chev{transition:transform .18s ease;}
+}
+.fold-btn[aria-expanded="true"] .fold-chev{transform:rotate(180deg);}
+.fold-body{padding:10px 2px 2px;}
+/* [hidden] has to out-rank any display the body's own classes carry. */
+.fold-body[hidden]{display:none !important;}
+@media (prefers-reduced-motion:no-preference){
+  .fold-body:not([hidden]){animation:foldIn .18s ease both;}
+}
+@keyframes foldIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+/* A fold sitting inside a .row (the per-person and per-room rows) spans the
+   row's full width rather than squeezing beside the action buttons. */
+/* THE TAPPABLE ROW. On a list — the roster, the hire board, the station
+   list — the row IS the expand control, so there is no separate "Details"
+   button repeated fourteen times down a payroll.
+
+   It sits in a wrapping .row beside the row's own action column (Hire,
+   Switch), which stays a SIBLING: a button cannot contain a button, and
+   "read this candidate" must not be one mis-tap from "pay for this
+   candidate". The revealed body then takes a wrapped line of its own at
+   flex:1 0 100%, so the rate card gets the row's full width instead of being
+   indented past the icon and cut short by the buttons — which at 320px cost
+   it about 100px for nothing. Nothing else in the file starts wrapping,
+   because .row-body is flex:1 and the act column is flex:none. */
+.row{flex-wrap:wrap;}
+.row>.fold{flex:1 0 100%;margin-top:9px;}
+.row-tap{
+  flex:1 1 auto;min-width:0;min-height:44px;
+  display:flex;align-items:center;gap:11px;
+  text-align:left;font:inherit;color:inherit;padding:0;
+}
+.row-tap:active{opacity:.85;}
+.row-tap>.fold-chev{margin-left:auto;}
+/* .row-icon / .row-body / .row-title / .row-sub / .meter are divs at every
+   other call site; inside this <button> they are spans, so they are
+   re-blockified here rather than the markup being quietly invalid. */
+.row-tap .row-icon{display:grid;}
+.row-tap .row-body,
+.row-tap .row-title,
+.row-tap .row-sub,
+.row-tap .meter,
+.row-tap .meter-fill{display:block;}
+.row-tap .row-body{flex:1;min-width:0;}
+.row-tap .row-title .pill{display:inline-block;}
+.row>.fold-body{flex:1 0 100%;padding:10px 0 0;}
+.row>.fold-body[hidden]{display:none !important;}
+@media (prefers-reduced-motion:no-preference){
+  .row>.fold-body:not([hidden]){animation:foldIn .18s ease both;}
+}
+.fold-body .row{padding-left:0;padding-right:0;}
+.card>.fold:first-child{margin-top:0;}
+/* A whole .card handed to a fold body (the coverage grid, the local-trade
+   list) flattens rather than drawing a second border inside the first. */
+.fold-body>.card{background:transparent;border:0;padding:0;margin-bottom:0;}
+
+/* ---------- the rate card ----------
+   The expanded state, and a real radio artifact: the sheet a station hands an
+   agency, with the callsign at the top, the coverage it claims, a stat block
+   and the terms underneath.
+
+   MEASURED AT 320px, which is where a fixed-format container either works or
+   does not. .content is 8px padding a side, .card 11px, .fold-body 2px, so the
+   card gets 320 − 16 − 22 − 4 = 278px, and its own 11px padding leaves 256px
+   of content. The body grid is 46px of art + 10px gap + 200px of hero, and the
+   hero renders at 26px/900 — "−$1,234" is 7 glyphs of tabular numerals at
+   ~15px advance = 105px, so it does not wrap until five figures and a sign,
+   which cannot happen on a per-day figure in this economy.
+   The stat block is a two-column dl: the key wraps, the value never does
+   (white-space:nowrap + tabular-nums), because a wrapped number is a number
+   you cannot compare down a column. At 256px a 15-character key like
+   "Ceiling set by" and a 10-character value both fit on one line.
+
+   Contrast, measured on --panel2 #1e2550 (the card ground):
+     --text  #e8ecff  11.9:1   id, hero
+     --muted #8b93c4   4.53:1  keys and the note, at 11px — AA
+     --dim   #868ec0   4.63:1  the chip, at 10px/800 — AA for bold small text
+   Nothing on this card renders below 10px, and nothing below 11px is prose. */
+.rcard{
+  background:var(--panel2);border:1px solid var(--border-lit);border-radius:12px;
+  padding:11px;margin-bottom:8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.rcard:last-child{margin-bottom:0;}
+.rcard-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  border-bottom:1px solid var(--border);padding-bottom:7px;margin-bottom:9px;
+}
+.rcard-id{
+  font-size:13px;font-weight:900;letter-spacing:.4px;color:var(--text);
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.rcard-chip{
+  flex:none;font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--dim);border:1px solid var(--border);border-radius:20px;padding:2px 8px;
+}
+.rcard-body{display:grid;grid-template-columns:46px 1fr;gap:10px;align-items:center;margin-bottom:9px;}
+.rcard-art{
+  font-size:30px;line-height:1;text-align:center;
+  background:rgba(255,255,255,.04);border-radius:10px;padding:8px 0;
+}
+.rcard-hero{display:flex;flex-direction:column;min-width:0;}
+.rcard-hero b{
+  font-size:26px;font-weight:900;line-height:1.05;color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.rcard-hero b.up{color:var(--green);} .rcard-hero b.down{color:var(--red);}
+.rcard-hero b.zero{color:var(--dim);} .rcard-hero b.warn{color:var(--amber);}
+.rcard-hero b.cyan{color:var(--cyan);}
+.rcard-hero i{font-size:11px;font-style:normal;color:var(--muted);margin-top:2px;}
+.rcard-stats{display:flex;flex-direction:column;gap:0;}
+.rcard-stats>div{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:5px 0;border-bottom:1px dashed rgba(44,52,104,.8);
+}
+.rcard-stats>div:last-child{border-bottom:0;}
+.rcard-stats dt{font-size:11px;color:var(--muted);min-width:0;}
+.rcard-stats dd{
+  font-size:12px;font-weight:800;color:var(--text);flex:none;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.rcard-stats dd.up{color:var(--green);} .rcard-stats dd.down{color:var(--red);}
+.rcard-stats dd.zero{color:var(--dim);} .rcard-stats dd.warn{color:var(--amber);}
+.rcard-stats dd.cyan{color:var(--cyan);}
+.rcard-rows{margin-top:8px;display:flex;flex-direction:column;gap:3px;}
+/* The controls that belong to a card sit under it, full width, 44px, at a 10px
+   gap — the same spacing .row-act uses, and for the same reason: Train and the
+   destructive Fire stack here and a tight gap between them is a mis-tap. */
+.rcard-acts{display:flex;gap:10px;margin-top:9px;}
+.rcard-acts .btn{flex:1;justify-content:center;}
+.rcard-acts .pill{display:inline-flex;align-items:center;}
+.rcard-rows .row-sub{font-size:11px;}
+.rcard-note{font-size:11px;color:var(--muted);margin-top:9px;line-height:1.5;}
+.rcard-foot{
+  font-size:11px;color:var(--dim);margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--border);line-height:1.5;
+}
+.rcard-foot.warn{color:var(--amber);}
+.rcard-foot.bad{color:var(--red);}
+@media (max-width:359px){
+  .rcard{padding:10px;}
+  .rcard-body{grid-template-columns:42px 1fr;gap:9px;}
+  .rcard-art{font-size:26px;}
+  .rcard-hero b{font-size:23px;}
+}
 
 /* ---------- desktop ---------- */
 @media (min-width:900px){

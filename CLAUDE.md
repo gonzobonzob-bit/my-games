@@ -2,7 +2,7 @@
 
 This file governs every game added to or modified in this repository (GitHub Pages site "Gonzo's Game Vault"). It exists because the 2026-07 portfolio review found the same handful of mistakes repeated across a dozen independently-built games. Read this before adding a new game or doing a polish pass on an existing one.
 
-## The six binding rules (new builds and major overhauls)
+## The seven binding rules (new builds and major overhauls)
 
 These are binding for any **new game** and any **major overhaul**. Existing games
 are grandfathered until their next major pass — they are not retroactively in
@@ -140,6 +140,30 @@ radio beat two full design proofs.
 **This binds fiction too.** A game's economy is invented; whether its optimum is
 a constant is not. A book's world is invented; whether it contradicts itself is
 not. Invented content is not an excuse for unmeasured work.
+
+### 7. Visible is not the same as legible
+A mechanic the player cannot see is a hidden trap — that half is already in
+rules 1 and 5. **The other half is that a readout nobody can decode is the same
+failure wearing a different coat.** A number with no unit, a term that assumes
+the system, or a wall of precise lines all leave the player exactly where an
+invisible mechanic did: unable to act.
+
+**One headline number per panel, one plain sentence saying what the thing is and
+how it works, everything else on demand.** Every number carries its unit and its
+referent or it does not ship.
+
+Measured on Callsigns, after a day of adding a readout every time a mechanic was
+invisible: the Building tab reached **847 words and 84 numbers**, the Empire tab
+627 and 67 — on a game played on a phone in five-second days. The one screen
+never touched, the Daily Brief, was 64 words and read cleanly. Nobody added a
+wall deliberately; it accumulated three defensible lines at a time, and no
+single addition was wrong.
+
+The tell that a line has failed this rule: it is precise to the person who wrote
+it. "Attention closes 2.3% of the gap to full each day" is exact and unreadable
+unless you already know what the gap is.
+
+**Stimulation should come from the game, not from the volume of text.**
 
 ## The standing squads
 
