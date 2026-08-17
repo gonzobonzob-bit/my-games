@@ -555,6 +555,59 @@ async function main(){
     assert('it teaches the price and states no threshold to solve for',
       coachB.teaches && coachB.noThreshold, JSON.stringify(coachB));
 
+    /* ---- 3i. giving a bay back, through the real button and the real sheet ----
+
+       The sim side is pinned in rooms.mjs; what only this suite can see is
+       whether the row renders, whether the delegated click reaches it, and
+       whether the confirm sheet's action does what its label says. The feature
+       exists because six bays are for sale and at most five can ever hold a
+       room, so the failure it corrects — a purchase with no undo — is one a
+       player meets in the UI or not at all. */
+    await evaluate(`(function(){
+      // Clear the sheet an earlier step left open: openModal() QUEUES behind an
+      // open modal rather than replacing it, so a confirm opened here would sit
+      // invisibly in modalQueue and the click below would prove nothing.
+      closeAllModals();
+      /* Put the state back afterwards. Three bays holding no rooms is exactly
+         the shape the post-mortem classifier reads as "overbuilt", so leaking
+         this fixture forward rewrote the cause of death in a check 200 lines
+         below — the fixture-leak failure this project has now had twice. */
+      window.__bayKeep = JSON.stringify(S);
+      S.cash = 200000; S.rep = 40; S.bays = 3; S.rooms = [];
+      setTab('build');
+      return true;
+    })()`);
+    const closeUi = await evaluate(`(function(){
+      const btn = document.querySelector('#btn-close-bay');
+      const txt = document.querySelector('#pane-build').textContent.replace(/\\s+/g,' ');
+      return { hasBtn: !!btn, bays: bayCount(), lease: bayLeaseTotal(),
+               dearest: bayLease(bayCount() - 1),
+               // the amber "nothing can go in them" line: 3 bays, 3 fillable rooms at
+               // one station, so the player is NOT stuck and it must stay silent
+               stuck: /nothing can go in them/.test(txt) };
+    })()`);
+    assert('the give-a-bay-back row renders when a bay is standing empty',
+      closeUi.hasBtn === true && closeUi.bays === 3, JSON.stringify(closeUi));
+    assert('it does not claim the player is stuck while rooms could still be built',
+      closeUi.stuck === false, JSON.stringify(closeUi));
+    await click('#btn-close-bay');
+    await clickModalButton('/give it back/i');
+    const closed = await evaluate(`(function(){
+      return { bays: bayCount(), lease: bayLeaseTotal(), cash: S.cash, capex: S.book.capex,
+               modalOpen: document.querySelector('#modal-back').classList.contains('open') };
+    })()`);
+    assert('clicking it sheds the dearest lease and closes the sheet',
+      closed.bays === 2 && Math.abs(closeUi.lease - closed.lease - closeUi.dearest) < 1e-9 &&
+      closed.modalOpen === false, JSON.stringify({ closeUi, closed }));
+    assert('no cash comes back — the buildout stays spent',
+      closed.cash === 200000, JSON.stringify(closed));
+    await evaluate(`(function(){
+      S = sanitize(JSON.parse(window.__bayKeep));
+      delete window.__bayKeep;
+      closeAllModals(); render();
+      return true;
+    })()`);
+
     /* ---- 4. save persists ----
 
        An ASSIGNED engineer goes on the schedule before the save, because that
