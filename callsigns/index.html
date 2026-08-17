@@ -26,6 +26,17 @@
      4.63:1 on --panel2, so the worst case in the game now passes. The 9px
      type it was being used at was the other half of the problem — see the
      size bumps on .slot-meta/.slot-dj/.log-day/.pill/.delta below. */
+  /* Voice-tracking's own hue, and it is deliberately NOT one of the four
+     already in use. Green/amber/red carry coverage (is anybody on this slot)
+     and cyan carries the host name; how the slot AIRS is a different question
+     and needs a different channel, or a tracked-and-covered slot has to fight
+     a tracked-and-exposed one for the same colour.
+     Measured, not eyeballed: --magenta #ec4899 is the palette's nearest hue
+     and lands at 4.15:1 on --panel2 (#1e2550), which is under AA for the 10-11
+     px labels this is used on. #c4b5fd measures 10.29:1 on --night, 8.84:1 on
+     --panel and 7.92:1 on --panel2, so it clears AA at every size it appears
+     at, including the 10px .slot-mode pill. */
+  --violet:#c4b5fd;
   --text:#e8ecff; --muted:#8b93c4; --dim:#868ec0;
   --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
   --r:14px; --r-sm:9px;
@@ -301,6 +312,16 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   position:absolute;top:6px;right:6px;font-size:11px;line-height:1;
 }
 .slot{position:relative;}
+/* Voice-tracked, on the tile. Three signals at once and none of them is the
+   coverage colour: a dashed edge (shape), violet (colour) and a labelled pill
+   (word). A player with four stations reads their whole board off this grid,
+   so a mode visible only inside the editor would be sixteen sheets of audit. */
+.slot.tracked{border-style:dashed;border-color:rgba(196,181,253,.6);}
+.slot-mode{
+  font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--violet);
+  border:1px solid rgba(196,181,253,.35);border-radius:6px;padding:1px 6px;
+  text-transform:uppercase;line-height:1.4;
+}
 
 /* ---------- empire coverage matrix ----------
    The core decision surface, and the reason the switcher above is not enough:
@@ -338,6 +359,14 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .cov-cell.risky .cc-sub{color:var(--amber);}
 .cov-cell.exposed{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.09);}
 .cov-cell.exposed .cc-sub{color:var(--red);}
+/* Tracked rides on top of whichever coverage state the cell is in, because the
+   two are independent: a tracked slot can be covered, risky or exposed and the
+   grid has to be able to say both at once. Dashed edge + corner glyph, so it
+   never has to take the border colour away from the coverage state. The cell
+   keeps its 44px floor — position:relative is the only geometry change. */
+.cov-cell{position:relative;}
+.cov-cell.tracked{border-style:dashed;border-color:rgba(196,181,253,.65);}
+.cc-mode{position:absolute;top:2px;right:3px;font-size:9px;line-height:1;opacity:.95;}
 .cov-legend{
   display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--muted);
 }
@@ -347,6 +376,10 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .cov-legend i.covered{background:var(--green);}
 .cov-legend i.risky{background:var(--amber);}
 .cov-legend i.exposed{background:var(--red);}
+/* Not a coverage state — a mode. Drawn as an outline rather than a fill so the
+   legend says the same thing the cell does: this rides on top of the three
+   above, it does not replace them. */
+.cov-legend i.tracked{background:transparent;border:1px dashed var(--violet);width:11px;height:11px;}
 /* The fourth state the bay matrix has, which coverage does not: a room with
    people in it that is measured at $0/day. Grey, because it is not a fault —
    it is a room doing exactly what it can do, which happens to be nothing. */
@@ -703,6 +736,81 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .loadbar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green),var(--amber) 62%,var(--red));}
 .loadbar-mark{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--cyan);border-radius:1px;}
 .loadbar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px;}
+
+/* ---------- voice-tracking panel (slot editor) ----------
+   §6 of docs/DESIGN_PROOF_VOICETRACK.md. Outputs first, control last, same
+   rule as .readout above and for the same reason — the two mode buttons are
+   where the thumb lands, so the four cost rows cannot be underneath them.
+
+   Row order is the proof's: attention and the settling point FIRST (it is the
+   cost that arrives ~46 days late and is the one the tap cannot make you
+   feel), then person-hours, then localism, then the booth. */
+.vt{
+  border:1px solid var(--border);border-left:3px solid rgba(196,181,253,.45);
+  border-radius:var(--r-sm);background:var(--panel2);
+  padding:10px 11px;margin-bottom:10px;
+}
+/* Already tracked: the panel takes the same violet edge the grid tile has, so
+   the sheet and the board agree at a glance about which state this slot is in. */
+.vt.on{border-color:rgba(196,181,253,.45);border-left-color:var(--violet);}
+.vt-row{padding:8px 0;border-top:1px solid var(--border);}
+.vt-row:first-child{padding-top:0;border-top:none;}
+.vt-row:last-child{padding-bottom:0;}
+.vt-lbl{
+  font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;
+  font-weight:700;margin-bottom:3px;
+}
+/* 11px on --muted (4.92:1 on --panel2) for the prose, 12px on --text for the
+   line carrying the number. The hierarchy here is deliberate: every row has
+   exactly one figure the decision turns on and it is the biggest thing in the
+   row. Nothing in this panel is below 11px. */
+.vt-txt{font-size:11px;color:var(--muted);line-height:1.45;}
+.vt-txt.vt-key{
+  font-size:12px;color:var(--text);font-weight:700;
+  font-variant-numeric:tabular-nums;margin-bottom:2px;
+}
+/* A number that MOVES with the mode. Amber says "this is the figure that
+   changes", not "do this" — there is no recommended mode anywhere in this
+   panel and a colour is not allowed to smuggle one in. 8.76:1 on --panel2. */
+.vt-txt.vt-move{color:var(--amber);}
+/* The control. Two buttons rather than a switch, because a switch has one
+   label and has to be read twice to find out which state it is in.
+   Measured at 320px: the sheet is 320 - 36px of padding = 284px of content,
+   so each button is (284 - 8)/2 = 138px wide and 76px tall. Both axes clear
+   the 44px floor with room to spare; they only stack if the viewport goes
+   under 260px, which is not a phone. */
+.vt-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.vt-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:76px;padding:9px 7px;text-align:center;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  font:inherit;color:inherit;transition:border-color .16s,transform .12s;
+}
+.vt-btn:hover{border-color:var(--border-lit);}
+.vt-btn:active{transform:scale(.98);}
+/* The CURRENT mode, not the recommended one. It is marked in three ways — the
+   violet edge, the tick in the label and the "on air" pill — because "which of
+   these two am I looking at" is the question a player asks first and a single
+   subtle border is not an answer on a phone in daylight. */
+.vt-btn.on{border-color:var(--violet);background:rgba(196,181,253,.08);}
+.vt-ico{font-size:19px;line-height:1;}
+.vt-name{font-size:13px;font-weight:800;}
+.vt-desc{font-size:11px;color:var(--muted);line-height:1.3;}
+.vt-btn.on .vt-name{color:var(--violet);}
+.vt-tag{
+  font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--violet);
+}
+/* The one-line state at the top of the sticky readout, and the reason the
+   fault figure two tiles left is where it is. */
+.readout-note.vt-note{color:var(--text);}
+.readout-note.vt-note b{color:var(--violet);}
+/* A section that is present, explained and not available. Greyed, never
+   hidden: the bench disappearing at the exact moment the player is deciding
+   about it is a defect this file has already fixed once. */
+.pick-sub.vt-blocked{color:var(--violet);}
+.eng-off{opacity:.5;}
+.eng-off .row{cursor:default;}
 
 /* ---------- crew / engineer pickers ---------- */
 .pick-head{

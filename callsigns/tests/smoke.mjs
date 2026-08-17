@@ -242,7 +242,7 @@ async function main(){
       lease: leaseFor(S.stations[0]),
       legacySecondStation: 'secondStation' in S
     })`);
-    assert('save schema is v8 under the same key', s0.v === 8 && s0.key === 'callsigns.save', JSON.stringify(s0));
+    assert('save schema is v9 under the same key', s0.v === 9 && s0.key === 'callsigns.save', JSON.stringify(s0));
     assert('new game: starting cash 800', s0.cash === 800, s0.cash);
     // The v3 shape, field by field — this is the assertion CONTRACT.md asks
     // for, and it is the one that fails loudly if anyone reintroduces a flat
@@ -521,6 +521,40 @@ async function main(){
     assert('and it will call a bad hire a bad hire',
       hireW.saysNegative && hireW.probe < hireW.salary, JSON.stringify(hireW));
 
+    /* ---- 3h. the Building coach step is reachable and retires itself ----
+
+       A whole tab shipped with the tutorial silent about it. This step teaches
+       it — and must not repeat either failure a blind playtest already found in
+       this coach: an acknowledge-only step that blocks the ones behind it, and
+       a step whose trigger can never fire. Assert it appears when bays are
+       affordable and nothing is built, and DISAPPEARS once a room exists. */
+    const coachB = await evaluate(`(function(){
+      const keep = JSON.stringify(coachDone);
+      /* Retire the early steps: the Building step is LAST but one, and the
+         coach correctly shows the first ready ACTIONABLE step. With an empty
+         roster, 'hire' wins and rightly so — testing from a fresh coach asks
+         the Building step to fire in a state where it should not, which is the
+         same fixture error that has bitten three mechanics in this project. */
+      coachDone = { hire:true, assign:true, lease:true, load:true, engineer:true };
+      S.rep = 40; S.cash = 200000; S.bays = 0; S.rooms = [];
+      const step = coachStep();
+      const before = step ? step.c.id : null;
+      const txt = step ? viewCoach().replace(/<[^>]*>/g, ' ').replace(/\\s+/g,' ') : '';
+      // Build something; the step must retire on its own.
+      S.bays = 1; buildRoom(0, 'rack');
+      const after = coachStep() ? coachStep().c.id : null;
+      coachDone = JSON.parse(keep);
+      return { before, after, teaches: /off the air/.test(txt),
+               noThreshold: !/reputation \\d|rep \\d|below \\d/i.test(txt),
+               sample: txt.slice(0, 150) };
+    })()`);
+    assert('the Building coach step fires when a room is affordable and none exists',
+      coachB.before === 'building', JSON.stringify(coachB));
+    assert('it retires itself once a room is built, rather than needing a click',
+      coachB.after !== 'building', JSON.stringify(coachB));
+    assert('it teaches the price and states no threshold to solve for',
+      coachB.teaches && coachB.noThreshold, JSON.stringify(coachB));
+
     /* ---- 4. save persists ----
 
        An ASSIGNED engineer goes on the schedule before the save, because that
@@ -557,7 +591,7 @@ async function main(){
     })()`);
     assert('saveGame() writes the save', saved.ok === true && saved.hasRaw, JSON.stringify(saved));
     assert('saved day/version match live state',
-      saved.day === saved.live && saved.v === 8, JSON.stringify(saved));
+      saved.day === saved.live && saved.v === 9, JSON.stringify(saved));
     assert('v3 payload carries the callsign inside stations[0]',
       typeof saved.call === 'string' && saved.call.length === 4 && saved.topLevelCall === undefined, JSON.stringify(saved));
     assert('saveHeadline() reads an unloaded save', saved.headline && saved.headline.call === saved.call, JSON.stringify(saved));
@@ -573,7 +607,7 @@ async function main(){
     // trigger catchUp() and advance the day. Same-run reloads are < 60s so it
     // is === in practice, but the assertion shouldn't depend on test speed.
     assert('reloaded save resumes same station',
-      s1.call === saved.call && s1.day >= saved.day && s1.v === 8 && s1.stations === 1, JSON.stringify(s1));
+      s1.call === saved.call && s1.day >= saved.day && s1.v === 9 && s1.stations === 1, JSON.stringify(s1));
 
     /* The regression guard. Read it through engIdsOf(), the same accessor the
        sim uses to decide coverage and fault risk, so a slot that merely LOOKS
@@ -603,8 +637,8 @@ async function main(){
     })()`);
     assert('signal condition round-trips through the save',
       Math.abs(condRt.savedCond - 0.62) < 1e-9, JSON.stringify(condRt));
-    assert('a pre-v8 save migrates in at full condition, not zero',
-      condRt.ok && condRt.migrated === 1 && condRt.ver === 8, JSON.stringify(condRt));
+    assert('a pre-v9 save migrates in at full condition, not zero',
+      condRt.ok && condRt.migrated === 1 && condRt.ver === 9, JSON.stringify(condRt));
 
     /* ---- 6. the empire invariants, through the real mutators ----
        Last, and deliberately so: this block funds itself with test money and

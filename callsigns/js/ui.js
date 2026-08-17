@@ -322,6 +322,45 @@ function simCondTarget(st, load){
   if (typeof condTarget === 'function') return condTarget(st, load);
   return (typeof condOf === 'function') ? condOf(st) : 1;
 }
+/* ---- v9 seam: voice-tracking ----
+   Same rule as every wrapper above — sim.js owns the predicate, the two world
+   constants and the mutator, and this file only ever reads them. The inert
+   degradation here is 'live' everywhere, which is exactly the shape of a save
+   that has never tracked anything: a bridge miss renders the shipped v8 screen
+   rather than a wrong one. */
+function simSlotMode(slot){
+  if (typeof slotMode === 'function') return slotMode(slot);
+  const m = slot && slot.mode;
+  return (m === 'tracked') ? 'tracked' : 'live';
+}
+function simTracked(slot){
+  if (typeof trackedOn === 'function') return trackedOn(slot);
+  return simSlotMode(slot) === 'tracked';
+}
+/** TRACK_LOAD / TRACK_APPEAL are content.js's, with sim.js carrying its own
+    fallbacks. ui reads content's copy so the number in the sentence and the
+    number in the arithmetic are the same literal. */
+function uiTrackLoad(){
+  const v = (typeof TRACK_LOAD !== 'undefined') ? +TRACK_LOAD : NaN;
+  return isFinite(v) ? v : 0.35;
+}
+function uiTrackAppeal(){
+  const v = (typeof TRACK_APPEAL !== 'undefined') ? +TRACK_APPEAL : NaN;
+  return isFinite(v) ? v : 0.88;
+}
+/** How many assignments this person is carrying, counting a tracked shift as
+    TRACK_LOAD of one. sim's djLoad() returns a FLOAT in v9, so nothing here
+    may render it as a slot count. */
+function simDjLoad(id){
+  if (typeof djLoad === 'function') return djLoad(id);
+  bridgeMiss('djLoad');
+  return 0;
+}
+function simDjTerm(slot, st, load){
+  if (typeof djTerm === 'function') return djTerm(slot, st, load);
+  return 0.32;
+}
+function simCondFloor(){ return (typeof COND_MIN !== 'undefined') ? COND_MIN : 0.35; }
 /* simRoyaltyCut() lived here and is gone with royaltyCut() (v2 §3a), and
    NOTHING has replaced it: royalties are a flat ROYALTY_RATE on the music
    share and no room in the building moves them, so nothing on this tab may say
@@ -370,14 +409,31 @@ function withSlot(st, partId, ov, fn){
   const slot = stSlot(st, partId);
   if (!ov || !st || !st.schedule || !st.schedule[partId]) return fn(slot);
   const keep = { show: slot.show, djs: slot.djs, eng: slot.eng, engs: slot.engs };
+  /* v9 `mode`. Restored by DELETING the property when the slot did not own one
+     — every pre-v9 save arrives with no `mode` at all, and putting back a bare
+     `undefined` would leave an own property behind that saveGame() then writes
+     as a key. slotMode() resolves it to 'live' either way, but a hypothetical
+     must not be able to change the SHAPE of the state it was asked about. */
+  const hadMode = Object.prototype.hasOwnProperty.call(slot, 'mode');
+  const keepMode = slot.mode;
   try {
     if (ov.show !== undefined) slot.show = ov.show;
     if (ov.djs  !== undefined) slot.djs  = ov.djs.slice();
     if (ov.eng  !== undefined) slot.eng  = ov.eng;
     if (ov.engs !== undefined) slot.engs = ov.engs.slice();
+    /* A tracked slot has no engineer anywhere in sim — setSlotMode() and
+       sanitize() both scrub the array — so the hypothetical scrubs it too.
+       Without this, a preview of "track this slot" would price it with the
+       engineer still dividing the fault risk, which is the one number the
+       player is being shown rising. */
+    if (ov.mode !== undefined) {
+      slot.mode = ov.mode;
+      if (ov.mode === 'tracked' && ov.engs === undefined) slot.engs = [];
+    }
     return fn(slot);
   } finally {
     slot.show = keep.show; slot.djs = keep.djs; slot.eng = keep.eng; slot.engs = keep.engs;
+    if (hadMode) slot.mode = keepMode; else delete slot.mode;
   }
 }
 
@@ -588,6 +644,8 @@ const UI_STR = {
   coach4BtnAssign: 'Put an engineer on it',
   coach5: '{name} is on payroll but not assigned. Put them on the slot carrying the most load, which is usually not the slot making the most money.',
   coach5Btn: 'Open that slot',
+  coach7: 'The building has offices as well as studios. Whoever you sit in one comes off the air to do it — that is the whole price. What each room is worth to you is set by things you did not choose: the plant you already bought, the local trade this signal was handed the day you signed it on, and how much of the log is going out unsold.',
+  coach7Btn: 'Open the Building',
   coach6: 'Morning drive happens at 6 AM on every station at once, and your people are one pool. The coverage grid is the only place you can see all of it.',
   coach6Btn: 'Show me the grid',
 
@@ -844,7 +902,13 @@ function slotState(st, partId){
   if (!crew.length) level = 'exposed';
   else if (!eng && load >= 1.45) level = 'risky';
   else if (typeof BASE_RISK !== 'undefined' && risk >= BASE_RISK) level = 'risky';
-  return { slot, crew, eng, engs: engPeople, load, risk, level };
+  /* `tracked` rides ALONGSIDE `level`, never inside it. They are two different
+     questions — "is anyone on this slot" and "how does it air" — and folding
+     tracking into the coverage enum would have made a deliberately tracked
+     slot render as a mistake. The grid draws them on different channels:
+     level is the border colour, tracked is a violet dashed edge and a tape
+     glyph. */
+  return { slot, crew, eng, engs: engPeople, load, risk, level, tracked: simTracked(slot) };
 }
 /** Empire-wide roll-up: per-station counts plus the totals the HUD warns on. */
 function empireExposure(){
@@ -1753,6 +1817,28 @@ const COACH = [
     }
   },
   {
+    /* The Building. Fires once bays are affordable and nothing has been built.
+
+       Deliberately NOT ack:true: an acknowledge-only step has no state change
+       to retire it, and step 3 sitting on screen from day 26 to day 139 is
+       exactly how the last blind playtest lost the rest of the tutorial. This
+       one disappears the moment a room exists.
+
+       It teaches ONE thing — the seat costs you a person on the air — and names
+       what sets each room's worth. It does NOT name a reputation, a crossover,
+       or which room to build first. Printing the number the player is solving
+       for is the Purr & Power failure, and rooms have already been rebuilt
+       twice for a related reason. */
+    id: 'building',
+    when: () => {
+      const can = (typeof canBuyBay === 'function') ? canBuyBay() : null;
+      const built = (typeof roomList === 'function') ? roomList().length : 1;
+      return !!(can && can.ok && built === 0);
+    },
+    text: () => tt('coach7'),
+    btn:  () => ({ label: tt('coach7Btn'), run: () => setTab('build') })
+  },
+  {
     id: 'empire',
     ack: true,
     when: () => stationCount() > 1,
@@ -2033,12 +2119,19 @@ function viewSchedule(){
     const badge = s.level === 'exposed' ? '🔴' : s.level === 'risky' ? '🟠' : '';
     // <button>, not <div>: programming the schedule is the core mechanic and
     // it used to be unreachable without a mouse or a gamepad.
-    h += '<button type="button" class="slot ' + (s.level === 'covered' ? '' : s.level) + '" ' +
+    /* HOW IT AIRS, on the tile. A player with four stations reads their whole
+       board off this grid, and a mode that only showed inside the editor would
+       be a state you had to open sixteen sheets to audit. It is a dashed
+       violet edge plus a labelled pill — a colour AND a shape AND a word, on a
+       channel the coverage colours do not use. */
+    h += '<button type="button" class="slot ' + (s.level === 'covered' ? '' : s.level) +
+      (s.tracked ? ' tracked' : '') + '" ' +
       'data-openslot="' + slotRef(curIndex(), part.id) + '">' +
       (badge ? '<span class="slot-badge">' + badge + '</span>' : '') +
       '<span class="slot-part">' + part.icon + ' ' + esc(partLabel(part.id)) + '</span>' +
       '<span class="slot-icon">' + show.icon + '</span>' +
       '<span class="slot-show">' + esc(t('show' + s.slot.show.charAt(0).toUpperCase() + s.slot.show.slice(1))) + '</span>' +
+      (s.tracked ? '<span class="slot-mode">📼 ' + esc(tt('vtTag')) + '</span>' : '') +
       (lead
         ? '<span class="slot-dj">🎧 ' + esc(lead.name.split(' ')[0]) +
             (s.crew.length > 1 ? ' +' + (s.crew.length - 1) : '') + ' · ' + s.crew.length + '</span>'
@@ -2046,7 +2139,7 @@ function viewSchedule(){
       // Load and engineer on the tile itself: the whole engineer decision is
       // invisible if you have to open four slots to find out which is heavy.
       '<span class="slot-load ' + loadCls + '">' +
-        (s.eng ? '🔧' : '⚠') + ' ×' + s.load.toFixed(2) + ' · ' + (s.risk * 100).toFixed(1) + '%' +
+        (s.tracked ? '📼' : s.eng ? '🔧' : '⚠') + ' ×' + s.load.toFixed(2) + ' · ' + (s.risk * 100).toFixed(1) + '%' +
       '</span>' +
     '</button>';
   }
@@ -2087,10 +2180,18 @@ function coverageCard(compact){
     for (const p of DAYPARTS) {
       const s = slotState(st, p.id);
       const lead = s.crew[0];
-      h += '<button type="button" class="cov-cell ' + s.level + '" ' +
+      /* The mode goes on the matrix too, and it has to: the matrix is the only
+         screen that shows all sixteen slots at once, so "which of my board is
+         running out of automation" is a question that can only be answered
+         here. The tape glyph sits in the corner and the border goes dashed
+         violet — the aria-label says it in words for the same reason. */
+      h += '<button type="button" class="cov-cell ' + s.level + (s.tracked ? ' tracked' : '') + '" ' +
         'data-openslot="' + slotRef(i, p.id) + '" ' +
-        'aria-label="' + esc(st.call + ' ' + partShort(p.id) + ' — ' +
-          tt(s.level === 'exposed' ? 'covExposed' : s.level === 'risky' ? 'covRisky' : 'covCovered')) + '">' +
+        'aria-label="' + esc(s.tracked
+          ? tt('vtCovLabel', { call: st.call, part: partShort(p.id) })
+          : st.call + ' ' + partShort(p.id) + ' — ' +
+            tt(s.level === 'exposed' ? 'covExposed' : s.level === 'risky' ? 'covRisky' : 'covCovered')) + '">' +
+        (s.tracked ? '<span class="cc-mode" aria-hidden="true">📼</span>' : '') +
         '<span class="cc-ico">' + (SHOWS[s.slot.show] || SHOWS.music).icon + '</span>' +
         '<span class="cc-sub">' + esc(lead ? lead.name.split(' ')[0].slice(0, 5) : tt('covNobody')) + '</span>' +
       '</button>';
@@ -2103,6 +2204,9 @@ function coverageCard(compact){
       '<span><i class="covered"></i>' + esc(tt('covCovered')) + '</span>' +
       '<span><i class="risky"></i>' + esc(tt('covRisky')) + '</span>' +
       '<span><i class="exposed"></i>' + esc(tt('covExposed')) + '</span>' +
+      // The fourth key, on its own channel: the first three are about whether
+      // anybody is on the slot, this one is about how it airs.
+      '<span><i class="tracked"></i>' + esc(tt('vtLegend')) + '</span>' +
     '</div>';
   }
   return h + '</div>';
@@ -2715,7 +2819,12 @@ function uiSeatLine(room, staffId){
   const p = staffById(staffId);
   if (!p) return '';
   const load = simLoadMap();
-  const total = Math.max(1, load[staffId] || 1);
+  /* Load is now FRACTIONAL — a voice-tracked slot counts TRACK_LOAD 0.35 of an
+     assignment, not 1 — so this line used to render "1 of 2.35". The count is
+     meant to read as "this seat is one of the things they do", so show the
+     assignment COUNT for the denominator and let the seat-cost line below carry
+     the fractional truth in attention, which is the unit that actually matters. */
+  const total = Math.max(1, Math.round(load[staffId] || 1));
   const slots = bookingsOf(staffId);
   // Which of their assignments this seat is: slots first, then rooms in order.
   const roomsWith = simRoomList().filter(r => Array.isArray(r.staff) && r.staff.indexOf(staffId) >= 0);
@@ -3829,10 +3938,171 @@ function doFoundStation(segId){
   render();
 }
 
+/* ---------------- voice-tracking panel (DESIGN_PROOF_VOICETRACK.md §6) ------
+   The whole mechanic lives in sim.js and, until this panel existed, no player
+   could reach it: there was no control that set slot.mode at all. What §6 asks
+   for is not a toggle — it is the PRICE, printed while the choice is still
+   hypothetical, in the order the costs actually bite.
+
+     1  attention and the settling point, before -> after.  FIRST, because it
+        is the cost that arrives about 46 days late and is the one a player
+        cannot feel at the moment they tap.
+     2  0.35 of an assignment against 1.00, against that host's own total.
+     3  localism, beside the crew term it multiplies.
+     4  the booth closing, and the fault chance rising with it.
+     5  the floor disclosure, when the settling point is pinned either way.
+
+   Everything above is a STATE readout. There is deliberately no recommended
+   mode, no crossover, no "track slots under weight W", and no highlight on the
+   grid marking which slots to convert — see the rule written over the vt keys
+   in content.js. The player is told what tracking does and works out when.
+
+   Every hypothetical goes through withSlot({mode}), so the numbers on screen
+   come out of sim's own condTarget()/staffSlotLoad()/slotRisk() rather than
+   out of an arithmetic copy that could drift from them. */
+function uiCondGain(){ return (typeof COND_GAIN !== 'undefined') ? COND_GAIN : 0.03; }
+
+/** Days for this station's condition to cover HALF the distance from where it
+    is now to where it settles under `mode`, by stepping sim's own recurrence
+    rather than by inverting it — the clamp at COND_MIN is part of the answer
+    and a closed form would miss it. Returns 0 when there is no distance. */
+function condHalfDays(st, partId, mode){
+  return withSlot(st, partId, { mode }, () => {
+    const map  = simLoadMap();
+    const wear = (typeof stationWear === 'function') ? stationWear(st, map) : 0;
+    const attn = simAttn(st, map);
+    const g = uiCondGain(), floor = simCondFloor();
+    const target = simCondTarget(st, map);
+    let c = (typeof condOf === 'function') ? condOf(st) : 1;
+    if (Math.abs(target - c) < 0.005) return 0;
+    const half = c + (target - c) / 2, down = target < c;
+    for (let d = 1; d <= 400; d++) {
+      c = clamp(c + g * attn * (1 - c) - wear, floor, 1);
+      if (down ? c <= half : c >= half) return d;
+    }
+    return 400;
+  });
+}
+
+/** One row of the panel: a label and its lines. `tone` colours the value line
+    without ever colouring it as advice — amber is "this number moves", not
+    "do this". */
+function vtRow(lbl, lines){
+  return '<div class="vt-row"><div class="vt-lbl">' + esc(lbl) + '</div>' +
+    lines.filter(Boolean).join('') + '</div>';
+}
+function vtLine(text, cls){
+  return '<div class="vt-txt' + (cls ? ' ' + cls : '') + '">' + text + '</div>';
+}
+
+function voiceTrackPanel(st, idx, partId, ref){
+  const slot = stSlot(st, partId);
+  const tracked = simTracked(slot);
+  const TL = uiTrackLoad(), TA = uiTrackAppeal();
+  const floor = simCondFloor();
+
+  /* --- 1. attention and the settling point, measured both ways --- */
+  const cLive    = withSlot(st, partId, { mode: 'live' },    () => simCondTarget(st));
+  const cTracked = withSlot(st, partId, { mode: 'tracked' }, () => simCondTarget(st));
+  const pLive = Math.round(cLive * 100), pTracked = Math.round(cTracked * 100);
+  /* §6.5, the honest disclosure of Arm B. When attention is already below the
+     line where the floor bites, the settling point is COND_MIN whichever way
+     this slot airs and tracking costs exactly nothing in condition. That is a
+     fact about this station today, not a suggestion about what to do with it. */
+  const atFloor = cLive <= floor + 1e-6 && cTracked <= floor + 1e-6;
+  // The lag is measured toward the mode the slot is NOT in — the trip back to
+  // live is just as slow as the trip out, and a player who only saw it once is
+  // being told a one-way story about a two-way control.
+  const halfDays = condHalfDays(st, partId, tracked ? 'live' : 'tracked');
+  let attnLines = [ vtLine(esc(tt('vtAttnZero'))) ];
+  if (atFloor) {
+    attnLines.push(vtLine(esc(tt('vtFloor', { pct: Math.round(floor * 100) })), 'vt-key'));
+  } else if (pLive === pTracked) {
+    attnLines.push(vtLine(esc(tt('vtSettleSame', { call: st.call, pct: pLive })), 'vt-key'));
+  } else {
+    attnLines.push(vtLine(esc(tt('vtSettle', { call: st.call, from: pLive, to: pTracked })), 'vt-key vt-move'));
+    if (halfDays) attnLines.push(vtLine(esc(tt('vtSettleLag', { n: halfDays >= 400 ? '400+' : halfDays }))));
+  }
+
+  /* --- 2. person-hours, in the unit this game is about --- */
+  const hourLines = [ vtLine(esc(tt('vtHours', { track: TL.toFixed(2), live: (1).toFixed(2) })), 'vt-key') ];
+  const crew = slotCrew(slot);
+  if (!crew.length) {
+    hourLines.push(vtLine(esc(tt('vtHoursNobody'))));
+  } else {
+    /* Both figures are hypotheticals — never "today's number vs the other one"
+       — so the row reads the same whichever mode the slot is sitting in. A
+       readout that only works in one direction is exactly how switching BACK
+       becomes the undocumented half of a mechanic. */
+    for (const p of crew.slice(0, 3)) {
+      const lv = withSlot(st, partId, { mode: 'live' },    () => simDjLoad(p.id));
+      const tk = withSlot(st, partId, { mode: 'tracked' }, () => simDjLoad(p.id));
+      hourLines.push(vtLine(esc(tt('vtHoursWho', {
+        name: p.name, live: lv.toFixed(2), track: tk.toFixed(2)
+      }))));
+    }
+  }
+
+  /* --- 3. localism, beside the crew term it multiplies --- */
+  const map = simLoadMap();
+  const dj = simDjTerm(slot, st, map);
+  const appealLines = [
+    vtLine(esc(tt('vtPull', { dj: dj.toFixed(3), mul: TA.toFixed(2) })), 'vt-key'),
+    vtLine(esc(tt('vtAppeal', { pct: Math.round((1 - TA) * 100) })))
+  ];
+
+  /* --- 4. the booth, and the fault chance rising with it --- */
+  const riskLive = withSlot(st, partId, { mode: 'live' },    sl => simSlotRisk(st, sl));
+  const riskBare = withSlot(st, partId, { mode: 'tracked' }, sl => simSlotRisk(st, sl));
+  const engLines = [ vtLine(esc(tt('vtEngNone'))) ];
+  /* Equal when the booth is ALREADY empty, which is the true state of every
+     tracked slot and of plenty of live ones. Saying so is the honest version;
+     printing an unchanged pair of numbers as a "rise" is not. */
+  engLines.push(Math.abs(riskBare - riskLive) < 0.0001
+    ? vtLine(esc(tt('vtRiskSame', { pct: (riskLive * 100).toFixed(1) })), 'vt-key')
+    : vtLine(esc(tt('vtRisk', {
+        from: (riskLive * 100).toFixed(1), to: (riskBare * 100).toFixed(1)
+      })), 'vt-key vt-move'));
+
+  let h = '<div class="pick-head">' + esc(tt('vtTitle')) + '</div>' +
+    '<div class="pick-sub">' + esc(tt('vtSub')) + '</div>' +
+    '<div class="vt' + (tracked ? ' on' : '') + '">' +
+      vtRow(tt('vtAttnLbl'),  attnLines) +
+      vtRow(tt('vtHoursLbl'), hourLines) +
+      vtRow(tt('vtAppealLbl'), appealLines) +
+      vtRow(tt('vtEngLbl'),   engLines) +
+    '</div>';
+
+  /* The control, UNDER its outputs, because the thumb sits on the control and
+     the numbers above are what the thumb is being moved to change. Two buttons
+     rather than a switch: a switch has one label and therefore has to be read
+     twice to know which state it is in. */
+  const btn = (mode, ico, name, desc) => {
+    const on = (mode === 'tracked') === tracked;
+    return '<button type="button" class="vt-btn' + (on ? ' on' : '') + '" ' +
+      'data-setmode="' + mode + '" data-slotref="' + ref + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      '<span class="vt-ico">' + ico + '</span>' +
+      '<span class="vt-name">' + esc(name) + (on ? ' ✓' : '') + '</span>' +
+      '<span class="vt-desc">' + esc(desc) + '</span>' +
+      (on ? '<span class="vt-tag">' + esc(tt('vtOnTag')) + '</span>' : '') +
+      '</button>';
+  };
+  h += '<div class="vt-modes">' +
+    btn('live', '🎙️', tt('vtLive'), tracked ? tt('vtBackLive') : tt('vtLiveDesc')) +
+    btn('tracked', '📼', tt('vtTracked'), tt('vtTrackedDesc')) +
+    '</div>';
+  return h;
+}
+
 /* ---------------- slot editor ----------------
    The one screen where DESIGN.md's second and third mechanics have to be
    legible. Layout order is deliberate and is the opposite of the v2 version:
      1. READOUT — load, fault risk, slot revenue, and the crossover tick.
+     1b. HOW THIS SHIFT AIRS — live or tracked, with §6's five readouts above
+         the two mode buttons. It sits directly under the readout because its
+         first line is a settling point that takes ~46 days to arrive, which
+         makes it the least visible cost on the screen and therefore the one
+         that has to be the highest.
      2. Show picker (changing the show moves the load).
      3. Crew (each addition priced as a net-per-day delta, not a vibe).
      4. Engineer (with the cross-station steal spelled out).
@@ -3856,6 +4126,7 @@ function openSlotEditor(stIdx, partId, redraw){
   const engPeople = slotEngs(slot).map(staffById).filter(Boolean);
   const eng  = engPeople[0] || null;
   const crew = slotCrew(slot);
+  const tracked = simTracked(slot);
 
   const loadCls = load < 1.2 ? 'ok' : load < LOAD_CROSSOVER ? 'warn' : 'bad';
   const riskCls = risk < 0.03 ? 'ok' : risk < 0.06 ? 'warn' : 'bad';
@@ -3880,10 +4151,21 @@ function openSlotEditor(stIdx, partId, redraw){
       '<span style="color:var(--cyan)">▲ ' + esc(tt('crossoverMark')) + '</span>' +
       '<span>' + esc(tt('loadHigh')) + '</span></div>';
 
+  /* HOW THIS SHIFT AIRS, said once at the top of the outputs. The panel below
+     carries the arithmetic; this is the one-line state so a player who opened
+     the sheet for something else still learns which mode they are looking at,
+     and so the risk figure two tiles left has a stated cause. */
+  if (tracked) {
+    body += '<div class="readout-note vt-note">📼 <b>' + esc(tt('vtTracked')) + '</b> · ' +
+      esc(tt('vtSlotSub')) + '</div>';
+  }
+
   // The engineer sentence: what they are worth HERE against what they are
   // worth on their best slot anywhere in the empire. This is the crossover,
   // said in money, on the screen where the player can act on it.
-  const anyEng = staffOf('eng')[0];
+  // NOT on a tracked slot: sim refuses an engineer there, so pricing one would
+  // be a dollar figure for a seat that does not exist.
+  const anyEng = tracked ? null : staffOf('eng')[0];
   if (anyEng) {
     const here = engineerWorth(st, partId, anyEng.id, V);
     const best = bestEngineerSlot(anyEng.id);
@@ -3901,6 +4183,12 @@ function openSlotEditor(stIdx, partId, redraw){
       tt('noEngNote', { rep: (0.25 * load).toFixed(2) }) + '</div>';
   }
   body += '</div>';
+
+  /* --- how this shift airs: §6's five readouts, then the two mode buttons.
+         Directly under the readout and ABOVE the show picker, because its
+         first line is a settling point that takes tens of days to arrive and
+         is therefore the cost a player is least able to feel at the tap. --- */
+  body += voiceTrackPanel(st, idx, partId, ref);
 
   /* --- show picker --- */
   const hdrCls = 'pick-head';
@@ -4041,7 +4329,25 @@ function openSlotEditor(stIdx, partId, redraw){
     '<div class="pick-sub">' + esc(tt('roleEngDesc')) + '</div>';
 
   const engs = staffOf('eng');
-  if (!engs.length) {
+  /* §6.4. A tracked slot takes no engineer — addEngineer() refuses it with
+     reason 'tracked' — so the whole section is greyed and SAYS WHY, with the
+     way out named. The bench still renders: hiding it here would repeat the
+     defect this file already fixed once, where the roster disappeared at the
+     exact moment the player was deciding about it. Rows are plain divs, not
+     buttons, so there is no control that looks available and refuses. */
+  if (tracked && engs.length) {
+    body += '<div class="pick-sub vt-blocked">' + esc(tt('vtEngGrey')) + '</div>' +
+      '<div class="eng-off">';
+    for (const p of engs) {
+      body += '<div class="row">' +
+        '<div class="row-icon">🔧</div><div class="row-body">' +
+          '<div class="row-title">' + esc(p.name) + '</div>' +
+          '<div class="row-sub">' + esc(t('skill', { n: p.skill })) + '</div>' +
+          '<div class="row-sub">' + esc(tt('vtEngNone')) + '</div>' +
+        '</div></div>';
+    }
+    body += '</div>';
+  } else if (!engs.length) {
     body += '<div class="empty" style="padding:14px">' + esc(t('roleEngDesc')) + '</div>';
   } else {
     const engOn = slotEngs(slot);
@@ -4200,6 +4506,10 @@ function setEng(ref, id){
     const res = addEngineer(idx, part, id);
     if (res && res.ok) noteSteal(res.stole, id);
     else if (res && res.reason === 'full') toast('🔧 ' + esc('Booth full — remove an engineer first'), 'bad');
+    // sim refuses an engineer on a tracked slot outright. The editor does not
+    // render a control that would do this, so reaching here means a stale
+    // sheet — it still has to say what happened rather than do nothing.
+    else if (res && res.reason === 'tracked') toast('📼 ' + tt('vtEngGrey'), 'bad');
   }
   afterSlotChange(ref);
 }
@@ -4207,6 +4517,42 @@ function setShow(ref, key){
   const { idx, part } = parseRef(ref);
   if (typeof setSlotShow === 'function') setSlotShow(idx, part, key);
   else bridgeMiss('setSlotShow');
+  afterSlotChange(ref);
+}
+/** The only control in the game that reaches slot.mode, and the reason the
+    whole voice-tracking mechanic is reachable at all.
+
+    Two things it must do beyond calling sim. First, setSlotMode() SCRUBS the
+    engineer off a slot it tracks — a tracked shift has nobody in the building
+    — and it hands back `dropped` precisely so this can name who it just
+    unseated. An engineer who silently vanishes off a booth is the same class
+    of defect as the cross-station steal, and it is answered the same way: say
+    it, with the name and the slot. Second, neither toast is styled as good or
+    bad news. Live is not the correct answer and tracked is not the correct
+    answer; the sheet prints what each one costs and the player decides. */
+function setMode(ref, mode){
+  const { idx, part } = parseRef(ref);
+  if (typeof setSlotMode !== 'function') { bridgeMiss('setSlotMode'); return; }
+  const st = allStations()[idx];
+  const call = st ? st.call : '';
+  const res = setSlotMode(idx, part, mode);
+  if (res && res.ok && res.was !== res.mode) {
+    for (const id of (res.dropped || [])) {
+      const p = staffById(id);
+      toast('🔧 ' + tt('vtDropped', {
+        name: p ? p.name.split(' ')[0] : 'Your engineer',
+        call, part: partShort(part)
+      }), 'bad');
+    }
+    toast((mode === 'tracked' ? '📼 ' : '🎙️ ') +
+      tt(mode === 'tracked' ? 'vtSwitchedTracked' : 'vtSwitchedLive', { call, part: partShort(part) }));
+    // The schedule tile and the coverage cell both change appearance on this,
+    // and both are cached by key — clear it or the board keeps yesterday's
+    // face until something else happens to invalidate it.
+    sceneKey = '';
+    stationBarKey = '';
+    saveGame(true);
+  }
   afterSlotChange(ref);
 }
 
@@ -4948,7 +5294,7 @@ function wire(){
   document.addEventListener('click', e => {
     // One shared click blip for any interactive control; buy/hire/train get
     // their own richer sfxBuy() on top of this further down.
-    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn:not(:disabled), .switch, .slot, .st-chip, .cov-cell, .seg-card, .bay-cell.filled, .bay-cell.open')) sfxClick();
+    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn:not(:disabled), .switch, .slot, .st-chip, .cov-cell, .seg-card, .bay-cell.filled, .bay-cell.open, .vt-btn')) sfxClick();
 
     // Station switching comes first: the chips carry data-station and nothing
     // else in the file does, and the Empire tab's "Switch" buttons reuse it.
@@ -5023,6 +5369,12 @@ function wire(){
 
     const engB = e.target.closest('[data-seteng]');
     if (engB) return setEng(engB.dataset.slotref, engB.dataset.seteng);
+
+    // Live / voice-tracked. dataset.setmode is 'live' or 'tracked' and sim
+    // refuses anything else with reason 'mode', so a hand-edited attribute
+    // cannot invent a third state.
+    const modeB = e.target.closest('[data-setmode]');
+    if (modeB) return setMode(modeB.dataset.slotref, modeB.dataset.setmode);
 
     /* Building programme. Same rule as the slot editor's rows: every control
        carries its own room (and station) reference rather than reading it back
@@ -5186,6 +5538,10 @@ const PAD = { A:0, B:1, X:2, Y:3, LB:4, RB:5, LT:6, RT:7, BACK:8, START:9, UP:12
 const FOCUS_SEL = '.mbtn:not(:disabled), .tab, .btn:not(:disabled), .slot, .switch, .seg-btn:not(:disabled), ' +
   '.hud-btn, .st-chip, .cov-cell, .seg-card, .hint, .hud-warn:not([hidden]), ' +
   '[data-setshow], [data-addcrew], [data-dropcrew], [data-leadcrew], [data-seteng], ' +
+  // Live / voice-tracked. The mechanic has exactly ONE control and this is it;
+  // leaving it out of this list would ship a feature a pad player can read the
+  // whole price of and never buy.
+  '[data-setmode], ' +
   // The building programme: the matrix cells ARE the build/edit control, and
   // the seat rows are how a room is staffed. A pad player who can buy a bay but
   // cannot put anybody in it has half the feature.

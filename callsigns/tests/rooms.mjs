@@ -275,7 +275,7 @@ const mig = run(`
            seats: loaded.rooms[0] ? loaded.rooms[0].staff.length : 0,
            localBase: loaded.stations[0].localBase, studios: loaded.stations[0].studios };
 `);
-ok('a v7 save migrates to v8 keeping its bays', mig.ver === 8 && mig.bays === 4, JSON.stringify(mig));
+ok('a v7 save migrates to v9 keeping its bays', mig.ver === 9 && mig.bays === 4, JSON.stringify(mig));
 ok('the v7 Maintenance Bay becomes the Rack Room and keeps its seat',
   mig.types.length === 1 && mig.types[0] === 'rack' && mig.seats === 1, JSON.stringify(mig));
 ok('the Newsroom and the Record Library are dropped as unknown types',

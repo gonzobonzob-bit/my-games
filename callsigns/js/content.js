@@ -310,6 +310,69 @@ const STR = {
        contradicted its own settling figure. */
     condTend: 'Attention closes {pct}% of the gap to full each day · {eng} slots with an engineer, {dj} with hosts only. People spread thin bring less of themselves.',
     condFloor: 'This signal is as degraded as it gets. Everything it airs goes out weak, and the lease has not moved.',
+
+    /* ---- voice-tracking (docs/DESIGN_PROOF_VOICETRACK.md §6) ----
+       Sited next to the condition copy on purpose: the expensive half of this
+       decision is a settling point, and vtSettle deliberately borrows
+       condSettling's "settles at N%" wording so the slot editor and the
+       condition card are describing the same number in the same words.
+
+       THE RULE THIS BLOCK IS WRITTEN UNDER. Not one string here names a
+       recommended mode, a crossover, a weight below which to track, or a slot
+       worth tracking. Every one of them says what tracking DOES — the
+       person-hours, the attention, the localism, the empty booth — and stops.
+       Printing the number the player is solving for is the Purr & Power
+       failure this vault has a binding rule about, and a penalty described in
+       the payoff direction ("so track your cheap slots") is the same defect
+       wearing prose. If a future line here wants to be helpful, it is wrong.
+
+       Variables, so ui.js never has to guess:
+         vtNow {mode}            vtSettle {call},{from},{to}
+         vtSettleSame {call},{pct}   vtSettleLag {n}
+         vtFloor {pct}           vtHours {track},{live}
+         vtHoursWho {name},{live},{track}
+         vtAppeal {pct}          vtPull {dj},{mul}
+         vtRisk {from},{to}      vtRiskSame {pct}
+         vtDropped {name},{call},{part}
+         vtSwitchedTracked / vtSwitchedLive {call},{part}                      */
+    vtTitle: 'How this shift airs',
+    vtSub: 'Live is a person in the air studio for the hour. Tracked is the same host cutting their breaks ahead of time for automation to play out between the records. Both go on the air. Only one of them has anybody in the building.',
+    vtNow: 'On the air {mode} now.',
+    vtLive: 'Live',
+    vtTracked: 'Voice-tracked',
+    vtLiveDesc: 'Somebody is in the studio for the shift.',
+    vtTrackedDesc: 'Breaks cut ahead of time, played out by automation.',
+    vtOnTag: 'on air',
+
+    vtAttnLbl: 'Attention and condition',
+    vtAttnZero: 'Attention 0.00 — nobody is in the building to tend the plant.',
+    vtSettle: '{call} settles at {from}% live, {to}% tracked.',
+    vtSettleSame: '{call} settles at {pct}% either way.',
+    vtSettleLag: 'Condition does not move the day you switch. It drifts, and it takes about {n} days to cover half the distance.',
+    vtFloor: 'This signal is already at the floor — it settles at {pct}% whichever way this slot airs. Tracking costs it no further attention.',
+
+    vtHoursLbl: 'Person-hours',
+    vtHours: '{track} of an assignment against {live}.',
+    vtHoursWho: '{name} carries {live} assignments with this slot live, {track} with it tracked.',
+    vtHoursNobody: 'Nobody is on this slot, so there is no assignment here to divide.',
+
+    vtAppealLbl: 'Localism',
+    vtAppeal: 'Localism −{pct}% appeal. No live phones, no weather out the window, no local reference.',
+    vtPull: 'Crew term {dj} · tracked ×{mul}',
+
+    vtEngLbl: 'Engineer and faults',
+    vtEngNone: 'No engineer sits on a tracked slot. There is no shift for one to work.',
+    vtRisk: 'Fault chance {from}% with the booth as it is, {to}% with it empty.',
+    vtRiskSame: 'Fault chance {pct}%. The booth is empty either way.',
+    vtEngGrey: 'This slot is tracked, so the booth is closed. Put it back live to seat anybody here.',
+    vtDropped: '{name} came off {call} {part}. A tracked slot takes no engineer.',
+    vtSwitchedTracked: '{call} {part} is voice-tracked.',
+    vtSwitchedLive: '{call} {part} is live again.',
+    vtBackLive: 'Put this slot back live',
+    vtTag: 'Tracked',
+    vtSlotSub: 'automation plays the breaks',
+    vtLegend: 'Voice-tracked',
+    vtCovLabel: '{call} {part} — voice-tracked, nobody in the building',
     segPopLbl: 'Audience pool', segCompLbl: 'Incumbents', segLeaseLbl: 'Lease premium',
     segTasteLbl: 'What it listens to',
     segPopSub: 'People in play in this segment, by daypart.',
@@ -782,6 +845,21 @@ const ANT_LEASE = [0, 18,  55, 150, 400];
    declared here — classic scripts share one top-level scope, and a duplicate
    `const` is a parse error for the whole game (see the house rules at the top of
    this file). The cap is this array's length; sim.js's MAX_BAYS must equal 6. */
+/* Voice-tracking. Real talent pre-record their breaks into automation; the
+   shift airs as if live and one jock covers multiple dayparts across multiple
+   stations, from anywhere. FCC-permitted unattended operation. See
+   docs/RESEARCH_RADIO_OPERATIONS.md §5.
+
+   TRACK_LOAD 0.35 — a three-hour shift is tracked in about an hour including
+   prep and log approval. The conservative end of the real 0.2-0.4 band, so
+   tracking is never free.
+   TRACK_APPEAL 0.88 — localism. No live phones, no real-time weather or
+   traffic, no local reference. This is a PENALTY, and that direction is what
+   keeps the mechanic honest: tracking a high-value slot costs MORE, so the
+   incentive runs toward better shows rather than worse ones. */
+const TRACK_LOAD   = 0.35;
+const TRACK_APPEAL = 0.88;
+
 const BAY_LEASE = [40, 90, 180, 320, 520, 800];
 
 const DAYPARTS = [
