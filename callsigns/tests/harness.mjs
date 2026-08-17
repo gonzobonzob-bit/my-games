@@ -64,20 +64,42 @@
 // No npm dependencies, same as smoke.mjs.
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, dirname, extname } from 'node:path';
+import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const GAME_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
+/* CALLSIGNS_GAME_DIR points the harness at a COPY of the game instead of the
+   repo. That exists for one reason: rule 5 requires the four instrument breaks
+   of DESIGN_PROOF_VOICETRACK.md §8 to be run and SEEN to fail, and a break run
+   inside the repo is a break one interrupted session ships. Breaks are applied
+   to a scratch copy and the harness is aimed at it; the repo is never edited. */
+const GAME_DIR = process.env.CALLSIGNS_GAME_DIR
+  ? resolve(process.env.CALLSIGNS_GAME_DIR)
+  : join(dirname(fileURLToPath(import.meta.url)), '..');
 const BROWSER = process.env.SMOKE_BROWSER || 'microsoft-edge';
 const arg = (k, d) => {
   const i = process.argv.indexOf(k);
   return i > 0 && process.argv[i + 1] ? parseInt(process.argv[i + 1], 10) : d;
 };
+const strArg = (k, d) => {
+  const i = process.argv.indexOf(k);
+  return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
+};
 const RUNS = arg('--runs', 40);
 const DAYS = arg('--days', 540);          // ~1.5 in-game years
 const AS_JSON = process.argv.includes('--json');
+/* Which gates to run. Everything, by default — a partial run is a debugging
+   convenience and must never be what a report is written from. */
+const GATES = strArg('--gate', 'core,r3,ladder,vt').split(',').map(x => x.trim());
+const gateOn = g => GATES.indexOf(g) >= 0;
+const VT_RUNS = arg('--vt-runs', 60);     // gate VT-1 asks for N >= 60
+/* VT-1 (c) is a cross-BUILD identity: a run that never tracks must reproduce
+   the pre-voice-tracking build to the cent on the same seed. That cannot be
+   measured inside one process, so the v8 build writes its rows out and the v9
+   build reads them back and diffs them. */
+const ZERO_OUT = strArg('--zero-out', null);
+const ZERO_IN  = strArg('--zero-in', null);
 
 let failed = 0;
 const findings = [];
@@ -185,6 +207,20 @@ window.__rig = (function(){
 
   const PARTS = ['morning','midday','evening','night'];
 
+  /* ---- PROOF OF ACTION (CLAUDE.md rule 5) ----
+     A policy that silently no-ops is indistinguishable from a policy that chose
+     to do nothing. That is not a hypothetical here: hireBest() once threw on
+     its first candidate every single time and every published number described
+     an unstaffed game. So every mutation a policy performs is COUNTED, per
+     policy, and the runner asserts the counts a policy is supposed to produce
+     are non-zero before it reads a single dollar figure. */
+  const ACT = {};
+  let CURPOL = '';
+  function bump(k, n){
+    const a = ACT[CURPOL] || (ACT[CURPOL] = {});
+    a[k] = (a[k] || 0) + (n === undefined ? 1 : n);
+  }
+
   function cands(role){ return (S.candidates || []).filter(function(c){ return c.role === role; }); }
   function staffRole(role){ return (S.staff || []).filter(function(p){ return p.role === role; }); }
 
@@ -208,7 +244,7 @@ window.__rig = (function(){
       // project published before 2026-08-14 described an unstaffed game.
       if (S.cash >= hireFee(c) + c.salary * 30) {
         const n = S.staff.length; hirePerson(c.id);
-        if (S.staff.length > n) return true;
+        if (S.staff.length > n) { bump('hire_' + role); return true; }
       }
     }
     return false;
@@ -328,6 +364,7 @@ window.__rig = (function(){
     const taken = S.stations.map(function(s){ return s.segment; });
     const seg = segs.find(function(g){ return taken.indexOf(g) < 0; }) || segs[0];
     const r = foundStation(seg);
+    if (r && r.ok) bump('expand');
     return !!(r && r.ok);
   }
 
@@ -580,6 +617,194 @@ window.__rig = (function(){
     if (day % 5 === 0) tryExpand(2.2);
   }
 
+  /* ---- v9 voice-tracking: the machinery gate VT-1 needs ----
+     docs/DESIGN_PROOF_VOICETRACK.md 4 and 8.
+
+     THE CLAIM: live-versus-tracked REVERSES on roster depth. Deep roster, never
+     track; thin roster, track all but the biggest daypart. If one fixed rule
+     wins both arms the mode toggle is decoration whatever money it makes, and
+     the honest report says so rather than tuning until it passes. */
+
+  /* Roster depth is set by the DJ CAP and by how the roster is SPREAD, and the
+     second half is the part that would have made this whole gate vacuous.
+
+     fillSlots() takes free[0] — the first DJ on the roster — for every daypart,
+     because its only exclusion is one-person-per-daypart. So on one station it
+     puts DJ 1 on all four slots however many DJs are on payroll, and on a four
+     station empire it uses exactly four people and leaves the rest spare. That
+     is CORRECT for the room cohort (surplusStaff() is what fills the rooms) and
+     it is fatal here: hiring sixteen DJs would have changed payroll and nothing
+     else, both arms would have run at load 4, and the deep arm would have been
+     the thin arm minus cash. Two arms that differ only in payroll are one run
+     measured twice — exactly the tell rule 5 names.
+
+     vtFill() spreads instead: every empty slot goes to the least-loaded DJ who
+     is not already working that daypart somewhere else. With one DJ per slot
+     everybody sits at load 1; with one DJ per station everybody sits at load 4,
+     which is the design proof's Arm A and Arm B verbatim. */
+  function vtFill(){
+    const djs = staffRole('dj');
+    if (!djs.length) return;
+    const load = {}, busy = {};
+    S.stations.forEach(function(st, i){
+      PARTS.forEach(function(p){
+        const slot = st.schedule && st.schedule[p];
+        if (!slot || !Array.isArray(slot.djs)) return;
+        slot.djs.forEach(function(id){
+          load[id] = (load[id] || 0) + 1;
+          busy[p + '|' + id] = 1;
+        });
+      });
+    });
+    S.stations.forEach(function(st, i){
+      PARTS.forEach(function(p){
+        const slot = st.schedule && st.schedule[p];
+        if (!slot) return;
+        if (Array.isArray(slot.djs) && slot.djs.length) return;
+        let best = null;
+        for (const d of djs) {
+          if (busy[p + '|' + d.id]) continue;
+          if (best === null || (load[d.id] || 0) < (load[best.id] || 0)) best = d;
+        }
+        if (!best) return;
+        const r = addDj(i, p, best.id);
+        if (r && r.ok) {
+          load[best.id] = (load[best.id] || 0) + 1;
+          busy[p + '|' + best.id] = 1;
+          bump('djAssign');
+        }
+      });
+    });
+  }
+  /* Rebalance from scratch when the roster or the empire changes size.
+     Without it a DJ hired on day 200 finds every slot already occupied and the
+     deep arm never actually gets deep — it just pays more people to stand
+     around, which is the same vacuous-arm failure one level down. */
+  let vtShape = '';
+  function vtStaff(deep){
+    const nStations = Math.max(1, S.stations.length);
+    if (S.day % 3 === 0) {
+      hireBest('dj', deep ? slotsTotal() : nStations);
+      /* Engineers are roster depth too, and ENG_TEND is four times DJ_TEND, so
+         a thin arm that still fielded an engineer per station would sit at
+         attention ~1.19 and never come near the condition floor the whole
+         reversal rests on. The design proof's own arithmetic (4) is DJs only.
+         Deep hires toward one per slot; thin hires none. */
+      if (deep && S.day > 12) hireBest('eng', slotsTotal());
+      if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 6);
+    }
+    const shape = staffRole('dj').length + ':' + S.stations.length;
+    if (shape !== vtShape) {
+      vtShape = shape;
+      S.stations.forEach(function(st, i){
+        PARTS.forEach(function(p){
+          const slot = st.schedule && st.schedule[p];
+          if (!slot || !Array.isArray(slot.djs)) return;
+          slot.djs.slice().forEach(function(id){ removeDj(i, p, id); });
+        });
+      });
+    }
+    vtFill();
+    if (deep) placeEngineers();
+    if (S.day % 7 === 0) setSchedules();
+    if (S.day % 7 === 0) upgradeGear(6000);
+    if (S.day % 5 === 0) tryExpand(2.2);
+  }
+
+  /** Flip one slot, counted. Returns true only if the mode actually moved, so a
+      policy cannot prove it acted by asking for the mode a slot already has. */
+  function setMode(i, part, mode){
+    if (typeof setSlotMode !== 'function') { bump('noModeApi'); return false; }
+    const st = S.stations[i];
+    const slot = st && st.schedule && st.schedule[part];
+    if (!slot) return false;
+    if ((trackedOn(slot) ? 'tracked' : 'live') === mode) return false;
+    const r = setSlotMode(i, part, mode);
+    if (r && r.ok) { bump(mode === 'tracked' ? 'toTracked' : 'toLive'); return true; }
+    return false;
+  }
+  function trackedCount(){
+    let n = 0;
+    if (typeof trackedOn !== 'function') return 0;
+    S.stations.forEach(function(st){
+      PARTS.forEach(function(p){ const sl = st.schedule && st.schedule[p]; if (sl && trackedOn(sl)) n++; });
+    });
+    return n;
+  }
+  /** The design's slot weight w = segPop x show.parts. Used ONLY to rank slots
+      within a station, never as a threshold — printing a cut line would be the
+      Purr and Power sin, and a policy that computes one is claiming the player
+      can too. */
+  function slotWeight(st, partId){
+    const slot = st.schedule && st.schedule[partId];
+    const show = (slot && SHOWS[slot.show]) || SHOWS.music;
+    return segPop(segmentOf(st.segment), partId) * ((show.parts && show.parts[partId]) || 1);
+  }
+  function ranked(i){
+    const st = S.stations[i];
+    return PARTS.slice().sort(function(a, b){ return slotWeight(st, b) - slotWeight(st, a); });
+  }
+
+  /* The two FIXED rules. Neither reads any state; that is the point. */
+  function neverTrackStep(){
+    S.stations.forEach(function(st, i){ PARTS.forEach(function(p){ setMode(i, p, 'live'); }); });
+  }
+  function allButOneStep(){
+    S.stations.forEach(function(st, i){
+      ranked(i).forEach(function(p, k){ setMode(i, p, k === 0 ? 'live' : 'tracked'); });
+    });
+  }
+  function trackAllStep(){
+    S.stations.forEach(function(st, i){ PARTS.forEach(function(p){ setMode(i, p, 'tracked'); }); });
+  }
+  /* DIAGNOSTIC, not part of the gate: track the BOTTOM HALF of the dayparts by
+     weight, which is the cut the design proof's Arm B actually makes (evening
+     and night, two of four). It exists so that a failure of (b) can be told
+     apart from a mechanic that does nothing. alwaysTrackButOne gives up
+     localism on three slots in four to buy fatigue relief on one; if the sign
+     reverses for THIS rule and not for that one, the honest finding is that the
+     named fixed rule over-tracks, not that the toggle is decoration. */
+  function trackHalfStep(){
+    S.stations.forEach(function(st, i){
+      ranked(i).forEach(function(p, k){ setMode(i, p, k < 2 ? 'live' : 'tracked'); });
+    });
+  }
+
+  /* THE STATE-READING RULE.
+
+     Priced through uiWhatIf()/uiEmpireWorth() — the same arithmetic the
+     Building tab shows the player — for the same reason the room cohort does
+     it: a policy that out-thinks the UI proves nothing about whether a human
+     can make this decision, and one that uses the UI's own numbers proves
+     exactly that. uiStationWorth() already carries both halves of the trade in
+     separate fields, so the two clauses of the gate are measurable rather than
+     argued:
+
+       cond term   rev x (1 - share) x (condTarget - cond) / cond   -- what the
+                   attention given up is worth, and EXACTLY ZERO on a station
+                   already pinned at COND_MIN, which is clause one
+       rev  term   carries TRACK_APPEAL's localism loss on the flipped slot AND
+                   the fatigue relief the freed 0.65 of a person hands back to
+                   every other slot that host works, which is clause two
+
+     So the rule is: flip when the measured margin is positive. On a pinned
+     station that reduces to appeal-loss against load-relief with the condition
+     term contributing a literal 0; off the floor it is the full trade. */
+  function readsStateStep(){
+    if (typeof setSlotMode !== 'function') { bump('noModeApi'); return; }
+    for (let i = 0; i < S.stations.length; i++) {
+      for (const p of PARTS) {
+        const slot = S.stations[i].schedule && S.stations[i].schedule[p];
+        if (!slot) continue;
+        const want = trackedOn(slot) ? 'live' : 'tracked';
+        const idx = i, part = p, m = want;
+        const gain = marginOf(function(){ setSlotMode(idx, part, m); });
+        if (gain > 0) setMode(idx, part, m);
+        else bump('vtHeld');
+      }
+    }
+  }
+
   /* ---- the policies ----
      Each is a plain function called once per in-game day. They are written to
      be recognisably human strategies, not optimisers: the question is whether
@@ -707,12 +932,51 @@ window.__rig = (function(){
       fillSlots(); placeEngineers();
       if (day % 7 === 0) upgradeGear(6000);
       if (day % 5 === 0) tryExpand(2.2);
+    },
+
+    /* ---- GATE VT-1: the voice-tracking cohort, in TWO ARMS ----
+       Deep = one DJ per SLOT and an engineer per slot. Thin = one DJ per
+       STATION and no engineers. Everything else is held identical: same gear
+       rule, same expansion rule, same schedule policy, same sellers. The only
+       difference between the arms is how many people the empire employs, which
+       is the axis the claim is about, and the runner asserts mean staff differs
+       by at least 2 before any of it is believed. */
+    vtDeepNever:  function(day){ vtStaff(true);  if (day % 4 === 0) neverTrackStep(); },
+    vtDeepAllBut: function(day){ vtStaff(true);  if (day % 4 === 0) allButOneStep(); },
+    vtDeepReads:  function(day){ vtStaff(true);  if (day % 4 === 0) readsStateStep(); },
+    vtThinNever:  function(day){ vtStaff(false); if (day % 4 === 0) neverTrackStep(); },
+    vtThinAllBut: function(day){ vtStaff(false); if (day % 4 === 0) allButOneStep(); },
+    vtThinReads:  function(day){ vtStaff(false); if (day % 4 === 0) readsStateStep(); },
+    vtDeepHalf:   function(day){ vtStaff(true);  if (day % 4 === 0) trackHalfStep(); },
+    vtThinHalf:   function(day){ vtStaff(false); if (day % 4 === 0) trackHalfStep(); },
+
+    /* (c) The structural zero. Same policy, run against the v8 build and the
+       v9 build on the same seed; the two must match to the cent. It must never
+       call setSlotMode, because v8 does not have it — the assertion is that
+       leaving the mode alone reproduces v8, not that setting it to live does. */
+    vtZero: function(day){ vtStaff(true); },
+
+    /* (e) The new road to bankruptcy. A real operator's staffing, every slot
+       tracked: full payroll, full lease, pull multiplied by COND_MIN. It must
+       die SOONER than the idle line, not later — a tracked empire that outlives
+       an abandoned one means the mechanic mints attention somewhere. */
+    trackEverything: function(day){
+      if (day % 3 === 0) {
+        hireBest('dj', slotsTotal());
+        if (S.day > 12) hireBest('eng', Math.min(4, slotsTotal()));
+        if (S.day > 20 && salesWasted() <= 0) hireBest('sales', 4);
+      }
+      fillSlots(); placeEngineers();
+      if (day % 7 === 0) upgradeGear(4000);
+      if (day % 4 === 0) trackAllStep();
     }
   };
 
   function runOne(policyName, seedN, days){
     seed(seedN);
     S = sanitize(newState());
+    CURPOL = policyName;
+    vtShape = '';
     const act = POLICIES[policyName];
     let peak = S.cash, died = 0, cause = null, unlockDay = 0, maxStations = 1;
     for (let d = 1; d <= days; d++) {
@@ -800,6 +1064,24 @@ window.__rig = (function(){
           return sl && engIdsOf(sl).length;
         }).length;
       }, 0),
+      /* v9. What the mode toggle was actually set to at the end of the run, and
+         the two quantities the reversal is supposed to run on: how loaded the
+         roster was and how much attention the empire was pointing at its own
+         transmitters. Without these a tie between two tracking policies is
+         undiagnosable — 'tracking did not pay' and 'the policy never tracked'
+         produce the identical end cash. */
+      tracked: trackedCount(),
+      attn: (typeof stationAttn === 'function')
+        ? +S.stations.reduce(function(a, st){ return a + stationAttn(st); }, 0).toFixed(4) : -1,
+      condT: (typeof condTarget === 'function' && S.stations.length)
+        ? +(S.stations.reduce(function(a, st){ return a + condTarget(st); }, 0) / S.stations.length).toFixed(4) : -1,
+      djLoadMax: (function(){
+        const l = staffSlotLoad();
+        let m = 0;
+        for (const p of S.staff) if (p.role === 'dj') m = Math.max(m, l[p.id] || 0);
+        return +m.toFixed(3);
+      })(),
+      condTrace: S.stations.map(function(st){ return +(+st.cond).toFixed(10); }),
       cond: S.stations.length
         ? S.stations.reduce(function(a, st){ return a + (typeof st.cond === 'number' ? st.cond : 1); }, 0) / S.stations.length
         : 1,
@@ -834,8 +1116,112 @@ window.__rig = (function(){
     return { applied: applied, runs: r };
   }
 
+  /* ---- GATE VT-1 (d): the condition cost on a PINNED station ----
+
+     Not a run: a direct measurement on a state built by hand, because the claim
+     is an exact zero and an exact zero cannot be read off a distribution.
+
+     One station, TX2/ANT1, one DJ on all four slots. wear = 0.0025 x (1 + 0.55x2
+     + 0.30x1) = 0.006; attn = 4 x DJ_TEND/4 = 0.250. The floor bites at
+     attn <= wear/((1-COND_MIN) x COND_GAIN) = 0.006/0.0195 = 0.3077, so this
+     station is pinned with real headroom either side rather than by a hair.
+
+     THE PLANT IS CHOSEN SO THE BREAK CAN BE SEEN. At TX3/ANT2 the unclamped
+     fixed point is NEGATIVE, so it reads 0.0000 under COND_MIN = 0.35 and also
+     0.0000 under COND_MIN = 0.0 — the assertion would pass with the floor
+     deleted and prove nothing. Here the unclamped point is 0.200 before the
+     flip and 0.107 after, so removing the floor moves it by ~0.09 and (d)
+     fails loudly, which is the whole reason instrument break 3 exists. */
+  function pinnedProbe(){
+    seed(4242);
+    S = sanitize(newState());
+    const st = S.stations[0];
+    st.tx = 2; st.ant = 1; st.cond = 1;
+    // One host across all four dayparts: the design proof's Arm B roster.
+    const p = makePerson('dj', S.rep);   // repLevel is REQUIRED: makePerson(role) alone yields skill NaN
+    S.staff.push(p);
+    for (const part of PARTS) { st.schedule[part].djs = [p.id]; st.schedule[part].engs = []; st.schedule[part].mode = 'live'; }
+    const wear = stationWear(st, staffSlotLoad());
+    const attnBefore = stationAttn(st);
+    const before = condTarget(st);
+    const worthBefore = (typeof uiStationWorth === 'function') ? uiStationWorth(st).cond : null;
+    // Track the lowest-weight daypart, which is what any cut starts with.
+    const part = ranked(0)[PARTS.length - 1];
+    setSlotMode(0, part, 'tracked');
+    const attnAfter = stationAttn(st);
+    const after = condTarget(st);
+    const worthAfter = (typeof uiStationWorth === 'function') ? uiStationWorth(st).cond : null;
+    return {
+      wear: wear, floor: COND_MIN, part: part,
+      attnBefore: attnBefore, attnAfter: attnAfter,
+      condBefore: before, condAfter: after,
+      cost: before - after,
+      // The unclamped fixed point, so the report can say WHY it is zero.
+      rawBefore: 1 - wear / (COND_GAIN * attnBefore),
+      rawAfter:  1 - wear / (COND_GAIN * attnAfter),
+      moneyCost: (worthBefore === null || worthAfter === null) ? null : worthBefore - worthAfter
+    };
+  }
+
+  /* ---- TRACK_APPEAL, BOTH SITES OR NEITHER ----
+
+     slotPull() feeds audience; the mirrored quality line in simulateDay() feeds
+     avgQuality and therefore repTarget. Wiring one and not the other makes pull
+     and reputation silently disagree about the same schedule, which is a WRONG
+     ANSWER with no error attached — the class of defect this project has now
+     shipped five times. The 24-seed instrument break (TRACK_APPEAL = 1.0) moves
+     both at once and so cannot tell them apart; this probe measures each site
+     on its own.
+
+     The roster is one DJ per slot on purpose. djFatigue clamps at load 1, so
+     dropping one slot from 1 to TRACK_LOAD leaves djTerm EXACTLY unchanged and
+     the only thing that can move either number is the localism multiplier. */
+  function appealProbe(){
+    seed(99);
+    S = sanitize(newState());
+    const st = S.stations[0];
+    st.cond = 1;
+    for (const part of PARTS) {
+      const p = makePerson('dj', S.rep);
+      S.staff.push(p);
+      st.schedule[part].djs = [p.id];
+      st.schedule[part].engs = [];
+      st.schedule[part].mode = 'live';
+    }
+    const target = 'night';
+    const pullLive = slotPull(st, target);
+    const snap = JSON.parse(JSON.stringify(S));
+    simulateDay();
+    const qLive = S.lastDay.quality;
+    S = sanitize(snap);
+    setSlotMode(0, target, 'tracked');
+    const pullTracked = slotPull(S.stations[0], target);
+    const snap2 = JSON.parse(JSON.stringify(S));
+    simulateDay();
+    const qTracked = S.lastDay.quality;
+    S = sanitize(snap2);
+    // What the SHIPPED constant says each site should move by.
+    const ta = trackAppeal();
+    // Site 1: the whole slot's pull scales by TRACK_APPEAL.
+    // Site 2: avgQuality is a mean over 4 slots, so only a quarter of the loss
+    // shows up in it — expected exactly qLive - (1-ta)*q_night/4.
+    const show = SHOWS[S.stations[0].schedule[target].show];
+    const qNight = show.appeal * djTerm(S.stations[0].schedule[target], S.stations[0]) *
+                   ((show.parts && show.parts[target]) || 1);
+    return {
+      ta: ta,
+      pullLive: pullLive, pullTracked: pullTracked,
+      pullRatio: pullLive ? pullTracked / pullLive : null,
+      qLive: qLive, qTracked: qTracked,
+      qExpected: qLive - (1 - ta) * qNight / PARTS.length
+    };
+  }
+
   return { runMany: runMany, runOne: runOne, withLadder: withLadder, POLICIES: POLICIES,
-           policyThrows: function(){ return policyThrows; } };
+           appealProbe: appealProbe,
+           policyThrows: function(){ return policyThrows; },
+           acts: function(){ return ACT; },
+           pinnedProbe: pinnedProbe };
 })();
 true;
 `;
@@ -849,6 +1235,15 @@ function summarise(rows){
     n: rows.length,
     survivalRate: rows.length ? surv.length / rows.length : 0,
     medDeath: pct(dead.map(r => r.died), 0.5),
+    /* CENSORED median time-of-death: survivors count as DAYS+1, not as absent.
+       medDeath is the median of the DEAD ONLY, and that is a trap this file
+       walked into. Instrument break 4 (delete the tracked-slot skip in
+       stationAttn) took the fully-tracked arm from 40% survival to 88% — the
+       mechanic minting attention out of nothing, exactly the failure the break
+       exists to expose — and medDeath went DOWN, because the few runs still
+       dying were the unlucky early ones. The assertion passed on a broken
+       build. A survival curve has to be compared with its survivors in it. */
+    medDeathC: pct(rows.map(r => r.survived ? DAYS + 1 : r.died), 0.5),
     medCash: pct(cashes, 0.5),
     p10Cash: pct(cashes, 0.10),
     p90Cash: pct(cashes, 0.90),
@@ -883,6 +1278,30 @@ function row(name, s){
     '   cond ' + (s.medCond !== undefined ? (s.medCond * 100).toFixed(0) + '%' : '  -').padStart(4) +
     '/' + (s.medCondMin !== undefined ? (s.medCondMin * 100).toFixed(0) + '%' : '-') +
     (s.medDeath ? ('   median death day ' + String(s.medDeath).padStart(3)) : '');
+}
+
+/** Median and 10-90 band of the per-seed difference a - b, PLUS the paired
+    95% confidence interval on the mean. The band says how wide the seeds are;
+    the CI says whether the claim excludes zero, and gate VT-1 asks for the
+    second. They are reported together on purpose: a 5% threshold sitting at
+    0.81 standard errors has already shipped from this file once, so a claim
+    with no standard error attached is not allowed to be made again. */
+function paired(a, b){
+  if (!a || !b || !a.rows || !b.rows) return null;
+  const n = Math.min(a.rows.length, b.rows.length), d = [];
+  for (let i = 0; i < n; i++) {
+    const x = a.rows[i], y = b.rows[i];
+    if (!x || !y) continue;
+    d.push((x.survived ? x.cash : 0) - (y.survived ? y.cash : 0));
+  }
+  const m = mean(d) || 0;
+  let v = 0;
+  for (const x of d) v += (x - m) * (x - m);
+  const sd = d.length > 1 ? Math.sqrt(v / (d.length - 1)) : 0;
+  const se = d.length ? sd / Math.sqrt(d.length) : 0;
+  return { med: pct(d, 0.5), lo: pct(d, 0.10), hi: pct(d, 0.90), n: d.length,
+           mean: m, se: se, ciLo: m - 1.96 * se, ciHi: m + 1.96 * se,
+           t: se ? m / se : 0 };
 }
 
 /* ---------------- main ---------------- */
@@ -926,6 +1345,7 @@ async function main(){
 
     const POLICIES = ['idle', 'ads', 'solo', 'empire', 'greedy'];
     const summary = {};
+    if (gateOn('core')) {
     for (const p of POLICIES) {
       const rows = await evaluate(`JSON.stringify(window.__rig.runMany(${JSON.stringify(p)}, ${RUNS}, ${DAYS}))`);
       results[p] = JSON.parse(rows);
@@ -1031,6 +1451,7 @@ async function main(){
     check('the ledger reconciles in every single run',
       Math.max(...POLICIES.map(p => summary[p].worstDrift)) < 1e-6,
       'worst drift ' + Math.max(...POLICIES.map(p => summary[p].worstDrift)));
+    }
 
     /* ---- GATE R3 (docs/DESIGN_PROOF_ROOMS_V3.md 9) ----
 
@@ -1045,6 +1466,7 @@ async function main(){
        UNPAIRED medians is a coin flip. Every comparison is therefore the median
        of PER-SEED differences, and the reported band is the paired 10th-90th
        percentile so a claim can be seen to exclude zero or not. */
+    if (gateOn('r3') && gateOn('core')) {
     console.log('\n--- GATE R3: is WHICH room a decision? ---');
     const R3 = ['armDjProd','armDjTraffic','armDjReads',
                 'armSellProd','armSellTraffic','armSellReads','builder'];
@@ -1065,17 +1487,6 @@ async function main(){
     }
     console.log('  (' + R3_RUNS + ' seeds per policy, paired by seed)');
 
-    /** Median and 10-90 band of the per-seed difference a - b. */
-    const paired = (a, b) => {
-      if (!a || !b || !a.rows || !b.rows) return null;
-      const n = Math.min(a.rows.length, b.rows.length), d = [];
-      for (let i = 0; i < n; i++) {
-        const x = a.rows[i], y = b.rows[i];
-        if (!x || !y) continue;
-        d.push((x.survived ? x.cash : 0) - (y.survived ? y.cash : 0));
-      }
-      return { med: pct(d, 0.5), lo: pct(d, 0.10), hi: pct(d, 0.90), n: d.length };
-    };
 
     /* (b) FIRST, because it is the claim. The two fixed rules must not tie, and
        the sign of (traffic - production) must REVERSE between the arms. If one
@@ -1114,8 +1525,10 @@ async function main(){
     check('GATE R3: overbuilding bays still costs the run',
       (g.builder.medCash || 0) < (summary.empire.medCash || 0) * 0.85,
       'builder ' + money(g.builder.medCash) + ' vs empire ' + money(summary.empire.medCash));
+    }
 
     /* ---- the STATION_COSTS ladder, A/B ---- */
+    if (gateOn('ladder')) {
     console.log('\n--- STATION_COSTS ladder (the disagreement the checklist refused to hand-pick) ---');
     const LADDERS = {
       'content.js  [12k,40k,115k]': [12000, 40000, 115000],
@@ -1140,6 +1553,237 @@ async function main(){
     check('expansion is a real decision under the live ladder, not a formality',
       ladderOut[labels[0]].medStations > 1,
       'median stations reached ' + ladderOut[labels[0]].medStations);
+    }
+
+    /* ================= GATE VT-1 (docs/DESIGN_PROOF_VOICETRACK.md 8) =========
+       Voice-tracking shipped unmeasured. A slot is live or tracked; tracked
+       costs TRACK_LOAD 0.35 of an assignment, contributes ZERO attention, takes
+       no engineer, and multiplies quality by TRACK_APPEAL 0.88. The design
+       claims the better choice REVERSES on roster depth.
+
+       READ THIS BEFORE READING A NUMBER BELOW. The four instrument breaks of
+       section 8 were run FIRST, against scratch copies of the source, and each
+       was seen to do what it is supposed to do:
+
+         TRACK_LOAD = 1.0        (a) and (b) must both scream
+         TRACK_APPEAL = 1.0      the thin arm's tracking margin must widen
+         COND_MIN = 0.0          (d) must fail
+         delete the continue in stationAttn()   (e) must fail
+
+       Run them with CALLSIGNS_GAME_DIR pointed at a copy. Never in the repo. */
+    if (gateOn('vt')) {
+    console.log('\n--- GATE VT-1: is live-versus-tracked a decision? ---');
+    const VTP = ['vtDeepNever','vtDeepAllBut','vtDeepHalf','vtDeepReads',
+                 'vtThinNever','vtThinAllBut','vtThinHalf','vtThinReads',
+                 'idle','trackEverything','vtZero'];
+    const v = {};
+    for (const vp of VTP) {
+      const rows = JSON.parse(await evaluate('JSON.stringify(window.__rig.runMany(' +
+        JSON.stringify(vp) + ', ' + VT_RUNS + ', ' + DAYS + '))'));
+      v[vp] = summarise(rows); v[vp].rows = rows;
+      console.log(row(vp.padEnd(9), v[vp]) +
+        '   staff ' + String(v[vp].medStaff).padStart(2) +
+        '   tracked ' + String(pct(rows.map(r => r.tracked), 0.5)).padStart(2) +
+        '/' + String(pct(rows.map(r => r.slotsTotal), 0.5)) +
+        '   djLoad ' + String(pct(rows.map(r => r.djLoadMax), 0.5)).padStart(5) +
+        '   attn ' + String(pct(rows.map(r => r.attn), 0.5)).padStart(6) +
+        '   c* ' + String(pct(rows.map(r => r.condT), 0.5)));
+    }
+    console.log('  (' + VT_RUNS + ' seeds per policy, paired by seed, ' + DAYS + ' days)');
+
+    /* ---- the instrument proves it acted, BEFORE any verdict ----
+       Two policies that should differ producing the same number are the same
+       run, not a close result. Each policy is asserted to have performed the
+       mutations its name claims: a tracking policy that never flipped a mode
+       and a never-tracking policy are byte-identical, and the second one is
+       the honest answer to a question nobody asked. */
+    const acts = JSON.parse(await evaluate('JSON.stringify(window.__rig.acts())'));
+    console.log('\n  actions taken (whole cohort, all seeds):');
+    for (const vp of VTP) {
+      const a = acts[vp] || {};
+      console.log('    ' + vp.padEnd(16) +
+        ' hires dj/eng/sales ' + String(a.hire_dj || 0).padStart(4) + '/' +
+        String(a.hire_eng || 0).padStart(4) + '/' + String(a.hire_sales || 0).padStart(3) +
+        '   djAssign ' + String(a.djAssign || 0).padStart(5) +
+        '   expand ' + String(a.expand || 0).padStart(3) +
+        '   ->tracked ' + String(a.toTracked || 0).padStart(5) +
+        '   ->live ' + String(a.toLive || 0).padStart(5) +
+        '   held ' + String(a.vtHeld || 0));
+    }
+    const acted = (vp, keys) => keys.every(k => (acts[vp] || {})[k] > 0);
+    check('VT instrument: every arm actually hired and actually staffed slots',
+      ['vtDeepNever','vtDeepAllBut','vtDeepReads','vtThinNever','vtThinAllBut','vtThinReads']
+        .every(vp => acted(vp, ['hire_dj', 'djAssign'])),
+      JSON.stringify(['vtDeepNever','vtThinNever','vtDeepReads','vtThinReads']
+        .map(vp => [vp, (acts[vp] || {}).hire_dj || 0, (acts[vp] || {}).djAssign || 0])));
+    check('VT instrument: every TRACKING policy actually flipped slots to tracked',
+      ['vtDeepAllBut','vtThinAllBut','trackEverything'].every(vp => acted(vp, ['toTracked'])),
+      JSON.stringify(['vtDeepAllBut','vtThinAllBut','trackEverything','vtDeepReads','vtThinReads']
+        .map(vp => [vp, (acts[vp] || {}).toTracked || 0])));
+    check('VT instrument: the never-track arms ended with ZERO tracked slots',
+      v.vtDeepNever.rows.every(r => r.tracked === 0) && v.vtThinNever.rows.every(r => r.tracked === 0),
+      'deep max ' + Math.max(...v.vtDeepNever.rows.map(r => r.tracked)) +
+      ', thin max ' + Math.max(...v.vtThinNever.rows.map(r => r.tracked)));
+    check('VT instrument: vtZero never touched a slot mode (the (c) control)',
+      !((acts.vtZero || {}).toTracked || (acts.vtZero || {}).toLive) &&
+      v.vtZero.rows.every(r => r.tracked === 0),
+      JSON.stringify(acts.vtZero || {}));
+
+    /* ---- (b) THE CLAIM, and the arm check that has to come before it ----
+       Two arms that employ the same number of people are one run measured
+       twice. staffCount is asserted to differ by at least 2 BEFORE the sign of
+       anything is interpreted. */
+    const meanOf = (a, f) => mean(a.rows.map(f));
+    const deepStaff = meanOf(v.vtDeepNever, r => r.staff);
+    const thinStaff = meanOf(v.vtThinNever, r => r.staff);
+    const deepLoad  = meanOf(v.vtDeepNever, r => r.djLoadMax);
+    const thinLoad  = meanOf(v.vtThinNever, r => r.djLoadMax);
+    console.log('\n  arm separation: deep mean staff ' + deepStaff.toFixed(2) +
+      ' (max DJ load ' + deepLoad.toFixed(2) + ')   thin mean staff ' + thinStaff.toFixed(2) +
+      ' (max DJ load ' + thinLoad.toFixed(2) + ')');
+    check('VT-1 arm check: the two arms employ genuinely different rosters (>= 2 staff)',
+      Math.abs(deepStaff - thinStaff) >= 2,
+      'deep ' + deepStaff.toFixed(2) + ' vs thin ' + thinStaff.toFixed(2));
+
+    const deepD = paired(v.vtDeepNever, v.vtDeepAllBut);   // + means never wins deep
+    const thinD = paired(v.vtThinNever, v.vtThinAllBut);   // - means allButOne wins thin
+    const band = d => money(d.med) + '   [p10 ' + money(d.lo) + ' .. p90 ' + money(d.hi) +
+      ']   mean ' + money(d.mean) + ' 95% CI [' + money(d.ciLo) + ' .. ' + money(d.ciHi) +
+      ']  t=' + d.t.toFixed(2);
+    console.log('  DEEP roster  never - alwaysTrackButOne = ' + band(deepD));
+    console.log('  THIN roster  never - alwaysTrackButOne = ' + band(thinD));
+    const reversed = (deepD.med > 0 && thinD.med < 0);
+    const deepSig = deepD.ciLo > 0, thinSig = thinD.ciHi < 0;
+    /* The diagnostic pair, reported next to the gate it explains. */
+    const deepH = paired(v.vtDeepNever, v.vtDeepHalf);
+    const thinH = paired(v.vtThinNever, v.vtThinHalf);
+    console.log('  DEEP roster  never - trackBottomHalf   = ' + band(deepH) + '   [diagnostic]');
+    console.log('  THIN roster  never - trackBottomHalf   = ' + band(thinH) + '   [diagnostic]');
+    check('GATE VT-1(b): the better mode REVERSES on roster depth, both signs significant',
+      reversed && deepSig && thinSig,
+      'deep never-minus-tracked ' + money(deepD.med) + ' (CI ' + money(deepD.ciLo) + '..' + money(deepD.ciHi) +
+      '), thin ' + money(thinD.med) + ' (CI ' + money(thinD.ciLo) + '..' + money(thinD.ciHi) +
+      ') — the design predicts deep POSITIVE and thin NEGATIVE. No reversal means the mode toggle is decoration.');
+
+    /* ---- (a) reading state must beat BOTH fixed rules ----
+
+       POOLED ACROSS THE ARMS, and that is not a softening of the gate — it is
+       the only version of it that can be true. Inside ONE arm the state does
+       not move, so the fixed rule that happens to match that arm is optimal
+       there and a state-reading policy can at best tie it while paying for the
+       flips it tries. A gate demanding readsState beat never-track by 5% in the
+       deep arm is demanding it beat the right answer at the one question where
+       the answer is fixed; that is a test of nothing, and passing it would
+       require the state-reading policy to be WRONG.
+
+       The claim worth testing is the one the design actually makes: across the
+       states the game presents, no single fixed rule keeps up. So each seed
+       contributes BOTH its deep and its thin difference and the pair is scored
+       once. Per-arm numbers are printed underneath so anyone can see which half
+       the margin came from — a pooled win that is entirely one arm is a
+       different (and weaker) finding than one present in both. */
+    const poolOf = (x, y) => {
+      const rows = x.rows.concat(y.rows);
+      return { rows: rows, medCash: pct(rows.filter(r => r.survived).map(r => r.cash), 0.5) };
+    };
+    const pReads  = poolOf(v.vtDeepReads,  v.vtThinReads);
+    const pNever  = poolOf(v.vtDeepNever,  v.vtThinNever);
+    const pAllBut = poolOf(v.vtDeepAllBut, v.vtThinAllBut);
+    let vtWorst = Infinity, vtWhy = '';
+    for (const [label, fixed] of [['never-track', pNever], ['always-but-one', pAllBut]]) {
+      const d = paired(pReads, fixed);
+      const bar = (pReads.medCash || 0) * 0.05;
+      console.log('  POOLED · readsState - ' + label.padEnd(15) + ' = ' + band(d) + '   bar ' + money(bar));
+      const margin = Math.min(d.med - bar, d.ciLo);   // must clear the bar AND exclude zero
+      if (margin < vtWorst) { vtWorst = margin; vtWhy = 'vs ' + label + ': median ' + money(d.med) +
+        ' against a bar of ' + money(bar) + ', 95% CI ' + money(d.ciLo) + '..' + money(d.ciHi); }
+    }
+    for (const [name, reads, never, allbut] of
+         [['deep', v.vtDeepReads, v.vtDeepNever, v.vtDeepAllBut],
+          ['thin', v.vtThinReads, v.vtThinNever, v.vtThinAllBut]]) {
+      for (const [label, fixed] of [['never-track', never], ['always-but-one', allbut]]) {
+        console.log('    ' + name + ' · readsState - ' + label.padEnd(15) + ' = ' + band(paired(reads, fixed)));
+      }
+    }
+    check('GATE VT-1(a): readsState beats BOTH fixed rules pooled by >=5%, CI excludes zero',
+      vtWorst > 0, vtWhy);
+
+    /* ---- (c) the structural zero, across builds ---- */
+    if (ZERO_OUT) {
+      await writeFile(ZERO_OUT, JSON.stringify(v.vtZero.rows.map(r => ({
+        seed: r.seed, cash: r.cash, rep: r.rep, died: r.died, cond: r.condTrace
+      }))));
+      console.log('  (c) wrote ' + v.vtZero.rows.length + ' never-tracking rows to ' + ZERO_OUT);
+    }
+    if (ZERO_IN) {
+      const base = JSON.parse(await readFile(ZERO_IN, 'utf8'));
+      const mine = v.vtZero.rows;
+      let bad = null, n = Math.min(base.length, mine.length);
+      for (let i = 0; i < n && !bad; i++) {
+        const a = base[i], b = mine[i];
+        if (a.seed !== b.seed) bad = 'seed ' + a.seed + ' vs ' + b.seed;
+        else if (a.cash !== b.cash) bad = 'seed ' + a.seed + ' cash ' + a.cash + ' vs ' + b.cash;
+        else if (a.rep !== b.rep) bad = 'seed ' + a.seed + ' rep ' + a.rep + ' vs ' + b.rep;
+        else if (a.died !== b.died) bad = 'seed ' + a.seed + ' died ' + a.died + ' vs ' + b.died;
+        else if (JSON.stringify(a.cond) !== JSON.stringify(b.cond)) bad = 'seed ' + a.seed + ' cond ' + JSON.stringify(a.cond) + ' vs ' + JSON.stringify(b.cond);
+      }
+      check('GATE VT-1(c): a run that never tracks matches the pre-v9 build to the cent',
+        !bad && n === VT_RUNS, bad || ('compared ' + n + ' of ' + VT_RUNS + ' seeds'));
+    } else {
+      console.log('  (c) skipped — run with --zero-out against the v8 build, then --zero-in here');
+    }
+
+    /* ---- (d) the condition cost on a pinned station is EXACTLY zero ---- */
+    const probe = JSON.parse(await evaluate('JSON.stringify(window.__rig.pinnedProbe())'));
+    console.log('\n  (d) pinned probe: TX2/ANT1, one host on four dayparts, floor ' + probe.floor +
+      '\n      wear ' + probe.wear.toFixed(6) +
+      '   attn ' + probe.attnBefore.toFixed(6) + ' -> ' + probe.attnAfter.toFixed(6) +
+      '   (tracked the ' + probe.part + ' slot)' +
+      '\n      unclamped c* ' + probe.rawBefore.toFixed(6) + ' -> ' + probe.rawAfter.toFixed(6) +
+      '   clamped c* ' + probe.condBefore.toFixed(6) + ' -> ' + probe.condAfter.toFixed(6) +
+      '\n      measured condition cost of tracking = ' + probe.cost.toFixed(10) +
+      '\n      (the station cond TERM in uiStationWorth moved ' + money(probe.moneyCost) +
+      '/day, which is the APPEAL loss re-entering through rev — the condition cost itself is the 0.0000 above)');
+    check('GATE VT-1(d): on a station pinned at COND_MIN, tracking costs EXACTLY 0.0000 condition',
+      probe.cost === 0 && probe.condBefore === probe.floor && probe.condAfter === probe.floor,
+      'cost ' + probe.cost + ', c* ' + probe.condBefore + ' -> ' + probe.condAfter +
+      ' against a floor of ' + probe.floor);
+
+    /* ---- TRACK_APPEAL reaches BOTH quality sites ---- */
+    const ap = JSON.parse(await evaluate('JSON.stringify(window.__rig.appealProbe())'));
+    console.log('\n  TRACK_APPEAL wiring: constant ' + ap.ta +
+      '\n      site 1 slotPull()      ' + ap.pullLive.toFixed(6) + ' -> ' + ap.pullTracked.toFixed(6) +
+      '   ratio ' + ap.pullRatio.toFixed(6) +
+      '\n      site 2 avgQuality      ' + ap.qLive.toFixed(6) + ' -> ' + ap.qTracked.toFixed(6) +
+      '   expected ' + ap.qExpected.toFixed(6));
+    check('VT wiring: TRACK_APPEAL reaches slotPull() (site 1 of 2)',
+      Math.abs(ap.pullRatio - ap.ta) < 1e-9,
+      'pull ratio ' + ap.pullRatio + ' against TRACK_APPEAL ' + ap.ta);
+    check('VT wiring: TRACK_APPEAL reaches the mirrored quality in simulateDay() (site 2 of 2)',
+      Math.abs(ap.qTracked - ap.qExpected) < 1e-9,
+      'avgQuality ' + ap.qTracked + ' against an expected ' + ap.qExpected +
+      ' — one site wired and not the other makes pull and reputation describe different schedules');
+
+    /* ---- (e) LOSABLE is untouched, and tracking is a NEW road to bankruptcy ---- */
+    const idleDeath = v.idle.medDeathC, teDeath = v.trackEverything.medDeathC;
+    console.log('\n  (e) idle: survive ' + (v.idle.survivalRate * 100).toFixed(0) +
+      '%, censored median death day ' + idleDeath + ' (dead-only ' + v.idle.medDeath + ')' +
+      '   |   trackEverything: survive ' + (v.trackEverything.survivalRate * 100).toFixed(0) +
+      '%, censored median death day ' + teDeath + ' (dead-only ' + v.trackEverything.medDeath + ')');
+    check('GATE VT-1(e): the idle line still dies at median day 369 (+/-10)',
+      idleDeath !== null && Math.abs(idleDeath - 369) <= 10,
+      'idle censored median death day ' + idleDeath + ', survival ' + (v.idle.survivalRate * 100).toFixed(0) + '%');
+    /* CENSORED, and survival compared as well. See medDeathC: the dead-only
+       median passed this on the build with the attention skip deleted, which is
+       the one build it exists to fail on. */
+    check('GATE VT-1(e): a fully-tracked operator dies SOONER than an abandoned one',
+      teDeath !== null && idleDeath !== null && teDeath < idleDeath &&
+      v.trackEverything.survivalRate <= v.idle.survivalRate + 0.10,
+      'trackEverything censored median ' + teDeath + ' / survive ' +
+      (v.trackEverything.survivalRate * 100).toFixed(0) + '% vs idle ' + idleDeath + ' / survive ' +
+      (v.idle.survivalRate * 100).toFixed(0) +
+      '% — outliving an abandoned station means tracking mints attention somewhere');
+    }
 
     check('no page errors during any run', pageErrors.length === 0, pageErrors.slice(0, 3).join(' ;; '));
 
