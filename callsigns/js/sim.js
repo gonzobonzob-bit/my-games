@@ -382,9 +382,17 @@ function chemTags(){ return Object.keys(chemTable()); }
      - `localBase` rolled for every station it carries (see rollLocalBase) and
        `studios` seeded at 1 — one air studio free per callsign, which is what
        every v<=7 station effectively had.
+   v9 (voice-tracking, docs/DESIGN_PROOF_VOICETRACK.md) adds slot.mode, which is
+   'live' or 'tracked'. A v<=8 save has no such field on any slot, and BOTH the
+   read helpers below and sanitize() resolve absent — and unknown — to 'live'.
+   That is the whole migration: there is nothing to seed, nothing to roll and
+   nothing to recompute, because 'live' is the shipped behaviour and every one
+   of the four expressions the mechanic touches reduces to its v8 form
+   character for character at mode 'live' (proof §3). A run that never tracks is
+   bit-identical to v8, which is what makes this bump free.
    The version lives IN the payload and migrate() checks it: a key-name bump
    alone does not migrate anything, it just crashes older saves. */
-const STATE_VER = 8;
+const STATE_VER = 9;
 
 // Producer condition #2: the assignment surface has to stay sub-linear in
 // stations. Four is the accepted hard cap for this overhaul.
@@ -1179,6 +1187,94 @@ function stationWear(st, load){
   // in it, which is what a chief engineer with a per-station rack actually is.
   return COND_WEAR * (1 + (1 - gearCut(load)) * gear);
 }
+/* ---------------- voice-tracking (v9, docs/DESIGN_PROOF_VOICETRACK.md) ----
+
+   A slot is LIVE (a jock in the air studio for the shift) or TRACKED (the
+   breaks cut into automation ahead of time; the playout unattended, which is
+   what FCC-permitted unattended operation actually is). It is not a new
+   scarcity and it buys no new resource: staffSlotLoad() has ALWAYS divided a
+   person over N assignments, and voice-tracking is the real-world mechanism
+   that dilution IS. After this the 1/N rule has a reason and the player sets
+   the N.
+
+   FOUR sites read the mode, and no others:
+     staffSlotLoad()  a tracked shift costs TRACK_LOAD of a person, not 1, and
+                      takes NO engineer at all
+     stationAttn()    a tracked slot contributes exactly zero attention —
+                      nobody is in the building. THE load-bearing line
+     djLoad()         the same fractional count, so fatigue reflects tracked
+                      hours rather than tracked shifts
+     slotPull() and the mirrored `quality` in simulateDay()   TRACK_APPEAL,
+                      localism: no live phones, no real-time weather, no local
+                      reference. BOTH SITES OR NEITHER — wiring one and not the
+                      other makes pull and reputation silently disagree.
+
+   NOTHING here reads cash, revenue, payroll or the player's own costs, and
+   there is deliberately NO per-slot pay discount: the saving is the hire you
+   do not make. A per-slot cash cut would read payroll, which is the
+   cost-basis self-reference this file exists to keep out. */
+const TRACK_MODES = ['live', 'tracked'];
+/** Absent, malformed, or an enum key this build does not know all resolve to
+    'live'. That fallback is doing three jobs at once: it is the v8 -> v9
+    migration, it is the structural zero that makes a never-tracking run
+    bit-identical, and it is what stops a hand-edited `mode: "ghost"` from
+    reaching a comparison that would treat it as tracked. */
+function slotMode(slot){
+  // own(), not a bare property read: this runs on JSON straight off disk as
+  // well as on live slots, and a bare `slot.mode` walks the prototype chain.
+  const m = own(slot, 'mode') ? slot.mode : null;
+  return (typeof m === 'string' && TRACK_MODES.indexOf(m) >= 0) ? m : 'live';
+}
+/** The single predicate. Written as an equality against the ONE known tracked
+    value rather than as `!== 'live'`, so anything unrecognised is live. */
+function trackedOn(slot){ return slotMode(slot) === 'tracked'; }
+
+/* content.js owns both numbers; sim keeps fallbacks so it runs alone, exactly
+   as studioCost() does for the second air studio.
+
+   TRACK_LOAD 0.35 — a three-hour shift tracked in about an hour, including
+   prep and log approval. The conservative end of the real 0.2-0.4 band, so
+   tracking is never free.
+   TRACK_APPEAL 0.88 — localism. Both are clamped into [0,1]: above 1 they
+   would invert the mechanic (tracking cheaper in people AND better on air),
+   and the harness's instrument breaks set each to exactly 1.0, which must
+   remain reachable. */
+const TRACK_LOAD_FALLBACK   = 0.35;
+const TRACK_APPEAL_FALLBACK = 0.88;
+function trackLoad(){
+  const v = (typeof TRACK_LOAD !== 'undefined') ? +TRACK_LOAD : NaN;
+  return Number.isFinite(v) ? clamp(v, 0, 1) : TRACK_LOAD_FALLBACK;
+}
+function trackAppeal(){
+  const v = (typeof TRACK_APPEAL !== 'undefined') ? +TRACK_APPEAL : NaN;
+  return Number.isFinite(v) ? clamp(v, 0, 1) : TRACK_APPEAL_FALLBACK;
+}
+
+/** Flip one slot between live and tracked. The mutator ui.js calls, so the
+    engineer scrub below happens at the moment of the decision rather than on
+    the next load: an engineer left sitting on a tracked slot would be a person
+    who costs NO assignment load anywhere (staffSlotLoad skips the eng branch
+    on a tracked slot) while still dividing that slot's fault risk and still
+    holding their daypart against every other station. That is a free
+    engineer — track every slot, keep every engineer, pay nothing in
+    person-hours — and it is exactly the "untimed uncapped grant of a scarce
+    resource" shape. sanitize() closes the same hole on the load path. */
+function setSlotMode(stationIdx, partId, mode){
+  const slot = slotAt(stationIdx, partId);
+  if (!slot) return { ok: false, reason: 'slot' };
+  if (TRACK_MODES.indexOf(mode) < 0) return { ok: false, reason: 'mode' };
+  const was = slotMode(slot);
+  slot.mode = mode;
+  // Returned so ui.js can say whose assignment it just ended, rather than
+  // silently unseating somebody the player put there on purpose.
+  let dropped = [];
+  if (mode === 'tracked') {
+    dropped = engIdsOf(slot);
+    slot.engs = [];
+  }
+  return { ok: true, was, mode, dropped };
+}
+
 /** How many slots each person covers across the whole empire.
 
     Load-bearing, and the thing this mechanic is actually about. A DJ may work
@@ -1196,8 +1292,17 @@ function staffSlotLoad(){
     for (const part of DAYPARTS) {
       const slot = st.schedule && st.schedule[part.id];
       if (!slot) continue;
-      for (const id of engIdsOf(slot)) load[id] = (load[id] || 0) + 1;
-      if (Array.isArray(slot.djs)) for (const id of slot.djs) if (id) load[id] = (load[id] || 0) + 1;
+      /* v9. A TRACKED slot takes no engineer assignment at all — there is no
+         shift for one to work — so the eng branch is skipped rather than
+         discounted. setSlotMode() and sanitize() both scrub the array, so this
+         is a belt on top of that rather than the only guard. */
+      const tracked = trackedOn(slot);
+      if (!tracked) for (const id of engIdsOf(slot)) load[id] = (load[id] || 0) + 1;
+      /* THE EXCHANGE RATE, and the whole feature: a tracked shift is a
+         fraction of a person, not a whole one. At mode 'live' this is `+ 1`
+         and the map is identical to v8 to the bit. */
+      const cost = tracked ? trackLoad() : 1;
+      if (Array.isArray(slot.djs)) for (const id of slot.djs) if (id) load[id] = (load[id] || 0) + cost;
     }
   }
   /* v7: A ROOM SEAT IS AN ASSIGNMENT. Counting it here is the whole
@@ -1225,6 +1330,37 @@ function stationAttn(st, load){
   for (const part of DAYPARTS) {
     const slot = st.schedule && st.schedule[part.id];
     if (!slot) continue;
+    /* THE LOAD-BEARING LINE (v9 §5.2). A tracked shift airs out of automation:
+       NOBODY IS IN THE BUILDING, so there is no attention, and this slot's
+       term is zero rather than reduced. It sits before the eng/dj branch
+       because neither kind of person is there.
+
+       This is also why voice-tracking cannot re-open LOSABLE. The ceiling is
+       untouched — attn(st) <= sum of TEND over the LIVE slots, exactly today's
+       bound — because Math.max(1, ...) below keeps every surviving term at or
+       under its own TEND. Tracking REDISTRIBUTES presence; it can never mint a
+       maximum an all-live schedule could not already reach. An idle run sets no
+       mode at all, so it never reaches this line and still floors in 260 days
+       and dies on day 369, measured identical to v8 on every seed.
+
+       ONE HONEST EXCEPTION to the proof's §5.2, measured, not argued: empire
+       attention is NOT strictly decreasing under every single conversion. A DJ
+       standing on a slot that also has an ENGINEER contributes nothing to that
+       slot (the eng branch below wins) while still counting a full 1 in their
+       own divisor, so tracking that slot concentrates them onto their OTHER
+       stations. Measured worst case +0.060 empire attention, 10 flips in 2,454.
+       It mints nothing new: in the identical configuration v8 already offers a
+       BIGGER rise (+0.125) for free, instantly and reversibly, by simply taking
+       the DJ off that slot — and tracking never beat vacating in any of the
+       2,454. The bound above held exactly (worst margin 0.000000), so no
+       station can exceed what its live slots already permit, which is the
+       property LOSABLE actually rests on.
+
+       DO NOT let the Math.max(1, ...) go: without it a person on a single
+       tracked slot would divide by 0.35 and MINT attention out of tracking,
+       which is the one configuration that would make a fully-tracked idle
+       station stop dying. */
+    if (trackedOn(slot)) continue;
     const engs = engIdsOf(slot);
     if (engs.length) {
       for (const id of engs) a += ENG_TEND / Math.max(1, l[id] || 1);
@@ -1420,13 +1556,19 @@ let gOpts = readOpts();
 
 /** The v2 default schedule, unchanged — it is what a v2 save's founded second
     station inherits under the migration policy, so it has to stay a function
-    rather than an inline literal in two places that can drift apart. */
+    rather than an inline literal in two places that can drift apart.
+
+    v9 adds `mode` to every slot, seeded 'live'. That is the DEFAULT and not a
+    choice deferred: a new licensee is not tracking anything, and seeding it
+    here rather than leaving it absent means the field exists on every slot the
+    game ever creates, so ui.js never has to distinguish "live" from "not
+    written yet". Both read as live either way. */
 function defaultSchedule(){
   return {
-    morning: { show: 'music', djs: [], engs: [] },
-    midday:  { show: 'music', djs: [], engs: [] },
-    evening: { show: 'talk',  djs: [], engs: [] },
-    night:   { show: 'music', djs: [], engs: [] }
+    morning: { show: 'music', djs: [], engs: [], mode: 'live' },
+    midday:  { show: 'music', djs: [], engs: [], mode: 'live' },
+    evening: { show: 'talk',  djs: [], engs: [], mode: 'live' },
+    night:   { show: 'music', djs: [], engs: [], mode: 'live' }
   };
 }
 
@@ -1660,13 +1802,27 @@ function salesWasted(){
 
 /** How many slots a DJ is booked on across the WHOLE empire — working every
     morning drive in the network wears one person down exactly as hard as
-    working four slots on one station did in v2. */
+    working four slots on one station did in v2.
+
+    v9: THE RETURN IS A FLOAT, not a slot count. A tracked shift is TRACK_LOAD
+    of an assignment here for the same reason it is in staffSlotLoad() — the
+    hour it actually takes is what tires somebody, and counting tracked shifts
+    as whole ones would price the mechanic twice (once in attention, once in
+    fatigue) for a shift nobody worked. It still returns whole numbers for any
+    schedule that is entirely live, which is every v8 save and every run that
+    never tracks.
+
+    CALLERS: djFatigue() below is the only one in this file, and it consumes
+    `djLoad(id) - 1` as a continuous quantity, which is exactly right. Anything
+    that renders this as "on N slots" needs Math.round() or a booking count
+    (bookingsOf() in ui.js) instead — a fractional slot count is a rendering
+    bug, not an arithmetic one. */
 function djLoad(id){
   let n = 0;
   for (const st of S.stations) {
     for (const p of DAYPARTS) {
       const slot = st.schedule[p.id];
-      if (slot && slot.djs.indexOf(id) >= 0) n++;
+      if (slot && slot.djs.indexOf(id) >= 0) n += trackedOn(slot) ? trackLoad() : 1;
     }
   }
   // v7: a room seat is an assignment here too. Seating a host in a room is the
@@ -1962,7 +2118,19 @@ function slotPull(st, partId, load){
      Traffic), and neither of those can reach the `quality` that simulateDay()
      averages into repPressure. Keeping every room out of the reputation path is
      the same spiral guard condOf() obeys two lines down. */
-  const quality = show.appeal * djTerm(slot, st, load) * ((show.parts && show.parts[partId]) || 1);
+  /* TRACK_APPEAL, SITE 1 OF 2. The mirror is the `quality` line in
+     simulateDay(), and the two must move together: this one feeds pull and
+     therefore audience, that one feeds avgQuality and therefore repTarget.
+     Wiring one and not the other makes pull and reputation silently disagree
+     about the same schedule. At mode 'live' the factor is the literal 1, so
+     this is the shipped v8 expression to the bit.
+
+     It belongs in `quality` and not beside condOf() below because localism is
+     a property of the SHOW — no live phones, no real-time weather, no local
+     reference — and a property of the show is allowed to reach reputation.
+     Signal condition is not; see the spiral guard two lines down. */
+  const quality = show.appeal * djTerm(slot, st, load) * ((show.parts && show.parts[partId]) || 1) *
+                  (trackedOn(slot) ? trackAppeal() : 1);
   /* condOf(st) is the ONLY place signal condition enters the economy. It is
      deliberately applied here and not folded into `quality`, because `quality`
      is what simulateDay() averages into repPressure — see the spiral guard on
@@ -2159,7 +2327,11 @@ function simulateDay(){
       prodRev += slotProd;
       remRev  += slotRem;
 
-      const quality = show.appeal * djTerm(slot, st, load) * ((show.parts && show.parts[part.id]) || 1);
+      // TRACK_APPEAL, SITE 2 OF 2 — the mirror of slotPull()'s `quality`, and
+      // it must carry every factor that one carries or pull and reputation
+      // describe two different schedules. Literal 1 at mode 'live'.
+      const quality = show.appeal * djTerm(slot, st, load) * ((show.parts && show.parts[part.id]) || 1) *
+                      (trackedOn(slot) ? trackAppeal() : 1);
       qualitySum += quality;
       repPressure += show.rep * (crewOf(slot).length ? 1 + crewSkill(slot) * 0.05 : 0.6);
       slotCount++;
@@ -2493,6 +2665,10 @@ function addEngineer(stationIdx, partId, staffId){
   const p = personById(staffId);
   if (!slot) return { ok: false, reason: 'slot' };
   if (!p || p.role !== 'eng') return { ok: false, reason: 'role' };
+  /* v9: there is no shift on a tracked slot for an engineer to work, and one
+     seated here would be free (see setSlotMode). Refused with its own reason
+     string so ui.js can grey the row and SAY WHY rather than no-op. */
+  if (trackedOn(slot)) return { ok: false, reason: 'tracked' };
   if (!Array.isArray(slot.engs)) slot.engs = engIdsOf(slot);
   if (slot.engs.indexOf(staffId) >= 0) return { ok: false, reason: 'already' };
   if (slot.engs.length >= MAX_ENG) return { ok: false, reason: 'full' };
@@ -2562,7 +2738,12 @@ function uncoveredSlots(){
     const st = S.stations[i];
     for (const part of DAYPARTS) {
       const slot = st.schedule[part.id];
-      if (!engIdsOf(slot).length) out.push({ station: i, call: st.call, part: part.id, load: loadFactor(slot), risk: slotRisk(slot, segmentOf(st.segment)) });
+      /* A tracked slot IS uncovered — that is §5.7, dead air with nobody in the
+         building, and it belongs on this strip at its real (higher) risk. It
+         carries `tracked` so ui.js can say "no engineer" and "tracked, so
+         there cannot be one" differently: the first is an oversight, the
+         second is a decision the player already made. */
+      if (!engIdsOf(slot).length) out.push({ station: i, call: st.call, part: part.id, load: loadFactor(slot), risk: slotRisk(slot, segmentOf(st.segment)), tracked: trackedOn(slot) });
     }
   }
   // Worst exposure first — that is the decision the strip exists to inform.
@@ -3000,7 +3181,11 @@ function migrate(data){
       st0.schedule[p.id] = {
         show: SHOWS[readStr(src, 'show', '')] ? src.show : defaultSchedule()[p.id].show,
         djs: dj ? [dj] : [],
-        eng: null
+        eng: null,
+        // v9: a v1/v2 save predates the mechanic by six versions, so every
+        // shift it holds was aired live. sanitize() would resolve an absent
+        // field to the same thing; written out so the shape is never partial.
+        mode: 'live'
       };
     }
     st0.totalEarned = readNum(data.stats, 'totalEarned', 0);
@@ -3111,10 +3296,15 @@ function readStation(rawIn, day){
       : [];
     const legacyEng = readStr(src, 'eng', null);
     if (!rawEngs.length && legacyEng) rawEngs.push(legacyEng);
+    /* v9 mode. Carried through as a STRING and validated by slotMode(), which
+       maps absent and unknown alike to 'live' — a v<=8 slot has no field, and
+       a hand-edited `mode: "ghost"` must not read as tracked anywhere. That is
+       the enum-key drop rule; there is no other v8 -> v9 migration to do. */
     st.schedule[p.id] = {
       show: SHOWS[readStr(src, 'show', '')] ? src.show : base[p.id].show,
       djs,
-      engs: rawEngs
+      engs: rawEngs,
+      mode: slotMode(src)
     };
   }
   return st;
@@ -3326,8 +3516,23 @@ function sanitize(s){
          Accept either shape so a save written before the bump still loads, and
          apply the same same-daypart uniqueness the DJ list gets — a v3 save
          cannot hold a duplicate, but a hand-edited or future one can. */
-      const rawEngs = Array.isArray(src.engs) ? src.engs
+      /* v9 mode, resolved through slotMode(): absent (every v<=8 save) and
+         unknown (a hand-edit, or an enum key a future build adds) both become
+         'live', which is the shipped behaviour and the whole migration. */
+      const mode = slotMode(src);
+      const rawEngs = (mode === 'tracked') ? []
+                    : Array.isArray(src.engs) ? src.engs
                     : (typeof src.eng === 'string' ? [src.eng] : []);
+      /* A TRACKED SLOT TAKES NO ENGINEER, and the empty array above is not
+         cosmetic. staffSlotLoad() skips the eng branch on a tracked slot, so
+         an engineer left sitting on one would cost ZERO assignment load
+         anywhere in the empire while still dividing that slot's fault risk and
+         still consuming their one-per-daypart exclusivity — a free engineer, on
+         every slot, for a save that only has to say `mode: "tracked"`. The
+         same scrub is in setSlotMode() for the live path; this is the load
+         path, and untrusted input is exactly where that edit would come from.
+         Note it is dropped BEFORE engUsed[] is stamped below, so the person
+         stays available to a real, live slot in that daypart. */
       const engs = [];
       for (const id of rawEngs) {
         if (typeof id !== 'string' || !engIds.has(id)) continue;
@@ -3337,7 +3542,7 @@ function sanitize(s){
         engUsed[p.id].add(id);
         engs.push(id);
       }
-      out.schedule[p.id] = { show: SHOWS[src.show] ? src.show : base[p.id].show, djs, engs };
+      out.schedule[p.id] = { show: SHOWS[src.show] ? src.show : base[p.id].show, djs, engs, mode };
     }
     out.lease = 0;   // recomputed by simulateDay before it is ever charged
     /* v6 signal condition. A well-typed 0, a NaN or a missing field all become
