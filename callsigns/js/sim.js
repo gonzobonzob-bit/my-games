@@ -995,7 +995,16 @@ function roomCeiling(a, b){
   if (type === null) return 0;
   const key = normalizeRoomType(type);
   if (key === ROOM_RACK)    return PLANT_PTS_PER_UNIT * plantUnits();
-  if (key === ROOM_PROD)    return groupHeadroom() / PROD_SHARE_PER_PT;
+  /* x DAYPARTS.length, and the omission was a WRONG ANSWER on screen rather
+     than a crash. groupHeadroom() sums headroom per STATION, but
+     prodAllotment() spends the pool per station x DAYPART — sixteen slots on a
+     four-station board, not four. So the published ceiling was short by exactly
+     the number of dayparts: measured, it read 5.46 while allotment kept growing
+     to ~22.95 and only saturated there. The UI struck those points through and
+     printed "wasted" over the room's entire productive range, telling the
+     player to dismantle a room that was still earning three quarters of its
+     money. Found by qa-adversary; ratio measured at 3.999. */
+  if (key === ROOM_PROD)    return DAYPARTS.length * groupHeadroom() / PROD_SHARE_PER_PT;
   if (key === ROOM_TRAFFIC) return REMNANT_CLEAR_MAX / REMNANT_PER_PT;
   return 0;
 }
@@ -1306,7 +1315,14 @@ function canBuyStudio(idx){
 /** Build the second studio. Capex, like every other capital purchase: a cash
     outflow belongs in the expense total or the statement reports a profit on a
     day that emptied the bank. */
+/* Refuses an out-of-range index rather than clamping it. stationAt() clamps,
+   which meant buyStudio(99) quietly bought a studio for the LAST station — the
+   player pays for one thing and receives another, which is worse than a
+   refusal. Found by qa-adversary. */
 function buyStudio(idx){
+  if (!S || !Array.isArray(S.stations)) return { ok: false, reason: 'nostate' };
+  const i = Math.floor(idx);
+  if (!(i >= 0 && i < S.stations.length)) return { ok: false, reason: 'station' };
   const can = canBuyStudio(idx);
   if (!can.ok) return can;
   const st = stationAt(idx);
@@ -3146,8 +3162,20 @@ function sanitize(s){
     ).map(p => {
       const skill = clamp(Math.round(+p.skill), 1, 10);
       const tags = (Array.isArray(p.tags) ? p.tags : []).filter(x => typeof x === 'string' && own(chemTable(), x)).slice(0, 1);
+      /* IDS ARE STRUCTURAL, NOT TEXT. makePerson() issues 'p' + base36, so an id
+         containing anything else came from a hand-edited save — and ui.js
+         interpolates ids straight into HTML ATTRIBUTES in seven places
+         (data-fire, data-hire, data-addcrew, data-seteng, ...). qa-adversary
+         landed a working `" onmouseover="` payload through exactly that path.
+         Escaping at seven call sites is a fix you can forget at the eighth;
+         constraining the value at the boundary is one line and cannot be
+         forgotten. Anything outside [A-Za-z0-9_-] is dropped, and an id left
+         empty is reissued rather than deleted, so a save with a mangled id
+         keeps its person. */
+      const rawId = String(p.id).replace(/[^A-Za-z0-9_-]/g, '');
       return {
-        id: String(p.id), name: String(p.name || 'Unknown'),
+        id: rawId || ('p' + Math.random().toString(36).slice(2, 9)),
+        name: String(p.name || 'Unknown'),
         role: p.role, skill,
         // A person saved before chemistry existed gets a tag on load rather
         // than a missing one the pairing code then has to null-check forever.
@@ -3395,6 +3423,14 @@ function sanitize(s){
       if (out.length >= MAX_BAYS) break;
     }
     s.rooms = out;
+    /* AND THE ROOMS MUST BE PAID FOR. Bounding by MAX_BAYS alone let a save
+       declare `bays: 0` while keeping three fully working rooms and paying no
+       lease at all — measured at +$9,106 over 30 days by qa-adversary. The
+       intent above is right (do not delete rooms underneath a player who is a
+       bay short), so the fix is not to delete them: it is to raise the bay
+       count to cover what survived, so every standing room bills. A hand-edit
+       can still lose you a bay; it can no longer win you a free one. */
+    if (out.length > (s.bays || 0)) s.bays = clamp(out.length, 0, MAX_BAYS);
   }
 
   // A clock stamp from the future (system time moved back) would make the
