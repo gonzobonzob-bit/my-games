@@ -71,10 +71,35 @@ const pending = new Map();
 const consoleErrors = [];   // console.error + uncaught exceptions, page-wide
 let sessionId = null;
 
-function send(method, params, sid){
+/* EVERY CDP ROUND TRIP HAS A DEADLINE NOW.
+
+   This file's other waits are all bounded — until() deadlines and throws with
+   the expression it wanted, the port loop caps, the version loop caps. The one
+   unbounded wait was the CDP round trip itself, so when a call did not come
+   back the suite did not fail, it went silent: no stack, no partial output,
+   nothing to read. A stall and a failure need different debugging, and an
+   unbounded promise makes a stall look like a dead machine.
+
+   Two tiers, because they are genuinely different waits. Control-plane calls
+   (navigate, attach, enable) answer in milliseconds or never, so 30s is already
+   generous. Runtime.evaluate is where the game actually runs — a policy sweep
+   is minutes of real work and must not be killed for being slow. Hence
+   EVAL_MS, passed explicitly, rather than one number that has to be wrong for
+   one of the two. */
+const CDP_MS  = 30000;
+const EVAL_MS = 1800000;
+function send(method, params, sid, ms){
   const id = ++msgId;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      if (!pending.has(id)) return;
+      pending.delete(id);
+      // The METHOD NAME is the whole value of this message: it is what turns
+      // "the suite hangs" into "Page.navigate never came back".
+      reject(new Error('CDP timeout after ' + (ms || CDP_MS) + 'ms: ' + method));
+    }, ms || CDP_MS);
+    pending.set(id, { resolve: v => { clearTimeout(timer); resolve(v); },
+                      reject:  e => { clearTimeout(timer); reject(e); } });
     ws.send(JSON.stringify({ id, method, params: params || {}, ...(sid ? { sessionId: sid } : {}) }));
   });
 }
