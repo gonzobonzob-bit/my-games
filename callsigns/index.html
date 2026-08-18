@@ -461,7 +461,15 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
 .cut-cell.filled.over   .cut-fig{color:var(--red);}
 .cut-cell.filled.zeroed .cut-fig{color:var(--dim);}
 .cut-cell .cut-fig.ghost{color:var(--dim);opacity:.85;}
-.cut-cell.filled.idle .cut-fig.ghost{color:var(--amber);opacity:.85;}
+/* A GHOST IS AN EMPTY CHAIR AND IT IS NEVER THE COMPLAINT. The three state
+   rules above are (0,4,0) and the bare ghost rule is (0,3,0), so `over` and
+   `zeroed` were painting their vacant seats in the working figures' colour —
+   alarm-red on an over-ceiling floor, which reads as "this empty chair is what
+   is wrong" when an empty chair is the one thing on that floor that is not.
+   Idle keeps amber on purpose: there, the empty chairs ARE the state. */
+.cut-cell.filled.idle   .cut-fig.ghost{color:var(--amber);opacity:.85;}
+.cut-cell.filled.over   .cut-fig.ghost{color:var(--dim);opacity:.85;}
+.cut-cell.filled.zeroed .cut-fig.ghost{color:var(--dim);opacity:.85;}
 
 /* ---- the motion ----
    MOTION IS THE STATE: a staffed floor's figures work, an unstaffed floor is
@@ -502,12 +510,23 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   .cut-cell.filled .cut-fig:not(.ghost):nth-child(2){animation-name:cutWork2;animation-duration:3.2s;}
   .cut-cell.filled .cut-fig:not(.ghost):nth-child(3){animation-name:cutWork3;animation-duration:2.4s;}
 
-  /* Best-effort desync between floors. ui.js interleaves a .fold between
-     rows, so this may match nothing — that is fine, and is why it is written
-     as an addition rather than as the mechanism. Within a floor the seats are
-     already staggered, which is what canon §5 actually asks for. */
-  .cutaway>.cut-floor:nth-child(even) .cut-fig:not(.ghost){
-    animation-delay:calc(var(--seat-i,0) * -0.73s - 0.41s);
+  /* DESYNC BETWEEN FLOORS, off a real index rather than nth-child parity.
+     The first version keyed on :nth-child(even) and was written as
+     "best-effort, may match nothing". Measured, it was worse than nothing: a
+     .fold is interleaved after every floor that HOLDS a room, so parity
+     tracked "has a room" rather than position, every animating floor matched,
+     all four took the same -0.41s, and the building stayed in exact lockstep
+     column by column. ui.js now emits --floor-i (the bay number) on each
+     .cut-floor, which is the one value that cannot drift with the folds.
+
+     AND THE SELECTOR WEIGHT IS AGAIN THE WHOLE RULE. Written first as
+     `.cut-cell .cut-fig:not(.ghost)` — (0,3,0) — it lost silently to the
+     (0,4,0) base rule above and the floor term never applied at all: measured,
+     every floor still read 0s / -0.73s / -1.46s. Same trap, same block, second
+     time in one pass. This matches the base rule's weight exactly and sits
+     after it, which is the only arrangement that actually wins. */
+  .cut-cell.filled .cut-fig:not(.ghost){
+    animation-delay:calc(var(--seat-i,0) * -0.73s + var(--floor-i,0) * -0.19s);
   }
 
   /* THE CEILING, ENFORCED IN CSS RATHER THAN TRUSTED. 6 bays x ROOM_SEATS 3
@@ -528,6 +547,12 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
      back on by an ordering accident later. */
   .cut-cell.filled.idle .cut-fig:not(.ghost){animation:none;}
   .cut-cell.filled .cut-fig.ghost{animation:none;}
+  /* ZEROED HOLDS STILL TOO, and this rule is half of a pair — ui.js sends
+     roleFigure() the 'still' pose for exactly this class. People are present
+     and the room returns $0/day, so the figures stand there; that is a third
+     legible state rather than a fourth colour. An OVER-ceiling floor is NOT
+     this: its people are working flat out, which is WHY the points spill. */
+  .cut-cell.filled.zeroed .cut-fig:not(.ghost){animation:none;}
 
   /* OPTIONAL, and easy to drop: 140ms of settle on the tap. An instant state
      change reads as cheap; this is the only non-idle motion in the block and
@@ -571,8 +596,10 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
   /* THE THREE CROSS-BUILDER BUDGETS. art-and-feel sizes .cut-mark and
      .cut-fig FROM THESE, not from literals, because the floor pitch is 48px
      and it is these two boxes that decide whether it stays 48. --seat-w is
-     derived from the figure's own 16x22 viewBox (8/11) so a seat cannot end
-     up stretched. */
+     derived from the figure's own 16x22 viewBox (8/11). It is a belt-and-braces
+     width, NOT the thing that keeps a seat square: measured by forcing it
+     invalid, the figure stays 14.53px either way, because --seat-h plus the
+     SVG's intrinsic ratio already does that job. Keep it, do not rely on it. */
   --mark-sz:22px;
   --seat-h:20px;
   --seat-w:calc(var(--seat-h) * 8 / 11);

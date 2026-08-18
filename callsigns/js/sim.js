@@ -3396,7 +3396,7 @@ function sanitize(s){
   s.dead = false;
 
   s.staff = Array.isArray(s.staff) ? s.staff.filter(p =>
-      p && typeof p.id === 'string' && ROLES[p.role] && Number.isFinite(+p.skill)
+      p && typeof p.id === 'string' && own(ROLES, p.role) && Number.isFinite(+p.skill)
     ).map(p => {
       const skill = clamp(Math.round(+p.skill), 1, 10);
       const tags = (Array.isArray(p.tags) ? p.tags : []).filter(x => typeof x === 'string' && own(chemTable(), x)).slice(0, 1);

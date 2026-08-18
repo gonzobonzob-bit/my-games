@@ -2885,7 +2885,7 @@ function bayRoomsCard(econ){
        reader, which is the only place a bare gutter number is unreadable —
        aria-hidden here so that "3 $340" is not announced twice. */
     const floorLease = t('cutFloorLease', { n: row.bay + 1, amt: money(row.lease) });
-    h += '<div class="cut-floor" style="' + cols + '">' +
+    h += '<div class="cut-floor" style="' + cols + ';--floor-i:' + row.bay + '">' +
       '<span class="cut-num" aria-hidden="true" title="' + esc(floorLease) + '">' +
         '<b>' + (row.bay + 1) + '</b>' +
         '<i>' + esc(money(row.lease)) + '</i></span>';
@@ -2932,8 +2932,18 @@ function bayRoomsCard(econ){
        freezing them would say the opposite. Every state it touches keeps the
        border colour, the meter and the ⚠ it had before the figures existed, so
        a player at prefers-reduced-motion, or on a build with no fx.js, loses
-       no information at all. */
-    const pose = inert ? 'still' : 'work';
+       no information at all.
+
+       IT IS TIED TO THE PAINTED CLASS, NOT TO `inert`, and that distinction is
+       the whole bug this replaced. A room can be over-ceiling AND worth $0 at
+       the same time — a Rack Room on a Part 15 rig is exactly that, and QA
+       reproduced it — so `inert` was true on a floor painted `over`, the pose
+       went to 'still', and the CSS (which stops only for .idle and ghosts)
+       kept those arms-down figures bobbing. The pose said resting, the motion
+       said working, and the comment above said the motion was right.
+
+       Now both read the same source: still IFF the floor is painted zeroed. */
+    const pose = cls === ' zeroed' ? 'still' : 'work';
     /* THE FIGURES ARE A DRAWING AND THE DRAWING HAS NO TEXT IN IT.
 
        fx.js builds its SVG from a fixed table and never interpolates anything
@@ -3897,7 +3907,13 @@ function bookingsOf(id){
   return out;
 }
 
-function roleName(r){ return t(r === 'dj' ? 'roleDj' : r === 'eng' ? 'roleEng' : 'roleSales'); }
+/* The final `else` used to be 'roleSales', which meant EVERY unrecognised role
+   was announced as a Sales Agent — including the '__proto__' and 'constructor'
+   roles a hostile save can still carry past sanitize(). fx.js already draws
+   those as its neutral body; this makes the words agree with the drawing. */
+function roleName(r){
+  return t(r === 'dj' ? 'roleDj' : r === 'eng' ? 'roleEng' : r === 'sales' ? 'roleSales' : 'roleUnknown');
+}
 function roleDesc(r){ return t(r === 'dj' ? 'roleDjDesc' : r === 'eng' ? 'roleEngDesc' : 'roleSalesDesc'); }
 
 /* ---------------- Empire ---------------- */

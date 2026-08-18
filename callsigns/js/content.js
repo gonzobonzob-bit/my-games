@@ -184,6 +184,11 @@ const STR = {
 
     staffTitle: 'Payroll', hireTitle: 'Available for Hire',
     roleDj: 'DJ', roleEng: 'Sound Engineer', roleSales: 'Sales Agent',
+    /* Announced for a role that is none of the three. Unreachable from the
+       hiring stream, reachable from a hostile save — sanitize() lets
+       '__proto__' and 'constructor' through as roles, and the seat figures
+       put a role into words for the first time, so it needed a word. */
+    roleUnknown: 'Staff',
     // Role copy teaches the rule instead of labelling the row. The engineer
     // line is the one that matters: runs are lost by players who assume an
     // engineer on the payroll is an engineer on the slot.
