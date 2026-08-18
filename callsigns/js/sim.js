@@ -739,6 +739,24 @@ function roomsOn(idx){ return roomList().filter(r => !!r); }
     ask the same question and the budget rule should read the same in both. */
 function paidRoomCount(){ return roomList().filter(r => !!r).length; }
 function roomById(id){ return roomList().find(r => r && r.id === id) || null; }
+/** WHICH FLOOR A ROOM IS ON, asked of the room and not of the array. Before
+    this, a room's bay was its index in S.rooms: tapping floor 3's "+" quoted
+    floor 3's lease and built on floor 1, and removeRoom()'s splice teleported
+    every room above the gap down a storey. The cutaway made that visible —
+    floors are literal now — which is what finally paid for the field. */
+function roomBay(r){
+  if (!r) return -1;
+  const v = Math.floor(Number(r.bay));
+  return Number.isFinite(v) ? v : -1;
+}
+function roomAtBay(i){ return roomList().find(r => r && roomBay(r) === i) || null; }
+function bayIsTaken(i){ return !!roomAtBay(i); }
+/** Lowest unoccupied bay inside the programme, or -1. The default for a room
+    built without a stated floor — including every uiWhatIf() hypothetical. */
+function firstFreeBay(){
+  for (let i = 0; i < bayCount(); i++) if (!bayIsTaken(i)) return i;
+  return -1;
+}
 /** Every room of one type in the building. A list, not a lookup, because the
     Production Room is capped at stationCount()-1 of them (the 5-for-7 rule)
     rather than at one. */
@@ -1110,7 +1128,13 @@ function closeBay(){
     as a label on the record and is read by nothing in the economy — it is kept
     so ui.js can keep saying which callsign the player was looking at when they
     built it, and so a v7 save round-trips unchanged. */
-function buildRoom(a, b){
+/** THE BAY IS THE ROOM'S, not the array's. `bay` is a third argument rather
+    than a new call shape because both existing shapes — buildRoom(type) and
+    buildRoom(idx, type) — are still live in ui.js's hypotheticals, and a
+    hypothetical does not care which floor it lands on. Omit it and the room
+    takes the lowest free bay, which is what pushing onto the end used to
+    approximate; pass it and the room lands where the player tapped. */
+function buildRoom(a, b, bay){
   if (!S) return { ok: false, reason: 'nostate' };
   const type = (typeof a === 'string') ? a : b;
   const rawIdx = (typeof a === 'string') ? 0 : a;
@@ -1128,7 +1152,25 @@ function buildRoom(a, b){
   if (!Array.isArray(S.rooms)) S.rooms = [];
   if (paidRoomCount() >= bayCount()) return { ok: false, reason: 'nobay' };
   if (S.rooms.length >= MAX_BAYS) return { ok: false, reason: 'cap' };
-  const r = { id: newRoomId(), type: key, station: idx, staff: [] };
+  /* An occupied bay is refused rather than quietly rehoused. The picker only
+     offers a `+` on an open floor, so this can only be reached by a stale
+     modal or a hand-edit, and both are cases where silently building somewhere
+     else is how the old defect read to the player in the first place. */
+  const want = Math.floor(Number(bay));
+  let at;
+  if (Number.isFinite(want)) {
+    /* 'bayfull' for both, because both mean THIS floor will not take it and
+       content's fallback already says exactly that. 'nobay' is kept for the
+       different sentence — "you have no bays at all" — which is a lie to a
+       player who owns three and asked for the fourth. */
+    if (want < 0 || want >= bayCount()) return { ok: false, reason: 'bayfull' };
+    if (bayIsTaken(want)) return { ok: false, reason: 'bayfull' };
+    at = want;
+  } else {
+    at = firstFreeBay();
+    if (at < 0) return { ok: false, reason: 'nobay' };
+  }
+  const r = { id: newRoomId(), type: key, station: idx, bay: at, staff: [] };
   S.rooms.push(r);
   return { ok: true, room: r };
 }
@@ -3396,7 +3438,7 @@ function sanitize(s){
   s.dead = false;
 
   s.staff = Array.isArray(s.staff) ? s.staff.filter(p =>
-      p && typeof p.id === 'string' && ROLES[p.role] && Number.isFinite(+p.skill)
+      p && typeof p.id === 'string' && own(ROLES, p.role) && Number.isFinite(+p.skill)
     ).map(p => {
       const skill = clamp(Math.round(+p.skill), 1, 10);
       const tags = (Array.isArray(p.tags) ? p.tags : []).filter(x => typeof x === 'string' && own(chemTable(), x)).slice(0, 1);
@@ -3682,7 +3724,7 @@ function sanitize(s){
         if (staff.length >= ROOM_SEATS) break;
         staff.push(sid);
       }
-      out.push({ id, type, station, staff });
+      out.push({ id, type, station, staff, bay: Math.floor(n(raw.bay, NaN)) });
       /* Bounded by the PROGRAMME (MAX_BAYS), not by the current bay count: a
          player who is one bay short after a hand-edit keeps their rooms and
          buildRoom() refuses the next one, rather than having rooms deleted
@@ -3698,6 +3740,25 @@ function sanitize(s){
        count to cover what survived, so every standing room bills. A hand-edit
        can still lose you a bay; it can no longer win you a free one. */
     if (out.length > (s.bays || 0)) s.bays = clamp(out.length, 0, MAX_BAYS);
+    /* BAY SEEDING, and the order of these two passes is the whole migration.
+       A save written before the `bay` field has none, so it falls to the
+       second pass and takes its list position — which IS what its bay was
+       under the old rule, so every existing building loads looking exactly as
+       it did. A save that has the field keeps it, unless it is out of the
+       programme or claims a floor another room already holds; a duplicate
+       would stack two rooms on one storey and hide one of them entirely. */
+    const heldBays = new Set();
+    for (const r of out) {
+      const b = Math.floor(n(r.bay, NaN));
+      if (!Number.isFinite(b) || b < 0 || b >= MAX_BAYS || heldBays.has(b)) { r.bay = NaN; continue; }
+      r.bay = b; heldBays.add(b);
+    }
+    for (const r of out) {
+      if (Number.isFinite(r.bay)) continue;
+      let b = 0;
+      while (b < MAX_BAYS && heldBays.has(b)) b++;
+      r.bay = clamp(b, 0, MAX_BAYS - 1); heldBays.add(r.bay);
+    }
   }
 
   // A clock stamp from the future (system time moved back) would make the

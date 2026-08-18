@@ -139,6 +139,22 @@ a second mechanic onto a game that already worked. **The verdict a cohort
 returns is true of the cohort; whether it is true of the game is a separate
 question, and the columns you did not print are where it hides.**
 
+**And a fourth: assert through the accessor the game reads, not the field you
+just wrote.** Callsigns' bay-identity fix shipped with six new assertions, and
+breaking the code on purpose — as this rule requires — showed that **two of them
+passed against the broken build.** Both read `room.bay` straight off the object
+returned by the thing under test, and the write was never the broken half: the
+defect was that everything which DRAWS the building resolved a room's floor by
+its list position instead. Asking `roomBay(r)` and `roomAtBay(i)` instead, the
+same two assertions failed immediately and correctly.
+
+A test that reads back the field it just watched being written is testing a
+round trip through one function. The bug lives in the OTHER readers — and there
+is no way to tell those two tests apart except by breaking the code and
+watching. Which is the whole rule: an assertion never seen to fail is not
+evidence, and "I wrote it to catch exactly this" is not the same as seeing it
+catch exactly this.
+
 ### 6. Every pass leaves the process better than it found it
 Fixing the bug is half the job. The other half is asking what rule, check or
 agent instruction would have caught it, and writing that down where the next

@@ -217,6 +217,18 @@ function simRoomById(id){
   if (typeof roomById === 'function') return roomById(id);
   return simRoomList().find(r => r && r.id === id) || null;
 }
+/* The room's own floor. Both degrade to the pre-`bay` reading — list position
+   — so a sim that predates the field still draws a coherent building rather
+   than six empty floors with the rooms nowhere. */
+function simRoomBay(r){
+  if (typeof roomBay === 'function') return roomBay(r);
+  const v = r ? Math.floor(Number(r.bay)) : NaN;
+  return Number.isFinite(v) ? v : simRoomList().indexOf(r);
+}
+function simRoomAtBay(i){
+  if (typeof roomAtBay === 'function') return roomAtBay(i);
+  return simRoomList().filter(Boolean).find(r => simRoomBay(r) === i) || null;
+}
 function simBayLease(i){ return typeof bayLease === 'function' ? bayLease(i) : 0; }
 function simBayLeaseTotal(){ return typeof bayLeaseTotal === 'function' ? bayLeaseTotal() : 0; }
 /* Bays with nothing in them, and the most rooms that could ever exist. Both
@@ -381,10 +393,44 @@ function simCondFloor(){ return (typeof COND_MIN !== 'undefined') ? COND_MIN : 0
     segment's. A missing row renders as its id rather than as blank. */
 function uiRoomName(type){ return typeof roomName === 'function' ? roomName(type) : type; }
 function uiRoomBlurb(type){ return typeof roomBlurb === 'function' ? roomBlurb(type) : ''; }
+/* THE EMOJI DID NOT DIE, AND MERGING THESE TWO WOULD BREAK FOUR CALLERS.
+
+   The canon kills the emoji on the CUTAWAY. It does not kill ROOM_TYPES.icon,
+   because four of this function's callers cannot take markup at all: three are
+   toast(), which writes el.textContent, so an <svg> arrives as literal angle
+   brackets in the corner of the screen; the fourth is the Daily Brief yield
+   chip, which canon §3 puts out of scope for this pass. A drawing is for a
+   surface that renders HTML and can size a 22px box. A toast is neither.
+
+   So the two accessors coexist, on purpose, split by what the DESTINATION can
+   render rather than by what looks newer:
+
+     roomMark()  -> the cutaway cell, the rate-card art, the coach-card art,
+                    the room picker's row icon. All four take raw HTML.
+     uiRoomIcon() -> every toast(), and the Daily Brief chip. Text only.
+
+   Do not fold one into the other, and do not make roomMark() the fallback
+   inside this function — that is the merge, wearing a different hat. */
 function uiRoomIcon(type){
   const row = (typeof ROOM_TYPES !== 'undefined' && ROOM_TYPES) ? ROOM_TYPES[type] : null;
   return (row && row.icon) || '🏢';
 }
+/* ---------------- v9 seam: the cutaway's pictures ----------------
+   fx.js owns every SVG string in the building; this file only places them.
+   Same bridge shape as every sim*() wrapper above, and for the same reason: a
+   build served without fx.js — a cached page, a half-deployed push, a file
+   that 404s — has to render the text row the Building tab rendered before the
+   cutaway existed, not a white screen and not a stack of empty boxes.
+
+   Every one returns a STRING, and an empty string means "no picture, fall
+   back". uiHasFigures() asks about the FUNCTIONS instead, because the seat
+   cluster is the one place where empty output is ambiguous: three ghosts and a
+   missing fx.js both produce nothing to look at, and only one of them means
+   "there is room for three more people in here". */
+function uiRoomMark(type){ return typeof roomMark === 'function' ? roomMark(type) : ''; }
+function uiRoleFigure(role, state){ return typeof roleFigure === 'function' ? roleFigure(role, state) : ''; }
+function uiGhostSeat(){ return typeof ghostSeat === 'function' ? ghostSeat() : ''; }
+function uiHasFigures(){ return typeof roleFigure === 'function' && typeof ghostSeat === 'function'; }
 function uiRoomCeilingText(type, vars){
   return typeof roomCeilingText === 'function' ? roomCeilingText(type, vars) : '';
 }
@@ -2688,12 +2734,27 @@ function uiBayRows(){
   const rooms = simRoomList().filter(Boolean);
   const bays = simBayCount();
   const rows = [];
-  for (let i = 0; i < bays; i++) rows.push({ bay: i, room: rooms[i] || null, lease: simBayLease(i) });
+  // ASKED OF THE ROOM, not of the list. simRoomAtBay() reads the room's own
+  // `bay`, so the floor a room draws on is the floor its lease is quoted for
+  // and the floor the picker built it on — one number, three places.
+  for (let i = 0; i < bays; i++) rows.push({ bay: i, room: simRoomAtBay(i), lease: simBayLease(i) });
   // A room with no bay under it can only come from a hand-edited or stale save
   // (a room type this build no longer ships, say). It is still shown, named by
   // whatever sim calls it, and still strippable — hiding it would leave a bill
   // nobody can find, which is worse than an odd-looking row.
-  for (let i = bays; i < rooms.length; i++) rows.push({ bay: i, room: rooms[i], lease: simBayLease(i) });
+  // Whatever the first pass did not draw, rather than "whatever sits past the
+  // end". A room whose bay is out of the programme in EITHER direction is
+  // still a room that bills, and keying this off the rows already built is
+  // what guarantees every room appears exactly once — a negative bay used to
+  // fall through both loops and take its lease with it.
+  const drawn = new Set(rows.map(row => row.room).filter(Boolean));
+  let spill = bays;
+  for (const r of rooms) {
+    if (drawn.has(r)) continue;
+    const b = simRoomBay(r);
+    const at = (b >= bays) ? b : spill++;
+    rows.push({ bay: at, room: r, lease: simBayLease(at) });
+  }
   return rows;
 }
 
@@ -2765,7 +2826,9 @@ function roomRateCard(r, e, econ, st){
   return rateCard({
     id: uiRoomTitle(r),
     chip: tt('bayShort') + ' ' + (bay ? bay.idx + 1 : '—'),
-    art: uiRoomIcon(r.type),
+    // rcard-art takes raw HTML, so it takes the drawn mark; the emoji is the
+    // fallback for a build served without fx.js. See uiRoomIcon()'s header.
+    art: uiRoomMark(r.type) || esc(uiRoomIcon(r.type)),
     hero: {
       val: val === null ? '—' : (inert ? money(0) : (val >= 0 ? '+' : '−') + money(Math.abs(val))),
       lbl: tt('rcPerDayMeasured'),
@@ -2805,6 +2868,12 @@ function bayRoomsCard(econ){
   if (!list.length) return '';
   const rows = uiBayRows();
   const cols = 'grid-template-columns:var(--bay-gutter) 1fr';
+  const seatMax = simRoomSeats();
+  /* Asked ONCE per card, about the functions rather than about their output.
+     A floor with three ghosts and a floor whose fx.js never loaded must not
+     look alike: the first is "room for three more", the second is "no picture
+     available", and an empty-string test cannot tell them apart. */
+  const drawFigs = uiHasFigures();
 
   let h = '<div class="card"><div class="card-head">' +
     '<span class="card-title">' + esc(tt('bayShort') + ' × ' + t('roomLbl')) + '</span>' +
@@ -2813,18 +2882,48 @@ function bayRoomsCard(econ){
   if (!rows.length) {
     return h + '<div class="empty">' + esc(t('bayNone')) + '</div></div>';
   }
-  h += '<div class="bay-grid">';
+  h += '<div class="cutaway">';
 
-  for (const row of rows) {
+  /* BOTTOM-UP, AND IN THE DOM RATHER THAN IN CSS.
+
+     uiBayRows() still returns bay order, 1..n, because that is the order the
+     bays exist in and every other caller wants it. The picture wants the
+     opposite: bay 1 is the ground floor, and buying a bay adds a storey to the
+     top. So the loop runs backwards and the markup comes out floor-n-first.
+
+     `flex-direction:column-reverse` would have drawn the same thing for a
+     third of the code and been wrong. It reverses the paint and NOT the focus
+     order, so a keyboard or a d-pad would tab from the top floor to the bottom
+     while the eye reads down from the top floor — and every screen reader,
+     which follows the DOM, would announce the building upside down. Visual
+     order and focus order have to be the same order, so the reversal happens
+     where both of them come from. */
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
     const r = row.room;
-    h += '<div class="bay-row" style="' + cols + '">' +
-      '<span class="bay-lbl"><b>' + (row.bay + 1) + '</b>' +
+    /* The gutter number stopped being an index the moment the stack was drawn
+       as a building: it is the FLOOR, and the lease under it is what that
+       floor costs to keep. Same two values, same two type sizes as the ledger
+       it replaces — only the thing they describe changed.
+
+       It renders "3" over "$340" and not the word "Floor", six times down a
+       48px column, because rule 7 is what this whole pass is for. The word is
+       in title= for a pointer, and in the adjacent cell's label for a screen
+       reader, which is the only place a bare gutter number is unreadable —
+       aria-hidden here so that "3 $340" is not announced twice. */
+    const floorLease = t('cutFloorLease', { n: row.bay + 1, amt: money(row.lease) });
+    h += '<div class="cut-floor" style="' + cols + ';--floor-i:' + row.bay + '">' +
+      '<span class="cut-num" aria-hidden="true" title="' + esc(floorLease) + '">' +
+        '<b>' + (row.bay + 1) + '</b>' +
         '<i>' + esc(money(row.lease)) + '</i></span>';
     if (!r) {
-      // The build control, full width: 225px x 48px at 320.
-      h += '<button type="button" class="bay-cell open wide" data-buildroom="' + row.bay + '" ' +
-        'aria-label="' + esc(t('roomAssign') + ' — ' + t('bayLine', { n: row.bay + 1, amt: money(row.lease) })) + '">' +
-        '<span class="bc-ico">+</span>' +
+      // An empty bay is a bare slab: leased, standing, nothing built on it.
+      // The build control, full width: measured 230.00 x 48.00 at 320.
+      h += '<button type="button" class="cut-cell open" data-buildroom="' + row.bay + '" ' +
+        'title="' + esc(t('cutFloorBare')) + '" ' +
+        'aria-label="' + esc(t('cutFloorBare') + ' — ' + t('roomAssign') + ' — ' +
+          t('bayLine', { n: row.bay + 1, amt: money(row.lease) })) + '">' +
+        '<span class="bc-ico" aria-hidden="true">+</span>' +
         '<span class="bc-main"><span class="bc-name">' + esc(t('roomAssign')) + '</span></span>' +
       '</button></div>';
       continue;
@@ -2838,7 +2937,8 @@ function bayRoomsCard(econ){
     const fill = e.cap > 0 ? clamp(e.pts / e.cap * 100, 0, 100) : 0;
     const over = e.cap > 0 ? clamp((e.pts - e.cap) / e.cap * 100, 0, 100)
                            : (e.pts > 0.05 ? 100 : 0);
-    const seated = Array.isArray(r.staff) ? r.staff.length : 0;
+    const ids = Array.isArray(r.staff) ? r.staff : [];
+    const seated = ids.length;
     const val = e.value;
     const inert = val !== null && Math.abs(val) < 0.5;
     /* Four states, in the order they matter: throwing points away, nobody in
@@ -2851,30 +2951,118 @@ function bayRoomsCard(econ){
     const ptsTxt = e.waste > 0.05
       ? t('roomWaste', { pts: uiPts(e.pts), cap: uiPts(e.cap), waste: uiPts(e.waste) })
       : t('roomPts', { pts: uiPts(e.pts), cap: uiPts(e.cap) });
-    h += '<button type="button" class="bay-cell filled wide' + cls + '" data-openroom="' + esc(r.id) + '" ' +
-      'aria-label="' + esc(uiRoomTitle(r) + ' — ' + ptsTxt + ' · ' + uiCapCause(r.type, st) +
+
+    /* THE POSE IS NEVER THE STATE ON ITS OWN. It selects work or still, and
+       'still' is reserved for the one state whose people are present and whose
+       output is nothing — a staffed room measured at $0/day. An over-ceiling
+       room's people are working flat out; that is WHY the points spill, and
+       freezing them would say the opposite. Every state it touches keeps the
+       border colour, the meter and the ⚠ it had before the figures existed, so
+       a player at prefers-reduced-motion, or on a build with no fx.js, loses
+       no information at all.
+
+       IT IS TIED TO THE PAINTED CLASS, NOT TO `inert`, and that distinction is
+       the whole bug this replaced. A room can be over-ceiling AND worth $0 at
+       the same time — a Rack Room on a Part 15 rig is exactly that, and QA
+       reproduced it — so `inert` was true on a floor painted `over`, the pose
+       went to 'still', and the CSS (which stops only for .idle and ghosts)
+       kept those arms-down figures bobbing. The pose said resting, the motion
+       said working, and the comment above said the motion was right.
+
+       Now both read the same source: still IFF the floor is painted zeroed. */
+    const pose = cls === ' zeroed' ? 'still' : 'work';
+    /* THE FIGURES ARE A DRAWING AND THE DRAWING HAS NO TEXT IN IT.
+
+       fx.js builds its SVG from a fixed table and never interpolates anything
+       off the save, so a person's name cannot go inside the mark — it is
+       rendered out here, escaped, on the wrapper. Two carriers, because they
+       reach two different people: title= is the pointer's answer to "who is
+       that", and the same words go into the cell's aria-label, which is what a
+       screen reader actually gets (an aria-label on a button suppresses
+       everything inside it, so a title on a child would never be read). The
+       cluster is therefore aria-hidden — three figures announced one at a time
+       would be three "image"s and no roster. */
+    let seatsH = '';
+    const seatWords = [];
+    for (let s = 0; s < seatMax; s++) {
+      /* A seated id that no longer resolves to a person (a hand-edited or
+         part-migrated save) still gets a figure, on the neutral role fx
+         returns for an unknown one, and simply goes unnamed. "Somebody is here
+         and I cannot name them" and "this seat is empty" are different facts
+         and neither the picture nor the words may collapse them. */
+      const taken = s < seated;
+      const p = taken ? staffById(ids[s]) : null;
+      const who = p ? t('cutSeatWho', { name: p.name, role: roleName(p.role) })
+                    : (taken ? '' : t('cutSeatOpen'));
+      if (p) seatWords.push(who);
+      if (!drawFigs) continue;
+      seatsH += '<span class="cut-fig' + (taken ? '' : ' ghost') + '" style="--seat-i:' + s + '"' +
+        (who ? ' title="' + esc(who) + '"' : '') + '>' +
+        (taken ? uiRoleFigure(p ? p.role : '', pose) : uiGhostSeat()) + '</span>';
+    }
+    if (drawFigs) seatsH = '<span class="cut-seats" aria-hidden="true">' + seatsH + '</span>';
+    /* Free chairs are said as the lease, not as an invitation, and NOT next to
+       roomSeats ("2 of 3 seats") — one count per surface or the label is
+       reading the same fact twice in two idioms. roomSeats keeps the rate
+       card; the cutaway says what the empty chair is costing. */
+    const free = Math.max(0, seatMax - seated);
+    if (free) seatWords.push(free === 1 ? t('cutSeatsFree1') : t('cutSeatsFree', { n: free }));
+
+    /* The label is the whole cell in words, and it gained exactly what the
+       picture gained: which floor this is, and who is standing on it. Points,
+       the cause of the ceiling and the dollars read exactly as they did —
+       screen-reader parity is the reason the drawing is allowed to be quiet.
+
+       cutFloorStill is deliberately NOT here. It says what roomEmpty says, and
+       roomEmpty is already on this card in the legend; content's rule is one
+       or the other per surface. An unstaffed floor is three ghosts, an amber
+       border, a ⚠, and "3 chairs free" in the label. */
+    h += '<button type="button" class="cut-cell filled' + cls + '" data-openroom="' + esc(r.id) + '" ' +
+      'aria-label="' + esc(t('cutFloor', { n: row.bay + 1 }) + ' · ' +
+        uiRoomTitle(r) + ' — ' + ptsTxt + ' · ' + uiCapCause(r.type, st) +
+        ' · ' + seatWords.join(' · ') +
         (val === null ? '' : ' — ' +
           (inert ? money(0) + tt('perDay')
             : (val > 0 ? '+' : '−') + money(Math.abs(val)) + tt('perDay')))) + '">' +
-      '<span class="bc-ico">' + uiRoomIcon(r.type) + '</span>' +
+      // The mark, on the slab: a drawn fixture where the emoji was, and the
+      // room's name beside it at all times so the picture never carries the
+      // identification alone. No fx.js, no mark — the emoji comes back.
+      '<span class="cut-mark">' + (uiRoomMark(r.type) || esc(uiRoomIcon(r.type))) + '</span>' +
+      /* THE ⚠ MOVED TO THE CORNER, AND THAT IS A MEASUREMENT, NOT A TASTE.
+
+         It used to sit in the right-hand column under the dollars. Measured at
+         320px with a mid-game figure in the cell, the column it shared cost the
+         room's NAME 54px — "Production Room — WZOD" needs 139px and had 81 —
+         so the strip was truncating the one word that says which room this is
+         in order to keep a glyph in a column. Absolute in the corner it costs
+         nothing, it lands in the empty space over the mark (which is
+         bottom-aligned), and it is in the SAME place on every floor, which is
+         what makes a warning scannable down a stack rather than hunted for. */
+      (e.waste > 0.05 || !seated ? '<span class="bc-flag" aria-hidden="true">⚠</span>' : '') +
       '<span class="bc-main">' +
         '<span class="bc-name">' + esc(uiRoomTitle(r)) + '</span>' +
-        '<span class="bc-meter"><i style="width:' + fill + '%"></i>' +
-          (over > 0 ? '<b style="width:' + over + '%"></b>' : '') + '</span>' +
       '</span>' +
+      // The dollars over the people who earn them: one right-hand column, the
+      // measured return at the top of it and the seats standing at the bottom
+      // on the slab. They share a column because they are the same answer —
+      // what this floor returns, and who is on it.
       '<span class="bc-side">' +
         (val === null ? ''
           : '<span class="bc-val ' + (inert ? 'zero' : val >= 0 ? 'up' : 'down') + '">' +
               esc(inert ? money(0) : (val >= 0 ? '+' : '−') + money(Math.abs(val))) + '</span>') +
-        // The numbers left the cell; the ⚠ did not. Wasted points and an empty
-        // bay are the two states a player has to be able to find at a glance,
-        // and a glyph is not a readout.
-        (e.waste > 0.05 || !seated ? '<span class="bc-flag" aria-hidden="true">⚠</span>' : '') +
+        seatsH +
       '</span>' +
+      // The fill meter is the FLOOR of the cell now: full width, sitting on
+      // the slab under everyone's feet, so the room's load reads as how full
+      // the storey is rather than as a bar tucked under a caption.
+      '<span class="bc-meter" aria-hidden="true"><i style="width:' + fill + '%"></i>' +
+        (over > 0 ? '<b style="width:' + over + '%"></b>' : '') + '</span>' +
     '</button></div>';
     // Lazy: uiSeatLine() runs a uiWhatIf clone per seated person to price the
     // attention that seat costs, which is not a per-tick cost worth paying for
-    // a card that is closed.
+    // a card that is closed. It follows its own floor in the DOM, which in a
+    // reversed stack is directly UNDER that floor on screen — the detail hangs
+    // off the storey it belongs to, and focus still lands on it next.
     h += fold('room.' + r.id, tt('foldRoomWhy'), function(){ return roomRateCard(r, e, econ, st); });
   }
   // The legend has to match the cell colours exactly: green is a working room,
@@ -3202,7 +3390,7 @@ function bayBuyCard(econ){
         ? t('roomHead', { room: uiRoomName(best.type), call: best.call })
         : uiRoomName(best.type),
       chip: tt('bayShort') + ' ' + n,
-      art: uiRoomIcon(best.type),
+      art: uiRoomMark(best.type) || esc(uiRoomIcon(best.type)),
       hero: { val: (ret >= 0 ? '+' : '−') + money(Math.abs(ret)), lbl: tt('rcPerDayMeasured'),
               cls: thin ? 'down' : 'up' },
       stats: [
@@ -3746,7 +3934,13 @@ function bookingsOf(id){
   return out;
 }
 
-function roleName(r){ return t(r === 'dj' ? 'roleDj' : r === 'eng' ? 'roleEng' : 'roleSales'); }
+/* The final `else` used to be 'roleSales', which meant EVERY unrecognised role
+   was announced as a Sales Agent — including the '__proto__' and 'constructor'
+   roles a hostile save can still carry past sanitize(). fx.js already draws
+   those as its neutral body; this makes the words agree with the drawing. */
+function roleName(r){
+  return t(r === 'dj' ? 'roleDj' : r === 'eng' ? 'roleEng' : r === 'sales' ? 'roleSales' : 'roleUnknown');
+}
 function roleDesc(r){ return t(r === 'dj' ? 'roleDjDesc' : r === 'eng' ? 'roleEngDesc' : 'roleSalesDesc'); }
 
 /* ---------------- Empire ---------------- */
@@ -5352,8 +5546,14 @@ function openRoomPicker(bayIdx, stIdx){
        comparing anything. 0.0 / 3.0 / 12.0 with the cause beside it is the
        whole decision, and it moves the moment the schedule does. */
     body += '<button type="button" class="row' + (zero || thin ? ' warnrow' : '') + '" ' +
-      'data-pickroom="' + esc(bayIdx + '|' + stIdx + '|' + type) + '" style="cursor:pointer">' +
-      '<div class="row-icon">' + uiRoomIcon(type) + '</div>' +
+      /* stIdxFor, NOT stIdx. Every figure on this row — the ceiling, the cap
+         cause, the worth, the thin-lease warning — is measured at stIdxFor,
+         and the button used to carry the VIEWED station instead. So the
+         Production Room quoted the best signal's economics and built pointed
+         at whichever one you happened to be looking at. Quote and build the
+         same station or quote nothing. */
+      'data-pickroom="' + esc(bayIdx + '|' + stIdxFor + '|' + type) + '" style="cursor:pointer">' +
+      '<div class="row-icon">' + (uiRoomMark(type) || esc(uiRoomIcon(type))) + '</div>' +
       '<div class="row-body">' +
         '<div class="row-title">' + esc(uiRoomName(type)) + '</div>' +
         '<div class="row-sub" style="font-size:13px;font-weight:800">' +
@@ -5390,19 +5590,29 @@ function openRoomPicker(bayIdx, stIdx){
        happened, and redraws. */
 function doBuildRoom(bayIdx, stIdx, type){
   if (typeof buildRoom !== 'function') { bridgeMiss('buildRoom'); return; }
-  const res = buildRoom(stIdx, type);
+  // bayIdx reaches sim now. It used to be taken from the player, printed in
+  // the picker's own heading and lease line, and then dropped on the floor
+  // here — which is how "Bay 3 — $180/day" built a room in bay 1 at $40/day.
+  const res = buildRoom(stIdx, type, bayIdx);
   if (!res || !res.ok) {
+    /* The fallback used to be t('roomAssign') — "Put a room in this bay" —
+       so the message for a refusal was the label of the button that had just
+       refused. buildRoom() can also return nostate/station/type/medium/cap,
+       none of which this file names, and all of which landed there. */
     const why = res && res.reason;
     toast(why === 'duplicate' ? t('roomDup')
         : why === 'nobay' ? t('bayNone')
-        : t('roomAssign'), 'bad');
+        : t('roomBuildFail'), 'bad');
     return;
   }
   // uiRoomTitle names a callsign only where one means something (Production);
   // the other two are the building's and are logged as themselves.
   const title = uiRoomTitle(res.room);
   addLog(title, 'big');
-  toast(uiRoomIcon(type) + ' ' + title, 'good');
+  // A toast is a receipt: what happened, and what it now costs. The room's
+  // name on its own was neither. The emoji stays because toast() writes
+  // textContent — see uiRoomIcon()'s header.
+  toast(uiRoomIcon(type) + ' ' + t('roomBuiltMsg', { room: title }), 'good');
   sfxBuy();
   uiEconDirty();
   saveGame(true);
@@ -5436,7 +5646,9 @@ function doStripRoom(roomId){
   if (typeof removeRoom !== 'function') { bridgeMiss('removeRoom'); return; }
   removeRoom(roomId);
   uiEconDirty();
-  toast(uiRoomIcon(r.type) + ' ' + t('roomClear'), 'bad');
+  // Was t('roomClear') — "Strip the bay" — delivered AFTER the strip: an
+  // instruction to do the thing the player had just done.
+  toast(uiRoomIcon(r.type) + ' ' + t('roomClearedMsg', { room: uiRoomTitle(r) }), 'bad');
   closeModal();
   saveGame(true);
   render();
@@ -5451,10 +5663,17 @@ function doMoveRoom(roomId, stIdx){
   if (!r || r.station === stIdx) return;
   if (typeof removeRoom !== 'function' || typeof buildRoom !== 'function') { bridgeMiss('buildRoom'); return; }
   const type = r.type, from = r.station, keep = Array.isArray(r.staff) ? r.staff.slice() : [];
+  /* THE ROOM KEEPS ITS FLOOR. Re-pointing is a remove-and-rebuild, so before
+     the `bay` field the room reappeared at the end of the list — change which
+     callsign a Production Room serves and it climbed the building. Carrying
+     the bay through makes re-pointing what it says it is: the same room,
+     pointed somewhere else. The bay is free at this moment precisely because
+     removeRoom() just vacated it. */
+  const bay = simRoomBay(r);
   removeRoom(roomId);
-  let res = buildRoom(stIdx, type);
+  let res = buildRoom(stIdx, type, bay);
   if (!res || !res.ok) {
-    res = buildRoom(from, type);
+    res = buildRoom(from, type, bay);
     toast(t('roomDup'), 'bad');
   }
   if (res && res.ok && typeof seatInRoom === 'function') {
@@ -5835,7 +6054,7 @@ function wire(){
   document.addEventListener('click', e => {
     // One shared click blip for any interactive control; buy/hire/train get
     // their own richer sfxBuy() on top of this further down.
-    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn:not(:disabled), .switch, .slot, .st-chip, .cov-cell, .seg-card, .bay-cell.filled, .bay-cell.open, .vt-btn, .fold-btn, .row-tap')) sfxClick();
+    if (e.target.closest('.btn:not(:disabled), .mbtn:not(:disabled), .tab, .hud-btn, .seg-btn:not(:disabled), .switch, .slot, .st-chip, .cov-cell, .seg-card, .cut-cell.filled, .cut-cell.open, .vt-btn, .fold-btn, .row-tap')) sfxClick();
 
     /* Tap to expand. First, above every other handler: a fold button can sit
        inside a .row that also carries data-openroom, and the detail must win
@@ -6110,10 +6329,12 @@ const FOCUS_SEL = '.mbtn:not(:disabled), .tab, .btn:not(:disabled), .slot, .swit
   // leaving it out of this list would ship a feature a pad player can read the
   // whole price of and never buy.
   '[data-setmode], ' +
-  // The building programme: the matrix cells ARE the build/edit control, and
-  // the seat rows are how a room is staffed. A pad player who can buy a bay but
-  // cannot put anybody in it has half the feature.
-  '.bay-cell.filled, .bay-cell.open, [data-seatadd], [data-seatdrop], [data-pickroom], ' +
+  // The building programme: a floor of the cutaway IS the build/edit control,
+  // and the seat rows are how a room is staffed. A pad player who can buy a bay
+  // but cannot put anybody in it has half the feature. The two [data-*] hooks
+  // below already match both cells on their own; the class selectors stay so
+  // that this list reads as an inventory of controls rather than of attributes.
+  '.cut-cell.filled, .cut-cell.open, [data-seatadd], [data-seatdrop], [data-pickroom], ' +
   // ...and the two v3 controls that are not a .btn: re-pointing a Production
   // Room, and the second air studio. `data-buystudio` IS a .btn and is already
   // matched, but naming it here keeps the list a readable inventory of the

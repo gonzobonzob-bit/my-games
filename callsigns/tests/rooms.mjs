@@ -446,5 +446,93 @@ const dupCalls = run(`
 ok('three identical callsigns are repaired to three distinct ones under a frozen RNG',
   dupCalls.n === 3 && dupCalls.uniqueCalls === 3, JSON.stringify(dupCalls));
 
+/* THE BAY IS A FIELD, NOT A POSITION.
+
+   For eight versions a room's bay was its index in S.rooms. The picker took the
+   floor the player tapped, printed its number and its lease in its own heading,
+   and then dropped it: buildRoom() pushed onto the end. Tap floor 3's "+", read
+   "Bay 3 — $180/day", get a room in bay 1 at $40/day — and the picker's own
+   profit verdict, computed against the $180 lease, flipped sign on the way.
+
+   It survived because a list has no floors. The cutaway made bays literal and
+   the defect became a building that visibly rearranged itself, which is what
+   finally paid for the field. These four assertions are what stop it coming
+   back, and they are written against the three ways it actually showed up. */
+const bayId = run(`
+  S = sanitize(newState('KBAY'));
+  S.cash = 1e7; S.bays = 4;
+  // Ask for the TOP floor first, from an empty building. Under the old rule
+  // this landed in bay 0 no matter what was asked for.
+  const far = buildRoom(0, 'production', 3);
+  const rack = buildRoom(0, 'rack', 1);
+  return { farOk: !!(far && far.ok), farBay: far && far.ok ? roomBay(far.room) : null,
+           rackBay: rack && rack.ok ? roomBay(rack.room) : null,
+           topIsProd: (roomAtBay(3) || {}).type === 'prod',
+           atThree: !!roomAtBay(3), atZero: !!roomAtBay(0), free: firstFreeBay() };
+`);
+ok('a room lands on the floor that was asked for, not the end of the list',
+  bayId.farOk && bayId.farBay === 3 && bayId.rackBay === 1 && bayId.topIsProd,
+  JSON.stringify(bayId));
+ok('an unasked-for build takes the lowest free bay, and the asked-for ones are not disturbed',
+  bayId.atThree && !bayId.atZero && bayId.free === 0, JSON.stringify(bayId));
+
+const bayTaken = run(`
+  S = sanitize(newState('KBAY'));
+  S.cash = 1e7; S.bays = 3;
+  buildRoom(0, 'rack', 1);
+  // An occupied floor and a floor outside the programme are both refusals, not
+  // silent rehousings — being quietly moved elsewhere IS the original defect.
+  const onTop = buildRoom(0, 'traffic', 1);
+  const offEnd = buildRoom(0, 'traffic', 9);
+  return { onTop: onTop && onTop.reason, offEnd: offEnd && offEnd.reason,
+           rooms: roomList().length };
+`);
+ok('a taken bay and an out-of-programme bay are both refused, and neither builds anything',
+  bayTaken.onTop === 'bayfull' && bayTaken.offEnd === 'bayfull' && bayTaken.rooms === 1,
+  JSON.stringify(bayTaken));
+
+const bayHold = run(`
+  S = sanitize(newState('KBAY'));
+  S.cash = 1e7; S.bays = 4;
+  buildRoom(0, 'rack', 0);
+  const keep = buildRoom(0, 'traffic', 3);
+  // Removing the room BELOW used to shift this one down a storey, because the
+  // splice moved it up the array. Its floor is its own now.
+  removeRoom(roomList().find(r => r.type === 'rack').id);
+  const after = roomList()[0];
+  return { bay: after ? roomBay(after) : null, type: after ? after.type : null,
+           n: roomList().length };
+`);
+ok('removing the room below does not move the room above: a splice is not a move',
+  bayHold.bay === 3 && bayHold.type === 'traffic' && bayHold.n === 1, JSON.stringify(bayHold));
+
+/* THE MIGRATION, and the reason it is two passes. A save written before the
+   field has no `bay` anywhere, and its rooms must load onto exactly the floors
+   they were drawn on yesterday — which, under the old rule, means their list
+   order. A save that HAS the field keeps it, except where two rooms claim one
+   floor: stacking them would hide one room and its bill entirely. */
+const bayMig = run(`
+  S = sanitize(newState('KBAY'));
+  S.cash = 1e7; S.bays = 3;
+  const raw = JSON.parse(JSON.stringify(sanitize(newState('KBAY'))));
+  raw.bays = 3;
+  raw.rooms = [{ id: 'a', type: 'rack', station: 0, staff: [] },
+               { id: 'b', type: 'traffic', station: 0, staff: [] },
+               { id: 'c', type: 'production', station: 0, staff: [] }];
+  const old = sanitize(raw).rooms.map(r => [r.type, r.bay]);
+  raw.rooms = [{ id: 'a', type: 'rack', station: 0, staff: [], bay: 2 },
+               { id: 'b', type: 'traffic', station: 0, staff: [], bay: 2 },
+               { id: 'c', type: 'production', station: 0, staff: [], bay: 0 }];
+  const clash = sanitize(raw).rooms.map(r => [r.type, r.bay]);
+  return { old, clash, oldUnique: new Set(old.map(x => x[1])).size,
+           clashUnique: new Set(clash.map(x => x[1])).size };
+`);
+ok('a pre-bay save loads onto its old floors: list order IS what its bays were',
+  JSON.stringify(bayMig.old) === JSON.stringify([['rack',0],['traffic',1],['prod',2]]),
+  JSON.stringify(bayMig.old));
+ok('two rooms cannot claim one floor: the duplicate is rehoused, never stacked',
+  bayMig.clashUnique === 3 && bayMig.clash[0][1] === 2 && bayMig.clash[2][1] === 0,
+  JSON.stringify(bayMig.clash));
+
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall v3 checks passed');
 process.exit(fails ? 1 : 0);
