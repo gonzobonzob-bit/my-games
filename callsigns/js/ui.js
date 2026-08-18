@@ -217,6 +217,18 @@ function simRoomById(id){
   if (typeof roomById === 'function') return roomById(id);
   return simRoomList().find(r => r && r.id === id) || null;
 }
+/* The room's own floor. Both degrade to the pre-`bay` reading — list position
+   — so a sim that predates the field still draws a coherent building rather
+   than six empty floors with the rooms nowhere. */
+function simRoomBay(r){
+  if (typeof roomBay === 'function') return roomBay(r);
+  const v = r ? Math.floor(Number(r.bay)) : NaN;
+  return Number.isFinite(v) ? v : simRoomList().indexOf(r);
+}
+function simRoomAtBay(i){
+  if (typeof roomAtBay === 'function') return roomAtBay(i);
+  return simRoomList().filter(Boolean).find(r => simRoomBay(r) === i) || null;
+}
 function simBayLease(i){ return typeof bayLease === 'function' ? bayLease(i) : 0; }
 function simBayLeaseTotal(){ return typeof bayLeaseTotal === 'function' ? bayLeaseTotal() : 0; }
 /* Bays with nothing in them, and the most rooms that could ever exist. Both
@@ -2722,12 +2734,27 @@ function uiBayRows(){
   const rooms = simRoomList().filter(Boolean);
   const bays = simBayCount();
   const rows = [];
-  for (let i = 0; i < bays; i++) rows.push({ bay: i, room: rooms[i] || null, lease: simBayLease(i) });
+  // ASKED OF THE ROOM, not of the list. simRoomAtBay() reads the room's own
+  // `bay`, so the floor a room draws on is the floor its lease is quoted for
+  // and the floor the picker built it on — one number, three places.
+  for (let i = 0; i < bays; i++) rows.push({ bay: i, room: simRoomAtBay(i), lease: simBayLease(i) });
   // A room with no bay under it can only come from a hand-edited or stale save
   // (a room type this build no longer ships, say). It is still shown, named by
   // whatever sim calls it, and still strippable — hiding it would leave a bill
   // nobody can find, which is worse than an odd-looking row.
-  for (let i = bays; i < rooms.length; i++) rows.push({ bay: i, room: rooms[i], lease: simBayLease(i) });
+  // Whatever the first pass did not draw, rather than "whatever sits past the
+  // end". A room whose bay is out of the programme in EITHER direction is
+  // still a room that bills, and keying this off the rows already built is
+  // what guarantees every room appears exactly once — a negative bay used to
+  // fall through both loops and take its lease with it.
+  const drawn = new Set(rows.map(row => row.room).filter(Boolean));
+  let spill = bays;
+  for (const r of rooms) {
+    if (drawn.has(r)) continue;
+    const b = simRoomBay(r);
+    const at = (b >= bays) ? b : spill++;
+    rows.push({ bay: at, room: r, lease: simBayLease(at) });
+  }
   return rows;
 }
 
@@ -5519,7 +5546,13 @@ function openRoomPicker(bayIdx, stIdx){
        comparing anything. 0.0 / 3.0 / 12.0 with the cause beside it is the
        whole decision, and it moves the moment the schedule does. */
     body += '<button type="button" class="row' + (zero || thin ? ' warnrow' : '') + '" ' +
-      'data-pickroom="' + esc(bayIdx + '|' + stIdx + '|' + type) + '" style="cursor:pointer">' +
+      /* stIdxFor, NOT stIdx. Every figure on this row — the ceiling, the cap
+         cause, the worth, the thin-lease warning — is measured at stIdxFor,
+         and the button used to carry the VIEWED station instead. So the
+         Production Room quoted the best signal's economics and built pointed
+         at whichever one you happened to be looking at. Quote and build the
+         same station or quote nothing. */
+      'data-pickroom="' + esc(bayIdx + '|' + stIdxFor + '|' + type) + '" style="cursor:pointer">' +
       '<div class="row-icon">' + (uiRoomMark(type) || esc(uiRoomIcon(type))) + '</div>' +
       '<div class="row-body">' +
         '<div class="row-title">' + esc(uiRoomName(type)) + '</div>' +
@@ -5557,7 +5590,10 @@ function openRoomPicker(bayIdx, stIdx){
        happened, and redraws. */
 function doBuildRoom(bayIdx, stIdx, type){
   if (typeof buildRoom !== 'function') { bridgeMiss('buildRoom'); return; }
-  const res = buildRoom(stIdx, type);
+  // bayIdx reaches sim now. It used to be taken from the player, printed in
+  // the picker's own heading and lease line, and then dropped on the floor
+  // here — which is how "Bay 3 — $180/day" built a room in bay 1 at $40/day.
+  const res = buildRoom(stIdx, type, bayIdx);
   if (!res || !res.ok) {
     /* The fallback used to be t('roomAssign') — "Put a room in this bay" —
        so the message for a refusal was the label of the button that had just
@@ -5627,10 +5663,17 @@ function doMoveRoom(roomId, stIdx){
   if (!r || r.station === stIdx) return;
   if (typeof removeRoom !== 'function' || typeof buildRoom !== 'function') { bridgeMiss('buildRoom'); return; }
   const type = r.type, from = r.station, keep = Array.isArray(r.staff) ? r.staff.slice() : [];
+  /* THE ROOM KEEPS ITS FLOOR. Re-pointing is a remove-and-rebuild, so before
+     the `bay` field the room reappeared at the end of the list — change which
+     callsign a Production Room serves and it climbed the building. Carrying
+     the bay through makes re-pointing what it says it is: the same room,
+     pointed somewhere else. The bay is free at this moment precisely because
+     removeRoom() just vacated it. */
+  const bay = simRoomBay(r);
   removeRoom(roomId);
-  let res = buildRoom(stIdx, type);
+  let res = buildRoom(stIdx, type, bay);
   if (!res || !res.ok) {
-    res = buildRoom(from, type);
+    res = buildRoom(from, type, bay);
     toast(t('roomDup'), 'bad');
   }
   if (res && res.ok && typeof seatInRoom === 'function') {
