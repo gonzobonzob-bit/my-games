@@ -418,86 +418,313 @@ button{font-family:inherit;font-size:inherit;color:inherit;border:none;backgroun
    There are no non-control spans left in the grid at all: the "this bay is not
    pointed at this callsign" cell was the only one, and it went with the
    columns. Every cell in the strip is a button. */
-:root{ --bay-gutter:56px; }
-.bay-grid{display:grid;gap:4px;}
-.bay-head{
-  display:grid;gap:4px;
-  font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;font-weight:700;
+/* ---------- the cutaway: marks, figures, and the motion budget ----------
+   Canon: DESIGN_PROOF_ROOMS_VISUAL.md §5. Built by art-and-feel against the
+   SVG factory in js/fx.js; the SVGs carry a viewBox and currentColor and
+   deliberately carry NO width, height or colour of their own, so everything
+   that decides how big and what hue they are is in this block.
+
+   The whole motion budget: transform and opacity only, 2.4-3.2s cycles,
+   under 3px of travel, staggered per seat off --seat-i, a hard ceiling of 18
+   moving elements, and every animation inside
+   @media (prefers-reduced-motion: no-preference). */
+
+/* ---- sizing ---- */
+.cut-mark{flex:none;width:22px;height:22px;line-height:0;color:var(--muted);}
+.cut-mark>svg{display:block;width:100%;height:100%;}
+/* The mark stays --muted in every state ON PURPOSE. A room's type is a
+   constant and its state is not; painting the Rack Room's mark red on the
+   floor that is over its ceiling means the same room appears in two colours
+   down one strip and the player has to re-identify it. The border, the wash,
+   the figures and the ⚠ carry `over` four times over already. The one
+   exception is the empty bay, which is cyan because the whole control is. */
+.cut-cell.open .cut-mark{color:var(--cyan);}
+
+.cut-seats{display:flex;align-items:flex-end;gap:3px;flex:none;line-height:0;}
+.cut-fig{display:block;flex:none;width:16px;height:22px;line-height:0;
+  color:var(--green);transform-origin:50% 100%;}
+.cut-fig>svg{display:block;width:100%;height:100%;}
+
+/* The four cell states own the figure's hue exactly as they already own the
+   border, so the picture restates nothing and invents nothing. Colour is
+   never alone: idle keeps its border and its ⚠, and an empty seat is a
+   different SHAPE — hollow and dashed where every staffed figure is a solid
+   mass — so the floor still reads with the hue thrown away.
+
+   MEASURED, not eyeballed (canon §6). On --panel2 the figures land at
+   green 7.61:1, amber-on-its-own-wash 7.66:1, red-on-its-own-wash 4.68:1,
+   zeroed grey 4.63:1 and the mark's --muted at 4.92:1 — all clear of the
+   3:1 a graphical object needs. The ghost was the one that failed: --dim at
+   70% opacity measured exactly 3.00:1, which is the boundary and therefore
+   not a pass. It is 85% (3.74:1) for that reason and no other. */
+.cut-cell.filled.idle   .cut-fig{color:var(--amber);}
+.cut-cell.filled.over   .cut-fig{color:var(--red);}
+.cut-cell.filled.zeroed .cut-fig{color:var(--dim);}
+.cut-cell .cut-fig.ghost{color:var(--dim);opacity:.85;}
+.cut-cell.filled.idle .cut-fig.ghost{color:var(--amber);opacity:.85;}
+
+/* ---- the motion ----
+   MOTION IS THE STATE: a staffed floor's figures work, an unstaffed floor is
+   perfectly still. It is never the ONLY carrier of that state (canon §5) —
+   an idle floor keeps its amber border, its ⚠ and its three dashed ghosts,
+   all of which survive `reduce`, a screenshot, and a colourblind player.
+
+   Three cycles, not one, because three seats running the same curve at three
+   delays still read as a chorus line. 2.4s / 2.8s / 3.2s share no short
+   common multiple, so a floor's seats drift apart and stay apart.
+
+   Every keyframe touches transform ONLY. Peak travel is 1.9px of lift plus
+   1.9deg of sway about the feet, which at a 22px lever adds 0.73px at the
+   head — 2.6px worst case, inside the 3px budget. */
+@media (prefers-reduced-motion: no-preference){
+  @keyframes cutWork{
+    0%,100%{transform:translateY(0) rotate(0deg);}
+    38%{transform:translateY(-1.4px) rotate(-1.6deg);}
+    72%{transform:translateY(-0.5px) rotate(1.1deg);}
+  }
+  @keyframes cutWork2{
+    0%,100%{transform:translateY(0) rotate(0.9deg);}
+    44%{transform:translateY(-1.1px) rotate(-1.9deg);}
+    76%{transform:translateY(-1.8px) rotate(0.4deg);}
+  }
+  @keyframes cutWork3{
+    0%,100%{transform:translateY(-0.3px) rotate(-1.1deg);}
+    33%{transform:translateY(-1.9px) rotate(1.4deg);}
+    68%{transform:translateY(-0.7px) rotate(-0.6deg);}
+  }
+  /* A NEGATIVE delay, so the stagger is already in effect on the first
+     painted frame. A positive one would show three synchronised figures for
+     up to a second and a half every time the tab re-renders. */
+  .cut-cell.filled .cut-fig:not(.ghost){
+    animation:cutWork 2.8s ease-in-out infinite;
+    animation-delay:calc(var(--seat-i,0) * -0.73s);
+  }
+  .cut-cell.filled .cut-fig:not(.ghost):nth-child(2){animation-name:cutWork2;animation-duration:3.2s;}
+  .cut-cell.filled .cut-fig:not(.ghost):nth-child(3){animation-name:cutWork3;animation-duration:2.4s;}
+
+  /* Best-effort desync between floors. ui.js interleaves a .fold between
+     rows, so this may match nothing — that is fine, and is why it is written
+     as an addition rather than as the mechanism. Within a floor the seats are
+     already staggered, which is what canon §5 actually asks for. */
+  .cutaway>.cut-floor:nth-child(even) .cut-fig:not(.ghost){
+    animation-delay:calc(var(--seat-i,0) * -0.73s - 0.41s);
+  }
+
+  /* THE CEILING, ENFORCED IN CSS RATHER THAN TRUSTED. 6 bays x ROOM_SEATS 3
+     is 18, and 18 is the budget. If ROOM_SEATS is ever raised, the extra
+     seats render and hold still instead of quietly doubling the compositor
+     load on a phone.
+
+     THE SELECTOR WEIGHT IS THE WHOLE RULE, and the first draft got it wrong:
+     `.cut-fig:nth-child(n+4)` is (0,2,0) and loses to the (0,4,0) of
+     `.cut-cell.filled .cut-fig:not(.ghost)` — :not() contributes its
+     argument's specificity. A five-seat floor animated all five and nothing
+     said so. Broken deliberately and re-measured (vault rule 5): five seats
+     rendered, three animating. Do not lower these selectors. */
+  .cut-cell.filled .cut-fig:not(.ghost):nth-child(n+4){animation:none;}
+
+  /* Stillness is the signal for idle, and a ghost is never working. Both
+     stated at a weight that beats the rule above, so neither can be switched
+     back on by an ordering accident later. */
+  .cut-cell.filled.idle .cut-fig:not(.ghost){animation:none;}
+  .cut-cell.filled .cut-fig.ghost{animation:none;}
+
+  /* OPTIONAL, and easy to drop: 140ms of settle on the tap. An instant state
+     change reads as cheap; this is the only non-idle motion in the block and
+     it is still transform-only. */
+  .cut-cell{transition:transform .14s cubic-bezier(.2,.8,.3,1.2);}
+  .cut-cell:active{transform:scale(.975);}
 }
-.bay-head span{text-align:center;padding-bottom:2px;overflow:hidden;text-overflow:ellipsis;}
-.bay-head span:first-child{text-align:left;}
-.bay-row{display:grid;gap:4px;align-items:stretch;}
-.bay-lbl{
-  display:flex;flex-direction:column;justify-content:center;line-height:1.1;
-  overflow:hidden;
+
+/* ============================================================
+   THE CUTAWAY ELEVATION — the building programme, drawn
+   ============================================================
+   Replaced the .bay-grid / .bay-row / .bay-lbl / .bay-cell ledger block, which
+   is deleted — as are its overrides in the 320 and landscape queries. The six
+   .bc-* rules that block also carried are repeated at the bottom of this one,
+   which is now their only declaration.
+
+   WHAT THE PICTURE PROMISES (canon §1): floors stacked in one building, in
+   the order they were bought. Not a floorplan — no adjacency, because the
+   simulation has none. Bay 1 is the ground floor and the DOM is reversed by
+   ui.js, never here: `column-reverse` would flip the paint and leave focus
+   order and screen-reader order running up the building while the eye runs
+   down it.
+
+   MEASURED IN HEADLESS CHROME, worst case (4 callsigns, 5 rooms, 6 bays, a
+   mid-game $12,480 in every cell so the money column is at full width):
+
+     390px  floor cell 276.00 x 48.00   pitch 51   six-floor stack 318.00
+     320px  floor cell 230.00 x 48.00   pitch 51   six-floor stack 318.00
+     landscape 760x360  cell 652.00 x 44.00  pitch 47  stack 294.00
+
+   overflowX 0 at all three, and nothing on #pane-build measures under 44px on
+   either axis (checked by walking every visible button, not by eye). The old
+   strip measured 328.00 at 390 and, at 320, produced a 239.20px cell inside a
+   225px track — it overflowed its own grid column. This one is exact.        */
+
+:root{
+  /* 56 -> 48 (46 -> 40 at 320). The gutter carries a floor number over a
+     lease and nothing else; the width it gives back goes to the room's name,
+     which is the one string in the cell that says which room this is. */
+  --bay-gutter:48px;
+  /* THE THREE CROSS-BUILDER BUDGETS. art-and-feel sizes .cut-mark and
+     .cut-fig FROM THESE, not from literals, because the floor pitch is 48px
+     and it is these two boxes that decide whether it stays 48. --seat-w is
+     derived from the figure's own 16x22 viewBox (8/11) so a seat cannot end
+     up stretched. */
+  --mark-sz:22px;
+  --seat-h:20px;
+  --seat-w:calc(var(--seat-h) * 8 / 11);
+  /* --dim, lifted, for ONE use: see .bc-val.zero below. Measured on every bed
+     it can land on — 5.95:1 on --panel2, 5.20:1 on the idle wash, 5.27:1 on
+     the over wash, 6.64:1 on --panel — against --dim #868ec0's 4.05:1 and
+     4.10:1 on those same two washes, which is under the 4.5:1 AA floor for
+     an 11px figure. */
+  --dim-lit:#9aa3d2;
 }
-.bay-lbl b{font-size:13px;font-weight:900;color:var(--muted);}
-/* 10px, not 9: this is the lease — the price of the whole feature — and it
-   sits on --panel at 4.63:1 for --dim, which passes AA at this size. */
-.bay-lbl i{font-size:10px;font-style:normal;color:var(--dim);font-variant-numeric:tabular-nums;}
-.bay-cell{
-  min-height:48px;border-radius:8px;border:1px solid var(--border);
-  background:var(--panel2);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:2px;
-  font:inherit;color:inherit;padding:3px;
+
+.cutaway{display:grid;gap:3px;}
+/* A rate card opens between two floors, in the same single-column grid, which
+   already supplies the 3px gap. */
+.cutaway>.fold{margin-top:0;}
+.cut-floor{display:grid;gap:4px;align-items:stretch;}
+
+/* The gutter: the floor number over what that floor costs to keep. Same two
+   values and the same two type sizes as the bay index it replaces. 10px, not
+   9, for the lease: --dim on --panel measures 5.17:1, which passes AA at this
+   size. */
+.cut-num{display:flex;flex-direction:column;justify-content:center;line-height:1.1;overflow:hidden;}
+.cut-num b{font-size:13px;font-weight:900;color:var(--muted);}
+.cut-num i{font-size:10px;font-style:normal;color:var(--dim);font-variant-numeric:tabular-nums;}
+
+/* ---- the floor itself ----
+   .cut-slab IS THIS RULE'S border-bottom, and it is deliberately not an
+   element: a 2px div between two buttons is one more node for a screen reader
+   to step over and one more thing for a hit test to miss. Thickened to 2px in
+   the cell's own state colour, so the slab doubles the weight of whichever of
+   the four states this floor is in rather than introducing a fifth line the
+   player has to learn. */
+.cut-cell{
+  position:relative;min-height:48px;overflow:hidden;
+  border:1px solid var(--border);border-bottom-width:2px;border-radius:8px;
+  background:var(--panel2);
+  display:flex;flex-direction:row;align-items:stretch;justify-content:flex-start;
+  gap:6px;padding:4px 8px 5px;text-align:left;
+  font:inherit;color:inherit;
 }
-.bay-cell.filled{border-color:rgba(52,211,153,.45);}
-/* Idle is amber and OVER-CEILING is red, in the grid as well as in the words:
-   a room whose points are being thrown away has to be findable at a glance,
-   not by reading six rows of prose. */
-.bay-cell.filled.idle{border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.07);}
-.bay-cell.filled.over{border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.09);}
-/* Staffed, inside its ceiling, and still returning $0/day — a Maintenance Bay
-   on a Part 15 rig, or a schedule room whose one served slot is worth less than
-   the attention its seats cost. Points alone cannot show this: the meter can
-   read a healthy 4.0/10.0 while the dollars are zero. Grey is the non-textual
-   signal for it, so the state is findable in the grid rather than only in the
-   prose three cards down. A room whose SCHEDULE gives it a ceiling of zero is
-   not this state and must not be painted as it — every point in it is wasted,
-   so it takes .over (red) from waste, and the meter it gets is all bar. */
-.bay-cell.filled.zeroed{border-color:rgba(134,142,192,.45);}
-.bay-cell.filled.zeroed .bc-meter i{background:var(--dim);}
-.bay-cell.filled.zeroed .bc-pts{color:var(--dim);}
-.bay-cell.open{
+/* THE FOUR STATES, UNCHANGED — same selectors, same rgba, same thresholds.
+   Green is a working room, AMBER is a room with nobody in it, GREY is a room
+   with people in it measured at $0/day, RED is a room throwing points away.
+   The legend under the stack matches these exactly and must keep matching. */
+.cut-cell.filled{border-color:rgba(52,211,153,.45);}
+.cut-cell.filled.idle{border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.07);}
+.cut-cell.filled.over{border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.09);}
+.cut-cell.filled.zeroed{border-color:rgba(134,142,192,.45);}
+.cut-cell.filled.zeroed .bc-meter i{background:var(--dim);}
+.cut-cell.filled.idle  .bc-meter i{background:var(--amber);}
+/* A bay with no room in it: a bare slab, leased and standing. */
+.cut-cell.open{
   border-style:dashed;border-color:rgba(34,211,238,.42);color:var(--cyan);
   font-size:18px;font-weight:800;background:transparent;
+  align-items:center;padding:6px 9px;gap:8px;
 }
-/* THE ONE-COLUMN CELL. 225px at 320 buys a real row: icon, name over meter,
-   and the two numbers that decide anything — points against ceiling, and the
-   measured return — right-aligned in a column of their own so they line up
-   down the strip and can be compared without reading. */
-.bay-cell.wide{
-  flex-direction:row;align-items:center;justify-content:flex-start;
-  gap:8px;padding:6px 9px;text-align:left;
+.cut-cell.open .bc-name{color:var(--cyan);font-weight:700;white-space:normal;}
+
+/* ---- what stands on the floor ----
+   mark bottom-left, name filling the middle, money over the people on the
+   right, all three sitting on the slab. PLACEMENT ONLY on .cut-mark: its
+   paint, its stroke and its motion are art-and-feel's. */
+/* BOX ONLY — art-and-feel owns everything drawn inside it. The size is here
+   because the 48px pitch depends on it and because the emoji fallback (a
+   build served without fx.js) needs a font-size, which is not a paint rule. */
+.cut-mark{
+  display:block;flex:none;width:var(--mark-sz);height:var(--mark-sz);
+  font-size:15px;line-height:var(--mark-sz);
 }
-.bay-cell.wide .bc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+.cut-cell>.cut-mark{align-self:flex-end;}
+.cut-cell>.bc-main{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;}
+.cut-cell>.bc-side{
+  flex:none;align-self:stretch;display:flex;flex-direction:column;
+  align-items:flex-end;justify-content:center;gap:2px;
+}
+/* CONTRAST, MEASURED, NOT NUDGED. --muted #8b93c4 is 4.92:1 on --panel2 and
+   passes — but the idle and over cells wash --panel2 with amber .07 and red
+   .09, which composite to #2d304d and #322c53, and --muted lands at 4.31:1
+   and 4.36:1 there. 12px at weight 800 is not WCAG "large text" (that starts
+   at 18.66px bold), so the floor is 4.5:1 and both fail. The room's name is
+   the one string that says which room this is, so it goes to --text #e8ecff:
+   12.45:1 on --panel2, 10.89:1 on the idle wash, 11.03:1 on the over wash.
+   The colour changed because the colour was the problem; the SIZE is fine. */
+.cut-cell .bc-name{color:var(--text);}
+.cut-cell .bc-val{line-height:1.15;}
+/* Same arithmetic, one line down: --dim at 4.05:1 / 4.10:1 on those two
+   washes, and a room CAN be over-ceiling and worth $0 at once (a Rack Room on
+   a Part 15 rig is exactly that), so this pairing is reachable. --dim-lit
+   keeps the grey channel and clears AA — see :root. */
+.cut-cell .bc-val.zero{color:var(--dim-lit);}
+/* The seat cluster. margin-top:auto puts the figures on the slab with the
+   money above them whatever else is in the column, including nothing (a build
+   with no fx.js emits no cluster at all and the money simply centres). The
+   fixed height is the pitch guard: a figure taller than the budget overflows
+   upward instead of growing the row to 50px and breaking the stack. */
+.cut-seats{display:flex;align-items:flex-end;gap:1px;height:var(--seat-h);margin-top:auto;}
+.cut-seats>*{flex:none;width:var(--seat-w);height:var(--seat-h);}
+.cut-seats svg,.cut-mark svg{display:block;width:100%;height:100%;}
+/* THE ⚠ IS ABSOLUTE, AND THAT IS A MEASUREMENT. In the right-hand column it
+   cost the room's name 54px at 320 — "Production Room — WZOD" needs 139px and
+   had 81. Up here it costs nothing, it lands in the empty space above the
+   bottom-aligned mark, and it is in the same place on every floor, which is
+   what lets the eye scan a stack for it instead of hunting each cell. */
+.cut-cell>.bc-flag{position:absolute;top:2px;left:8px;line-height:1;pointer-events:none;}
+.cut-cell.filled.over>.bc-flag{color:var(--red);}
+/* The fill meter is the floor of the cell: full width, on the slab, under
+   everyone's feet. Same green/amber/red/grey it always had. */
+.cut-cell>.bc-meter{position:absolute;left:0;right:0;bottom:0;width:auto;height:3px;border-radius:0;}
+
+/* ---- marks OUTSIDE the cutaway ----
+   ui.js now routes roomMark() into three more HTML-rendering surfaces (the
+   rate-card art, the coach card and the room picker). fx's SVG carries no
+   width/height by design, so both containers have to size it or a 22x22 mark
+   fills the box: .rcard-art rendered it at 46x46 and pushed .rcard-body from
+   46px to 66px until this rule existed. The three toast() call sites and the
+   Daily Brief chip keep the EMOJI and must not be routed — see the header on
+   uiRoomIcon() in js/ui.js. */
+.rcard-art svg{display:block;width:30px;height:30px;margin:0 auto;}
+.row-icon svg{display:block;width:22px;height:22px;}
+
+/* ---- carried over from the deleted .bay-* block, unchanged ----
+   These six are not bay-scoped and the cutaway still emits every one of them.
+   Include them only if you delete the old block; they are byte-identical. */
 .bc-name{
-  font-size:12px;font-weight:800;color:var(--muted);line-height:1.15;
+  font-size:12px;font-weight:800;line-height:1.15;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.bay-cell.open .bc-name{color:var(--cyan);font-weight:700;white-space:normal;}
 .bc-side{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;}
 .bc-val{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;}
 .bc-val.up{color:var(--green);} .bc-val.down{color:var(--red);} .bc-val.zero{color:var(--dim);}
 .bc-ico{font-size:15px;line-height:1;}
-.bc-meter{
-  width:100%;height:4px;border-radius:2px;background:rgba(0,0,0,.4);
-  display:flex;overflow:hidden;
-}
+.bc-meter{width:100%;height:4px;border-radius:2px;background:rgba(0,0,0,.4);display:flex;overflow:hidden;}
 .bc-meter i{display:block;height:100%;background:var(--green);}
 .bc-meter b{display:block;height:100%;background:var(--red);}
-.bay-cell.filled.idle .bc-meter i{background:var(--amber);}
-.bc-pts{font-size:10px;font-weight:800;letter-spacing:.2px;font-variant-numeric:tabular-nums;color:var(--muted);}
-.bay-cell.filled.over .bc-pts{color:var(--red);}
-/* The points readout left the cell for the room's rate card; the ⚠ did not.
-   Wasted points and an empty bay are the two states that have to be findable
-   in the strip at a glance, and a glyph is a signal rather than a readout —
-   which is the distinction the collapsed view is drawn on. */
 .bc-flag{font-size:11px;line-height:1;color:var(--amber);}
-.bay-cell.filled.over .bc-flag{color:var(--red);}
-/* A fold sits between bay rows in the same single-column grid, which already
-   supplies the 4px gap. */
-.bay-grid>.fold{margin-top:0;}
+
+/* ---- 320px ---- */
+@media (max-width:359px){
+  :root{ --bay-gutter:40px; --mark-sz:20px; }
+  .cut-cell{padding:4px 6px 5px;gap:3px;}
+  .cut-cell.open{padding:6px 7px;gap:6px;}
+  .cut-cell>.bc-flag{left:5px;}
+  .cut-num b{font-size:12px;}
+  .bc-name{font-size:11px;}
+}
+/* ---- landscape ----
+   44px is the floor and the padding gives, not the target. Measured 45.64px
+   before .bc-side's gap went to 0; it is 44.00 now. */
+@media (max-height:520px) and (orientation:landscape){
+  .cut-cell{min-height:44px;padding:3px 8px 4px;}
+  .cut-cell>.bc-side{gap:0;}
+}
 
 /* ---------- what each room returned (§10 item 7) ----------
    Three rows, three dollar figures, always all three — a room earning nothing
@@ -1201,18 +1428,10 @@ body.pad-on .pad-hint{display:flex;}
   .card{padding:12px 10px;}
   .cov-head,.cov-row{grid-template-columns:42px repeat(4,1fr);gap:3px;}
   .cov-call{font-size:10px;}
-  /* Measured, not derived: 225.00 x 74.50 a cell at 320px with the one-column
-     bay strip (the full walk is above .bay-grid). The gutter still gives here —
-     46px carries "3" over "$340" and nothing more — but the cell no longer
-     needs to: there is one of it per row instead of four. Six tabs also share
-     320px: the labels are 10px and the widest is "Studio", so nothing wraps. */
-  :root{ --bay-gutter:46px; }
-  .bay-cell.wide{padding:6px 7px;gap:6px;}
-  .bc-name{font-size:11px;}
-  .bay-grid{gap:3px;}
-  .bay-head,.bay-row{gap:3px;}
-  .bay-lbl b{font-size:12px;}
-  .bay-lbl i{font-size:10px;}
+  /* The cutaway carries its own 320 rules (gutter 40, mark 20, 11px name) up
+     beside the block it belongs to, so nothing bay-shaped is overridden from
+     down here any more. Six tabs still share 320px: labels are 10px and the
+     widest is "Studio", so nothing wraps. */
   .tab{padding:8px 2px;}
   .slot{padding:9px 5px;min-height:104px;}
   .stat-val{font-size:15px;}
@@ -1259,11 +1478,6 @@ body.pad-on .pad-hint{display:flex;}
   .slot{min-height:96px;padding:8px 5px;}
   .slot-icon{font-size:20px;}
   .card{padding:11px;margin-bottom:9px;}
-  /* The matrix keeps its 44px floor in landscape — the cells are the build and
-     edit control for the whole feature, so the padding gives and the target
-     does not. Six rows of 44 (the whole programme, since rooms no longer add
-     rows of their own) scroll; a 32px row would not be tappable. */
-  .bay-cell{min-height:44px;}
   .bc-ico{font-size:14px;}
   .tab{min-height:46px;padding:5px 4px;}
   .tab-icon{font-size:16px;}
