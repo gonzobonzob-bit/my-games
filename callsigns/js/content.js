@@ -467,7 +467,12 @@ const STR = {
        is this (rented rooms behind the studios, shared by every callsign), and
        how does it work (they bill daily and earn from what the world gives
        them, not from who you put in them). */
-    bayOneLine: 'Six rented rooms behind the studios, shared by every callsign you own. Each bills every morning and earns from what the world gives it to work on.',
+    /* v9 addendum: "one floor per bay" is the four words that keep the drawing
+       and the economy speaking the same language. The cutaway's gutter counts
+       FLOORS and every other string on this tab charges for a BAY; without this
+       clause the player has two nouns and no statement that they are one
+       object. See the cutaway block further down. */
+    bayOneLine: 'Six rented rooms behind the studios, one floor per bay, shared by every callsign you own. Each bills every morning and earns from what the world gives it to work on.',
     baySub: 'Six bays for the whole group, not six per signal. What sits in them works for every callsign in the building.',
     // The thesis of the whole feature, in one line, on the screen where it is
     // about to be got wrong. Everything else here is detail underneath it.
@@ -514,11 +519,33 @@ const STR = {
     roomLbl: 'Room', roomAssign: 'Put a room in this bay', roomOn: 'On {call}',
     roomMove: 'Point it at another signal', roomClear: 'Strip the bay',
     roomDup: 'The building already has one, and one is all it needs — it covers every callsign.',
+    /* THREE TOASTS THAT WERE BUTTON LABELS. ui.js's doBuildRoom/doStripRoom
+       toasted t('roomAssign') and t('roomClear') — "Put a room in this bay" and
+       "Strip the bay" — so the message the player got AFTER stripping a room
+       was an instruction to strip a room. A toast is a receipt: state what
+       happened and what it now costs. Variables: {room} is roomName()/
+       uiRoomTitle(), already escaped by ui.js.
+         roomBuiltMsg    replaces  toast(icon + ' ' + title)
+         roomClearedMsg  replaces  toast(icon + ' ' + t('roomClear'))
+         roomBuildFail   replaces  toast(t('roomAssign')) on the reason codes
+                                   ui.js does not name — buildRoom() can also
+                                   return nostate/station/type/medium/cap. */
+    roomBuiltMsg: '{room} open. Nobody in it yet.',
+    roomClearedMsg: '{room} stripped. The bay is empty and still on lease.',
+    roomBuildFail: 'That room cannot go in this bay.',
     /* Production is the exception and the real cluster's shape: rooms run one
        short of signals, so a group can never produce local spots for everything
        it owns. {max} is stationCount() - 1. */
     roomProdCap: 'Production tops out at {max} rooms — one short of the callsigns you own. Somebody is always waiting on copy.',
-    roomProdCapNone: 'One signal, no production room. There is nothing to share it with yet.',
+    /* HOUSE RULE 1 FIX (v9). This read "One signal, no production room. There
+       is nothing to share it with yet." — and the code does not do that.
+       roomTypeCap() is clamp(max(1, stations-1), 1, MAX_BAYS), so the floor is
+       ONE, not zero: a single-signal group can and should build a production
+       room. ui.js only prints this line when the picker has nothing left to
+       offer, which at one signal means all three rooms are already standing.
+       The old sentence therefore fired exactly when it was false — it told a
+       player who owned a Production Room that they could not have one. */
+    roomProdCapNone: 'One signal, one of each room, and all three are built. The next production room needs a second callsign.',
     roomHead: '{room} — {call}',
     roomPts: '{pts} / {cap} pts',
     // THE readout. Points above the ceiling are worth zero dollars — not fewer
@@ -579,6 +606,52 @@ const STR = {
     // greenWarn lived here and went with the Green Room (v2 §5). It said
     // "seating {name} here adds to {name}'s own load" — true of every seat in
     // the building, which is what seatDiluted and seatNote already say.
+
+    /* ---- the cutaway elevation (DESIGN_PROOF_ROOMS_VISUAL.md §2, §4) ----
+       The Building tab draws the bays as a sliced-open building: floors
+       stacked, bay 1 on the ground, one floor per bay, and a small figure for
+       every seat. These are the only strings that picture needs, and they are
+       short on purpose — the tab was measured at 847 words (CLAUDE.md rule 7)
+       and a drawing that arrives with a paragraph has not replaced anything.
+
+       ONE OBJECT, TWO WORDS, SAID ONCE. A bay is what you buy; a floor is where
+       it is. bayOneLine now names both in the same breath so the gutter can say
+       "Floor 3" over a card headed "Bay × Room" without the player having to
+       work out whether those are two things. Nothing else in this file renames
+       a bay, and no purchase, lease or failure string moves to "floor".
+
+       THE SVG CARRIES NO TEXT. fx.js's marks and figures are drawings with a
+       <title> and nothing else, so every word a screen reader gets about who is
+       in a room comes from here and is rendered by ui.js OUTSIDE the drawing.
+       cutSeatWho is a TEMPLATE — ui.js supplies and escapes {name} off the save;
+       this file never touches a person's name.
+
+       Variables:
+         cutFloor {n}                  cutFloorLease {n},{amt}
+         cutSeatWho {name},{role}      cutSeatsFree {n}
+         cutFloorLbl / cutSeatOpen / cutSeatsFree1 / cutFloorStill /
+           cutFloorBare — no vars                                            */
+    cutFloorLbl: 'Floor',
+    cutFloor: 'Floor {n}',
+    cutFloorLease: 'Floor {n} — {amt}/day',
+    // One occupied seat, in words, because the figure beside it is a drawing.
+    // {role} is roleName()'s output: DJ, Sound Engineer, Sales Agent.
+    cutSeatWho: '{name}, {role}',
+    cutSeatOpen: 'Empty chair',
+    /* Room for one more, said as the lease rather than as an invitation: the
+       bay is already charging for that chair. What it costs to FILL it — a
+       person spread one assignment thinner — is on the rate card in seatNote,
+       and belongs there, not on a 16px figure. Two strings because the file has
+       no pluraliser and one line is not worth building one; same idiom as
+       seatDiluted/seatDiluted1 above. */
+    cutSeatsFree1: 'One chair free. The bay bills the same either way.',
+    cutSeatsFree: '{n} chairs free. The bay bills the same either way.',
+    // A floor with a room on it and nobody in it. roomEmpty says this on the
+    // rate card; this is the short form for the drawing itself. Use one or the
+    // other on a given surface, never both.
+    cutFloorStill: 'Nobody on this floor. The chairs are paid for and cold.',
+    // A bay with no room in it at all — the state bayEmptyNote prices.
+    cutFloorBare: 'Bare floor. Slab, lights, and a lease.',
 
     briefBayLease: 'Bay leases {amt}/day',
     briefRooms: 'Rooms returned {amt} against {cost} of bay lease.',
@@ -1202,7 +1275,29 @@ function segLocalRange(id){
 
    ROW SHAPE, every field present on every row:
      name, blurb  — stamped from STR.en.room[id] at load, same as SEGMENTS
-     icon         — a category marker, never a reaction
+     icon         — A CATEGORY MARKER FOR TEXT-ONLY SURFACES, AND NOTHING ELSE
+                    AS OF v9. It is no longer the Building tab's picture: the
+                    cutaway (DESIGN_PROOF_ROOMS_VISUAL.md §3) draws each room as
+                    an inline SVG from fx.js's roomMark(type), keyed on the id
+                    already on this row, so no new field is needed and none was
+                    added.
+                    THE FIELD COULD NOT BE DELETED, and the reason is measured
+                    rather than aesthetic. uiRoomIcon() in ui.js has eight
+                    callers; three of them (js/ui.js doBuildRoom, doStripRoom
+                    and the roomTrafficStale warning) go through toast(), which
+                    sets el.textContent — markup is impossible there, so an SVG
+                    string would render as literal angle brackets. A fourth is
+                    the Daily Brief's yield chip, and the brief is explicitly
+                    OUT of this pass (visual canon §3: the ~57 remaining emoji
+                    are their own sweep). Deleting the field would have
+                    collapsed all three rooms to uiRoomIcon()'s '🏢' fallback in
+                    four places at once, which is three rooms wearing one glyph
+                    on the screen that reports what each of them earned.
+                    So: never render this on the Building tab's floors, cells,
+                    rate-card art or room picker — those take roomMark(). It
+                    survives for toasts and the brief until the emoji sweep
+                    takes the whole set together. Known collision for that
+                    sweep: rack's 🔧 is also ROLES.eng.icon.
      serves       — which media this room can be built for. sim.js joins it
                     against segmentOf(st.segment).medium and NOTHING branches on
                     the literal string 'radio'. This is the first consumer the
@@ -1266,6 +1361,9 @@ function segLocalRange(id){
    day a ceiling learns what the player earns, the game is solved — the Purr &
    Power self-reference trap CLAUDE.md rule 1 exists to prevent. */
 const ROOM_TYPES = {
+  /* `icon` on these three rows is a TOAST-AND-BRIEF FALLBACK as of v9, not the
+     Building tab's mark — see the row-shape note above. The tab's picture is
+     fx.js's roomMark('rack'|'prod'|'traffic'), keyed on the id below. */
   /* THE FITS ARE WHAT MAKE THE DECISION FLIP, and they are the reason this table
      is worth having at all. Production and Traffic are near-mirrors on the two
      roles the hiring stream actually hands out: a spare DJ is worth 0.85 in

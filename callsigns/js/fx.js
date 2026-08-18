@@ -1183,3 +1183,284 @@ function sfxBankrupt(){
   fxFlash('bust');
   fxHaptic([60, 80, 60, 80, 160]);
 }
+
+/* ===================================================================
+   THE CUTAWAY MARK SET — canon DESIGN_PROOF_ROOMS_VISUAL.md §3 and §4,
+   seam INTEGRATION_ROOMS_VISUAL.md. Three exported builders, all pure,
+   all returning an SVG STRING:
+
+     roomMark(type)           'rack'|'prod'|'traffic'   22x22 viewBox
+     roleFigure(role, state)  'dj'|'eng'|'sales'        16x22 viewBox
+     ghostSeat()                                        16x22 viewBox
+
+   These three are DELIBERATELY not fx-prefixed — the seam names them, and
+   ui.js calls them through the `typeof roomMark === 'function'` bridge. They
+   are `function` declarations, which redeclare harmlessly in the shared
+   top-level scope; every helper and table below IS fx-prefixed, per the note
+   at the head of this file.
+
+   FIVE CONSTRAINTS, all of which will get the art rejected if broken:
+
+   1. currentColor ONLY. Not one hex anywhere below. The cell decides the hue
+      (green working / amber idle / red over / grey zeroed) and the mark
+      inherits it, so the four cell states keep painting the picture for free
+      and this file never has to know what they are.
+   2. NO id attribute anywhere. Six floors is six copies of this exact markup;
+      duplicate ids are invalid and would break any <use> on the page.
+   3. NO width/height attribute. The viewBox carries the aspect; CSS carries
+      the size. A hardcoded width would fight the integrator's rules and win.
+   4. NOTHING off the save is ever interpolated in. Every string below is a
+      literal in a frozen table. Person names, room names and money all live
+      OUTSIDE the SVG, in ui.js, where they are escaped.
+   5. An unknown type or role returns a NEUTRAL mark. Never '', never a throw.
+      An empty string would render a floor that reads as unstaffed, which is a
+      different game state — a missing person must read "somebody is here".
+
+   THE SIZE TEST, which is the one that actually decides this work: these are
+   drawn at 22px and 16px on a 320px phone. Every shape below is at least ~2
+   user units (~2px) in its smallest dimension and every stroke is >= 1.0.
+   Detail finer than that is not conservative, it is invisible — so each mark
+   carries ONE silhouette-breaking feature that survives at thumbnail size and
+   the rest is texture:
+     rack    a squat cabinet ON FEET + two solid dots (the only lit thing)
+     prod    three bare stems with caps at three heights — no enclosure
+     traffic a page with a cut corner and one FAT bar among thin rules
+     dj      a head made WIDE by two ear cups (11.5 units against an
+             8.6 body) — at 1x the cups do not resolve AS headphones, so
+             width, not the object, is what carries the role
+     eng     an arm and tool breaking the line ABOVE the head
+     sales   a hard rectangular panel knocked out of a round body
+     ghost   hollow and dashed where every staffed figure is solid
+   =================================================================== */
+
+/** Titles are literals from this file, never content and never save data —
+    see constraint 4. Escaped anyway, because an unescaped title is exactly the
+    habit that ships an injection the day someone makes this table dynamic. */
+function fxEsc(s){
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* Wrapper attributes shared by every mark. stroke-linecap/linejoin round is
+   not decoration: at 22px a mitred corner on a 1.6 stroke throws a 1px spike
+   that reads as dirt. */
+const FX_SVG_ATTRS =
+  ' xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"' +
+  ' stroke-linecap="round" stroke-linejoin="round" focusable="false"';
+
+/** Builds the wrapper. `hidden` true => aria-hidden (the figures: their floor
+    button already carries the full aria-label, and 18 announced svgs per
+    screen is noise). The <title> stays either way, so hover still explains
+    the picture — canon §3 asks for it on the marks explicitly. */
+function fxSvgWrap(viewBox, extra, title, body, hidden){
+  return '<svg viewBox="' + viewBox + '"' + FX_SVG_ATTRS + extra +
+    (hidden ? ' aria-hidden="true"' : ' role="img"') +
+    '><title>' + fxEsc(title) + '</title>' + body + '</svg>';
+}
+
+/* ---------- §3: the three room marks (22x22) ----------------------
+   The emoji each one buries, and why the replacement is still identifiable
+   as the thing it names:
+
+   🔧 -> rack     a cabinet standing on two feet, three rack units, two
+                  status LEDs. The gear cabinet IS what a rack room is, and
+                  the LEDs are the only lit thing in the room — they are also
+                  the only solid dots in the set. The feet and the squat,
+                  nearly-square body are what keep it off the traffic log:
+                  the first draft was portrait with ruled lines in it and
+                  measured as a second sheet of paper.
+   🎛️ -> prod     three faders at three different heights over a knob row. A
+                  fader bank is the single object that reads as "audio
+                  production" at 22px, and the STAGGER is the tell: level
+                  shapes are what a production desk does. Deliberately has no
+                  enclosing box, so it cannot be confused with the rack.
+   🗂️ -> traffic  a log page with a cut corner, two thin rules, and one slot
+                  filled solid. Traffic is the daily log; the fat bar is the
+                  spot that sold. The cut corner exists purely to keep the
+                  page's silhouette off the rack's rectangle. */
+const FX_ROOM_MARKS = {
+  rack: {
+    title: 'Rack room',
+    sw: '1.6',
+    /* MEASURED FIX, first render: v1 was a tall rounded rectangle with three
+       ruled bars in it, and at 22px on a phone that is a SHEET OF PAPER — it
+       was indistinguishable from the traffic log two rows below it. Two
+       changes, both silhouette: the cabinet went from portrait to nearly
+       square (a page is portrait, a rack is a box), and it stands on two
+       FEET. Nothing else in the set has legs, so the rack is now nameable
+       from its outline with every internal detail thrown away. */
+    body:
+      '<rect x="3.2" y="3" width="15.6" height="14.4" rx="1.4"/>' +
+      '<path d="M6.2 17.4V19.6M15.8 17.4V19.6" stroke-width="1.5"/>' +
+      '<rect x="5.4" y="5.2" width="11.2" height="2.1" rx="0.7" fill="currentColor" stroke="none" opacity=".55"/>' +
+      '<rect x="5.4" y="8.5" width="11.2" height="2.1" rx="0.7" fill="currentColor" stroke="none" opacity=".55"/>' +
+      '<rect x="5.4" y="11.8" width="11.2" height="2.1" rx="0.7" fill="currentColor" stroke="none" opacity=".55"/>' +
+      '<circle cx="6.7" cy="15.4" r="1.05" fill="currentColor" stroke="none"/>' +
+      '<circle cx="9.6" cy="15.4" r="1.05" fill="currentColor" stroke="none"/>'
+  },
+  prod: {
+    title: 'Production desk',
+    sw: '1.6',
+    body:
+      '<path d="M6 3.4V13.4M11 3.4V13.4M16 3.4V13.4" stroke-width="1.25" opacity=".55"/>' +
+      '<rect x="3.6" y="8.9" width="4.8" height="2.5" rx="1.1" fill="currentColor" stroke="none"/>' +
+      '<rect x="8.6" y="4.9" width="4.8" height="2.5" rx="1.1" fill="currentColor" stroke="none"/>' +
+      '<rect x="13.6" y="7.1" width="4.8" height="2.5" rx="1.1" fill="currentColor" stroke="none"/>' +
+      '<circle cx="6" cy="17.8" r="1.6" stroke-width="1.2"/>' +
+      '<circle cx="11" cy="17.8" r="1.6" stroke-width="1.2"/>' +
+      '<circle cx="16" cy="17.8" r="1.6" stroke-width="1.2"/>'
+  },
+  traffic: {
+    title: 'Traffic log',
+    sw: '1.6',
+    body:
+      '<path d="M4.6 2.4H13.3L17.6 6.7V19.6H4.6Z"/>' +
+      '<path d="M13.3 2.4V6.7H17.6" stroke-width="1.3" opacity=".6"/>' +
+      '<path d="M7.1 9.7H14.6" stroke-width="1.1" opacity=".45"/>' +
+      '<path d="M7.1 16.7H14.6" stroke-width="1.1" opacity=".45"/>' +
+      '<rect x="6.9" y="12" width="8.4" height="2.9" rx="0.8" fill="currentColor" stroke="none"/>'
+  },
+  /* Constraint 5. A room whose type this file has never heard of is still a
+     room the player bought, so it gets a room: four walls and a doorway. */
+  _neutral: {
+    title: 'Room',
+    sw: '1.6',
+    body:
+      '<rect x="3.8" y="4.4" width="14.4" height="14.6" rx="2"/>' +
+      '<rect x="9.3" y="11.4" width="3.4" height="7.6" rx="0.6" fill="currentColor" stroke="none" opacity=".7"/>'
+  }
+};
+
+/** roomMark(type) -> SVG string, 22x22 viewBox, currentColor, no id, no size.
+    Seam: `typeof roomMark === 'function' ? roomMark(t) : ''`. */
+function roomMark(type){
+  const m = (type && Object.prototype.hasOwnProperty.call(FX_ROOM_MARKS, type) && type !== '_neutral')
+    ? FX_ROOM_MARKS[type] : FX_ROOM_MARKS._neutral;
+  return fxSvgWrap('0 0 22 22', ' stroke-width="' + m.sw + '"', m.title, m.body, false);
+}
+
+/* ---------- §4: the person in the cell (16x22) --------------------
+   One body, three roles, two poses. The body is shared on purpose: a seat is
+   a seat, and if the silhouettes differed at the waist as well as at the head
+   the cluster would read as three species rather than three jobs.
+
+   Feet sit on y=21 so the figure stands ON the slab (which is a border, not
+   an element) with a unit to spare. Solid fill, not outline: a 1px outline of
+   a person at 16px is a smudge; a solid one is a person. */
+const FX_FIG_HEAD  = '<circle cx="8" cy="5.2" r="3" fill="currentColor" stroke="none"/>';
+const FX_FIG_TORSO = '<path d="M8 8.6c-2.7 0-4.3 1.8-4.3 4.4V21h8.6v-8c0-2.6-1.6-4.4-4.3-4.4Z" fill="currentColor" stroke="none"/>';
+
+/* SALES' TORSO IS DIFFERENT, and this is the one genuinely tricky bit of
+   geometry in the file. Everything here is one colour, so a clipboard drawn
+   ON a body is invisible — same fill, no edge. There is no background colour
+   available to draw a gap with (constraint 1) and no mask available to cut
+   one with (constraint 2, masks need ids). So the body and the board are ONE
+   path with fill-rule="evenodd" and three subpaths: body, a slightly larger
+   "gap" rectangle, and the board inside it. Crossing counts do the rest —
+   1 = body, 2 = gap (knocked out, background shows through), 3 = board. That
+   yields a hard rectangular panel floating in a 1px moat on a round body,
+   which is the only shape in the set with a straight edge and reads at 16px.
+   The gap rect must stay ENTIRELY inside the body outline or the arithmetic
+   inverts and the board turns into a hole. */
+const FX_FIG_TORSO_BOARD =
+  '<path fill-rule="evenodd" fill="currentColor" stroke="none" d="' +
+    'M8 8.6c-2.7 0-4.3 1.8-4.3 4.4V21h8.6v-8c0-2.6-1.6-4.4-4.3-4.4Z' +
+    'M4.6 13H11.6V19.8H4.6Z' +
+    'M5.6 14H10.6V18.8H5.6Z"/>';
+
+/* Role parts. `work` and `still` differ ONLY in the free arm — canon §5 is
+   explicit that a pose may never be the sole carrier of a game state, so the
+   role reads identically in both and only the limb moves. */
+const FX_ROLE_FIGS = {
+  /* dj — headphones and a mic in front of the face. The tell is WIDTH: two
+     solid ear cups make the head 10.8 units across against an 8.6 body, so a
+     dj is the seat whose head is wider than its shoulders. Working pose puts
+     a hand up ON the right cup (the monitoring pose) — note it stops at the
+     cup and never breaks the top line, which is what keeps it off the eng. */
+  dj: {
+    title: 'DJ',
+    torso: FX_FIG_TORSO,
+    base:
+      '<path d="M4.5 5a3.5 3.5 0 0 1 7 0" stroke-width="1.3"/>' +
+      '<rect x="2.3" y="3.4" width="2.9" height="4.4" rx="1" fill="currentColor" stroke="none"/>' +
+      '<rect x="10.8" y="3.4" width="2.9" height="4.4" rx="1" fill="currentColor" stroke="none"/>' +
+      '<path d="M3.75 7.9 4.7 8.9" stroke-width="1.1"/>' +
+      '<circle cx="4.9" cy="9.1" r="1.05" fill="currentColor" stroke="none"/>',
+    work:  '<path d="M11.7 12.4 13 8.2" stroke-width="2.2"/>',
+    still: '<path d="M12.1 12.4 13.1 16.6" stroke-width="2"/>'
+  },
+  /* eng — cap and a raised hand tool. The tell is HEIGHT: the arm and the
+     tool are the only things in the set that break the line above the head,
+     so an engineer is the seat that is taller than the others. The brim is
+     asymmetric (1.3 left, 2.7 right) so it reads as a cap and not a hard hat
+     — at 16px that difference is one pixel, which is why the arm carries the
+     role and the brim only confirms it. */
+  eng: {
+    title: 'Engineer',
+    torso: FX_FIG_TORSO,
+    base: '<rect x="4.2" y="2.9" width="9" height="1.75" rx="0.85" fill="currentColor" stroke="none"/>',
+    /* MEASURED FIX, first render: v1 raised the arm diagonally and laid the
+       tool along roughly the same diagonal, and the two strokes plus the
+       shoulder closed a solid triangle — at 16px the engineer was a FLAG ON A
+       POLE, not a person. The arm is now near-vertical (no triangle to close)
+       and the tool is a T across the top of it, held clear of the head by
+       ~1.9 units so the gap survives the rasteriser. */
+    work:
+      '<path d="M11.6 12.3 12.9 6.9" stroke-width="2.1"/>' +
+      '<path d="M13.1 7 13.1 3.2" stroke-width="1.6"/>' +
+      '<path d="M11.9 3 14.3 3" stroke-width="1.6"/>',
+    still:
+      '<path d="M12.2 12.6 13.2 16.2" stroke-width="2"/>' +
+      '<path d="M13.3 16.5 13.3 19.4" stroke-width="1.5"/>'
+  },
+  /* sales — a headset and a clipboard. The tell is the STRAIGHT EDGE: the
+     knocked-out panel is the only rectangle on any body. The headset is one
+     pod, not two, which is the whole difference from the dj at the head — a
+     deliberately weak signal, because the board is doing the work. */
+  sales: {
+    title: 'Sales',
+    torso: FX_FIG_TORSO_BOARD,
+    base:
+      '<path d="M4.7 5.1a3.3 3.3 0 0 1 6.6 0" stroke-width="1.05"/>' +
+      '<rect x="10.7" y="4" width="2.3" height="3.2" rx="0.95" fill="currentColor" stroke="none"/>' +
+      '<path d="M11.4 7.2q-0.5 1.3-1.4 1.7" stroke-width="1"/>',
+    work:  '<path d="M12 12.7 13.5 9.6" stroke-width="2"/>',
+    still: '<path d="M12.2 12.7 13.3 16.6" stroke-width="2"/>'
+  },
+  /* Constraint 5 again, and the one that matters most: a role this file does
+     not recognise is still a BODY IN A SEAT. Returning '' here would draw an
+     empty floor, and empty is a different, worse, and wrong game state. */
+  _neutral: {
+    title: 'Staff',
+    torso: FX_FIG_TORSO,
+    base: '',
+    work: '',
+    still: ''
+  }
+};
+
+/** roleFigure(role, state) -> SVG string, 16x22 viewBox.
+    `state` is 'work' | 'still' and selects the POSE only. Anything other than
+    'still' is treated as 'work', because canon §5 says a reduced-motion
+    figure holds its WORKING pose — the safe default is the busy one. */
+function roleFigure(role, state){
+  const f = (role && Object.prototype.hasOwnProperty.call(FX_ROLE_FIGS, role) && role !== '_neutral')
+    ? FX_ROLE_FIGS[role] : FX_ROLE_FIGS._neutral;
+  const arm = state === 'still' ? f.still : f.work;
+  return fxSvgWrap('0 0 16 22', ' stroke-width="1.4"', f.title,
+    f.torso + FX_FIG_HEAD + f.base + arm, true);
+}
+
+/** ghostSeat() -> SVG string, 16x22 viewBox. The empty seat is an ABSENCE
+    drawn as a presence: same stance, same footprint, hollow and dashed. It is
+    structurally impossible to mistake for a staffed figure at any size —
+    every filled seat is a solid mass and this one has a hole in it — so
+    "this floor has room for one more" is legible without opening the rate
+    card, which is the rule-7 half of the pass. It never animates. */
+function ghostSeat(){
+  return fxSvgWrap('0 0 16 22',
+    ' stroke-width="1.2" stroke-dasharray="2.3 2.1"', 'Empty seat',
+    '<circle cx="8" cy="5.2" r="2.7"/>' +
+    '<path d="M8 8.9c-2.5 0-4 1.7-4 4.1V20.6h8V13c0-2.4-1.5-4.1-4-4.1Z"/>',
+    true);
+}
