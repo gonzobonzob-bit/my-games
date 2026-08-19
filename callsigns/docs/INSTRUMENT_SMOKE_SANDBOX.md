@@ -78,6 +78,24 @@ Use the real suites. They work.
   longer a *substitute* for smoke, and nothing should be described as
   "harness-verified only" on the grounds that smoke cannot run here.
 
+## The harness baseline, so nobody mistakes it for a regression
+
+`tests/harness.mjs` ends **26 passed, 4 failed**, and it is supposed to. All
+four are design gates recorded as failures on purpose, not breakage:
+
+| gate | what it says | status |
+|---|---|---|
+| `R3(a)` / `R3(b)` | which room is better does not reverse with who is spare | known — "allowed to fail", `RESEARCH_MOGUL_LADDER.md` |
+| `VT-1(a)` / `VT-1(e)` | reading state cannot beat never-tracking by the 5% bar | known — `BALANCE_VOICETRACK.md`, awaiting the owner's call on three ways forward (`7a0eab8`) |
+
+The gates that would catch a real economic regression all pass: LOSABLE both
+ways, WINNABLE both ways, the policy spread, and no page errors in any run.
+**So "4 failed" is the expected result — compare failures by NAME, never by
+count.** Verified 2026-08-18 immediately after the bay-identity change, which is
+economically neutral by construction: `bayLeaseTotal()` sums `bayLease(i)` over
+the whole programme regardless of which floors are occupied, so moving a room
+between bays cannot move a dollar.
+
 ## The lesson worth keeping
 
 **A suite that prints nothing has not failed, it has stalled — and before
