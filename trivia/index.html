@@ -3126,7 +3126,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       choiceInput.placeholder = T('answerN').replace('#', c + 1);
       choiceInput.value = q.choices[c];
       choiceInput.maxLength = 120;
-      (function (idx) { on(choiceInput, 'input', function () { q.choices[idx] = choiceInput.value; }); })(c);
+      // `this`, not the outer `choiceInput` — that var is shared across all
+      // four iterations of this loop, so by the time any 'input' event
+      // actually fires it has already moved on to the LAST choice input
+      // created. Every handler was silently reading and writing based on
+      // whichever field was created last, not the one the user actually
+      // typed into — the saved question, choice 4 would stick everywhere.
+      (function (idx) { on(choiceInput, 'input', function () { q.choices[idx] = this.value; }); })(c);
       choiceWrap.appendChild(choiceInput);
       row.appendChild(choiceWrap);
     }

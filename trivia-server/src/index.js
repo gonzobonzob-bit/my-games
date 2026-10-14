@@ -42,8 +42,17 @@ const MIN_PLAYERS = 1;
 // cannot be used as free fan-out infrastructure.
 const MAX_SPECTATORS = 20;
 
-const QUESTION_COUNT = 10;
+const QUESTION_COUNT = 10; // classic mode only — teams mode derives its own total below
 const QUESTION_MS = 20_000;
+
+// Teams mode only (host-run events): the host picks both numbers, total
+// questions is just their product. Defaults (1 round of 10) reproduce
+// exactly what a teams-mode game did before this setting existed, so an
+// unconfigured room behaves the same as always.
+const ROUNDS_MIN = 1;
+const ROUNDS_MAX = 10;
+const QUESTIONS_PER_ROUND_MIN = 1;
+const QUESTIONS_PER_ROUND_MAX = 30;
 /* Reveal → next question, measured from the reveal broadcast — including the
  * early reveal when everyone has locked in, which is why solo stays brisk.
  * Six seconds: long enough to read the answer and watch the scores move, not
@@ -558,6 +567,15 @@ export class Room {
       // same four options written twice — so the invariant is untouched.
       // Still built field by field, like everything else in here.
       i18n: q.i18n ? { es: { text: q.i18n.es.text, choices: q.i18n.es.choices.slice() } } : undefined,
+      // Teams mode only. Classic mode has no round concept, so this stays
+      // undefined there and JSON.stringify drops it, same pattern as `teams`
+      // on the welcome message above.
+      round: g.settings.mode === 'teams'
+        ? Math.floor(g.qIndex / g.settings.questionsPerRound) + 1 : undefined,
+      roundTotal: g.settings.mode === 'teams' ? g.settings.rounds : undefined,
+      roundIndex: g.settings.mode === 'teams'
+        ? (g.qIndex % g.settings.questionsPerRound) : undefined,
+      roundSize: g.settings.mode === 'teams' ? g.settings.questionsPerRound : undefined,
     };
   }
 
@@ -912,11 +930,40 @@ export class Room {
             message: 'add at least one question before starting',
           });
         }
+        // Untouched rounds/questionsPerRound (still at their defaults) means
+        // the host never asked for a particular shape — play everything
+        // authored, in one round, exactly like before this setting existed.
+        // Only once the host actually sets a number does rounds x
+        // questionsPerRound become a real requirement to meet.
+        const usingDefaults = snap.rounds === DEFAULT_SETTINGS.rounds &&
+          snap.questionsPerRound === DEFAULT_SETTINGS.questionsPerRound;
+        const need = usingDefaults ? g.customQuestions.length : snap.rounds * snap.questionsPerRound;
+        if (g.customQuestions.length < need) {
+          return this.send(ws, {
+            type: 'error',
+            code: 'notEnoughCustom',
+            count: need,
+            message: `${snap.rounds} round(s) of ${snap.questionsPerRound} needs ${need} questions — ` +
+                     `only ${g.customQuestions.length} saved. Add more, or lower rounds/questions per round.`,
+          });
+        }
+        // When falling back to "whatever was authored," also make that the
+        // EFFECTIVE round shape — otherwise round-boundary math downstream
+        // (doReveal/questionMessage) keeps reading the literal default
+        // (questionsPerRound=10) and would insert a spurious "round 2"
+        // label partway through an unconfigured 15-question quiz.
+        if (usingDefaults) {
+          g.settings.questionsPerRound = need;
+          g.settings.rounds = 1;
+        }
         for (const t of g.teams) t.score = 0;
         for (const p of Object.values(g.players)) p.score = 0;
         // Round order is reshuffled per game; each question's own answer
         // positions were already fixed at authoring time in onQuestions().
-        g.questions = shuffle(g.customQuestions);
+        // Sliced to exactly what rounds x questionsPerRound asks for, same
+        // as the genre path below — a saved quiz can be bigger than any one
+        // game needs without every question getting used every time.
+        g.questions = shuffle(g.customQuestions).slice(0, need);
         g.answers = {};
         g.lastReveal = null;
         await this.save();
@@ -946,12 +993,17 @@ export class Room {
       });
     }
 
+    // Classic mode's flat QUESTION_COUNT; teams mode is rounds x
+    // questionsPerRound, the host's own numbers, defaulting to the same 10.
+    const targetCount = snap.mode === 'teams'
+      ? snap.rounds * snap.questionsPerRound : QUESTION_COUNT;
+
     g.loadingAt = Date.now();
     await this.save();
 
     let loaded;
     try {
-      loaded = await this.loadQuestions(snap, new Set(g.recentTexts || []), bilingual);
+      loaded = await this.loadQuestions(snap, new Set(g.recentTexts || []), bilingual, targetCount);
     } catch (err) {
       // Refusing is the correct outcome, not an error to paper over: the one
       // thing worse than not starting is starting with the wrong genre. The
@@ -961,9 +1013,9 @@ export class Room {
       await this.save();
       return this.send(ws, {
         type: 'error',
-        code: 'noQuestions', genre: GENRES[snap.genre].label, count: QUESTION_COUNT,
-        message: 'Could not find ' + QUESTION_COUNT + ' ' + GENRES[snap.genre].label +
-                 ' questions right now. Try another genre, or Mixed.',
+        code: 'noQuestions', genre: GENRES[snap.genre].label, count: targetCount,
+        message: 'Could not find ' + targetCount + ' ' + GENRES[snap.genre].label +
+                 ' questions right now. Try another genre, Mixed, or fewer rounds/questions per round.',
       });
     } finally {
       g.loadingAt = 0;
@@ -1180,9 +1232,19 @@ export class Room {
       // phase === 'reveal' and hostId, unchanged). Classic mode keeps the
       // self-advancing behavior below exactly as it was.
       g.nextAt = 0;
+      // isRoundEnd: true when this was the last question of its round (but
+      // not necessarily the last of the game — that's isGameEnd, which the
+      // 'final' phase/message already covers separately). Lets the client
+      // say "Round 2 complete" / "Start round 3" instead of generic copy.
+      const roundSize = g.settings.questionsPerRound;
+      const isRoundEnd = (g.qIndex + 1) % roundSize === 0;
+      const isGameEnd = g.qIndex + 1 >= g.questions.length;
       g.lastReveal = {
         type: 'reveal', mode: 'teams', correctIndex: q.correctIndex, perTeam, scores,
         nextAt: 0,
+        round: Math.floor(g.qIndex / roundSize) + 1,
+        roundTotal: g.settings.rounds,
+        isRoundEnd: isRoundEnd && !isGameEnd,
       };
       await this.save();
       await this.ctx.storage.deleteAlarm();
@@ -1376,7 +1438,7 @@ export class Room {
    * returning seven usable questions used to be topped up with three generic
    * ones. Nobody was ever told.
    */
-  async loadQuestions(settings, recent, bilingual) {
+  async loadQuestions(settings, recent, bilingual, count = QUESTION_COUNT) {
     const pack = settings.genre === 'mixed' ? FALLBACK_PACK : (PACKS[settings.genre] || []);
     let questions = [];
 
@@ -1389,18 +1451,18 @@ export class Room {
       const seen = new Set();
       for (const avoidRecent of [true, false]) {
         for (const s of shuffle(es)) {
-          if (questions.length >= QUESTION_COUNT) break;
+          if (questions.length >= count) break;
           if (seen.has(s.text)) continue;
           if (avoidRecent && recent && recent.has(s.text)) continue;
           seen.add(s.text);
           questions.push(buildQuestion(s));
         }
-        if (questions.length >= QUESTION_COUNT) break;
+        if (questions.length >= count) break;
       }
-      if (questions.length < QUESTION_COUNT) {
+      if (questions.length < count) {
         throw new Error('short bilingual pack for ' + settings.genre);
       }
-      return { questions: questions.slice(0, QUESTION_COUNT), offline: true, bilingual: true };
+      return { questions: questions.slice(0, count), offline: true, bilingual: true };
     }
 
     try {
@@ -1408,7 +1470,7 @@ export class Room {
       const timer = setTimeout(() => ctrl.abort(), OPENTDB_TIMEOUT_MS);
       let res;
       try {
-        res = await fetch(openTdbUrl(settings, QUESTION_COUNT), {
+        res = await fetch(openTdbUrl(settings, count), {
           signal: ctrl.signal,
           headers: { accept: 'application/json' },
         });
@@ -1444,24 +1506,24 @@ export class Room {
       // recency filter be the reason a game cannot start.
       for (const avoidRecent of [true, false]) {
         for (const src of shuffle(pack)) {
-          if (questions.length >= QUESTION_COUNT) break;
+          if (questions.length >= count) break;
           if (seen.has(src.text)) continue;
           if (want && src.difficulty !== want) continue;
           if (avoidRecent && recent && recent.has(src.text)) continue;
           seen.add(src.text);
           questions.push(buildQuestion(src));
         }
-        if (questions.length >= QUESTION_COUNT) break;
+        if (questions.length >= count) break;
       }
-      if (questions.length >= QUESTION_COUNT) break;
+      if (questions.length >= count) break;
     }
 
-    if (questions.length < QUESTION_COUNT) {
+    if (questions.length < count) {
       // Thrown BEFORE any game state is mutated, so the room stays in lobby.
       throw new Error('short pack for genre ' + settings.genre);
     }
 
-    return { questions: questions.slice(0, QUESTION_COUNT), offline: live === 0, bilingual: false };
+    return { questions: questions.slice(0, count), offline: live === 0, bilingual: false };
   }
 }
 
@@ -1804,7 +1866,10 @@ const LANGS = ['en', 'es'];
 function sanitizeLang(raw) {
   return typeof raw === 'string' && LANGS.includes(raw) ? raw : 'en';
 }
-const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre' };
+const DEFAULT_SETTINGS = {
+  genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre',
+  rounds: 1, questionsPerRound: QUESTION_COUNT,
+};
 const MODES = ['classic', 'teams'];
 const SOURCES = ['genre', 'custom'];
 
@@ -1825,6 +1890,8 @@ function sanitizeSettings(raw) {
     difficulty: DEFAULT_SETTINGS.difficulty,
     mode: DEFAULT_SETTINGS.mode,
     source: DEFAULT_SETTINGS.source,
+    rounds: DEFAULT_SETTINGS.rounds,
+    questionsPerRound: DEFAULT_SETTINGS.questionsPerRound,
   };
   if (!raw || typeof raw !== 'object') return out;
   if (typeof raw.genre === 'string' &&
@@ -1840,10 +1907,24 @@ function sanitizeSettings(raw) {
   if (typeof raw.source === 'string' && SOURCES.includes(raw.source)) {
     out.source = raw.source;
   }
+  if (Number.isInteger(raw.rounds)) {
+    out.rounds = Math.min(ROUNDS_MAX, Math.max(ROUNDS_MIN, raw.rounds));
+  }
+  if (Number.isInteger(raw.questionsPerRound)) {
+    out.questionsPerRound = Math.min(QUESTIONS_PER_ROUND_MAX,
+      Math.max(QUESTIONS_PER_ROUND_MIN, raw.questionsPerRound));
+  }
   // Custom questions only exist to serve teams mode in this phase — a
   // classic room has no quiz-authoring UI and no reason to skip the genre
   // promise, so it is pinned to 'genre' no matter what arrives on the wire.
-  if (out.mode !== 'teams') out.source = 'genre';
+  // Rounds/questionsPerRound are teams-only for the same reason classic
+  // mode never asked for this — pinned to the defaults that reproduce its
+  // existing flat 10-question game exactly.
+  if (out.mode !== 'teams') {
+    out.source = 'genre';
+    out.rounds = DEFAULT_SETTINGS.rounds;
+    out.questionsPerRound = DEFAULT_SETTINGS.questionsPerRound;
+  }
   return out;
 }
 
