@@ -78,7 +78,7 @@ const LOADING_STALE_MS = 15_000;
 // that team's leader; see onAnswer/doReveal below for how THE INVARIANT
 // (never reveal correctness before the reveal) generalises from player to
 // team.
-const TEAM_COUNT_MIN = 2;
+const TEAM_COUNT_MIN = 1; // TEMP for testing — put back to 2 once done (owner's explicit request)
 const TEAM_COUNT_MAX = 20;
 // No minimum — a team of one is still a team, and a captain-only "team" is
 // how a late-arriving teammate-less player plays teams mode at all. Only a
@@ -297,7 +297,11 @@ export class Room {
     // currently holds it — that is the whole point of it existing. Otherwise:
     // first player in is host, which also covers the case where the stored
     // host is no longer a player at all.
-    const presentedToken = url.searchParams.get('hostToken');
+    // Lowercased on both sides — the code is three plain words now, and a
+    // person retyping "Tiger-Lamp-Maple" from memory or a photo of a phone
+    // screen shouldn't be refused over capitalization that was never the
+    // point of the code in the first place.
+    const presentedToken = (url.searchParams.get('hostToken') || '').toLowerCase();
     const reclaimsHost = Boolean(presentedToken) && presentedToken === g.hostToken;
     if (reclaimsHost || !g.hostId || !g.players[g.hostId]) g.hostId = player.id;
 
@@ -493,13 +497,23 @@ export class Room {
   pruneDisconnected() {
     const g = this.game;
     const connected = this.connectedPids();
+    const staticHost = g.settings.mode === 'teams';
     for (const pid of Object.keys(g.players)) {
-      if (!connected.has(pid)) {
-        this.leaveTeam(pid); // lobby-only cleanup: forget the seat entirely
-        delete g.players[pid];
-      }
+      if (connected.has(pid)) continue;
+      // The host's seat is static in teams mode — see webSocketClose for the
+      // same rule at disconnect time. Without this exemption, a host who
+      // merely stepped away from the lobby (not even mid-game) would have
+      // their player record deleted outright by the very next person who
+      // connects, g.hostId would null out below, and the NEXT connection of
+      // any kind — not even necessarily the host's own reconnect — would
+      // inherit the seat. The recovery token exists precisely so only the
+      // real host gets it back; this closes the gap that let it happen
+      // without one.
+      if (staticHost && pid === g.hostId) continue;
+      this.leaveTeam(pid); // lobby-only cleanup: forget the seat entirely
+      delete g.players[pid];
     }
-    if (!g.players[g.hostId]) g.hostId = null;
+    if (!staticHost && !g.players[g.hostId]) g.hostId = null;
   }
 
   /* Full departure from a team: lobby-only (team-switching, or a player
@@ -633,6 +647,10 @@ export class Room {
           return await this.onJoinTeam(ws, me, data);
         case 'renameTeam':
           return await this.onRenameTeam(ws, me, data);
+        case 'addTeam':
+          return await this.onAddTeam(ws, me);
+        case 'removeTeam':
+          return await this.onRemoveTeam(ws, me, data);
         case 'questions':
           return await this.onQuestions(ws, me, data);
         case 'start':
@@ -812,6 +830,76 @@ export class Room {
       return this.send(ws, { type: 'error', code: 'teamNameRequired', message: 'team name cannot be empty' });
     }
     team.name = name;
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* Host-only, teams mode only, lobby only — adding/removing teams mid-game
+     would strand whichever team lost its seat mid-question, and that is a
+     different, harder problem than this solves. This is specifically for
+     the "set it up now, run it later" case: the host builds up teams one
+     at a time, each staying exactly as named once added, unlike teamSetup
+     (which replaces the whole roster and is really a bulk FIRST-pass tool,
+     not an edit). Named teams and existing membership are never touched by
+     adding one more. */
+  async onAddTeam(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', code: 'hostOnlyTeams', message: 'only the host can add a team' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', code: 'alreadyStarted', message: 'the game has already started' });
+    }
+    if (g.settings.mode !== 'teams') {
+      return this.send(ws, { type: 'error', code: 'switchToTeams', message: 'switch to teams mode first' });
+    }
+    if (g.teams.length >= TEAM_COUNT_MAX) {
+      return this.send(ws, {
+        type: 'error', code: 'teamCountMax', count: TEAM_COUNT_MAX,
+        message: `${TEAM_COUNT_MAX} teams is the most this room supports`,
+      });
+    }
+    g.teams.push({
+      id: crypto.randomUUID(),
+      name: `Team ${g.teams.length + 1}`,
+      leaderId: null,
+      memberIds: [],
+      score: 0,
+    });
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* The flip side of onAddTeam — same host/phase/mode gating, same promise
+     that every OTHER team's name and membership is untouched. Removing a
+     team sends its members back to the unassigned pool rather than
+     deleting them from the room; they just need to pick a different team,
+     same as if their team had never existed. */
+  async onRemoveTeam(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', code: 'hostOnlyTeams', message: 'only the host can remove a team' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', code: 'alreadyStarted', message: 'the game has already started' });
+    }
+    if (g.settings.mode !== 'teams') {
+      return this.send(ws, { type: 'error', code: 'switchToTeams', message: 'switch to teams mode first' });
+    }
+    const idx = g.teams.findIndex((t) => t.id === data.teamId);
+    if (idx < 0) {
+      return this.send(ws, { type: 'error', message: 'no such team' });
+    }
+    if (g.teams.length <= TEAM_COUNT_MIN) {
+      return this.send(ws, {
+        type: 'error', code: 'teamCountMin', count: TEAM_COUNT_MIN,
+        message: `at least ${TEAM_COUNT_MIN} team(s) must remain`,
+      });
+    }
+    const [removed] = g.teams.splice(idx, 1);
+    for (const pid of removed.memberIds) {
+      if (g.players[pid]) g.players[pid].teamId = null;
+    }
     await this.save();
     this.broadcastRoster();
   }
@@ -1391,15 +1479,23 @@ export class Room {
     // ability to answer as long as a teammate is still connected.
     if (g.settings.mode === 'teams') this.promoteTeamLeaders(connected);
 
-    // In the lobby a dropped player has nothing worth preserving.
+    // In the lobby a dropped player has nothing worth preserving — EXCEPT
+    // the host's own record in teams mode, same exemption as
+    // pruneDisconnected() above (which runs on the next CONNECT; this is
+    // the mirror of it on DISCONNECT, and for a while only one of the two
+    // actually had the exemption — a host disconnecting in the lobby hit
+    // THIS path, which had no mode check at all, deleted their own record
+    // immediately, and handed the seat to whoever had joined earliest. The
+    // token existing was irrelevant; nobody even needed one.
     if (g.phase === 'lobby') {
+      const staticHost = g.settings.mode === 'teams';
       for (const pid of Object.keys(g.players)) {
-        if (!connected.has(pid)) {
-          this.leaveTeam(pid);
-          delete g.players[pid];
-        }
+        if (connected.has(pid)) continue;
+        if (staticHost && pid === g.hostId) continue;
+        this.leaveTeam(pid);
+        delete g.players[pid];
       }
-      if (!g.players[g.hostId]) {
+      if (!staticHost && !g.players[g.hostId]) {
         const first = Object.values(g.players).sort((a, b) => a.joinedAt - b.joinedAt)[0];
         g.hostId = first ? first.id : null;
       }
@@ -1685,14 +1781,40 @@ function freshGame() {
   };
 }
 
-const HOST_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I
+// Three short, common, unambiguous words beats 16 random characters for the
+// one thing this code actually needs to do: be read aloud, remembered for a
+// minute, or typed on a phone under time pressure at a live event. ~200^3 is
+// plenty of headroom for what this protects (who gets to run one trivia
+// room) — a brute-force attempt has no way to even tell a near-miss from a
+// wrong guess, let alone try millions of them against a live Durable Object.
+const HOST_TOKEN_WORDS = [
+  'ash','bay','bee','bell','bird','blue','boat','bolt','bone','book','boot',
+  'box','branch','bread','brick','bridge','brook','brush','bud','bus','cake',
+  'camp','card','cave','chair','chalk','chart','chess','chip','clay','cliff',
+  'cloud','clover','coal','coast','coin','comet','coral','corn','crab','creek',
+  'crow','cup','dawn','deer','desk','dew','dice','dock','dog','dove','drum',
+  'dune','dust','eagle','echo','elm','ember','fern','field','fin','fire',
+  'fish','flag','flame','flint','fog','fox','frog','frost','gate','gem',
+  'glen','globe','glow','goat','gold','goose','grain','grape','grass','grove',
+  'gull','hall','harp','hawk','hay','haze','heron','hill','hive','holly',
+  'hoof','hook','horn','hut','ice','ink','iris','isle','ivy','jade','jar',
+  'jay','kelp','kettle','kite','lace','lake','lamp','lark','leaf','ledge',
+  'lily','lime','loft','log','loom','lynx','maple','marsh','meadow','mesa',
+  'mint','mist','moon','moss','moth','nest','net','newt','nook','oak','oar',
+  'oat','olive','opal','otter','owl','ox','pail','palm','path','peak','pear',
+  'pebble','perch','pike','pine','plum','pond','pool','poppy','quail','quartz',
+  'quill','rail','rain','raven','reed','reef','ridge','river','robin','rock',
+  'roof','rose','sage','sail','sand','seal','shell','shore','slate','sleet',
+  'slope','snow','spark','spoon','spring','spruce','star','stone','storm','stream',
+  'swan','tern','thorn','tide','toad','torch','trail','trout','tulip','vale',
+  'vine','wave','well','wheat','willow','wind','wolf','wool','wren','yarn',
+];
 function generateHostToken() {
-  const len = 16; // ~81 bits from this alphabet — plenty, and still pasteable
-  const bytes = new Uint32Array(len);
+  const bytes = new Uint32Array(3);
   crypto.getRandomValues(bytes);
-  let out = '';
-  for (let i = 0; i < len; i++) out += HOST_TOKEN_ALPHABET[bytes[i] % HOST_TOKEN_ALPHABET.length];
-  return out;
+  const words = [];
+  for (let i = 0; i < 3; i++) words.push(HOST_TOKEN_WORDS[bytes[i] % HOST_TOKEN_WORDS.length]);
+  return words.join('-');
 }
 
 function sanitizeName(raw) {

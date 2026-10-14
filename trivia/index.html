@@ -1185,6 +1185,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
                font-variant-numeric:tabular-nums lining-nums;
                font-size:clamp(32px,4vw,64px); font-weight:700; color:var(--amber); line-height:1; }
 .podium{ display:flex; flex-direction:column; gap:10px; width:100%; }
+/* 4th place and down: a wrapping grid, not one more long vertical stack.
+   One column on a narrow phone (where two side by side would be illegibly
+   cramped anyway), naturally more as the viewport allows — this is what
+   keeps a 20-team final screen scannable instead of a 17-row scroll. */
+.rest-grid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));
+  gap:10px; width:100%;
+}
+.rest-grid .row{ min-height:60px; padding:0 var(--sp-4); }
+.rest-grid .row-rank{ font-size:20px; }
+.rest-grid .row .avatar{ width:32px; height:32px; font-size:14px; }
 .podium .row{ min-height:64px; }
 .pod-rise{ animation:podIn 520ms var(--ease-out-expo) both; }
 @keyframes podIn{ from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
@@ -1409,8 +1420,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <button type="button" class="chip-btn" id="hostRecoverToggle">Recovering a room you host?</button>
         <div class="field" id="hostRecoverField" hidden>
           <label class="field-label" for="hostTokenInput">Host code</label>
-          <input type="text" id="hostTokenInput" maxlength="24" placeholder="Paste your host code"
-                 autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <input type="text" id="hostTokenInput" maxlength="40" placeholder="Paste your host code"
+                 autocomplete="off" autocapitalize="none" spellcheck="false">
         </div>
         <p class="field-note" id="joinNote">A room is just a link. Share it and people land straight in.</p>
       </form>
@@ -1463,6 +1474,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <span class="team-count-val" id="teamCountVal">2</span>
         <button type="button" class="chip-btn" id="teamCountUp" aria-label="More teams">+</button>
         <button type="button" class="chip-btn" id="teamSetupBtn">Set teams</button>
+      </div>
+      <div class="teams-setup" id="roundsSetup" hidden>
+        <span class="micro">Rounds</span>
+        <button type="button" class="chip-btn" id="roundsDown" aria-label="Fewer rounds">&minus;</button>
+        <span class="team-count-val" id="roundsVal">1</span>
+        <button type="button" class="chip-btn" id="roundsUp" aria-label="More rounds">+</button>
+        <span class="micro">Per round</span>
+        <button type="button" class="chip-btn" id="perRoundDown" aria-label="Fewer questions per round">&minus;</button>
+        <span class="team-count-val" id="perRoundVal">10</span>
+        <button type="button" class="chip-btn" id="perRoundUp" aria-label="More questions per round">+</button>
       </div>
       <div class="teams-picker" id="teamsPicker" hidden></div>
       <div class="quiz-editor" id="quizEditor" hidden>
@@ -1681,7 +1702,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       recoveringHost: 'Recovering a room you host?', hostCode: 'Host code',
       pasteHostCode: 'Paste your host code', copyHostCode: 'Copy host code',
       hostCodeCopied: 'Host code copied — keep it somewhere safe.',
-      ariaHostHint: ', tap to change. Currently ', ariaGuestHint: ': '
+      ariaHostHint: ', tap to change. Currently ', ariaGuestHint: ': ',
+      rounds: 'Rounds', perRound: 'Per round',
+      fewerRounds: 'Fewer rounds', moreRounds: 'More rounds',
+      fewerPerRound: 'Fewer questions per round', morePerRound: 'More questions per round',
+      addTeam: '+ Add team', removeTeamBtn: 'Remove this team',
+      m_teamCountMax: 'That is the most teams this room supports.',
+      m_teamCountMin: 'At least one team must remain.'
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1742,7 +1769,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       recoveringHost: '¿Recuperando una sala que diriges?', hostCode: 'Código de anfitrión',
       pasteHostCode: 'Pega tu código de anfitrión', copyHostCode: 'Copiar código de anfitrión',
       hostCodeCopied: 'Código de anfitrión copiado — guárdalo en un lugar seguro.',
-      ariaHostHint: ', toca para cambiar. Ahora: ', ariaGuestHint: ': '
+      ariaHostHint: ', toca para cambiar. Ahora: ', ariaGuestHint: ': ',
+      rounds: 'Rondas', perRound: 'Por ronda',
+      fewerRounds: 'Menos rondas', moreRounds: 'Más rondas',
+      fewerPerRound: 'Menos preguntas por ronda', morePerRound: 'Más preguntas por ronda',
+      addTeam: '+ Añadir equipo', removeTeamBtn: 'Quitar este equipo',
+      m_teamCountMax: 'Ese es el máximo de equipos que admite esta sala.',
+      m_teamCountMin: 'Debe quedar al menos un equipo.'
     }
   };
 
@@ -1859,7 +1892,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     myTeamId: null,        // derived from players[] on every roster/welcome
     customQuestionCount: 0,// host's saved quiz size, teams+custom only
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
-    settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre' },
+    settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre', rounds: 1, questionsPerRound: 10 },
     catalog: [],           // [{slug,label}] — what the server will actually serve
     difficulties: ['any', 'easy', 'medium', 'hard'],
     starting: false,
@@ -1892,6 +1925,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elTeamsSetup = $('teamsSetup'), elTeamCountDown = $('teamCountDown'),
       elTeamCountUp = $('teamCountUp'), elTeamCountVal = $('teamCountVal'),
       elTeamSetupBtn = $('teamSetupBtn'), elTeamsPicker = $('teamsPicker'),
+      elRoundsSetup = $('roundsSetup'), elRoundsDown = $('roundsDown'),
+      elRoundsUp = $('roundsUp'), elRoundsVal = $('roundsVal'),
+      elPerRoundDown = $('perRoundDown'), elPerRoundUp = $('perRoundUp'),
+      elPerRoundVal = $('perRoundVal'),
       elQuizEditor = $('quizEditor'), elQuizRows = $('quizRows'),
       elQuizAddBtn = $('quizAddBtn'), elQuizSaveBtn = $('quizSaveBtn'), elQuizStatus = $('quizStatus'),
       elQuestion = $('questionText'), elQRule = $('qRule'),
@@ -2191,6 +2228,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (elTeamCountDown) elTeamCountDown.setAttribute('aria-label', T('fewerTeams'));
     if (elTeamCountUp) elTeamCountUp.setAttribute('aria-label', T('moreTeams'));
     set('teamSetupBtn', 'setTeams');
+    var roundsLabels = elRoundsSetup ? elRoundsSetup.querySelectorAll('.micro') : [];
+    if (roundsLabels[0]) roundsLabels[0].textContent = T('rounds');
+    if (roundsLabels[1]) roundsLabels[1].textContent = T('perRound');
+    if (elRoundsDown) elRoundsDown.setAttribute('aria-label', T('fewerRounds'));
+    if (elRoundsUp) elRoundsUp.setAttribute('aria-label', T('moreRounds'));
+    if (elPerRoundDown) elPerRoundDown.setAttribute('aria-label', T('fewerPerRound'));
+    if (elPerRoundUp) elPerRoundUp.setAttribute('aria-label', T('morePerRound'));
     var quizLabel = elQuizEditor && elQuizEditor.querySelector('.micro');
     if (quizLabel) quizLabel.textContent = T('yourQuestions');
     set('quizAddBtn', 'addQuestion');
@@ -2767,6 +2811,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elDiffSlot.hidden = isCustom;
 
     if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost);
+    if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost);
+    if (elRoundsVal) elRoundsVal.textContent = String(state.settings.rounds || 1);
+    if (elPerRoundVal) elPerRoundVal.textContent = String(state.settings.questionsPerRound || 10);
     if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost);
     if (isCustom && state.isHost) renderQuizEditor();
     renderTeamsPicker();
@@ -2791,7 +2838,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       genre: patch.genre !== undefined ? patch.genre : cur.genre,
       difficulty: patch.difficulty !== undefined ? patch.difficulty : cur.difficulty,
       mode: patch.mode !== undefined ? patch.mode : cur.mode,
-      source: patch.source !== undefined ? patch.source : cur.source
+      source: patch.source !== undefined ? patch.source : cur.source,
+      rounds: patch.rounds !== undefined ? patch.rounds : cur.rounds,
+      questionsPerRound: patch.questionsPerRound !== undefined ? patch.questionsPerRound : cur.questionsPerRound
     };
     // Painted immediately so the tap feels like a control rather than a
     // request, but the server's echo is the truth — if it disagrees, its
@@ -2971,7 +3020,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   var pendingTeamCount = 2;
   on(elTeamCountDown, 'click', function () {
-    pendingTeamCount = Math.max(2, pendingTeamCount - 1);
+    pendingTeamCount = Math.max(1, pendingTeamCount - 1); // TEMP for testing — put back to 2 once done
     elTeamCountVal.textContent = String(pendingTeamCount);
   });
   on(elTeamCountUp, 'click', function () {
@@ -2980,6 +3029,26 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   });
   on(elTeamSetupBtn, 'click', function () {
     send({ type: 'teamSetup', count: pendingTeamCount });
+  });
+
+  // Unlike team count (which needs an explicit "Set teams" to actually
+  // reshuffle membership), rounds/questionsPerRound are just settings —
+  // sent immediately on each tap, same as genre/difficulty already are.
+  on(elRoundsDown, 'click', function () {
+    if (!state.isHost) return;
+    sendSettings({ rounds: Math.max(1, (state.settings.rounds || 1) - 1) });
+  });
+  on(elRoundsUp, 'click', function () {
+    if (!state.isHost) return;
+    sendSettings({ rounds: Math.min(10, (state.settings.rounds || 1) + 1) });
+  });
+  on(elPerRoundDown, 'click', function () {
+    if (!state.isHost) return;
+    sendSettings({ questionsPerRound: Math.max(1, (state.settings.questionsPerRound || 10) - 1) });
+  });
+  on(elPerRoundUp, 'click', function () {
+    if (!state.isHost) return;
+    sendSettings({ questionsPerRound: Math.min(30, (state.settings.questionsPerRound || 10) + 1) });
   });
 
   function renderTeamsPicker() {
@@ -2999,6 +3068,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     }
     for (var i = 0; i < state.teams.length; i++) {
       wrap.appendChild(buildTeamCard(state.teams[i]));
+    }
+    if (state.isHost) {
+      var addBtn = mk('button', 'chip-btn team-add-btn');
+      addBtn.type = 'button';
+      addBtn.textContent = T('addTeam');
+      on(addBtn, 'click', function () { send({ type: 'addTeam' }); });
+      wrap.appendChild(addBtn);
     }
   }
 
@@ -3042,6 +3118,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       nmBtn.title = T('renameTeam');
       on(nmBtn, 'click', function () { startTeamRename(head, t, nmBtn); });
       head.appendChild(nmBtn);
+      var rmBtn = mk('button', 'chip-btn team-remove-btn');
+      rmBtn.type = 'button';
+      rmBtn.textContent = '×';
+      rmBtn.title = T('removeTeamBtn');
+      rmBtn.setAttribute('aria-label', T('removeTeamBtn'));
+      on(rmBtn, 'click', function () { send({ type: 'removeTeam', teamId: t.id }); });
+      head.appendChild(rmBtn);
     } else {
       var nm = mk('span', 'team-name');
       nm.textContent = t.name;
@@ -3993,14 +4076,22 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // 1100ms: confetti
     later('seq', function () { confetti(80); }, 1100);
 
-    // 1600ms: the rest of the field
+    // 1600ms: the rest of the field — side by side, not one more long vertical
+    // stack. The podium above (winner, then 2nd/3rd) stays full-width rows;
+    // everyone else shares a wrapping grid, which is what actually keeps a
+    // 20-team final screen scannable instead of a 17-row scroll.
     later('seq', function () {
+      var grid = null;
+      if (st.length > 3) {
+        grid = mk('div', 'rest-grid');
+        elFinalRest.appendChild(grid);
+      }
       for (var i = 3; i < st.length; i++) {
         (function (p, rank, k, n) {
           later('seq', function () {
             var row = smallRow(p, rank, topScore);
             row.classList.add('rest-rise');
-            elFinalRest.appendChild(row);
+            grid.appendChild(row);
             SFX.rowLand(rank, n);
           }, k * 60);
         })(st[i], i + 1, i - 3, st.length);
@@ -4727,7 +4818,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var code = String(elCodeInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
     if (!ROOM_RE.test(code)) { note('A room code is 4 to 6 letters or digits.', true); elCodeInput.focus(); return; }
-    var hostToken = elHostTokenInput ? String(elHostTokenInput.value || '').trim().toUpperCase() : '';
+    // Lowercase, not uppercase: the host code is now three plain words
+    // ("tiger-lamp-maple"), not the old random alphanumeric string, and
+    // forcing a case a person didn't type would just make typos worse.
+    var hostToken = elHostTokenInput ? String(elHostTokenInput.value || '').trim().toLowerCase() : '';
     beginSession(code, name, false, hostToken || null);
   }
 
