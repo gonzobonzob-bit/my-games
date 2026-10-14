@@ -70,10 +70,13 @@ try {
 
   await settle();
   // ---- 2. team setup, join, leader auto-assignment, switching teams -----
+  // Ann is the host throughout this suite now — never a team candidate, so
+  // Bea and Cat are the ones who actually join/lead/switch teams.
   {
     const r = room();
     const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
     const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+    const Cat = new C('Cat', r); await Cat.connect(); await Cat.wait('welcome');
 
     A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
     await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
@@ -84,31 +87,38 @@ try {
     ok(r1.teams[0].name === 'Red' && r1.teams[1].name === 'Blue', 'teamSetup honours the supplied names', r1.teams);
 
     const redId = r1.teams[0].id, blueId = r1.teams[1].id;
-    A.send({ type: 'joinTeam', teamId: redId });
-    const rA = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
-      && m.teams.find((t) => t.id === redId)?.leaderId);
-    const teamRed = rA.teams.find((t) => t.id === redId);
-    ok(teamRed.memberIds.length === 1, 'Ann joined Red', teamRed);
 
-    const annPid = rA.players.find((p) => p.name === 'Ann').id;
-    ok(teamRed.leaderId === annPid, 'first member of a team becomes its leader');
+    // The host moderates — trying to join is refused outright, not silently
+    // ignored, and nobody's membership changes because of it.
+    A.send({ type: 'joinTeam', teamId: redId });
+    const hostErr = await A.wait('error', 4000);
+    ok(hostErr.code === 'hostNoTeam', 'the host is refused when trying to join a team', hostErr);
 
     B.send({ type: 'joinTeam', teamId: redId });
-    const rB = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
+    const rA = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
+      && m.teams.find((t) => t.id === redId)?.leaderId);
+    const teamRed = rA.teams.find((t) => t.id === redId);
+    ok(teamRed.memberIds.length === 1, 'Bea joined Red', teamRed);
+
+    const beaPid = rA.players.find((p) => p.name === 'Bea').id;
+    ok(teamRed.leaderId === beaPid, 'first member of a team becomes its leader');
+
+    Cat.send({ type: 'joinTeam', teamId: redId });
+    const rB = await Cat.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
       && m.teams.find((t) => t.id === redId)?.memberIds.length === 2);
     const teamRed2 = rB.teams.find((t) => t.id === redId);
-    ok(teamRed2.leaderId === annPid, 'second member joining does not steal leadership');
+    ok(teamRed2.leaderId === beaPid, 'second member joining does not steal leadership');
 
-    // Bea switches to Blue — Red should shrink back to just Ann.
-    B.send({ type: 'joinTeam', teamId: blueId });
-    const rC = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
+    // Cat switches to Blue — Red should shrink back to just Bea.
+    Cat.send({ type: 'joinTeam', teamId: blueId });
+    const rC = await Cat.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
       && m.teams.find((t) => t.id === blueId)?.memberIds.length === 1);
     const teamRedAfter = rC.teams.find((t) => t.id === redId);
     const teamBlueAfter = rC.teams.find((t) => t.id === blueId);
     ok(teamRedAfter.memberIds.length === 1, 'switching teams removes the old membership', teamRedAfter);
-    const beaPid = rC.players.find((p) => p.name === 'Bea').id;
-    ok(teamBlueAfter.leaderId === beaPid, 'joining an empty team makes you its leader');
-    A.close(); B.close();
+    const catPid = rC.players.find((p) => p.name === 'Cat').id;
+    ok(teamBlueAfter.leaderId === catPid, 'joining an empty team makes you its leader');
+    A.close(); B.close(); Cat.close();
   }
 
   await settle();
@@ -119,21 +129,23 @@ try {
     const r = room();
     const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
     const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+    const Cat = new C('Cat', r); await Cat.connect(); await Cat.wait('welcome');
 
     A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
     await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
     // count:2 — TEAM_COUNT_MIN is 2, a "team of one" is just classic mode
-    // with extra steps. Ann and Bea both join team 0; team 1 sits empty and
-    // simply never shows up in allTeamsAnswered()'s active set.
+    // with extra steps. Ann hosts and never joins; Cat and Bea both join
+    // team 0, team 1 sits empty and simply never shows up in
+    // allTeamsAnswered()'s active set.
     A.send({ type: 'teamSetup', count: 2 });
     const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
     const teamId = setup.teams[0].id;
-    A.send({ type: 'joinTeam', teamId });
-    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
+    Cat.send({ type: 'joinTeam', teamId });
+    await Cat.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
     B.send({ type: 'joinTeam', teamId });
     const afterJoin = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 2);
-    const annPid = afterJoin.players.find((p) => p.name === 'Ann').id;
-    ok(afterJoin.teams[0].leaderId === annPid, 'Ann (first in) is the leader, not Bea');
+    const catPid = afterJoin.players.find((p) => p.name === 'Cat').id;
+    ok(afterJoin.teams[0].leaderId === catPid, 'Cat (first in) is the leader, not Bea');
 
     A.send({ type: 'start' });
     const q = await A.wait('question', 15000);
@@ -150,8 +162,8 @@ try {
     await settle();
     ok(!B.all('reveal').length, 'the room did not reveal off a non-leader answer');
 
-    A.msgs.length = 0; B.msgs.length = 0;
-    A.send({ type: 'answer', index: q.index, choice: 1 });
+    Cat.msgs.length = 0; B.msgs.length = 0;
+    Cat.send({ type: 'answer', index: q.index, choice: 1 });
     const answered = await B.wait('answered', 4000);
     ok(answered.teamId === teamId, 'the answered broadcast carries teamId, not playerId', answered);
     ok(!('playerId' in answered), 'teams-mode answered frame has no playerId field');
@@ -168,7 +180,22 @@ try {
     const emptyTeam = rev.perTeam.find((t) => t.id !== teamId);
     ok(emptyTeam && emptyTeam.choice === null, 'the empty second team has no choice, not an error', emptyTeam);
     ok(Array.isArray(rev.scores) && rev.scores.find((s) => s.id === teamId), 'scores are keyed by team id, not player id');
-    A.close(); B.close();
+
+    // Teams mode is host-paced: unlike classic mode's 6s auto-advance, the
+    // room must sit on the reveal until the host explicitly says to move on.
+    // An assertion never seen to fail is not evidence, so this actually
+    // waits past the old REVEAL_MS window and checks nothing arrived on its
+    // own before also checking the host's 'next' still works.
+    ok(!rev.nextAt, 'teams-mode reveal carries no auto-advance deadline', rev.nextAt);
+    B.msgs.length = 0;
+    await sleep(6500);
+    const autoAdvanced = B.msgs.find((m) => m.type === 'phase' || m.type === 'question');
+    ok(!autoAdvanced, 'teams mode does not auto-advance past reveal without the host', autoAdvanced);
+    A.send({ type: 'next' });
+    const nextQ = await B.wait('question', 4000);
+    ok(nextQ.index === q.index + 1, 'the host can still manually advance to the next question', nextQ);
+
+    A.close(); B.close(); Cat.close();
   }
 
   await settle();
@@ -176,6 +203,7 @@ try {
   {
     const r = room();
     const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+    const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
 
     A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'custom' } });
     await A.waitFor((m) => m.type === 'settings' && m.settings.source === 'custom');
@@ -197,8 +225,9 @@ try {
 
     A.send({ type: 'teamSetup', count: 2 });
     const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
-    A.send({ type: 'joinTeam', teamId: setup.teams[0].id });
-    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
+    // Ann hosts and never joins a team; Bea is the actual team member here.
+    B.send({ type: 'joinTeam', teamId: setup.teams[0].id });
+    await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
 
     A.msgs.length = 0;
     A.send({ type: 'start' });
@@ -207,7 +236,7 @@ try {
     const q1 = await A.wait('question', 4000);
     ok(/^Q[12]\?$/.test(q1.text), 'the custom-authored question text reaches the client', q1);
     ok(q1.choices.length === 4 && new Set(q1.choices).size === 4, 'choices were shuffled and stayed unique');
-    A.close();
+    A.close(); B.close();
   }
 
   await settle();
@@ -219,10 +248,8 @@ try {
     A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
     await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
     A.send({ type: 'teamSetup', count: 2 });
-    const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
-    A.send({ type: 'joinTeam', teamId: setup.teams[0].id });
-    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
-    // Bea never joins a team.
+    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    // Ann hosts (never a team candidate) and Bea never joins a team either.
     A.msgs.length = 0;
     A.send({ type: 'start' });
     const err = await A.wait('error', 4000);

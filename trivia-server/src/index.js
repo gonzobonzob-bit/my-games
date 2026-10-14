@@ -21,7 +21,11 @@
 
 const ROOM_CODE = /^[A-Z0-9]{4,6}$/;
 
-const MAX_PLAYERS = 8;
+// Classic mode's own cap, independent of the teams-mode cap below — bumping
+// one must never move the other. Classic stays a flat per-player roster (seat
+// grid, individual leaderboard), so this is a headcount a host can actually
+// still see on one screen, not the pub-event scale teams mode targets.
+const MAX_PLAYERS = 20;
 // One is a legitimate way to play, not just a way to smoke-test. A solo game
 // runs the identical loop: the reveal fires as soon as every CONNECTED player
 // has answered, and with one player that is immediate — no waiting out the
@@ -66,7 +70,15 @@ const LOADING_STALE_MS = 15_000;
 // (never reveal correctness before the reveal) generalises from player to
 // team.
 const TEAM_COUNT_MIN = 2;
-const TEAM_COUNT_MAX = 8;
+const TEAM_COUNT_MAX = 20;
+// No minimum — a team of one is still a team, and a captain-only "team" is
+// how a late-arriving teammate-less player plays teams mode at all. Only a
+// ceiling is enforced, in onJoinTeam.
+const TEAM_SIZE_MAX = 5;
+// The room-wide cap for teams mode specifically — independent of MAX_PLAYERS,
+// which stays classic mode's own number. 20 teams x 5 is the pub-event scale
+// this mode now targets; classic mode was never asked to grow to this size.
+const MAX_TEAM_PLAYERS = TEAM_COUNT_MAX * TEAM_SIZE_MAX;
 
 // Host-authored quiz, teams mode only. No genre, no OpenTDB, no bilingual
 // pack — the host IS the content source, so none of that machinery applies.
@@ -245,7 +257,10 @@ export class Room {
       if (g.phase !== 'lobby') {
         return new Response('game in progress', { status: 403 });
       }
-      if (Object.keys(g.players).length >= MAX_PLAYERS) {
+      // Two different ceilings for two differently-scaled games sharing one
+      // room type — see MAX_PLAYERS and MAX_TEAM_PLAYERS above.
+      const cap = g.settings.mode === 'teams' ? MAX_TEAM_PLAYERS : MAX_PLAYERS;
+      if (Object.keys(g.players).length >= cap) {
         return new Response('room full', { status: 403 });
       }
       player = {
@@ -265,9 +280,17 @@ export class Room {
       player.lang = sanitizeLang(url.searchParams.get('lang'));
     }
 
-    // First player in is host; also covers the case where the stored host is
-    // no longer a player at all.
-    if (!g.hostId || !g.players[g.hostId]) g.hostId = player.id;
+    // Minted once per room, on the first player ever to arrive, and never
+    // regenerated after that — see freshGame() for why.
+    if (!g.hostToken) g.hostToken = generateHostToken();
+
+    // A correct recovery token reclaims the seat outright, regardless of who
+    // currently holds it — that is the whole point of it existing. Otherwise:
+    // first player in is host, which also covers the case where the stored
+    // host is no longer a player at all.
+    const presentedToken = url.searchParams.get('hostToken');
+    const reclaimsHost = Boolean(presentedToken) && presentedToken === g.hostToken;
+    if (reclaimsHost || !g.hostId || !g.players[g.hostId]) g.hostId = player.id;
 
     const [client, server] = Object.values(new WebSocketPair());
 
@@ -300,6 +323,12 @@ export class Room {
       type: 'welcome',
       you: { id: player.id, name: player.name },
       isHost: g.hostId === player.id,
+      // Only ever sent to whoever currently holds the seat — never broadcast,
+      // never sent to anyone else's welcome. Whether that is the original
+      // creator or someone auto-promoted after a disconnect, holding the seat
+      // is what earns the right to see the recovery code, same as it already
+      // earns every other host-only control.
+      hostToken: g.hostId === player.id ? g.hostToken : undefined,
       phase: g.phase,
       settings: g.settings,
       isPublic: g.public === true,
@@ -584,6 +613,8 @@ export class Room {
           return await this.onTeamSetup(ws, me, data);
         case 'joinTeam':
           return await this.onJoinTeam(ws, me, data);
+        case 'renameTeam':
+          return await this.onRenameTeam(ws, me, data);
         case 'questions':
           return await this.onQuestions(ws, me, data);
         case 'start':
@@ -633,10 +664,10 @@ export class Room {
   async onSettings(ws, me, data) {
     const g = this.game;
     if (me.id !== g.hostId) {
-      return this.send(ws, { type: 'error', message: 'only the host can change the game' });
+      return this.send(ws, { type: 'error', code: 'hostOnlySettings', message: 'only the host can change the game' });
     }
     if (g.phase !== 'lobby') {
-      return this.send(ws, { type: 'error', message: 'the game has already started' });
+      return this.send(ws, { type: 'error', code: 'alreadyStarted', message: 'the game has already started' });
     }
     // Changing the genre while loadQuestions() is already in flight would have
     // no effect on the questions being fetched but would tell everyone it did.
@@ -669,13 +700,13 @@ export class Room {
   async onTeamSetup(ws, me, data) {
     const g = this.game;
     if (me.id !== g.hostId) {
-      return this.send(ws, { type: 'error', message: 'only the host can set up teams' });
+      return this.send(ws, { type: 'error', code: 'hostOnlyTeams', message: 'only the host can set up teams' });
     }
     if (g.phase !== 'lobby') {
-      return this.send(ws, { type: 'error', message: 'the game has already started' });
+      return this.send(ws, { type: 'error', code: 'alreadyStarted', message: 'the game has already started' });
     }
     if (g.settings.mode !== 'teams') {
-      return this.send(ws, { type: 'error', message: 'switch to teams mode first' });
+      return this.send(ws, { type: 'error', code: 'switchToTeams', message: 'switch to teams mode first' });
     }
     const count = Number.isInteger(data.count) ? data.count : NaN;
     if (count < TEAM_COUNT_MIN || count > TEAM_COUNT_MAX) {
@@ -710,17 +741,59 @@ export class Room {
     if (g.settings.mode !== 'teams') {
       return this.send(ws, { type: 'error', message: 'this room is not in teams mode' });
     }
+    // The host runs the room — reads questions, triggers reveal/next — and is
+    // never a competing captain. Keeping hostId out of every team's
+    // memberIds is also what lets the "everyone needs a team before start"
+    // check in onStart skip the host for free, with no special-casing there.
+    if (me.id === g.hostId) {
+      return this.send(ws, { type: 'error', code: 'hostNoTeam', message: 'the host moderates — pick a team for someone else' });
+    }
     const team = g.teams.find((t) => t.id === data.teamId);
     if (!team) {
       return this.send(ws, { type: 'error', message: 'no such team' });
     }
     const p = g.players[me.id];
     if (p.teamId === team.id) return; // already here
+    // No minimum team size — a captain-only team is a real way to play. Only
+    // a ceiling is enforced.
+    if (team.memberIds.length >= TEAM_SIZE_MAX) {
+      return this.send(ws, {
+        type: 'error',
+        code: 'teamFull',
+        message: `that team is full (max ${TEAM_SIZE_MAX})`,
+      });
+    }
 
     this.leaveTeam(p.id);
     p.teamId = team.id;
     team.memberIds.push(p.id);
     if (!team.leaderId || !team.memberIds.includes(team.leaderId)) team.leaderId = p.id;
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* Host-only, teams mode only, any phase — unlike team membership this
+     doesn't touch who's on a team or any in-progress answer, so there's no
+     reason to pin it to the lobby. The host runs the room; renaming a team
+     mid-game is a legitimate "wait, Team 3 actually wants to be called
+     something else" moment, not a state-corrupting one. */
+  async onRenameTeam(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', code: 'hostOnlyTeams', message: 'only the host can rename a team' });
+    }
+    if (g.settings.mode !== 'teams') {
+      return this.send(ws, { type: 'error', code: 'switchToTeams', message: 'switch to teams mode first' });
+    }
+    const team = g.teams.find((t) => t.id === data.teamId);
+    if (!team) {
+      return this.send(ws, { type: 'error', message: 'no such team' });
+    }
+    const name = sanitizeTeamName(data.name);
+    if (!name) {
+      return this.send(ws, { type: 'error', code: 'teamNameRequired', message: 'team name cannot be empty' });
+    }
+    team.name = name;
     await this.save();
     this.broadcastRoster();
   }
@@ -733,13 +806,13 @@ export class Room {
   async onQuestions(ws, me, data) {
     const g = this.game;
     if (me.id !== g.hostId) {
-      return this.send(ws, { type: 'error', message: 'only the host can set the quiz' });
+      return this.send(ws, { type: 'error', code: 'hostOnlyQuiz', message: 'only the host can set the quiz' });
     }
     if (g.phase !== 'lobby') {
-      return this.send(ws, { type: 'error', message: 'the game has already started' });
+      return this.send(ws, { type: 'error', code: 'alreadyStarted', message: 'the game has already started' });
     }
     if (g.settings.mode !== 'teams' || g.settings.source !== 'custom') {
-      return this.send(ws, { type: 'error', message: 'switch to a custom teams quiz first' });
+      return this.send(ws, { type: 'error', code: 'switchToCustom', message: 'switch to a custom teams quiz first' });
     }
     const items = Array.isArray(data.items) ? data.items : [];
     if (items.length < CUSTOM_QUESTION_MIN || items.length > CUSTOM_QUESTION_MAX) {
@@ -779,7 +852,7 @@ export class Room {
       return this.send(ws, { type: 'error', message: 'only the host can list the room' });
     }
     if (g.phase !== 'lobby') {
-      return this.send(ws, { type: 'error', message: 'the game has already started' });
+      return this.send(ws, { type: 'error', code: 'alreadyStarted', message: 'the game has already started' });
     }
     const on = data.on === true;
     if (g.public === on) return;
@@ -816,11 +889,13 @@ export class Room {
 
     if (snap.mode === 'teams') {
       if (g.teams.length < TEAM_COUNT_MIN) {
-        return this.send(ws, { type: 'error', message: 'set up teams before starting' });
+        return this.send(ws, { type: 'error', code: 'setupTeamsFirst', message: 'set up teams before starting' });
       }
       // Every connected player must have a seat, or they would sit through a
-      // game with no way to ever submit an answer.
+      // game with no way to ever submit an answer. The host is exempt — they
+      // moderate, never play, and onJoinTeam already refuses to seat them.
       for (const pid of connectedSet) {
+        if (pid === g.hostId) continue;
         if (!g.players[pid] || !g.players[pid].teamId) {
           return this.send(ws, {
             type: 'error',
@@ -1098,13 +1173,19 @@ export class Room {
       }
 
       g.phase = 'reveal';
-      g.nextAt = Date.now() + REVEAL_MS;
+      // Teams mode is host-paced, not clock-paced: the room is a live event
+      // with one person running it, and auto-advancing out from under them
+      // mid-commentary would be worse than waiting. No nextAt, no alarm — the
+      // ONLY way forward is the host's own 'next' (onNext still checks
+      // phase === 'reveal' and hostId, unchanged). Classic mode keeps the
+      // self-advancing behavior below exactly as it was.
+      g.nextAt = 0;
       g.lastReveal = {
         type: 'reveal', mode: 'teams', correctIndex: q.correctIndex, perTeam, scores,
-        nextAt: g.nextAt,
+        nextAt: 0,
       };
       await this.save();
-      await this.ctx.storage.setAlarm(g.nextAt);
+      await this.ctx.storage.deleteAlarm();
 
       this.broadcast({ type: 'phase', phase: 'reveal' });
       this.broadcast(g.lastReveal);
@@ -1228,8 +1309,15 @@ export class Room {
 
     const connected = this.connectedPids(remaining);
 
-    // Host left: promote the player who has been connected the longest.
-    if (g.hostId && !connected.has(g.hostId)) {
+    // Host left: promote the player who has been connected the longest —
+    // but only in classic mode. A casual classic game shouldn't die just
+    // because whoever happens to be host tabbed away; teams mode is built
+    // for a run event with one specific person emceeing it, and the host
+    // seat there must stay put (the record kept, same as the empty-room
+    // case below) rather than floating to whichever player happened to
+    // still be connected. The host recovery token exists precisely so that
+    // person — and only that person — gets it back, from any device.
+    if (g.settings.mode !== 'teams' && g.hostId && !connected.has(g.hostId)) {
       const candidates = Object.values(g.players)
         .filter((p) => connected.has(p.id))
         .sort((a, b) => a.connectedAt - b.connectedAt || a.joinedAt - b.joinedAt);
@@ -1524,7 +1612,25 @@ function freshGame() {
     // Host-authored quiz for teams mode's 'custom' source. {text, choices,
     // correctIndex, category, difficulty}[], already positionally shuffled.
     customQuestions: [],
+    // Minted once, the first time this room gets a player, and never again —
+    // see hostToken handling in fetch(). The one secret that lets whoever
+    // created the room reclaim the host seat later, from any device,
+    // regardless of who currently holds it. Losing it is unrecoverable, same
+    // risk model as a 2FA backup code; it is why this is generated server-side
+    // rather than a password the owner picks (there is no email to reset it
+    // through).
+    hostToken: null,
   };
+}
+
+const HOST_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I
+function generateHostToken() {
+  const len = 16; // ~81 bits from this alphabet — plenty, and still pasteable
+  const bytes = new Uint32Array(len);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < len; i++) out += HOST_TOKEN_ALPHABET[bytes[i] % HOST_TOKEN_ALPHABET.length];
+  return out;
 }
 
 function sanitizeName(raw) {
@@ -1758,6 +1864,9 @@ function normalizeGame(g) {
   // Rooms persisted before teams mode existed come back without these.
   if (!Array.isArray(g.teams)) g.teams = [];
   if (!Array.isArray(g.customQuestions)) g.customQuestions = [];
+  // Rooms persisted before host recovery existed come back without one;
+  // fetch() mints it on the next player to arrive.
+  if (typeof g.hostToken !== 'string' || !g.hostToken) g.hostToken = null;
   const teamIds = new Set(g.teams.map((t) => t.id));
   for (const p of Object.values(g.players)) {
     // Covers both a missing field (old room) and a dangling reference (the

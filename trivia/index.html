@@ -1406,6 +1406,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           <button type="submit" class="btn btn-primary" id="joinBtn">Join room</button>
           <button type="button" class="btn btn-ghost" id="createBtn">Create a room</button>
         </div>
+        <button type="button" class="chip-btn" id="hostRecoverToggle">Recovering a room you host?</button>
+        <div class="field" id="hostRecoverField" hidden>
+          <label class="field-label" for="hostTokenInput">Host code</label>
+          <input type="text" id="hostTokenInput" maxlength="24" placeholder="Paste your host code"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false">
+        </div>
         <p class="field-note" id="joinNote">A room is just a link. Share it and people land straight in.</p>
       </form>
       <div class="themebar" id="themeBar">
@@ -1429,6 +1435,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <div class="micro" id="lobbyTitle">Room code</div>
         <div class="code-tiles" id="codeTiles" aria-live="off"></div>
         <button type="button" class="chip-btn" id="copyBtn">Copy the invite link</button>
+        <button type="button" class="chip-btn" id="hostCodeBtn" hidden>Copy host code</button>
       </div>
       <div class="callsheet" id="callSheet">
         <button type="button" class="slot" id="genreSlot">
@@ -1651,7 +1658,30 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       m_bilingual: 'Bilingual set — #. Everyone can read these in their own language.',
       m_offline: 'Offline pack — #. Open Trivia DB did not answer, so these are from the built-in set.',
       m_noLang: '# has no Spanish questions yet. Pick another genre, or switch everyone to English.',
-      m_noQuestions: 'Could not find enough # questions right now. Try another genre, or Mixed.'
+      m_noQuestions: 'Could not find enough # questions right now. Try another genre, or Mixed.',
+      m_teamFull: 'That team is full.',
+      m_setupTeamsFirst: 'Set up teams before starting.',
+      m_hostOnlySettings: 'Only the host can change the game.',
+      m_hostOnlyTeams: 'Only the host can set up teams.',
+      m_hostOnlyQuiz: 'Only the host can set the quiz.',
+      m_alreadyStarted: 'The game has already started.',
+      m_switchToTeams: 'Switch to teams mode first.',
+      m_switchToCustom: 'Switch to a custom teams quiz first.',
+      m_hostNoTeam: 'The host moderates — pick a team for someone else.',
+      hostModerating: 'You’re moderating this room — not on a team.',
+      mode: 'Mode', modeClassic: 'Classic', modeTeams: 'Teams',
+      quizSourceLabel: 'Quiz', quizSourceCustom: 'Your quiz',
+      fewerTeams: 'Fewer teams', moreTeams: 'More teams', setTeams: 'Set teams',
+      yourQuestions: 'Your questions', addQuestion: '+ Add question', saveQuiz: 'Save quiz',
+      quizSavedN: 'Saved: # question', quizSavedPlural: 'Saved: # questions',
+      quizNotSaved: 'Not saved yet',
+      questionN: 'Question #', answerN: 'Answer #', answerNCorrect: 'Answer # is correct',
+      removeQuestion: 'Remove', quizTooMany: 'Up to 30 questions.',
+      yourTeam: 'Your team', joinTeamShort: 'Join',
+      recoveringHost: 'Recovering a room you host?', hostCode: 'Host code',
+      pasteHostCode: 'Paste your host code', copyHostCode: 'Copy host code',
+      hostCodeCopied: 'Host code copied — keep it somewhere safe.',
+      ariaHostHint: ', tap to change. Currently ', ariaGuestHint: ': '
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1689,7 +1719,30 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       m_bilingual: 'Set bilingüe — #. Cada quien puede leerlas en su idioma.',
       m_offline: 'Set sin conexión — #. Open Trivia DB no respondió, así que estas vienen del set incluido.',
       m_noLang: '# aún no tiene preguntas en español. Elige otro género, o que todos jueguen en inglés.',
-      m_noQuestions: 'No se encontraron suficientes preguntas de # ahora mismo. Prueba otro género, o Mixto.'
+      m_noQuestions: 'No se encontraron suficientes preguntas de # ahora mismo. Prueba otro género, o Mixto.',
+      m_teamFull: 'Ese equipo está lleno.',
+      m_setupTeamsFirst: 'Forma los equipos antes de empezar.',
+      m_hostOnlySettings: 'Solo el anfitrión puede cambiar la partida.',
+      m_hostOnlyTeams: 'Solo el anfitrión puede formar equipos.',
+      m_hostOnlyQuiz: 'Solo el anfitrión puede definir el cuestionario.',
+      m_alreadyStarted: 'La partida ya empezó.',
+      m_switchToTeams: 'Cambia primero al modo de equipos.',
+      m_switchToCustom: 'Cambia primero a un cuestionario propio de equipos.',
+      m_hostNoTeam: 'El anfitrión dirige la partida — elige un equipo para otra persona.',
+      hostModerating: 'Estás dirigiendo esta sala — no estás en un equipo.',
+      mode: 'Modo', modeClassic: 'Clásico', modeTeams: 'Equipos',
+      quizSourceLabel: 'Preguntas', quizSourceCustom: 'Tu cuestionario',
+      fewerTeams: 'Menos equipos', moreTeams: 'Más equipos', setTeams: 'Formar equipos',
+      yourQuestions: 'Tus preguntas', addQuestion: '+ Añadir pregunta', saveQuiz: 'Guardar cuestionario',
+      quizSavedN: 'Guardadas: # pregunta', quizSavedPlural: 'Guardadas: # preguntas',
+      quizNotSaved: 'Aún sin guardar',
+      questionN: 'Pregunta #', answerN: 'Respuesta #', answerNCorrect: 'La respuesta # es correcta',
+      removeQuestion: 'Quitar', quizTooMany: 'Hasta 30 preguntas.',
+      yourTeam: 'Tu equipo', joinTeamShort: 'Unirme',
+      recoveringHost: '¿Recuperando una sala que diriges?', hostCode: 'Código de anfitrión',
+      pasteHostCode: 'Pega tu código de anfitrión', copyHostCode: 'Copiar código de anfitrión',
+      hostCodeCopied: 'Código de anfitrión copiado — guárdalo en un lugar seguro.',
+      ariaHostHint: ', toca para cambiar. Ahora: ', ariaGuestHint: ': '
     }
   };
 
@@ -1796,6 +1849,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     name: '',
     me: null,              // {id,name}
     isHost: false,
+    hostToken: null,       // this room's host recovery code, only ever known while I hold the seat
     spectator: false,      // watching, not playing — server-confirmed on welcome
     watching: 0,           // how many spectators the room has (a count, never a list)
     isPublic: false,       // whether this room is on the LIVE NOW directory
@@ -1851,8 +1905,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elConfetti = $('confetti'), elRoomPulse = $('roomPulse'), elFlash = $('flash'),
       elCodeTiles = $('codeTiles'), elLobbyPlayers = $('lobbyPlayers'),
       elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
-      elCopyBtn = $('copyBtn'), elNameInput = $('nameInput'), elCodeInput = $('codeInput'),
+      elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elNameInput = $('nameInput'),
+      elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
+      elHostRecoverToggle = $('hostRecoverToggle'), elHostRecoverField = $('hostRecoverField'),
+      elHostTokenInput = $('hostTokenInput'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
       elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch');
 
@@ -2127,6 +2184,24 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var slotKs = document.querySelectorAll('.slot-k');
     if (slotKs[0]) slotKs[0].textContent = T('genre');
     if (slotKs[1]) slotKs[1].textContent = T('difficulty');
+    if (slotKs[2]) slotKs[2].textContent = T('mode');
+    if (slotKs[3]) slotKs[3].textContent = T('quizSourceLabel');
+    var teamsLabel = elTeamsSetup && elTeamsSetup.querySelector('.micro');
+    if (teamsLabel) teamsLabel.textContent = T('modeTeams');
+    if (elTeamCountDown) elTeamCountDown.setAttribute('aria-label', T('fewerTeams'));
+    if (elTeamCountUp) elTeamCountUp.setAttribute('aria-label', T('moreTeams'));
+    set('teamSetupBtn', 'setTeams');
+    var quizLabel = elQuizEditor && elQuizEditor.querySelector('.micro');
+    if (quizLabel) quizLabel.textContent = T('yourQuestions');
+    set('quizAddBtn', 'addQuestion');
+    set('quizSaveBtn', 'saveQuiz');
+    set('hostRecoverToggle', 'recoveringHost');
+    set('hostCodeBtn', 'copyHostCode');
+    var hostCodeLabel = elHostRecoverField && elHostRecoverField.querySelector('.field-label');
+    if (hostCodeLabel) hostCodeLabel.textContent = T('hostCode');
+    if (elHostTokenInput) elHostTokenInput.placeholder = T('pasteHostCode');
+    renderQuizEditor(); // quiz rows carry their own placeholders
+    renderTeamsPicker(); // team cards carry their own Join/Your team label
     paintBackBtn();
     paintTheme();
     if (curScreen === 'lobby') renderLobby();
@@ -2656,13 +2731,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     elCallSheet.classList.toggle('readonly', !state.isHost);
     elCallSheet.classList.toggle('busy', !!state.starting);
+    // Only the current seat-holder can see this, and only once the server
+    // has actually sent it — never guess it is there just because we are host.
+    if (elHostCodeBtn) elHostCodeBtn.hidden = !(state.isHost && state.hostToken);
     // A readout is not a button, and screen readers should not be told it is.
     elGenreSlot.disabled = !state.isHost;
     elDiffSlot.disabled = !state.isHost;
     elGenreSlot.setAttribute('aria-label',
-      (state.isHost ? 'Genre, tap to change. Currently ' : 'Genre: ') + g.label);
+      T('genre') + (state.isHost ? T('ariaHostHint') : T('ariaGuestHint')) + g.label);
     elDiffSlot.setAttribute('aria-label',
-      (state.isHost ? 'Difficulty, tap to change. Currently ' : 'Difficulty: ') + elDiffVal.textContent);
+      T('difficulty') + (state.isHost ? T('ariaHostHint') : T('ariaGuestHint')) + elDiffVal.textContent);
 
     // Teams mode is a second axis, orthogonal to genre/difficulty — see
     // sanitizeSettings() server-side for why source is pinned to 'genre'
@@ -2671,15 +2749,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var isCustom = isTeams && state.settings.source === 'custom';
 
     if (elModeSlot) {
-      elModeVal.textContent = isTeams ? 'Teams' : 'Classic';
+      elModeVal.textContent = isTeams ? T('modeTeams') : T('modeClassic');
       elModeSlot.disabled = !state.isHost;
       elModeSlot.setAttribute('aria-label',
-        (state.isHost ? 'Mode, tap to change. Currently ' : 'Mode: ') + elModeVal.textContent);
+        T('mode') + (state.isHost ? T('ariaHostHint') : T('ariaGuestHint')) + elModeVal.textContent);
     }
     if (elSourceSlot) {
       elSourceSlot.hidden = !isTeams;
-      elSourceVal.textContent = isCustom ? 'Your quiz' : 'Genre';
+      elSourceVal.textContent = isCustom ? T('quizSourceCustom') : T('genre');
       elSourceSlot.disabled = !state.isHost;
+      elSourceSlot.setAttribute('aria-label',
+        T('quizSourceLabel') + (state.isHost ? T('ariaHostHint') : T('ariaGuestHint')) + elSourceVal.textContent);
     }
     // Genre/difficulty only mean something when the quiz source IS a genre —
     // a custom quiz has no genre or difficulty of its own.
@@ -2726,12 +2806,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var isTeams = state.settings.mode === 'teams';
     var wrap = elLobbyPlayers;
     wrap.textContent = '';
-    // Teams mode replaces the flat seat grid with the team picker below —
-    // showing both would just be the same roster said twice.
-    wrap.hidden = isTeams;
-    var players = state.players;
+    // Teams mode replaces the flat seat grid with the team picker below for
+    // everyone ON a team — but the host is deliberately never a team member
+    // (pure moderator role), so without this the host would render nowhere
+    // at all in their own lobby. Show just the host's own seat here; the
+    // team picker below covers everyone else.
+    wrap.hidden = false;
+    var players = isTeams ? state.players.filter(function (p) { return p.isHost; }) : state.players;
     var arrivals = 0;
-    if (!isTeams) for (var i = 0; i < players.length; i++) {
+    for (var i = 0; i < players.length; i++) {
       var p = players[i];
       var seat = mk('div', 'seat');
       var isNew = !seenPlayerIds[p.id];
@@ -2763,11 +2846,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         wrap.appendChild(slotWrap);
       }
     }
-    // Arrivals still get the join chime in teams mode even though the seat
-    // grid itself is hidden — the picker below renders fresh every time, so
-    // this loop is what notices a new face rather than the (skipped) grid.
-    if (isTeams) for (var ni = 0; ni < players.length; ni++) {
-      if (!seenPlayerIds[players[ni].id]) { seenPlayerIds[players[ni].id] = true; arrivals++; }
+    // Arrivals still get the join chime for everyone in teams mode, not just
+    // the host seat rendered above — the picker below renders fresh every
+    // time, so this loop (over the FULL roster, not the host-only `players`
+    // above) is what notices a new face joining a team.
+    if (isTeams) for (var ni = 0; ni < state.players.length; ni++) {
+      if (!seenPlayerIds[state.players[ni].id]) { seenPlayerIds[state.players[ni].id] = true; arrivals++; }
     }
     renderTeamsPicker();
 
@@ -2780,17 +2864,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       var need = MIN_PLAYERS - connected;
       if (need > 0) {
         elStartBtn.disabled = true;
-        elStartBtn.textContent = 'Need ' + need + ' more player' + (need === 1 ? '' : 's');
+        elStartBtn.textContent = need === 1 ? T('needMore1') : T('needMore').replace('#', need);
       } else {
         elStartBtn.disabled = false;
         // Playing alone is a real choice, so name it rather than leaving the
         // host wondering whether the button is going to refuse them.
-        elStartBtn.textContent = connected < 2 ? 'Start solo game' : 'Start game';
+        elStartBtn.textContent = connected < 2 ? T('startSolo') : T('startGame');
       }
     } else {
       elStartBtn.hidden = true;
       elWaitLine.hidden = false;
-      elWaitText.textContent = 'Waiting for host';
+      elWaitText.textContent = T('waitingHost');
     }
 
     if (elLobbyWatch) {
@@ -2891,7 +2975,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elTeamCountVal.textContent = String(pendingTeamCount);
   });
   on(elTeamCountUp, 'click', function () {
-    pendingTeamCount = Math.min(8, pendingTeamCount + 1);
+    pendingTeamCount = Math.min(20, pendingTeamCount + 1); // matches server TEAM_COUNT_MAX
     elTeamCountVal.textContent = String(pendingTeamCount);
   });
   on(elTeamSetupBtn, 'click', function () {
@@ -2908,17 +2992,61 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     }
     wrap.hidden = false;
     wrap.textContent = '';
+    if (state.isHost) {
+      var hint = mk('div', 'micro teams-host-hint');
+      hint.textContent = T('hostModerating');
+      wrap.appendChild(hint);
+    }
     for (var i = 0; i < state.teams.length; i++) {
       wrap.appendChild(buildTeamCard(state.teams[i]));
     }
   }
 
+  /* Swaps the team-name button for a text input in place, Enter/blur saves,
+     Escape cancels. Re-rendering happens via the next roster broadcast (the
+     server is the source of truth for the name), not locally here. */
+  function startTeamRename(head, t, nmBtn) {
+    if (head.querySelector('.team-name-input')) return; // already editing
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'team-name-input';
+    input.maxLength = 24;
+    input.value = t.name;
+    var done = false;
+    function commit() {
+      if (done) return; done = true;
+      var next = input.value.trim();
+      if (next && next !== t.name) send({ type: 'renameTeam', teamId: t.id, name: next });
+      renderTeamsPicker();
+    }
+    function cancel() { if (done) return; done = true; renderTeamsPicker(); }
+    on(input, 'keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+    });
+    on(input, 'blur', commit);
+    head.replaceChild(input, nmBtn);
+    input.focus();
+    input.select();
+  }
+
   function buildTeamCard(t) {
     var card = mk('div', 'team-card');
     var head = mk('div', 'team-card-head');
-    var nm = mk('span', 'team-name');
-    nm.textContent = t.name;
-    head.appendChild(nm);
+    if (state.isHost) {
+      // The host is the one running the event — renaming a team is a normal
+      // mid-setup (or even mid-game) correction, not a lobby-only action.
+      var nmBtn = mk('button', 'team-name team-name-edit');
+      nmBtn.type = 'button';
+      nmBtn.textContent = t.name;
+      nmBtn.title = T('renameTeam');
+      on(nmBtn, 'click', function () { startTeamRename(head, t, nmBtn); });
+      head.appendChild(nmBtn);
+    } else {
+      var nm = mk('span', 'team-name');
+      nm.textContent = t.name;
+      head.appendChild(nm);
+    }
     card.appendChild(head);
 
     var members = mk('div', 'team-members');
@@ -2936,11 +3064,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     }
     card.appendChild(members);
 
-    if (!state.spectator && state.phase === 'lobby') {
+    // The host moderates — never a candidate to join a team, so no join
+    // control for them at all, matching the server refusing it outright.
+    if (!state.spectator && !state.isHost && state.phase === 'lobby') {
       var onThis = state.myTeamId === t.id;
       var joinBtn = mk('button', 'chip-btn team-join');
       joinBtn.type = 'button';
-      joinBtn.textContent = onThis ? 'Your team' : 'Join';
+      joinBtn.textContent = onThis ? T('yourTeam') : T('joinTeamShort');
       joinBtn.disabled = onThis;
       on(joinBtn, 'click', function () { send({ type: 'joinTeam', teamId: t.id }); });
       card.appendChild(joinBtn);
@@ -2956,12 +3086,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0 }; }
 
   function renderQuizEditor() {
-    if (!elQuizRows) return;
+    // quizDraft is declared (var, hoisted but not yet assigned) further down
+    // the file near its own first use. paintStatic() calls this during very
+    // early page init, before that assignment has run — guard rather than
+    // let the whole init script die on an uncaught TypeError here, which
+    // silently skipped every `on(...)` handler registered after this point.
+    if (!elQuizRows || !quizDraft) return;
     elQuizRows.textContent = '';
     for (var i = 0; i < quizDraft.length; i++) elQuizRows.appendChild(buildQuizRow(i));
     elQuizStatus.textContent = state.customQuestionCount
-      ? ('Saved: ' + state.customQuestionCount + ' question' + (state.customQuestionCount === 1 ? '' : 's'))
-      : 'Not saved yet';
+      ? T(state.customQuestionCount === 1 ? 'quizSavedN' : 'quizSavedPlural').replace('#', state.customQuestionCount)
+      : T('quizNotSaved');
   }
 
   function buildQuizRow(i) {
@@ -2970,7 +3105,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     var textInput = document.createElement('input');
     textInput.type = 'text';
-    textInput.placeholder = 'Question ' + (i + 1);
+    textInput.placeholder = T('questionN').replace('#', i + 1);
     textInput.value = q.text;
     textInput.maxLength = 300;
     on(textInput, 'input', function () { q.text = textInput.value; });
@@ -2982,13 +3117,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       radio.type = 'radio';
       radio.name = 'quiz-correct-' + i;
       radio.checked = q.correctIndex === c;
-      radio.setAttribute('aria-label', 'Answer ' + (c + 1) + ' is correct');
+      radio.setAttribute('aria-label', T('answerNCorrect').replace('#', c + 1));
       (function (idx) { on(radio, 'change', function () { q.correctIndex = idx; }); })(c);
       choiceWrap.appendChild(radio);
 
       var choiceInput = document.createElement('input');
       choiceInput.type = 'text';
-      choiceInput.placeholder = 'Answer ' + (c + 1);
+      choiceInput.placeholder = T('answerN').replace('#', c + 1);
       choiceInput.value = q.choices[c];
       choiceInput.maxLength = 120;
       (function (idx) { on(choiceInput, 'input', function () { q.choices[idx] = choiceInput.value; }); })(c);
@@ -2998,7 +3133,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     var removeBtn = mk('button', 'chip-btn quiz-remove');
     removeBtn.type = 'button';
-    removeBtn.textContent = 'Remove';
+    removeBtn.textContent = T('removeQuestion');
     on(removeBtn, 'click', function () { quizDraft.splice(i, 1); renderQuizEditor(); });
     row.appendChild(removeBtn);
 
@@ -3006,7 +3141,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   on(elQuizAddBtn, 'click', function () {
-    if (quizDraft.length >= 30) { toast('Up to 30 questions.', true); return; }
+    if (quizDraft.length >= 30) { toast(T('quizTooMany'), true); return; }
     quizDraft.push(newQuizQuestion());
     renderQuizEditor();
   });
@@ -3945,7 +4080,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
            // Start whether it needs a source that has Spanish.
            '&lang=' + encodeURIComponent(lang) +
            // Watching is decided at the door, not negotiated after it.
-           (state.spectator ? '&role=spectator' : '');
+           (state.spectator ? '&role=spectator' : '') +
+           // Reclaims the host seat on arrival if it matches what the room
+           // minted. Re-sent on every reconnect (it is just state.hostToken),
+           // which is harmless — a matching token reclaiming a seat you
+           // already hold is a no-op.
+           (state.hostToken ? '&hostToken=' + encodeURIComponent(state.hostToken) : '');
   }
 
   function connect() {
@@ -4109,6 +4249,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       case 'welcome':
         state.me = msg.you || null;
         state.isHost = !!msg.isHost;
+        // Only ever present when we hold the host seat. Captured and
+        // remembered for this room so the same browser reclaims it on its
+        // own next time, with no code to paste.
+        if (state.isHost && typeof msg.hostToken === 'string' && msg.hostToken) {
+          state.hostToken = msg.hostToken;
+          storeHostToken(state.code, state.name, msg.hostToken);
+        }
         // The server's word beats the URL we asked with — if it seated us as
         // a spectator, we render as one whatever we intended.
         state.spectator = !!msg.spectator;
@@ -4374,6 +4521,18 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     try { localStorage.setItem('ls:name', n); } catch (e) {}
   }
 
+  // Keyed by name as well as room code: two different names joining the same
+  // room from the SAME browser (two tabs on one laptop, say) must not let the
+  // second one silently inherit the first one's host seat just because
+  // localStorage is shared by origin, not by tab.
+  function hostTokenKey(code, name) { return 'ls:hostToken:' + code + ':' + String(name || '').toLowerCase(); }
+  function loadHostToken(code, name) {
+    try { return localStorage.getItem(hostTokenKey(code, name)) || null; } catch (e) { return null; }
+  }
+  function storeHostToken(code, name, token) {
+    try { localStorage.setItem(hostTokenKey(code, name), token); } catch (e) {}
+  }
+
   function note(text, bad) {
     elJoinNote.textContent = text;
     elJoinNote.classList.toggle('err', !!bad);
@@ -4515,10 +4674,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     note('A room is just a link. Share it and people land straight in.');
   }
 
-  function beginSession(code, name, asSpectator) {
+  function beginSession(code, name, asSpectator, hostToken) {
     state.spectator = !!asSpectator;
     state.code = code;
     state.name = name;
+    // Explicit beats remembered: a pasted recovery code always wins over
+    // whatever this browser already has saved for the room. Otherwise, the
+    // same browser that created the room reclaims it with no action at all.
+    state.hostToken = hostToken || loadHostToken(code, name) || null;
     if (!asSpectator) storeName(name); // don't let a watch overwrite a real name
     state.everConnected = false;
     state.handshakeFails = 0;
@@ -4529,7 +4692,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // as a spectator, not as a player knocking on a mid-game door.
     var wantHash = '#room=' + code + (state.spectator ? '&watch=1' : '');
     if (location.hash !== wantHash) {
-      try { history.replaceState(null, '', location.pathname + location.search + wantHash); } catch (e) {}
+      // pushState, not replaceState: entering a room is a real step the
+      // device/browser back button should be able to undo. replaceState
+      // never added a history entry at all, so there was nothing in-app for
+      // back to land on — it skipped straight past this whole page to
+      // whatever was open before the game loaded (the portfolio page, if
+      // that's how someone arrived). The existing hashchange listener
+      // already does the right thing once back navigation actually fires.
+      try { history.pushState(null, '', location.pathname + location.search + wantHash); } catch (e) {}
     }
     renderCodeTiles(code);
     setScreen('lobby');
@@ -4551,7 +4721,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var code = String(elCodeInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
     if (!ROOM_RE.test(code)) { note('A room code is 4 to 6 letters or digits.', true); elCodeInput.focus(); return; }
-    beginSession(code, name);
+    var hostToken = elHostTokenInput ? String(elHostTokenInput.value || '').trim().toUpperCase() : '';
+    beginSession(code, name, false, hostToken || null);
   }
 
   on(elJoinForm, 'submit', function (e) { e.preventDefault(); submitJoin(); });
@@ -4559,6 +4730,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var name = String(elNameInput.value || '').trim().slice(0, 16);
     if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
     beginSession(randomCode(), name);
+  });
+  on(elHostRecoverToggle, 'click', function () {
+    if (!elHostRecoverField) return;
+    elHostRecoverField.hidden = !elHostRecoverField.hidden;
+    if (!elHostRecoverField.hidden && elHostTokenInput) elHostTokenInput.focus();
   });
   on(elCodeInput, 'input', function () {
     var v = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
@@ -4640,6 +4816,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
   on(elCopyBtn, 'click', copyLink);
   on(elHudCode, 'click', copyLink);
+  on(elHostCodeBtn, 'click', function () {
+    if (!state.hostToken) return;
+    var text = state.hostToken;
+    var done = function () { toast(T('hostCodeCopied')); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else fallbackCopy(text, done);
+  });
   on(elBackBtn, 'click', function () {
     if (elBackBtn.disabled) return;
     goLanding(false);
