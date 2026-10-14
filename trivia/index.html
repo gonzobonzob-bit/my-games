@@ -736,6 +736,54 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   display:flex; flex-wrap:wrap; justify-content:center; gap:var(--sp-4);
   width:100%; max-width:900px;
 }
+
+/* ---- Teams mode: setup stepper, team picker, host quiz editor ---- */
+.teams-setup{
+  display:flex; align-items:center; gap:var(--sp-2); justify-content:center;
+  flex-wrap:wrap;
+}
+.team-count-val{
+  font-family:var(--font-num); font-weight:700; min-width:1.4em; text-align:center;
+  color:var(--paper-100);
+}
+.teams-picker{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:var(--sp-3);
+  width:100%; max-width:900px;
+}
+.team-card{
+  display:flex; flex-direction:column; gap:var(--sp-2);
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:var(--sp-3); min-width:170px; flex:1 1 200px; max-width:260px;
+}
+.team-card-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-2); }
+.team-name{ font-weight:700; color:var(--paper-100); }
+.team-score{ color:var(--slate-400); }
+.team-members{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
+.team-member{ display:flex; align-items:center; gap:6px; }
+.team-member.off{ opacity:.55; }
+.team-member .avatar{ width:32px; height:32px; font-size:13px; }
+.mname{ font-size:13px; color:var(--paper-100); max-width:100px; overflow:hidden;
+        text-overflow:ellipsis; white-space:nowrap; }
+.team-join{ align-self:flex-start; }
+
+.quiz-editor{
+  display:flex; flex-direction:column; gap:var(--sp-2);
+  width:100%; max-width:640px;
+}
+.quiz-row{
+  display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-2);
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:var(--sp-3);
+}
+.quiz-row input[type="text"]{
+  font:inherit; background:var(--ink-700); border:1px solid var(--hair);
+  border-radius:var(--r-sm, 6px); color:var(--paper-100); padding:6px 10px;
+}
+.quiz-row input[type="text"]:first-child{ flex:1 1 100%; }
+.quiz-choice{ display:flex; align-items:center; gap:6px; flex:1 1 46%; }
+.quiz-choice input[type="text"]{ flex:1 1 auto; min-width:0; }
+.quiz-remove{ margin-left:auto; }
+.quiz-editor-actions{ display:flex; gap:var(--sp-2); flex-wrap:wrap; }
 /* Filled seats and empty slots share a height so a wrapped row of slots
    reads as "three seats still open", not as a broken layout. */
 .seat{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-2);
@@ -1392,6 +1440,33 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           <span class="slot-v" id="diffVal">Any</span>
         </button>
       </div>
+      <div class="callsheet" id="modeSheet">
+        <button type="button" class="slot" id="modeSlot">
+          <span class="slot-k">Mode</span>
+          <span class="slot-v" id="modeVal">Classic</span>
+        </button>
+        <button type="button" class="slot" id="sourceSlot" hidden>
+          <span class="slot-k">Quiz</span>
+          <span class="slot-v" id="sourceVal">Genre</span>
+        </button>
+      </div>
+      <div class="teams-setup" id="teamsSetup" hidden>
+        <span class="micro">Teams</span>
+        <button type="button" class="chip-btn" id="teamCountDown" aria-label="Fewer teams">&minus;</button>
+        <span class="team-count-val" id="teamCountVal">2</span>
+        <button type="button" class="chip-btn" id="teamCountUp" aria-label="More teams">+</button>
+        <button type="button" class="chip-btn" id="teamSetupBtn">Set teams</button>
+      </div>
+      <div class="teams-picker" id="teamsPicker" hidden></div>
+      <div class="quiz-editor" id="quizEditor" hidden>
+        <div class="micro">Your questions</div>
+        <div id="quizRows"></div>
+        <div class="quiz-editor-actions">
+          <button type="button" class="chip-btn" id="quizAddBtn">+ Add question</button>
+          <button type="button" class="btn btn-primary" id="quizSaveBtn">Save quiz</button>
+        </div>
+        <div class="micro" id="quizStatus"></div>
+      </div>
       <div class="players" id="lobbyPlayers"></div>
       <div class="micro watch-count" id="lobbyWatch" hidden></div>
       <div class="pub-row">
@@ -1726,14 +1801,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     isPublic: false,       // whether this room is on the LIVE NOW directory
     phase: 'lobby',
     players: [],           // roster
+    teams: [],             // teams mode only: [{id,name,leaderId,memberIds[],score}]
+    myTeamId: null,        // derived from players[] on every roster/welcome
+    customQuestionCount: 0,// host's saved quiz size, teams+custom only
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
-    settings: { genre: 'mixed', difficulty: 'any' },
+    settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre' },
     catalog: [],           // [{slug,label}] — what the server will actually serve
     difficulties: ['any', 'easy', 'medium', 'hard'],
     starting: false,
     myChoice: null,        // my picked index for the open question, or null
     locked: false,         // I have locked in (server-confirmed or optimistic)
-    answered: {},          // playerId -> true, for the open question
+    answered: {},          // playerId (classic) or teamId (teams) -> true, for the open question
     correctIndex: null,    // ONLY ever set from a 'reveal' message
     reveal: null,
     nextAt: 0,             // when the server will advance past this reveal
@@ -1755,6 +1833,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elThemeOpts = $('themeOpts'), elThemeBarLabel = $('themeBarLabel'),
       elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
       elDiffSlot = $('diffSlot'), elDiffVal = $('diffVal'),
+      elModeSlot = $('modeSlot'), elModeVal = $('modeVal'),
+      elSourceSlot = $('sourceSlot'), elSourceVal = $('sourceVal'),
+      elTeamsSetup = $('teamsSetup'), elTeamCountDown = $('teamCountDown'),
+      elTeamCountUp = $('teamCountUp'), elTeamCountVal = $('teamCountVal'),
+      elTeamSetupBtn = $('teamSetupBtn'), elTeamsPicker = $('teamsPicker'),
+      elQuizEditor = $('quizEditor'), elQuizRows = $('quizRows'),
+      elQuizAddBtn = $('quizAddBtn'), elQuizSaveBtn = $('quizSaveBtn'), elQuizStatus = $('quizStatus'),
       elQuestion = $('questionText'), elQRule = $('qRule'),
       elTiles = $('tiles'), elGridBloom = $('gridBloom'),
       elLockLine = $('lockLine'), elWhoGot = $('whoGot'),
@@ -2579,6 +2664,33 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elDiffSlot.setAttribute('aria-label',
       (state.isHost ? 'Difficulty, tap to change. Currently ' : 'Difficulty: ') + elDiffVal.textContent);
 
+    // Teams mode is a second axis, orthogonal to genre/difficulty — see
+    // sanitizeSettings() server-side for why source is pinned to 'genre'
+    // outside teams mode.
+    var isTeams = state.settings.mode === 'teams';
+    var isCustom = isTeams && state.settings.source === 'custom';
+
+    if (elModeSlot) {
+      elModeVal.textContent = isTeams ? 'Teams' : 'Classic';
+      elModeSlot.disabled = !state.isHost;
+      elModeSlot.setAttribute('aria-label',
+        (state.isHost ? 'Mode, tap to change. Currently ' : 'Mode: ') + elModeVal.textContent);
+    }
+    if (elSourceSlot) {
+      elSourceSlot.hidden = !isTeams;
+      elSourceVal.textContent = isCustom ? 'Your quiz' : 'Genre';
+      elSourceSlot.disabled = !state.isHost;
+    }
+    // Genre/difficulty only mean something when the quiz source IS a genre —
+    // a custom quiz has no genre or difficulty of its own.
+    elGenreSlot.hidden = isCustom;
+    elDiffSlot.hidden = isCustom;
+
+    if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost);
+    if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost);
+    if (isCustom && state.isHost) renderQuizEditor();
+    renderTeamsPicker();
+
     if (curScreen === 'lobby') setStage(lobbyStage());
   }
 
@@ -2588,7 +2700,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     return list[(i + (dir || 1) + list.length) % list.length];
   }
 
-  function sendSettings(next) {
+  /* Settings are a full replace server-side (sanitizeSettings(data.settings)
+     is not a merge), so every send must carry the WHOLE settings object or
+     an untouched field — mode, say — silently reverts to its default. Every
+     caller below passes a partial patch; this fills in the rest from what
+     the room already has. */
+  function sendSettings(patch) {
+    var cur = state.settings || {};
+    var next = {
+      genre: patch.genre !== undefined ? patch.genre : cur.genre,
+      difficulty: patch.difficulty !== undefined ? patch.difficulty : cur.difficulty,
+      mode: patch.mode !== undefined ? patch.mode : cur.mode,
+      source: patch.source !== undefined ? patch.source : cur.source
+    };
     // Painted immediately so the tap feels like a control rather than a
     // request, but the server's echo is the truth — if it disagrees, its
     // broadcast overwrites this a moment later.
@@ -2599,11 +2723,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   var lobbyPainted = false;
   function renderLobby() {
+    var isTeams = state.settings.mode === 'teams';
     var wrap = elLobbyPlayers;
     wrap.textContent = '';
+    // Teams mode replaces the flat seat grid with the team picker below —
+    // showing both would just be the same roster said twice.
+    wrap.hidden = isTeams;
     var players = state.players;
     var arrivals = 0;
-    for (var i = 0; i < players.length; i++) {
+    if (!isTeams) for (var i = 0; i < players.length; i++) {
       var p = players[i];
       var seat = mk('div', 'seat');
       var isNew = !seenPlayerIds[p.id];
@@ -2627,12 +2755,21 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       seat.appendChild(sub);
       wrap.appendChild(seat);
     }
-    var empties = Math.max(0, Math.min(MAX_PLAYERS, MAX_PLAYERS) - players.length);
-    for (var j = 0; j < empties; j++) {
-      var slotWrap = mk('div', 'seat');
-      slotWrap.appendChild(mk('div', 'slot'));
-      wrap.appendChild(slotWrap);
+    if (!isTeams) {
+      var empties = Math.max(0, Math.min(MAX_PLAYERS, MAX_PLAYERS) - players.length);
+      for (var j = 0; j < empties; j++) {
+        var slotWrap = mk('div', 'seat');
+        slotWrap.appendChild(mk('div', 'slot'));
+        wrap.appendChild(slotWrap);
+      }
     }
+    // Arrivals still get the join chime in teams mode even though the seat
+    // grid itself is hidden — the picker below renders fresh every time, so
+    // this loop is what notices a new face rather than the (skipped) grid.
+    if (isTeams) for (var ni = 0; ni < players.length; ni++) {
+      if (!seenPlayerIds[players[ni].id]) { seenPlayerIds[players[ni].id] = true; arrivals++; }
+    }
+    renderTeamsPicker();
 
     var connected = 0;
     for (var k = 0; k < players.length; k++) if (players[k].connected) connected++;
@@ -2695,6 +2832,201 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.isPublic = !state.isPublic;
     paintPublicToggle();
     send({ type: 'public', on: state.isPublic });
+  });
+
+  /* ==================================================================
+     Teams mode — lobby setup, the team picker, and the host's quiz editor.
+     The game itself (question/reveal/board) treats a team as one entity;
+     see boardEntities()/findPlayer()/myTeam() below for how it reuses the
+     existing player-indexed scoreboard code for that.
+     ================================================================== */
+  function findPlayer(id) {
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === id) return state.players[i];
+    }
+    return null;
+  }
+
+  function myTeam() {
+    if (!state.myTeamId) return null;
+    for (var i = 0; i < state.teams.length; i++) {
+      if (state.teams[i].id === state.myTeamId) return state.teams[i];
+    }
+    return null;
+  }
+
+  function amITeamLeader() {
+    var t = myTeam();
+    return !!(t && state.me && t.leaderId === state.me.id);
+  }
+
+  /* The scoreboard, "who got it" chips, and prevScores bookkeeping all walk
+     one list of "the things with a score" by id/name/score. In classic mode
+     that is state.players; in teams mode it is state.teams, reshaped to the
+     same {id,name,score,connected,isHost} fields so every one of those
+     existing, already-tested renderers works unmodified either way. A team
+     is always `connected: true` here — the SCOREBOARD does not try to dim a
+     team for one absent member, only a fully-empty one, and that case
+     already renders as a team simply never climbing the board. */
+  function boardEntities() {
+    if (state.settings.mode === 'teams') {
+      return state.teams.map(function (t) {
+        return { id: t.id, name: t.name, score: t.score, connected: true, isHost: false };
+      });
+    }
+    return state.players;
+  }
+
+  /* Recomputed every time the roster arrives — the server is the only
+     authority on who is on which team, this just reads its own entry back
+     out of that roster rather than tracking it separately. */
+  function recomputeMyTeam() {
+    var me = state.me && findPlayer(state.me.id);
+    state.myTeamId = me ? (me.teamId || null) : null;
+  }
+
+  var pendingTeamCount = 2;
+  on(elTeamCountDown, 'click', function () {
+    pendingTeamCount = Math.max(2, pendingTeamCount - 1);
+    elTeamCountVal.textContent = String(pendingTeamCount);
+  });
+  on(elTeamCountUp, 'click', function () {
+    pendingTeamCount = Math.min(8, pendingTeamCount + 1);
+    elTeamCountVal.textContent = String(pendingTeamCount);
+  });
+  on(elTeamSetupBtn, 'click', function () {
+    send({ type: 'teamSetup', count: pendingTeamCount });
+  });
+
+  function renderTeamsPicker() {
+    var wrap = elTeamsPicker;
+    if (!wrap) return;
+    if (state.settings.mode !== 'teams' || !state.teams.length) {
+      wrap.hidden = true;
+      wrap.textContent = '';
+      return;
+    }
+    wrap.hidden = false;
+    wrap.textContent = '';
+    for (var i = 0; i < state.teams.length; i++) {
+      wrap.appendChild(buildTeamCard(state.teams[i]));
+    }
+  }
+
+  function buildTeamCard(t) {
+    var card = mk('div', 'team-card');
+    var head = mk('div', 'team-card-head');
+    var nm = mk('span', 'team-name');
+    nm.textContent = t.name;
+    head.appendChild(nm);
+    card.appendChild(head);
+
+    var members = mk('div', 'team-members');
+    for (var j = 0; j < t.memberIds.length; j++) {
+      var p = findPlayer(t.memberIds[j]);
+      if (!p) continue;
+      var mchip = mk('div', 'team-member' + (p.connected ? '' : ' off'));
+      mchip.appendChild(avatarEl(p));
+      var mn = mk('span', 'mname');
+      // A star marks the team's leader — the one whose tiles are live and
+      // whose tap is the team's answer. Everyone else on the team watches.
+      mn.textContent = p.name + (t.leaderId === p.id ? ' ★' : '');
+      mchip.appendChild(mn);
+      members.appendChild(mchip);
+    }
+    card.appendChild(members);
+
+    if (!state.spectator && state.phase === 'lobby') {
+      var onThis = state.myTeamId === t.id;
+      var joinBtn = mk('button', 'chip-btn team-join');
+      joinBtn.type = 'button';
+      joinBtn.textContent = onThis ? 'Your team' : 'Join';
+      joinBtn.disabled = onThis;
+      on(joinBtn, 'click', function () { send({ type: 'joinTeam', teamId: t.id }); });
+      card.appendChild(joinBtn);
+    }
+    return card;
+  }
+
+  /* ---- Host's quiz editor. Lives only in this tab until Save is pressed —
+     the server never echoes question text back (only a count), so a reload
+     loses an unsaved draft but keeps whatever was last saved. ---- */
+  var quizDraft = [];
+
+  function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0 }; }
+
+  function renderQuizEditor() {
+    if (!elQuizRows) return;
+    elQuizRows.textContent = '';
+    for (var i = 0; i < quizDraft.length; i++) elQuizRows.appendChild(buildQuizRow(i));
+    elQuizStatus.textContent = state.customQuestionCount
+      ? ('Saved: ' + state.customQuestionCount + ' question' + (state.customQuestionCount === 1 ? '' : 's'))
+      : 'Not saved yet';
+  }
+
+  function buildQuizRow(i) {
+    var q = quizDraft[i];
+    var row = mk('div', 'quiz-row');
+
+    var textInput = document.createElement('input');
+    textInput.type = 'text';
+    textInput.placeholder = 'Question ' + (i + 1);
+    textInput.value = q.text;
+    textInput.maxLength = 300;
+    on(textInput, 'input', function () { q.text = textInput.value; });
+    row.appendChild(textInput);
+
+    for (var c = 0; c < 4; c++) {
+      var choiceWrap = mk('div', 'quiz-choice');
+      var radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'quiz-correct-' + i;
+      radio.checked = q.correctIndex === c;
+      radio.setAttribute('aria-label', 'Answer ' + (c + 1) + ' is correct');
+      (function (idx) { on(radio, 'change', function () { q.correctIndex = idx; }); })(c);
+      choiceWrap.appendChild(radio);
+
+      var choiceInput = document.createElement('input');
+      choiceInput.type = 'text';
+      choiceInput.placeholder = 'Answer ' + (c + 1);
+      choiceInput.value = q.choices[c];
+      choiceInput.maxLength = 120;
+      (function (idx) { on(choiceInput, 'input', function () { q.choices[idx] = choiceInput.value; }); })(c);
+      choiceWrap.appendChild(choiceInput);
+      row.appendChild(choiceWrap);
+    }
+
+    var removeBtn = mk('button', 'chip-btn quiz-remove');
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'Remove';
+    on(removeBtn, 'click', function () { quizDraft.splice(i, 1); renderQuizEditor(); });
+    row.appendChild(removeBtn);
+
+    return row;
+  }
+
+  on(elQuizAddBtn, 'click', function () {
+    if (quizDraft.length >= 30) { toast('Up to 30 questions.', true); return; }
+    quizDraft.push(newQuizQuestion());
+    renderQuizEditor();
+  });
+
+  on(elQuizSaveBtn, 'click', function () {
+    var items = [];
+    for (var i = 0; i < quizDraft.length; i++) {
+      var q = quizDraft[i];
+      var choices = [];
+      for (var c = 0; c < 4; c++) {
+        var v = (q.choices[c] || '').trim();
+        if (v) choices.push(v);
+      }
+      // correctIndex is authored against the UNFILTERED 4 slots; if the host
+      // left a blank slot above it, this is wrong, but the server validates
+      // independently and refuses the whole batch with a reason rather than
+      // silently accepting a shifted answer key.
+      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: q.correctIndex });
+    }
+    send({ type: 'questions', items: items });
   });
 
   /* ==================================================================
@@ -2809,8 +3141,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       b.appendChild(txt);
 
       b.addEventListener('animationend', function () { this.classList.remove('tile-enter'); }, { once: true });
-      // A spectator's board is a display, not a control surface.
-      if (state.spectator) b.disabled = true;
+      // A spectator's board is a display, not a control surface — and in
+      // teams mode, so is everyone on a team except its leader: they see
+      // the exact same tiles, but only the leader's tap is the team's
+      // answer, so only the leader's tiles are a control surface.
+      if (state.spectator || (state.settings.mode === 'teams' && !amITeamLeader())) b.disabled = true;
       else on(b, 'click', onTileClick);
       elTiles.appendChild(b);
     }
@@ -2821,8 +3156,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // scores as they stood before this round — the scoreboard needs a
     // "before" to animate out of
     state.prevScores = {};
-    for (var s = 0; s < state.players.length; s++) {
-      state.prevScores[state.players[s].id] = state.players[s].score || 0;
+    var boardNow = boardEntities();
+    for (var s = 0; s < boardNow.length; s++) {
+      state.prevScores[boardNow[s].id] = boardNow[s].score || 0;
     }
 
     startClock(q.endsAt);
@@ -2853,6 +3189,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function lockIn(i) {
     if (state.spectator) return; // watching, not playing — the server would refuse anyway
+    // Keyboard shortcuts bypass the tile's own disabled attribute, so the
+    // same guard that disables a non-leader's tiles in renderQuestion has
+    // to be repeated here — the server refuses this too, but silently, not
+    // with a toast, so it is worth not sending it at all.
+    if (state.settings.mode === 'teams' && !amITeamLeader()) return;
     if (state.locked || !state.question || state.phase !== 'question') return;
     if (!(i >= 0 && i <= 3)) return;
     state.locked = true;
@@ -2886,26 +3227,64 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     paintLockLine();
   }
 
+  /* The shared "N of M locked in" denominator: players connected (classic)
+     or teams with at least one connected member (teams). state.answered is
+     keyed to match — playerId or teamId respectively, set that way by the
+     'answered' case in handle(). */
+  function lockCounts() {
+    if (state.settings.mode === 'teams') {
+      var total = 0, done = 0;
+      for (var i = 0; i < state.teams.length; i++) {
+        var t = state.teams[i];
+        var hasConnected = false;
+        for (var j = 0; j < t.memberIds.length; j++) {
+          var p = findPlayer(t.memberIds[j]);
+          if (p && p.connected) { hasConnected = true; break; }
+        }
+        if (!hasConnected) continue;
+        total++;
+        if (state.answered[t.id]) done++;
+      }
+      return { total: total, done: done };
+    }
+    var total2 = 0, done2 = 0;
+    for (var k = 0; k < state.players.length; k++) {
+      if (!state.players[k].connected) continue;
+      total2++;
+      if (state.answered[state.players[k].id]) done2++;
+    }
+    return { total: total2, done: done2 };
+  }
+
   function paintLockLine() {
     elLockLine.textContent = '';
     if (state.phase !== 'question') return;
+    var isTeams = state.settings.mode === 'teams';
     if (state.spectator) {
       // Spectators see the lock-in count from the start — they cannot be
       // influenced into an answer, having no answer to give.
       var wtag = mk('span', 'lock-tag muted');
       wtag.textContent = T('youreWatching');
       elLockLine.appendChild(wtag);
-      var totalS = 0, doneS = 0;
-      for (var si = 0; si < state.players.length; si++) {
-        if (!state.players[si].connected) continue;
-        totalS++;
-        if (state.answered[state.players[si].id]) doneS++;
-      }
-      if (totalS > 0) {
+      var cs0 = lockCounts();
+      if (cs0.total > 0) {
         var cs = mk('span', 'lock-tag muted');
-        cs.textContent = doneS + ' of ' + totalS + ' locked in';
+        cs.textContent = cs0.done + ' of ' + cs0.total + (isTeams ? ' teams' : '') + ' locked in';
         elLockLine.appendChild(cs);
       }
+      return;
+    }
+    if (isTeams && !amITeamLeader()) {
+      // A non-leader teammate has no tile to pick — their lock-in is
+      // whatever their leader does, and this line says so instead of
+      // inviting a tap that would just be refused.
+      var waitTag = mk('span', 'lock-tag muted');
+      var t = myTeam();
+      var leaderName = (t && findPlayer(t.leaderId) || {}).name;
+      waitTag.textContent = state.locked
+        ? 'Your team has locked in'
+        : (leaderName ? 'Waiting on ' + leaderName + ' to answer' : 'Waiting on your team leader');
+      elLockLine.appendChild(waitTag);
       return;
     }
     if (!state.locked) {
@@ -2921,15 +3300,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // Counts stay off while you are still choosing — they leak nothing about
     // the answer, but they do cost suspense. Once you've locked in you can
     // no longer be influenced, so it's safe (and kinder) to show progress.
-    var total = 0, done = 0;
-    for (var i = 0; i < state.players.length; i++) {
-      if (!state.players[i].connected) continue;
-      total++;
-      if (state.answered[state.players[i].id]) done++;
-    }
-    if (total > 1) {
+    var cs1 = lockCounts();
+    if (cs1.total > 1) {
       var c = mk('span', 'lock-tag muted');
-      c.textContent = done + ' of ' + total + ' locked in';
+      c.textContent = cs1.done + ' of ' + cs1.total + (isTeams ? ' teams' : '') + ' locked in';
       elLockLine.appendChild(c);
     }
   }
@@ -2956,9 +3330,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     var ci = rev.correctIndex;
     var mine = null;
-    if (state.me && Array.isArray(rev.perPlayer)) {
-      for (var i = 0; i < rev.perPlayer.length; i++) {
-        if (rev.perPlayer[i].id === state.me.id) { mine = rev.perPlayer[i]; break; }
+    if (rev.mode === 'teams') {
+      // Everyone on the team shares one outcome — a non-leader never had a
+      // myChoice of their own, and finding out what their leader picked
+      // RIGHT HERE, at the reveal, is exactly the moment the invariant says
+      // that becomes safe to learn.
+      if (state.myTeamId && Array.isArray(rev.perTeam)) {
+        for (var i = 0; i < rev.perTeam.length; i++) {
+          if (rev.perTeam[i].id === state.myTeamId) { mine = rev.perTeam[i]; break; }
+        }
+      }
+    } else if (state.me && Array.isArray(rev.perPlayer)) {
+      for (var i2 = 0; i2 < rev.perPlayer.length; i2++) {
+        if (rev.perPlayer[i2].id === state.me.id) { mine = rev.perPlayer[i2]; break; }
       }
     }
     // The server is the authority on what I picked; if I reloaded, this is
@@ -3060,17 +3444,22 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function renderWhoGot(rev) {
     elWhoGot.textContent = '';
+    var isTeams = rev.mode === 'teams';
     var byId = {};
-    for (var i = 0; i < state.players.length; i++) byId[state.players[i].id] = state.players[i];
+    var entities = boardEntities();
+    for (var i = 0; i < entities.length; i++) byId[entities[i].id] = entities[i];
 
     var winners = [];
-    var pp = Array.isArray(rev.perPlayer) ? rev.perPlayer : [];
+    var pp = isTeams ? (Array.isArray(rev.perTeam) ? rev.perTeam : [])
+                     : (Array.isArray(rev.perPlayer) ? rev.perPlayer : []);
     for (var j = 0; j < pp.length; j++) if (pp[j].correct) winners.push(pp[j]);
     winners.sort(function (a, b) { return (b.gained || 0) - (a.gained || 0); });
 
     var label = mk('div', 'whogot-label');
     label.textContent = winners.length
-      ? (winners.length === 1 ? '1 player got it' : winners.length + ' players got it')
+      ? (winners.length === 1
+          ? (isTeams ? '1 team got it' : '1 player got it')
+          : winners.length + (isTeams ? ' teams got it' : ' players got it'))
       : 'Nobody got it';
     elWhoGot.appendChild(label);
     if (!winners.length) return;
@@ -3084,7 +3473,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       chip.style.animationDelay = (REDUCED ? 0 : k * 55) + 'ms';
       chip.appendChild(avatarEl(p));
       var nm = mk('div', 'gname');
-      nm.textContent = (state.me && p.id === state.me.id) ? 'You' : p.name;
+      nm.textContent = (!isTeams && state.me && p.id === state.me.id) ? 'You'
+        : (isTeams && state.myTeamId === p.id) ? 'Your team' : p.name;
       chip.appendChild(nm);
 
       if (!REDUCED) {
@@ -3150,7 +3540,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   function sortedBy(scoreMap) {
-    var arr = state.players.slice();
+    var arr = boardEntities().slice();
     arr.sort(function (a, b) {
       var sa = scoreMap[a.id] || 0, sb = scoreMap[b.id] || 0;
       if (sb !== sa) return sb - sa;
@@ -3170,9 +3560,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     row.appendChild(avatarEl(p));
     var name = mk('div', 'row-name');
     name.textContent = p.name;
-    if (state.me && p.id === state.me.id) {
+    var isMine = state.settings.mode === 'teams'
+      ? state.myTeamId === p.id
+      : !!(state.me && p.id === state.me.id);
+    if (isMine) {
       var you = mk('span', 'row-you');
-      you.textContent = 'You';
+      you.textContent = state.settings.mode === 'teams' ? 'Your team' : 'You';
       name.appendChild(you);
     }
     row.appendChild(name);
@@ -3196,14 +3589,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // the old scores. The reorder is only meaningful if there is a before.
     var prev = state.prevScores || {};
     var now = {};
-    for (var i = 0; i < state.players.length; i++) now[state.players[i].id] = state.players[i].score || 0;
+    var boardNow = boardEntities();
+    for (var i = 0; i < boardNow.length; i++) now[boardNow[i].id] = boardNow[i].score || 0;
 
     var beforeList = sortedBy(prev);
     elBoardRows.textContent = '';
     boardRowEls = Object.create(null);
 
     var leaderNow = 0;
-    for (var l = 0; l < state.players.length; l++) leaderNow = Math.max(leaderNow, now[state.players[l].id] || 0);
+    for (var l = 0; l < boardNow.length; l++) leaderNow = Math.max(leaderNow, now[boardNow[l].id] || 0);
     var leaderPrev = 0;
     for (var m = 0; m < beforeList.length; m++) leaderPrev = Math.max(leaderPrev, prev[beforeList[m].id] || 0);
 
@@ -3725,6 +4119,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           state.difficulties = msg.difficulties;
         }
         if (msg.settings) state.settings = msg.settings;
+        state.teams = Array.isArray(msg.teams) ? msg.teams : [];
+        recomputeMyTeam();
         state.starting = false;
         paintCallSheet();
         state.everConnected = true;
@@ -3744,6 +4140,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       case 'roster':
         state.players = Array.isArray(msg.players) ? msg.players : [];
         state.watching = (msg.watching | 0) > 0 ? (msg.watching | 0) : 0;
+        state.teams = Array.isArray(msg.teams) ? msg.teams : [];
+        recomputeMyTeam();
         if (state.me) {
           for (var i = 0; i < state.players.length; i++) {
             if (state.players[i].id === state.me.id) state.isHost = !!state.players[i].isHost;
@@ -3800,14 +4198,30 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       }
 
       case 'answered':
-        state.answered[msg.playerId] = true;
-        if (state.me && msg.playerId === state.me.id && !state.locked) {
-          // We reconnected into a question we had already answered. We know we
-          // are locked; we are NOT told which choice, and we do not guess.
-          state.locked = true;
-          applyLockVisuals(state.myChoice, true);
-        } else if (state.locked || state.spectator) {
-          paintLockLine();
+        if (msg.teamId) {
+          // Teams mode: this fires once per team, not once per player. Every
+          // member (leader included) learns the window just closed; NOBODY
+          // but the leader who clicked ever learns which tile that was
+          // before the reveal — that teammate branch deliberately shows no
+          // choice, same reason a reconnect in classic mode is told "you are
+          // locked" and never told to what.
+          state.answered[msg.teamId] = true;
+          if (msg.teamId === state.myTeamId) {
+            if (!state.locked) { state.locked = true; applyLockVisuals(null, true); }
+            else paintLockLine();
+          } else {
+            paintLockLine(); // another team's status only moves the shared count
+          }
+        } else {
+          state.answered[msg.playerId] = true;
+          if (state.me && msg.playerId === state.me.id && !state.locked) {
+            // We reconnected into a question we had already answered. We know we
+            // are locked; we are NOT told which choice, and we do not guess.
+            state.locked = true;
+            applyLockVisuals(state.myChoice, true);
+          } else if (state.locked || state.spectator) {
+            paintLockLine();
+          }
         }
         break;
 
@@ -3818,8 +4232,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         // no countdown is shown — the game still advances server-side.
         state.nextAt = Number(msg.nextAt) || 0;
         runReveal({
+          mode: msg.mode === 'teams' ? 'teams' : 'classic',
           correctIndex: msg.correctIndex,
           perPlayer: Array.isArray(msg.perPlayer) ? msg.perPlayer : [],
+          perTeam: Array.isArray(msg.perTeam) ? msg.perTeam : [],
           scores: Array.isArray(msg.scores) ? msg.scores : []
         });
         paintBackBtn();
@@ -3838,6 +4254,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.settings) state.settings = msg.settings;
         state.starting = false;
         paintCallSheet();
+        if (curScreen === 'lobby') renderLobby();
+        break;
+
+      case 'customQuestions':
+        state.customQuestionCount = (msg.count | 0) > 0 ? (msg.count | 0) : 0;
+        if (elQuizStatus) renderQuizEditor();
+        toast('Quiz saved — ' + state.customQuestionCount
+          + ' question' + (state.customQuestionCount === 1 ? '' : 's') + '.');
         break;
 
       case 'public':
@@ -4164,6 +4588,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     sendSettings({ genre: state.settings.genre,
                    difficulty: cycle(state.difficulties, state.settings.difficulty,
                                      ev.shiftKey ? -1 : 1) });
+  });
+
+  on(elModeSlot, 'click', function () {
+    if (!state.isHost || state.starting) return;
+    sendSettings({ mode: state.settings.mode === 'teams' ? 'classic' : 'teams' });
+  });
+  on(elSourceSlot, 'click', function () {
+    if (!state.isHost || state.starting) return;
+    sendSettings({ source: state.settings.source === 'custom' ? 'genre' : 'custom' });
   });
 
   on(elStartBtn, 'click', function () {

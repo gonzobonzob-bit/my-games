@@ -1,0 +1,244 @@
+// Protocol-level tests for teams mode, same raw-socket style as
+// genre-test.mjs. No browser: covers team setup/join/leader handoff,
+// leader-only answer enforcement, team-based reveal/scoring, and the
+// custom-quiz validation path.
+import WS from 'ws';
+
+const ORIGIN = 'http://localhost:8000';
+const fails = [], notes = [];
+const ok = (c, l, x) => c ? notes.push('PASS  ' + l)
+                          : fails.push('FAIL  ' + l + (x !== undefined ? '  :: ' + JSON.stringify(x) : ''));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+class C {
+  constructor(name, room) { this.name = name; this.room = room; this.msgs = []; }
+  connect() {
+    const url = `ws://localhost:8787/room?code=${this.room}&name=${encodeURIComponent(this.name)}`;
+    this.ws = new WS(url, { origin: ORIGIN });
+    this.ws.on('message', (r) => this.msgs.push(JSON.parse(r.toString())));
+    return new Promise((res, rej) => {
+      this.ws.once('open', res);
+      this.ws.once('error', rej);
+      setTimeout(() => rej(new Error(this.name + ' connect timeout')), 8000);
+    });
+  }
+  send(o) { this.ws.send(JSON.stringify(o)); }
+  last(t) { return [...this.msgs].reverse().find((m) => m.type === t); }
+  all(t) { return this.msgs.filter((m) => m.type === t); }
+  async wait(t, ms = 25000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { const m = this.last(t); if (m) return m; await sleep(60); }
+    throw new Error(`${this.name}: no '${t}' in ${ms}ms`);
+  }
+  async waitFor(pred, ms = 25000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { const m = this.msgs.find(pred); if (m) return m; await sleep(60); }
+    throw new Error(`${this.name}: predicate never matched in ${ms}ms`);
+  }
+  close() { try { this.ws.close(); } catch {} }
+}
+
+const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const room = () => Array.from({ length: 6 },
+  () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('');
+const settle = () => sleep(600);
+
+function fourChoiceQuestion(n, correct) {
+  return {
+    text: 'Q' + n + '?',
+    choices: ['A' + n, 'B' + n, 'C' + n, 'D' + n],
+    correctIndex: correct,
+  };
+}
+
+try {
+  // ---- 1. mode switch resets teams/customQuestions, source pins to genre
+  //         outside teams mode -------------------------------------------
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect();
+    await A.wait('welcome');
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
+    const s1 = await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
+    ok(s1.settings.mode === 'teams', 'mode switches to teams');
+
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'custom' } });
+    const s2 = await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'classic');
+    ok(s2.settings.source === 'genre', 'source is pinned to genre outside teams mode', s2.settings);
+    A.close();
+  }
+
+  await settle();
+  // ---- 2. team setup, join, leader auto-assignment, switching teams -----
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+    const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
+    await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
+
+    A.send({ type: 'teamSetup', count: 2, names: ['Red', 'Blue'] });
+    const r1 = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    ok(r1.teams.length === 2, 'teamSetup creates the requested number of teams', r1.teams);
+    ok(r1.teams[0].name === 'Red' && r1.teams[1].name === 'Blue', 'teamSetup honours the supplied names', r1.teams);
+
+    const redId = r1.teams[0].id, blueId = r1.teams[1].id;
+    A.send({ type: 'joinTeam', teamId: redId });
+    const rA = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
+      && m.teams.find((t) => t.id === redId)?.leaderId);
+    const teamRed = rA.teams.find((t) => t.id === redId);
+    ok(teamRed.memberIds.length === 1, 'Ann joined Red', teamRed);
+
+    const annPid = rA.players.find((p) => p.name === 'Ann').id;
+    ok(teamRed.leaderId === annPid, 'first member of a team becomes its leader');
+
+    B.send({ type: 'joinTeam', teamId: redId });
+    const rB = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
+      && m.teams.find((t) => t.id === redId)?.memberIds.length === 2);
+    const teamRed2 = rB.teams.find((t) => t.id === redId);
+    ok(teamRed2.leaderId === annPid, 'second member joining does not steal leadership');
+
+    // Bea switches to Blue — Red should shrink back to just Ann.
+    B.send({ type: 'joinTeam', teamId: blueId });
+    const rC = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams)
+      && m.teams.find((t) => t.id === blueId)?.memberIds.length === 1);
+    const teamRedAfter = rC.teams.find((t) => t.id === redId);
+    const teamBlueAfter = rC.teams.find((t) => t.id === blueId);
+    ok(teamRedAfter.memberIds.length === 1, 'switching teams removes the old membership', teamRedAfter);
+    const beaPid = rC.players.find((p) => p.name === 'Bea').id;
+    ok(teamBlueAfter.leaderId === beaPid, 'joining an empty team makes you its leader');
+    A.close(); B.close();
+  }
+
+  await settle();
+  // ---- 3. only the team leader can submit an answer; reveal is team-based,
+  //         and never leaks correctness before every active team has
+  //         answered --------------------------------------------------------
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+    const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
+    await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
+    // count:2 — TEAM_COUNT_MIN is 2, a "team of one" is just classic mode
+    // with extra steps. Ann and Bea both join team 0; team 1 sits empty and
+    // simply never shows up in allTeamsAnswered()'s active set.
+    A.send({ type: 'teamSetup', count: 2 });
+    const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    const teamId = setup.teams[0].id;
+    A.send({ type: 'joinTeam', teamId });
+    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
+    B.send({ type: 'joinTeam', teamId });
+    const afterJoin = await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 2);
+    const annPid = afterJoin.players.find((p) => p.name === 'Ann').id;
+    ok(afterJoin.teams[0].leaderId === annPid, 'Ann (first in) is the leader, not Bea');
+
+    A.send({ type: 'start' });
+    const q = await A.wait('question', 15000);
+    ok(!!q && Array.isArray(q.choices), 'teams-mode genre start produces a question');
+    // Protocol tripwire, same as classic: nothing answer-shaped on the wire.
+    ok(!('correctIndex' in q), 'question carries no correctIndex');
+
+    // Bea (not the leader) tries to answer and must be refused with a clear
+    // error, not a silent drop — and the room must NOT have moved to reveal.
+    B.msgs.length = 0;
+    B.send({ type: 'answer', index: q.index, choice: 0 });
+    const err = await B.wait('error', 4000);
+    ok(err.code === 'notLeader', 'a non-leader answering gets code=notLeader', err);
+    await settle();
+    ok(!B.all('reveal').length, 'the room did not reveal off a non-leader answer');
+
+    A.msgs.length = 0; B.msgs.length = 0;
+    A.send({ type: 'answer', index: q.index, choice: 1 });
+    const answered = await B.wait('answered', 4000);
+    ok(answered.teamId === teamId, 'the answered broadcast carries teamId, not playerId', answered);
+    ok(!('playerId' in answered), 'teams-mode answered frame has no playerId field');
+
+    const rev = await B.wait('reveal', 4000);
+    ok(rev.mode === 'teams', 'reveal says mode: teams');
+    // One perTeam entry per team that EXISTS, including the empty second
+    // team — doReveal() walks g.teams, same as doReveal walks g.players in
+    // classic mode, so an empty team still gets a (null-choice) entry.
+    ok(Array.isArray(rev.perTeam) && rev.perTeam.length === 2, 'reveal carries one perTeam entry per team', rev.perTeam);
+    const mine = rev.perTeam.find((t) => t.id === teamId);
+    ok(!!mine, 'the perTeam entry for our team is present by team id');
+    ok(mine.choice === 1, 'the revealed choice matches what the leader submitted', mine);
+    const emptyTeam = rev.perTeam.find((t) => t.id !== teamId);
+    ok(emptyTeam && emptyTeam.choice === null, 'the empty second team has no choice, not an error', emptyTeam);
+    ok(Array.isArray(rev.scores) && rev.scores.find((s) => s.id === teamId), 'scores are keyed by team id, not player id');
+    A.close(); B.close();
+  }
+
+  await settle();
+  // ---- 4. custom quiz: validation, all-or-nothing, and the start path ---
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'custom' } });
+    await A.waitFor((m) => m.type === 'settings' && m.settings.source === 'custom');
+
+    // Malformed batch: one question has a duplicate choice. The whole batch
+    // must be refused, not silently trimmed to the good ones.
+    A.msgs.length = 0;
+    A.send({ type: 'questions', items: [
+      fourChoiceQuestion(1, 0),
+      { text: 'bad', choices: ['x', 'x', 'y', 'z'], correctIndex: 0 },
+    ] });
+    const badErr = await A.wait('error', 4000);
+    ok(/incomplete/.test(badErr.message || ''), 'a malformed quiz batch is refused with a reason', badErr);
+
+    A.msgs.length = 0;
+    A.send({ type: 'questions', items: [fourChoiceQuestion(1, 2), fourChoiceQuestion(2, 0)] });
+    const saved = await A.wait('customQuestions', 4000);
+    ok(saved.count === 2, 'a valid quiz batch saves and reports its count', saved);
+
+    A.send({ type: 'teamSetup', count: 2 });
+    const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    A.send({ type: 'joinTeam', teamId: setup.teams[0].id });
+    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
+
+    A.msgs.length = 0;
+    A.send({ type: 'start' });
+    const notice = await A.wait('notice', 6000);
+    ok(notice.code === 'custom', 'starting a custom quiz announces itself as custom, not offline/bilingual', notice);
+    const q1 = await A.wait('question', 4000);
+    ok(/^Q[12]\?$/.test(q1.text), 'the custom-authored question text reaches the client', q1);
+    ok(q1.choices.length === 4 && new Set(q1.choices).size === 4, 'choices were shuffled and stayed unique');
+    A.close();
+  }
+
+  await settle();
+  // ---- 5. starting a teams game with an unassigned player is refused ----
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+    const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
+    await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
+    A.send({ type: 'teamSetup', count: 2 });
+    const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    A.send({ type: 'joinTeam', teamId: setup.teams[0].id });
+    await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
+    // Bea never joins a team.
+    A.msgs.length = 0;
+    A.send({ type: 'start' });
+    const err = await A.wait('error', 4000);
+    ok(err.code === 'needTeam', 'starting with an unassigned connected player is refused', err);
+    A.close(); B.close();
+  }
+
+} catch (e) {
+  fails.push('FAIL  threw: ' + (e && e.stack || e));
+}
+
+console.log(notes.join('\n'));
+if (fails.length) {
+  console.log('\n' + fails.join('\n'));
+  console.log(`\n${fails.length} FAILED / ${notes.length + fails.length} total`);
+  process.exit(1);
+} else {
+  console.log(`\nALL ${notes.length} PASSED`);
+}

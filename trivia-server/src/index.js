@@ -59,6 +59,27 @@ const OPENTDB_TIMEOUT_MS = 6000;
 // don't wedge the room forever.
 const LOADING_STALE_MS = 15_000;
 
+// Teams mode: a second way to play, orthogonal to question source. A teams
+// room can still pull from a genre/OpenTDB, or from a host-authored quiz —
+// see `settings.source`. One answer per team per question, submitted only by
+// that team's leader; see onAnswer/doReveal below for how THE INVARIANT
+// (never reveal correctness before the reveal) generalises from player to
+// team.
+const TEAM_COUNT_MIN = 2;
+const TEAM_COUNT_MAX = 8;
+
+// Host-authored quiz, teams mode only. No genre, no OpenTDB, no bilingual
+// pack — the host IS the content source, so none of that machinery applies.
+const CUSTOM_QUESTION_MIN = 1;
+const CUSTOM_QUESTION_MAX = 30;
+// Exactly 4, not 2-4: every other question type in this game (OpenTDB,
+// offline packs) is always 4 choices, and the client's tile grid is built on
+// that assumption in several places. Pinning custom quizzes to the same
+// shape means the client needs no "how many tiles this round" logic at all.
+const CUSTOM_CHOICE_COUNT = 4;
+const CUSTOM_TEXT_MAX = 300;
+const CUSTOM_CHOICE_MAX_LEN = 120;
+
 const ALLOWED_ORIGIN = 'https://gonzobonzob-bit.github.io';
 
 /* ------------------------------------------------------------------ *
@@ -201,6 +222,7 @@ export class Room {
         isPublic: g.public === true,
         catalog: catalog(),
         difficulties: DIFFICULTIES.slice(),
+        teams: g.settings.mode === 'teams' ? this.teamsSummary() : undefined,
       });
       this.broadcastRoster(); // the watching count just changed
       this.catchUp(server);
@@ -234,6 +256,7 @@ export class Room {
         joinedAt: Date.now(),
         connectedAt: Date.now(),
         lang: sanitizeLang(url.searchParams.get('lang')),
+        teamId: null, // teams mode only; classic rooms never set this
       };
       g.players[player.id] = player;
     } else {
@@ -282,6 +305,7 @@ export class Room {
       isPublic: g.public === true,
       catalog: catalog(),
       difficulties: DIFFICULTIES.slice(),
+      teams: g.settings.mode === 'teams' ? this.teamsSummary() : undefined,
     });
     this.broadcastRoster();
     this.catchUp(server);
@@ -295,9 +319,14 @@ export class Room {
     const g = this.game;
     if (g.phase === 'question' && g.questions[g.qIndex]) {
       this.send(ws, this.questionMessage());
-      // Replay who has already locked in — playerId only, no answer content.
-      for (const pid of Object.keys(g.answers)) {
-        this.send(ws, { type: 'answered', playerId: pid });
+      // Replay who has already locked in — id only, no answer content. In
+      // teams mode g.answers is keyed by team id, not player id; the field
+      // name on the wire follows which one it is, same as every other
+      // teams-aware broadcast below.
+      for (const key of Object.keys(g.answers)) {
+        this.send(ws, g.settings.mode === 'teams'
+          ? { type: 'answered', teamId: key }
+          : { type: 'answered', playerId: key });
       }
     } else if (g.phase === 'reveal' && g.lastReveal) {
       this.send(ws, g.lastReveal);
@@ -356,7 +385,24 @@ export class Room {
         score: p.score,
         isHost: p.id === g.hostId,
         connected: connected.has(p.id),
+        // Classic rooms never set teamId, so this is always undefined there
+        // rather than a meaningless null on every player.
+        teamId: g.settings.mode === 'teams' ? p.teamId : undefined,
       }));
+  }
+
+  /* Team scores and membership, safe to broadcast at any time INCLUDING
+     mid-question: a team's score only ever changes inside doReveal(), same
+     rule as a player's score, so this carries nothing answer-shaped. */
+  teamsSummary() {
+    const g = this.game;
+    return g.teams.map((t) => ({
+      id: t.id,
+      name: t.name,
+      score: t.score,
+      leaderId: t.leaderId,
+      memberIds: t.memberIds.slice(),
+    }));
   }
 
   broadcastRoster(sockets = null) {
@@ -366,6 +412,7 @@ export class Room {
       type: 'roster',
       players: this.roster(sockets),
       watching: this.spectatorCount(sockets),
+      teams: this.game.settings.mode === 'teams' ? this.teamsSummary() : undefined,
     }, sockets);
   }
 
@@ -391,6 +438,7 @@ export class Room {
       phase: g.phase === 'lobby' ? 'lobby' : (g.phase === 'final' ? 'final' : 'live'),
       genre: g.settings.genre,
       difficulty: g.settings.difficulty,
+      mode: g.settings.mode,
     });
     const id = this.env.LOBBY.idFromName(LOBBY_SINGLETON);
     this.ctx.waitUntil(
@@ -408,9 +456,57 @@ export class Room {
     const g = this.game;
     const connected = this.connectedPids();
     for (const pid of Object.keys(g.players)) {
-      if (!connected.has(pid)) delete g.players[pid];
+      if (!connected.has(pid)) {
+        this.leaveTeam(pid); // lobby-only cleanup: forget the seat entirely
+        delete g.players[pid];
+      }
     }
     if (!g.players[g.hostId]) g.hostId = null;
+  }
+
+  /* Full departure from a team: lobby-only (team-switching, or a player
+     being forgotten outright). Removes the membership and, if the leader
+     just left, promotes the next member by join order — same rule as
+     hostId reassignment, just scoped to one team. Contrast with
+     promoteTeamLeaders() below, which handles a leader merely DISCONNECTING
+     mid-game: that path keeps the ghost membership (a reconnect should get
+     their seat back), this one does not. */
+  leaveTeam(pid) {
+    const g = this.game;
+    const p = g.players[pid];
+    if (!p || !p.teamId) return;
+    const team = g.teams.find((t) => t.id === p.teamId);
+    p.teamId = null;
+    if (!team) return;
+    team.memberIds = team.memberIds.filter((id) => id !== pid);
+    if (team.leaderId === pid) {
+      const next = team.memberIds
+        .map((id) => g.players[id])
+        .filter(Boolean)
+        .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+      team.leaderId = next ? next.id : null;
+    }
+  }
+
+  /* The mid-game counterpart to the hostId reassignment just above it in
+     webSocketClose: a team leader who drops stays the leader of record (the
+     ghost keeps its seat for a reconnect, per the module's existing "ghost
+     records only earn their keep once a game is running" rule) UNLESS every
+     other member is also disconnected, in which case the next-by-join-order
+     CONNECTED member takes over so the team is never stuck unable to answer
+     while someone at the table could do it. */
+  promoteTeamLeaders(connected) {
+    const g = this.game;
+    for (const t of g.teams) {
+      if (t.leaderId && connected.has(t.leaderId)) continue;
+      const candidates = t.memberIds
+        .map((id) => g.players[id])
+        .filter((p) => p && connected.has(p.id))
+        .sort((a, b) => a.connectedAt - b.connectedAt || a.joinedAt - b.joinedAt);
+      if (candidates.length) t.leaderId = candidates[0].id;
+      // else: leave leaderId pointing at the disconnected ghost, same spirit
+      // as hostId above — whoever comes back keeps the seat.
+    }
   }
 
   /** The only place a question is turned into something a client may see. */
@@ -438,10 +534,16 @@ export class Room {
 
   finalMessage() {
     const g = this.game;
+    if (g.settings.mode === 'teams') {
+      const standings = g.teams
+        .map((t) => ({ id: t.id, name: t.name, score: t.score }))
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+      return { type: 'final', mode: 'teams', standings };
+    }
     const standings = Object.values(g.players)
       .map((p) => ({ id: p.id, name: p.name, score: p.score }))
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-    return { type: 'final', standings };
+    return { type: 'final', mode: 'classic', standings };
   }
 
   /* ---------------- client -> server ---------------- */
@@ -478,6 +580,12 @@ export class Room {
           return await this.onSettings(ws, me, data);
         case 'public':
           return await this.onPublic(ws, me, data);
+        case 'teamSetup':
+          return await this.onTeamSetup(ws, me, data);
+        case 'joinTeam':
+          return await this.onJoinTeam(ws, me, data);
+        case 'questions':
+          return await this.onQuestions(ws, me, data);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -535,11 +643,128 @@ export class Room {
     if (g.loadingAt && Date.now() - g.loadingAt < LOADING_STALE_MS) {
       return this.send(ws, { type: 'error', message: 'the game is already starting' });
     }
+    const prevMode = g.settings.mode;
     g.settings = sanitizeSettings(data.settings);
+    // Switching modes invalidates whatever teams/quiz existed: a classic
+    // roster has no teams to come back to, and a freshly-chosen teams game
+    // starting with yesterday's leftover team assignments or quiz would be a
+    // surprise, not a convenience.
+    if (g.settings.mode !== prevMode) {
+      g.teams = [];
+      g.customQuestions = [];
+      for (const p of Object.values(g.players)) p.teamId = null;
+    }
     await this.save();
     // Everyone sees the choice, not just the host — a lobby where only one
     // person can see what is about to be played is a dead screen for the rest.
     this.broadcast({ type: 'settings', settings: g.settings });
+    if (g.settings.mode !== prevMode) this.broadcastRoster(); // team picker just appeared/disappeared
+  }
+
+  /* Lobby-only, host-only, teams mode only. A full reset rather than a
+     resize: changing the team count after people have already sorted
+     themselves would otherwise orphan whoever was on a team that no longer
+     exists. Sending everyone back to the picker is simpler and more
+     predictable than inventing a reassignment rule nobody asked for. */
+  async onTeamSetup(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can set up teams' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'the game has already started' });
+    }
+    if (g.settings.mode !== 'teams') {
+      return this.send(ws, { type: 'error', message: 'switch to teams mode first' });
+    }
+    const count = Number.isInteger(data.count) ? data.count : NaN;
+    if (count < TEAM_COUNT_MIN || count > TEAM_COUNT_MAX) {
+      return this.send(ws, {
+        type: 'error',
+        message: `choose between ${TEAM_COUNT_MIN} and ${TEAM_COUNT_MAX} teams`,
+      });
+    }
+    const names = Array.isArray(data.names) ? data.names : [];
+    g.teams = Array.from({ length: count }, (_, i) => ({
+      id: crypto.randomUUID(),
+      name: sanitizeTeamName(names[i]) || `Team ${i + 1}`,
+      leaderId: null,
+      memberIds: [],
+      score: 0,
+    }));
+    for (const p of Object.values(g.players)) p.teamId = null;
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* Lobby-only. Self-service: a player picks (or switches) their own team.
+     The first member of a team is its leader; a team that loses its only
+     member is leaderless until someone joins it, both handled the same way
+     here since joining an empty team and joining a leaderless one are the
+     same case. */
+  async onJoinTeam(ws, me, data) {
+    const g = this.game;
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'teams lock in once the game starts' });
+    }
+    if (g.settings.mode !== 'teams') {
+      return this.send(ws, { type: 'error', message: 'this room is not in teams mode' });
+    }
+    const team = g.teams.find((t) => t.id === data.teamId);
+    if (!team) {
+      return this.send(ws, { type: 'error', message: 'no such team' });
+    }
+    const p = g.players[me.id];
+    if (p.teamId === team.id) return; // already here
+
+    this.leaveTeam(p.id);
+    p.teamId = team.id;
+    team.memberIds.push(p.id);
+    if (!team.leaderId || !team.memberIds.includes(team.leaderId)) team.leaderId = p.id;
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* Lobby-only, host-only, teams mode only. The host's own quiz, validated
+     all-or-nothing: silently dropping a malformed entry would leave the host
+     believing they loaded more questions than actually saved, which is a
+     worse failure than refusing the whole batch with a reason. No genre, no
+     OpenTDB, no bilingual pack — the host IS the content source. */
+  async onQuestions(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can set the quiz' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'the game has already started' });
+    }
+    if (g.settings.mode !== 'teams' || g.settings.source !== 'custom') {
+      return this.send(ws, { type: 'error', message: 'switch to a custom teams quiz first' });
+    }
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (items.length < CUSTOM_QUESTION_MIN || items.length > CUSTOM_QUESTION_MAX) {
+      return this.send(ws, {
+        type: 'error',
+        message: `add between ${CUSTOM_QUESTION_MIN} and ${CUSTOM_QUESTION_MAX} questions`,
+      });
+    }
+    const built = items.map(sanitizeCustomQuestion).filter(Boolean);
+    if (built.length !== items.length) {
+      return this.send(ws, {
+        type: 'error',
+        message: 'one or more questions are incomplete — every question needs text, '
+          + 'exactly 4 answers with no duplicates, and a marked correct answer',
+      });
+    }
+    // Shuffle each question's answer positions now, at authoring time — same
+    // reason buildQuestion() does it for OpenTDB/offline questions. The host
+    // always types the correct answer in the editor, so without this, the
+    // correct slot would be predictable across the whole quiz.
+    g.customQuestions = built.map(buildCustomQuestion);
+    await this.save();
+    // Count only — the text/choices are not re-broadcast, so a quiz loaded
+    // in the lobby cannot be read ahead of time by a player scrolling back.
+    this.broadcast({ type: 'customQuestions', count: g.customQuestions.length });
   }
 
   /* "List publicly" — DEFAULT OFF, and the default is the security model:
@@ -577,8 +802,8 @@ export class Room {
     if (g.loadingAt && Date.now() - g.loadingAt < LOADING_STALE_MS) {
       return this.send(ws, { type: 'error', message: 'already fetching questions' });
     }
-    const connected = this.connectedPids().size;
-    if (connected < MIN_PLAYERS) {
+    const connectedSet = this.connectedPids();
+    if (connectedSet.size < MIN_PLAYERS) {
       return this.send(ws, {
         type: 'error',
         message: `need at least ${MIN_PLAYERS} players to start`,
@@ -588,6 +813,52 @@ export class Room {
     // Frozen BEFORE the await. The host could otherwise change the genre
     // mid-fetch and the questions would not match what the lobby last showed.
     const snap = sanitizeSettings(g.settings);
+
+    if (snap.mode === 'teams') {
+      if (g.teams.length < TEAM_COUNT_MIN) {
+        return this.send(ws, { type: 'error', message: 'set up teams before starting' });
+      }
+      // Every connected player must have a seat, or they would sit through a
+      // game with no way to ever submit an answer.
+      for (const pid of connectedSet) {
+        if (!g.players[pid] || !g.players[pid].teamId) {
+          return this.send(ws, {
+            type: 'error',
+            code: 'needTeam',
+            message: 'everyone needs to join a team before starting',
+          });
+        }
+      }
+      if (snap.source === 'custom') {
+        if (!g.customQuestions || g.customQuestions.length === 0) {
+          return this.send(ws, {
+            type: 'error',
+            code: 'noCustomQuestions',
+            message: 'add at least one question before starting',
+          });
+        }
+        for (const t of g.teams) t.score = 0;
+        for (const p of Object.values(g.players)) p.score = 0;
+        // Round order is reshuffled per game; each question's own answer
+        // positions were already fixed at authoring time in onQuestions().
+        g.questions = shuffle(g.customQuestions);
+        g.answers = {};
+        g.lastReveal = null;
+        await this.save();
+        await this.beginQuestion(0);
+        this.reportToLobby();
+        this.broadcast({
+          type: 'notice',
+          code: 'custom',
+          message: `Custom quiz — ${g.questions.length} questions.`,
+        });
+        return;
+      }
+      // Teams mode with a genre source falls through to the exact same
+      // OpenTDB/offline-pack path classic mode uses below; team score just
+      // also gets zeroed alongside player score once questions are ready.
+    }
+
     // Checked BEFORE anything is fetched or mutated, so the refusal costs
     // nothing and the room stays in the lobby.
     const bilingual = this.needsBilingual();
@@ -626,6 +897,7 @@ export class Room {
 
     // A start is also a reset: nobody carries a score in from a previous round.
     for (const p of Object.values(g.players)) p.score = 0;
+    if (snap.mode === 'teams') for (const t of g.teams) t.score = 0;
     g.questions = questions;
     g.answers = {};
     g.lastReveal = null;
@@ -669,10 +941,39 @@ export class Room {
     // an answer for the previous question must not land on this one.
     if (!Number.isInteger(data.index) || data.index !== g.qIndex) return;
 
+    const q = g.questions[g.qIndex];
     const choice = data.choice;
-    if (!Number.isInteger(choice) || choice < 0 || choice > 3) {
+    // Bounds come from THIS question's own choice count, not a hardcoded 4 —
+    // a custom quiz question may have as few as 2 answers.
+    if (!Number.isInteger(choice) || choice < 0 || choice >= q.choices.length) {
       return this.send(ws, { type: 'error', message: 'bad choice' });
     }
+
+    if (g.settings.mode === 'teams') {
+      const team = g.teams.find((t) => t.id === me.teamId);
+      if (!team) {
+        return this.send(ws, { type: 'error', message: 'you are not on a team' });
+      }
+      if (team.leaderId !== me.id) {
+        return this.send(ws, {
+          type: 'error',
+          code: 'notLeader',
+          message: 'only your team leader can submit an answer',
+        });
+      }
+      if (g.answers[team.id]) {
+        return this.send(ws, { type: 'error', message: 'your team already answered' });
+      }
+      // Keyed by TEAM id, not player id — one answer per team. `by` is kept
+      // for the reveal's benefit only (who the leader was), never broadcast
+      // before then.
+      g.answers[team.id] = { choice, at: Date.now(), by: me.id };
+      await this.save();
+      this.broadcast({ type: 'answered', teamId: team.id });
+      if (this.allConnectedAnswered()) await this.doReveal();
+      return;
+    }
+
     if (g.answers[me.id]) {
       return this.send(ws, { type: 'error', message: 'you already answered' });
     }
@@ -712,6 +1013,7 @@ export class Room {
       return this.send(ws, { type: 'error', message: 'the game is not over' });
     }
     for (const p of Object.values(g.players)) p.score = 0;
+    if (g.settings.mode === 'teams') for (const t of g.teams) t.score = 0;
     g.phase = 'lobby';
     g.questions = [];
     g.qIndex = -1;
@@ -749,11 +1051,27 @@ export class Room {
     this.broadcast(this.questionMessage());
   }
 
-  allConnectedAnswered() {
+  /* `connectedSet` lets a caller supply a snapshot that excludes a socket
+     still present in getWebSockets() (webSocketClose, mid-handler) — same
+     reason roster()/broadcastRoster() take the same kind of override. */
+  allConnectedAnswered(connectedSet = null) {
     const g = this.game;
-    const pids = [...this.connectedPids()];
+    if (g.settings.mode === 'teams') return this.allTeamsAnswered(connectedSet);
+    const pids = [...(connectedSet || this.connectedPids())];
     if (pids.length === 0) return false; // let the alarm handle an empty room
     return pids.every((pid) => Boolean(g.answers[pid]));
+  }
+
+  /* A team with nobody connected is not "still thinking" — it is excluded
+     entirely, same as allConnectedAnswered() ignores a disconnected solo
+     player. A team with at least one connected member must have its
+     leader's answer in g.answers before the room can move on. */
+  allTeamsAnswered(connectedSet = null) {
+    const g = this.game;
+    const connected = connectedSet || this.connectedPids();
+    const active = g.teams.filter((t) => t.memberIds.some((pid) => connected.has(pid)));
+    if (active.length === 0) return false; // let the alarm handle an empty room
+    return active.every((t) => Boolean(g.answers[t.id]));
   }
 
   async doReveal() {
@@ -761,6 +1079,38 @@ export class Room {
     if (g.phase !== 'question') return;
     const q = g.questions[g.qIndex];
     if (!q) return;
+
+    if (g.settings.mode === 'teams') {
+      const perTeam = [];
+      const scores = [];
+      for (const t of g.teams) {
+        const ans = g.answers[t.id];
+        const choice = ans ? ans.choice : null;
+        const correct = choice !== null && choice === q.correctIndex;
+        let gained = 0;
+        if (correct) {
+          const remaining = Math.max(0, Math.min(QUESTION_MS, g.endsAt - ans.at));
+          gained = BASE_POINTS + Math.round((SPEED_POINTS * remaining) / QUESTION_MS);
+          t.score += gained;
+        }
+        perTeam.push({ id: t.id, choice, correct, gained, answeredBy: ans ? ans.by : null });
+        scores.push({ id: t.id, score: t.score });
+      }
+
+      g.phase = 'reveal';
+      g.nextAt = Date.now() + REVEAL_MS;
+      g.lastReveal = {
+        type: 'reveal', mode: 'teams', correctIndex: q.correctIndex, perTeam, scores,
+        nextAt: g.nextAt,
+      };
+      await this.save();
+      await this.ctx.storage.setAlarm(g.nextAt);
+
+      this.broadcast({ type: 'phase', phase: 'reveal' });
+      this.broadcast(g.lastReveal);
+      this.broadcastRoster();
+      return;
+    }
 
     const perPlayer = [];
     const scores = [];
@@ -785,7 +1135,7 @@ export class Room {
     // rides in the reveal so every client can draw the same countdown.
     g.nextAt = Date.now() + REVEAL_MS;
     g.lastReveal = {
-      type: 'reveal', correctIndex: q.correctIndex, perPlayer, scores,
+      type: 'reveal', mode: 'classic', correctIndex: q.correctIndex, perPlayer, scores,
       nextAt: g.nextAt,
     };
     await this.save();
@@ -887,10 +1237,17 @@ export class Room {
       if (candidates.length) g.hostId = candidates[0].id;
     }
 
+    // Same idea, per team: a leader who drops does not cost their team the
+    // ability to answer as long as a teammate is still connected.
+    if (g.settings.mode === 'teams') this.promoteTeamLeaders(connected);
+
     // In the lobby a dropped player has nothing worth preserving.
     if (g.phase === 'lobby') {
       for (const pid of Object.keys(g.players)) {
-        if (!connected.has(pid)) delete g.players[pid];
+        if (!connected.has(pid)) {
+          this.leaveTeam(pid);
+          delete g.players[pid];
+        }
       }
       if (!g.players[g.hostId]) {
         const first = Object.values(g.players).sort((a, b) => a.joinedAt - b.joinedAt)[0];
@@ -902,12 +1259,10 @@ export class Room {
     this.broadcastRoster(remaining);
     this.reportToLobby(remaining);
 
-    // The player who just left may have been the last one still thinking.
-    if (g.phase === 'question') {
-      const pids = [...connected];
-      if (pids.length > 0 && pids.every((pid) => Boolean(g.answers[pid]))) {
-        await this.doReveal();
-      }
+    // The player who just left may have been the last one still thinking —
+    // or, in teams mode, the last connected member of a team still thinking.
+    if (g.phase === 'question' && this.allConnectedAnswered(connected)) {
+      await this.doReveal();
     }
   }
 
@@ -1150,18 +1505,25 @@ function freshGame() {
     phase: 'lobby',
     code: '', // learned from the first handshake; the object is never told its name
     public: false, // "list publicly" — OFF is the security model, not a preference
-    players: {}, // id -> {id, key, name, score, joinedAt, connectedAt}
+    players: {}, // id -> {id, key, name, score, joinedAt, connectedAt, teamId}
     hostId: null,
-    questions: [], // {text, choices[4], correctIndex, category, difficulty}
+    questions: [], // {text, choices[2-4], correctIndex, category, difficulty}
     qIndex: -1,
     endsAt: 0,
     nextAt: 0, // reveal-phase deadline: when the room advances on its own
-    answers: {}, // playerId -> {choice, at}
+    // Classic mode: playerId -> {choice, at}. Teams mode: teamId -> {choice,
+    // at, by} (`by` is the leader who submitted, kept for the reveal only).
+    answers: {},
     lastReveal: null,
     loadingAt: 0,
     settings: sanitizeSettings(null),
     // Texts used recently, so a second game in the same room is not a rerun.
     recentTexts: [],
+    // {id, name, leaderId, memberIds[], score}[]. Empty outside teams mode.
+    teams: [],
+    // Host-authored quiz for teams mode's 'custom' source. {text, choices,
+    // correctIndex, category, difficulty}[], already positionally shuffled.
+    customQuestions: [],
   };
 }
 
@@ -1171,6 +1533,55 @@ function sanitizeName(raw) {
     .trim()
     .slice(0, 16);
   return s || 'anon';
+}
+
+function sanitizeTeamName(raw) {
+  return String(raw || '')
+    .trim()
+    .slice(0, 24);
+}
+
+/* Validated field by field, same rule sanitizeSettings() states below —
+   never spread or Object.assign a client-supplied question. The duplicate
+   check mirrors fromOpenTdb()'s distractor-vs-answer guard: two
+   identical-looking buttons where one is secretly "wrong" is a bug no
+   player can ever see from their side. Returns null for anything malformed
+   so the caller can refuse the whole batch rather than silently saving a
+   quiz shorter than the host thinks it is. */
+function sanitizeCustomQuestion(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const text = typeof raw.text === 'string' ? raw.text.trim().slice(0, CUSTOM_TEXT_MAX) : '';
+  if (!text) return null;
+
+  const choicesRaw = Array.isArray(raw.choices) ? raw.choices : [];
+  const choices = [];
+  for (const c of choicesRaw) {
+    const s = typeof c === 'string' ? c.trim().slice(0, CUSTOM_CHOICE_MAX_LEN) : '';
+    if (!s) continue;
+    choices.push(s);
+  }
+  if (choices.length !== CUSTOM_CHOICE_COUNT) return null;
+  const lower = choices.map((c) => c.toLowerCase());
+  if (new Set(lower).size !== lower.length) return null;
+
+  const correctIndex = Number.isInteger(raw.correctIndex) ? raw.correctIndex : -1;
+  if (correctIndex < 0 || correctIndex >= choices.length) return null;
+
+  return { text, choices, correctIndex, category: 'Custom', difficulty: 'custom' };
+}
+
+/** Same shuffle-positions-once idea as buildQuestion() below, for a
+    host-authored question instead of an OpenTDB/offline one — no i18n
+    field, since a custom quiz has no translation to carry. */
+function buildCustomQuestion(src) {
+  const order = shuffle(src.choices.map((_, i) => i));
+  return {
+    text: src.text,
+    choices: order.map((i) => src.choices[i]),
+    correctIndex: order.indexOf(src.correctIndex),
+    category: src.category,
+    difficulty: src.difficulty,
+  };
 }
 
 /** A Worker has no DOM, so the API is asked for url3986 and decoded here. */
@@ -1287,7 +1698,9 @@ const LANGS = ['en', 'es'];
 function sanitizeLang(raw) {
   return typeof raw === 'string' && LANGS.includes(raw) ? raw : 'en';
 }
-const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any' };
+const DEFAULT_SETTINGS = { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre' };
+const MODES = ['classic', 'teams'];
+const SOURCES = ['genre', 'custom'];
 
 /* How many recently-used question texts to remember so a second game in the
  * same room is not the same ten questions. Deliberately small: save() runs on
@@ -1301,7 +1714,12 @@ const RECENT_CAP = 40;
  * persisted shape, and hasOwnProperty (rather than `in`) keeps inherited
  * names like `constructor` from validating as a genre. */
 function sanitizeSettings(raw) {
-  const out = { genre: DEFAULT_SETTINGS.genre, difficulty: DEFAULT_SETTINGS.difficulty };
+  const out = {
+    genre: DEFAULT_SETTINGS.genre,
+    difficulty: DEFAULT_SETTINGS.difficulty,
+    mode: DEFAULT_SETTINGS.mode,
+    source: DEFAULT_SETTINGS.source,
+  };
   if (!raw || typeof raw !== 'object') return out;
   if (typeof raw.genre === 'string' &&
       Object.prototype.hasOwnProperty.call(GENRES, raw.genre)) {
@@ -1310,6 +1728,16 @@ function sanitizeSettings(raw) {
   if (typeof raw.difficulty === 'string' && DIFFICULTIES.includes(raw.difficulty)) {
     out.difficulty = raw.difficulty;
   }
+  if (typeof raw.mode === 'string' && MODES.includes(raw.mode)) {
+    out.mode = raw.mode;
+  }
+  if (typeof raw.source === 'string' && SOURCES.includes(raw.source)) {
+    out.source = raw.source;
+  }
+  // Custom questions only exist to serve teams mode in this phase — a
+  // classic room has no quiz-authoring UI and no reason to skip the genre
+  // promise, so it is pinned to 'genre' no matter what arrives on the wire.
+  if (out.mode !== 'teams') out.source = 'genre';
   return out;
 }
 
@@ -1327,6 +1755,15 @@ function normalizeGame(g) {
   // an invalid code means "never report", an invalid flag means "private".
   if (typeof g.code !== 'string' || !ROOM_CODE.test(g.code)) g.code = '';
   g.public = g.public === true;
+  // Rooms persisted before teams mode existed come back without these.
+  if (!Array.isArray(g.teams)) g.teams = [];
+  if (!Array.isArray(g.customQuestions)) g.customQuestions = [];
+  const teamIds = new Set(g.teams.map((t) => t.id));
+  for (const p of Object.values(g.players)) {
+    // Covers both a missing field (old room) and a dangling reference (the
+    // team it pointed at was reset by a later teamSetup/mode switch).
+    if (typeof p.teamId !== 'string' || !teamIds.has(p.teamId)) p.teamId = null;
+  }
   return g;
 }
 
