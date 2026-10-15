@@ -1472,6 +1472,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <div class="code-tiles" id="codeTiles" aria-live="off"></div>
         <button type="button" class="chip-btn" id="copyBtn">Copy the invite link</button>
         <button type="button" class="chip-btn" id="hostCodeBtn" hidden>Copy host code</button>
+        <button type="button" class="chip-btn" id="downloadInfoBtn" hidden>Download event info</button>
       </div>
       <div class="wizard-bar" id="wizardBar" hidden>
         <div class="micro" id="wizardStepLabel">Step 1 of 4 — Teams</div>
@@ -1755,7 +1756,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       hostEvent: 'Host an event',
       wizStepTeams: 'Teams', wizStepQuestions: 'Questions', wizStepTiming: 'Timing', wizStepReview: 'Review',
       wizStepOf: 'Step #1 of #2', wizNext: 'Next', wizDone: 'Done — enter the lobby',
-      wizReady: 'Your event is set up. Share the room code whenever you’re ready.'
+      wizReady: 'Your event is set up. Share the room code whenever you’re ready.',
+      downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.'
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1833,7 +1835,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       hostEvent: 'Organizar un evento',
       wizStepTeams: 'Equipos', wizStepQuestions: 'Preguntas', wizStepTiming: 'Tiempos', wizStepReview: 'Revisión',
       wizStepOf: 'Paso #1 de #2', wizNext: 'Siguiente', wizDone: 'Listo — entrar a la sala',
-      wizReady: 'Tu evento está listo. Comparte el código de sala cuando quieras.'
+      wizReady: 'Tu evento está listo. Comparte el código de sala cuando quieras.',
+      downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.'
     }
   };
 
@@ -2002,7 +2005,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elConfetti = $('confetti'), elRoomPulse = $('roomPulse'), elFlash = $('flash'),
       elCodeTiles = $('codeTiles'), elLobbyPlayers = $('lobbyPlayers'),
       elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
-      elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elNameInput = $('nameInput'),
+      elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elDownloadInfoBtn = $('downloadInfoBtn'),
+      elNameInput = $('nameInput'),
       elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
       elHostEventBtn = $('hostEventBtn'),
@@ -2311,6 +2315,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     set('quizSaveBtn', 'saveQuiz');
     set('hostRecoverToggle', 'recoveringHost');
     set('hostCodeBtn', 'copyHostCode');
+    set('downloadInfoBtn', 'downloadInfo');
     var hostCodeLabel = elHostRecoverField && elHostRecoverField.querySelector('.field-label');
     if (hostCodeLabel) hostCodeLabel.textContent = T('hostCode');
     if (elHostTokenInput) elHostTokenInput.placeholder = T('pasteHostCode');
@@ -2851,6 +2856,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // Only the current seat-holder can see this, and only once the server
     // has actually sent it — never guess it is there just because we are host.
     if (elHostCodeBtn) elHostCodeBtn.hidden = !(state.isHost && state.hostToken);
+    if (elDownloadInfoBtn) elDownloadInfoBtn.hidden = !(state.isHost && state.hostToken);
     // A readout is not a button, and screen readers should not be told it is.
     elGenreSlot.disabled = !state.isHost;
     elDiffSlot.disabled = !state.isHost;
@@ -5352,6 +5358,47 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
     } else fallbackCopy(text, done);
+  });
+  on(elDownloadInfoBtn, 'click', function () {
+    if (!state.hostToken || !state.code) return;
+    var lines = [
+      'LATE SIGNAL — event info',
+      '',
+      'Room code: ' + state.code,
+      'Invite link: ' + location.origin + location.pathname + location.search + '#room=' + state.code,
+      'Host recovery code: ' + state.hostToken,
+      '(Keep this somewhere safe — it is the only way back in as host from a',
+      ' different device. Paste it under "Recovering a room you host?" on',
+      ' the landing page, with the room code above, to reclaim the seat.)',
+      '',
+      'Mode: ' + (state.settings.mode === 'teams' ? 'Teams' : 'Classic'),
+    ];
+    if (state.settings.mode === 'teams') {
+      lines.push('Rounds: ' + (state.settings.rounds || 1));
+      lines.push('Questions per round: ' + (state.settings.questionsPerRound || 10));
+      lines.push('Timer: ' + Math.round((state.settings.questionMs || 20000) / 1000) + 's per question');
+      lines.push('Question source: ' + (state.settings.source === 'custom' ? 'Your quiz (' + (state.customQuestionCount || 0) + ' questions saved)' : ('Genre — ' + genreOf(state.settings.genre).label)));
+      if (state.teams && state.teams.length) {
+        lines.push('Teams (' + state.teams.length + '):');
+        for (var i = 0; i < state.teams.length; i++) lines.push('  - ' + state.teams[i].name);
+      }
+    } else {
+      lines.push('Genre: ' + genreOf(state.settings.genre).label);
+      lines.push('Difficulty: ' + (state.settings.difficulty === 'any' ? 'Any' : titleCase(state.settings.difficulty)));
+    }
+    lines.push('');
+    lines.push('Saved ' + new Date().toLocaleString());
+
+    var blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'late-signal-' + state.code + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast(T('eventInfoDownloaded'));
   });
   on(elBackBtn, 'click', function () {
     if (elBackBtn.disabled) return;
