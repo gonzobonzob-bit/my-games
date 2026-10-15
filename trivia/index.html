@@ -922,6 +922,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
 .q-wrap{ margin-top:var(--sp-5); width:100%; display:flex; flex-direction:column;
          align-items:center; gap:var(--sp-3); }
+.q-media{ max-width:min(320px, 80vw); }
+.q-media img{ display:block; max-width:100%; max-height:220px; border-radius:var(--r-lg);
+              border:1px solid var(--hair); }
+.q-media audio{ width:280px; max-width:80vw; }
+.quiz-media{ display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
+.quiz-media-input{ font-size:var(--fs-micro); max-width:160px; }
 .question{
   margin:0; max-width:24ch; text-align:center;
   font-size:var(--fs-question); font-weight:700; letter-spacing:-.02em; line-height:1.12;
@@ -1567,6 +1573,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <span class="cat-diff" id="catDiff"></span>
       </div>
       <div class="q-wrap">
+        <div class="q-media" id="questionMedia" hidden></div>
         <h2 class="question" id="questionText">&nbsp;</h2>
         <div class="q-rule" id="qRule" aria-hidden="true"></div>
       </div>
@@ -1757,7 +1764,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       wizStepTeams: 'Teams', wizStepQuestions: 'Questions', wizStepTiming: 'Timing', wizStepReview: 'Review',
       wizStepOf: 'Step #1 of #2', wizNext: 'Next', wizDone: 'Done — enter the lobby',
       wizReady: 'Your event is set up. Share the room code whenever you’re ready.',
-      downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.'
+      downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.',
+      mediaNone: 'No photo or sound', mediaAttached: '# attached', mediaRemove: 'Remove',
+      mediaType_image: 'Photo', mediaType_audio: 'Sound',
+      mediaBadType: 'Only photos and sound clips are supported right now (video needs an upgrade still pending).',
+      mediaTooBig: '# is too large — keep it small, this is a clue, not the whole file.',
+      mediaReadFailed: 'Could not read that file.'
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1836,7 +1848,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       wizStepTeams: 'Equipos', wizStepQuestions: 'Preguntas', wizStepTiming: 'Tiempos', wizStepReview: 'Revisión',
       wizStepOf: 'Paso #1 de #2', wizNext: 'Siguiente', wizDone: 'Listo — entrar a la sala',
       wizReady: 'Tu evento está listo. Comparte el código de sala cuando quieras.',
-      downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.'
+      downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.',
+      mediaNone: 'Sin foto ni sonido', mediaAttached: '# adjunto', mediaRemove: 'Quitar',
+      mediaType_image: 'Foto', mediaType_audio: 'Sonido',
+      mediaBadType: 'Por ahora solo se admiten fotos y clips de sonido (el video necesita una mejora pendiente).',
+      mediaTooBig: '# es demasiado grande — que sea pequeño, es una pista, no el archivo completo.',
+      mediaReadFailed: 'No se pudo leer ese archivo.'
     }
   };
 
@@ -1994,7 +2011,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elTimerDown = $('timerDown'), elTimerUp = $('timerUp'), elTimerVal = $('timerVal'),
       elQuizEditor = $('quizEditor'), elQuizRows = $('quizRows'),
       elQuizAddBtn = $('quizAddBtn'), elQuizSaveBtn = $('quizSaveBtn'), elQuizStatus = $('quizStatus'),
-      elQuestion = $('questionText'), elQRule = $('qRule'),
+      elQuestion = $('questionText'), elQRule = $('qRule'), elQuestionMedia = $('questionMedia'),
       elTiles = $('tiles'), elGridBloom = $('gridBloom'),
       elLockLine = $('lockLine'), elWhoGot = $('whoGot'),
       elBoardRows = $('boardRows'), elBoardRound = $('boardRound'), elBoardPills = $('boardPills'),
@@ -3330,7 +3347,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      loses an unsaved draft but keeps whatever was last saved. ---- */
   var quizDraft = [];
 
-  function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0 }; }
+  function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0, media: null }; }
+
+  // Encoded-length caps matching the server's MEDIA_DATA_URL_MAX exactly —
+  // checked here too so a host finds out their photo is too big before
+  // waiting on a save round-trip to be told the whole question was refused.
+  var MEDIA_MAX = { image: 300000, audio: 500000 };
 
   function renderQuizEditor() {
     // quizDraft is declared (var, hoisted but not yet assigned) further down
@@ -3384,6 +3406,46 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       row.appendChild(choiceWrap);
     }
 
+    var mediaWrap = mk('div', 'quiz-media');
+    var mediaStatus = mk('span', 'micro quiz-media-status');
+    mediaStatus.textContent = q.media ? T('mediaAttached').replace('#', T('mediaType_' + q.media.type)) : T('mediaNone');
+    mediaWrap.appendChild(mediaStatus);
+
+    var mediaInput = document.createElement('input');
+    mediaInput.type = 'file';
+    mediaInput.accept = 'image/*,audio/*';
+    mediaInput.className = 'quiz-media-input';
+    on(mediaInput, 'change', function () {
+      var file = mediaInput.files && mediaInput.files[0];
+      mediaInput.value = '';
+      if (!file) return;
+      var kind = file.type.indexOf('image/') === 0 ? 'image'
+               : file.type.indexOf('audio/') === 0 ? 'audio' : null;
+      if (!kind) { toast(T('mediaBadType'), true); return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var dataUrl = String(reader.result || '');
+        if (dataUrl.length > MEDIA_MAX[kind]) {
+          toast(T('mediaTooBig').replace('#', T('mediaType_' + kind)), true);
+          return;
+        }
+        q.media = { type: kind, dataUrl: dataUrl };
+        renderQuizEditor();
+      };
+      reader.onerror = function () { toast(T('mediaReadFailed'), true); };
+      reader.readAsDataURL(file);
+    });
+    mediaWrap.appendChild(mediaInput);
+
+    if (q.media) {
+      var mediaRemove = mk('button', 'chip-btn');
+      mediaRemove.type = 'button';
+      mediaRemove.textContent = T('mediaRemove');
+      on(mediaRemove, 'click', function () { q.media = null; renderQuizEditor(); });
+      mediaWrap.appendChild(mediaRemove);
+    }
+    row.appendChild(mediaWrap);
+
     var removeBtn = mk('button', 'chip-btn quiz-remove');
     removeBtn.type = 'button';
     removeBtn.textContent = T('removeQuestion');
@@ -3412,7 +3474,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       // left a blank slot above it, this is wrong, but the server validates
       // independently and refuses the whole batch with a reason rather than
       // silently accepting a shifted answer key.
-      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: q.correctIndex });
+      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: q.correctIndex, media: q.media || null });
     }
     send({ type: 'questions', items: items });
   });
@@ -3448,6 +3510,30 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       index: q.index, total: q.total, text: tr.text, choices: tr.choices,
       endsAt: q.endsAt, category: q.category, difficulty: q.difficulty, i18n: q.i18n
     };
+  }
+
+  /* Custom-quiz questions only. Carries no answer-shaped data — a clue
+     image/clip says nothing about which tile is correct — so this needs no
+     invariant guard the way choices/correctIndex do. Not autoplayed: a
+     fresh question is not a user gesture, autoplay would likely be blocked
+     by the browser anyway, and `controls` means nobody is stuck with a
+     silent clip they have no way to start. */
+  function renderQuestionMedia(media) {
+    if (!elQuestionMedia) return;
+    elQuestionMedia.textContent = '';
+    if (!media || typeof media.dataUrl !== 'string') { elQuestionMedia.hidden = true; return; }
+    elQuestionMedia.hidden = false;
+    if (media.type === 'image') {
+      var img = document.createElement('img');
+      img.src = media.dataUrl;
+      img.alt = '';
+      elQuestionMedia.appendChild(img);
+    } else if (media.type === 'audio') {
+      var audio = document.createElement('audio');
+      audio.src = media.dataUrl;
+      audio.controls = true;
+      elQuestionMedia.appendChild(audio);
+    }
   }
 
   function renderQuestion(q) {
@@ -3492,6 +3578,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     setText(elCatText, q.category || T('general'));
     setText(elCatDiff, q.difficulty ? String(q.difficulty).toUpperCase() : '');
     elCatCap.style.background = CHOICES[q.index % 4].c;
+
+    renderQuestionMedia(q.media);
 
     setText(elQuestion, q.text);
     elQuestion.style.opacity = '';
@@ -4845,8 +4933,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           // This object is rebuilt field by field on purpose — that is what
           // keeps a stray server field from reaching the renderer — so a new
           // field has to be added HERE as well as in questionMessage(), or it
-          // is silently dropped and the feature simply does not appear.
-          i18n: msg.i18n
+          // is silently dropped and the feature simply does not appear. Media
+          // carries no more correctness information than choices/text
+          // already don't, same as i18n below.
+          i18n: msg.i18n,
+          media: msg.media,
+          round: msg.round, roundTotal: msg.roundTotal,
+          roundIndex: msg.roundIndex, roundSize: msg.roundSize
         });
         paintBackBtn();
         break;

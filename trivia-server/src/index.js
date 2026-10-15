@@ -106,6 +106,22 @@ const CUSTOM_CHOICE_COUNT = 4;
 const CUSTOM_TEXT_MAX = 300;
 const CUSTOM_CHOICE_MAX_LEN = 120;
 
+// Media on a custom question — image or short audio, inlined as a data URL
+// directly inside the question (same Durable Object storage every other
+// custom-quiz field already lives in; no R2, no separate upload route, no
+// new infrastructure at all). Video is deliberately NOT supported this way
+// — a video clip base64-inlined into game state that gets re-saved on
+// every answer/join/setting change is a different order of magnitude of
+// waste, not just a bigger number. Real video needs real object storage
+// (R2), pending the owner enabling it on the Cloudflare account; this path
+// stays image/audio only until then. Caps are on the ENCODED (base64)
+// length, which is what actually lands in storage.
+const MEDIA_TYPES = ['image', 'audio'];
+const MEDIA_DATA_URL_MAX = {
+  image: 300_000, // ~225KB raw — a compressed photo, not a poster
+  audio: 500_000, // ~375KB raw — a few seconds of compressed audio, not a song
+};
+
 const ALLOWED_ORIGIN = 'https://gonzobonzob-bit.github.io';
 
 /* ------------------------------------------------------------------ *
@@ -598,6 +614,10 @@ export class Room {
       roundIndex: g.settings.mode === 'teams'
         ? (g.qIndex % g.settings.questionsPerRound) : undefined,
       roundSize: g.settings.mode === 'teams' ? g.settings.questionsPerRound : undefined,
+      // Custom-quiz questions only. Carries no more correctness information
+      // than choices/text already don't — a clue is not an answer — so the
+      // invariant is untouched regardless of phase.
+      media: q.media || undefined,
     };
   }
 
@@ -1960,7 +1980,28 @@ function sanitizeCustomQuestion(raw) {
   const correctIndex = Number.isInteger(raw.correctIndex) ? raw.correctIndex : -1;
   if (correctIndex < 0 || correctIndex >= choices.length) return null;
 
-  return { text, choices, correctIndex, category: 'Custom', difficulty: 'custom' };
+  // Media is optional. A malformed or oversized attachment refuses the
+  // WHOLE question (same "refuse, don't silently drop" rule as everything
+  // else here) rather than quietly saving the question without the clue
+  // the host thought they attached.
+  let media = null;
+  if (raw.media != null) {
+    if (typeof raw.media !== 'object') return null;
+    const type = raw.media.type;
+    if (!MEDIA_TYPES.includes(type)) return null;
+    const dataUrl = raw.media.dataUrl;
+    if (typeof dataUrl !== 'string') return null;
+    if (dataUrl.length > MEDIA_DATA_URL_MAX[type]) return null;
+    // The prefix has to actually match the claimed type — a text question
+    // that says type:'image' but carries an audio data URL would just
+    // confuse the renderer, not the invariant, but there is no reason to
+    // accept it either.
+    const prefixOk = type === 'image' ? /^data:image\//.test(dataUrl) : /^data:audio\//.test(dataUrl);
+    if (!prefixOk) return null;
+    media = { type, dataUrl };
+  }
+
+  return { text, choices, correctIndex, category: 'Custom', difficulty: 'custom', media };
 }
 
 /** Same shuffle-positions-once idea as buildQuestion() below, for a
@@ -1974,6 +2015,7 @@ function buildCustomQuestion(src) {
     correctIndex: order.indexOf(src.correctIndex),
     category: src.category,
     difficulty: src.difficulty,
+    media: src.media || null,
   };
 }
 

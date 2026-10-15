@@ -240,6 +240,66 @@ try {
   }
 
   await settle();
+  // ---- 4b. media on a custom question: image/audio ok, video refused,
+  //          oversized refused, mismatched prefix refused, and a valid
+  //          attachment actually reaches the client on the live question ---
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+    const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'custom' } });
+    await A.waitFor((m) => m.type === 'settings' && m.settings.source === 'custom');
+    A.send({ type: 'teamSetup', count: 2 });
+    const teamsUp = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    B.send({ type: 'joinTeam', teamId: teamsUp.teams[0].id });
+    await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
+
+    const tinyPngDataUrl = 'data:image/png;base64,' + 'A'.repeat(100);
+
+    A.msgs.length = 0;
+    A.send({ type: 'questions', items: [
+      { ...fourChoiceQuestion(1, 0), media: { type: 'video', dataUrl: 'data:video/mp4;base64,AAAA' } },
+    ] });
+    const videoErr = await A.wait('error', 4000);
+    ok(/incomplete/.test(videoErr.message || ''), 'video media is refused — not a supported type yet', videoErr);
+
+    A.msgs.length = 0;
+    A.send({ type: 'questions', items: [
+      { ...fourChoiceQuestion(1, 0), media: { type: 'image', dataUrl: 'data:audio/mpeg;base64,' + 'A'.repeat(100) } },
+    ] });
+    const mismatchErr = await A.wait('error', 4000);
+    ok(/incomplete/.test(mismatchErr.message || ''), 'a data URL whose prefix does not match the claimed type is refused', mismatchErr);
+
+    A.msgs.length = 0;
+    A.send({ type: 'questions', items: [
+      { ...fourChoiceQuestion(1, 0), media: { type: 'image', dataUrl: 'data:image/png;base64,' + 'A'.repeat(300001) } },
+    ] });
+    const tooBigErr = await A.wait('error', 4000);
+    ok(/incomplete/.test(tooBigErr.message || ''), 'an oversized image data URL is refused', tooBigErr);
+
+    A.msgs.length = 0;
+    A.send({ type: 'questions', items: [
+      { ...fourChoiceQuestion(1, 0), media: { type: 'image', dataUrl: tinyPngDataUrl } },
+      fourChoiceQuestion(2, 0),
+    ] });
+    const mediaSaved = await A.wait('customQuestions', 4000);
+    ok(mediaSaved.count === 2, 'a valid image attachment saves normally', mediaSaved);
+
+    A.send({ type: 'start' });
+    await A.wait('notice', 6000);
+    const mq = await A.wait('question', 4000);
+    // media travels with whichever question actually comes up first — the
+    // custom quiz is shuffled, so check whichever of the two this is.
+    if (mq.text === 'Q1?') {
+      ok(!!mq.media && mq.media.type === 'image' && mq.media.dataUrl === tinyPngDataUrl,
+         'the image attachment reaches the client on the live question', mq.media);
+    } else {
+      ok(mq.media === undefined, 'a question authored with no media carries none', mq.media);
+    }
+    A.close(); B.close();
+  }
+
+  await settle();
   // ---- 5. starting a teams game with an unassigned player is refused ----
   {
     const r = room();
