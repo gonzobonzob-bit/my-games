@@ -388,7 +388,10 @@ export class Room {
   }
 
   broadcast(payload, sockets = null) {
-    const msg = JSON.stringify(payload);
+    // Voice chunks pass an ArrayBuffer straight through — JSON.stringify-ing
+    // one silently produces "{}" instead of the audio bytes, which is the
+    // kind of bug that plays back as total silence with no error anywhere.
+    const msg = payload instanceof ArrayBuffer ? payload : JSON.stringify(payload);
     for (const ws of sockets || this.ctx.getWebSockets()) {
       try {
         ws.send(msg);
@@ -626,6 +629,14 @@ export class Room {
       const me = g.players[a.pid];
       if (!me) return;
 
+      // Voice chunks arrive as binary frames, never JSON — relayed verbatim,
+      // byte for byte, to whichever audience the channel byte says. This
+      // never touches g (no save, no persisted state): voice is explicitly
+      // best-effort and ephemeral, unlike every other message here.
+      if (raw instanceof ArrayBuffer) {
+        return this.onVoiceChunk(ws, me, raw);
+      }
+
       let data;
       try {
         data = JSON.parse(raw);
@@ -635,6 +646,10 @@ export class Room {
       if (!data || typeof data !== 'object') return;
 
       switch (data.type) {
+        case 'talk':
+          return this.onTalk(ws, me, data);
+        case 'whisper':
+          return this.onWhisper(ws, me, data);
         case 'lang':
           return await this.onLang(ws, me, data);
         case 'settings':
@@ -667,6 +682,89 @@ export class Room {
     } catch (err) {
       this.send(ws, { type: 'error', message: 'server error' });
     }
+  }
+
+  /* Live voice, teams mode's pub-event feature: a channel byte decides the
+     audience, same two shapes as everywhere else in teams mode — the host
+     reaches everyone, a team member reaches only their own team. Never
+     persisted, never saved, no phase restriction (chatter before and after
+     a question is as real as during one). The sender is never in the
+     relay target list — nobody needs their own voice echoed back to them.
+     Frame layout (client-owned; the server never inspects past byte 0):
+       byte 0: channel (1 = host broadcast, 2 = team)
+       byte 1: reserved
+       bytes 2-5: sample rate, uint32 little-endian
+       bytes 6+: raw 16-bit PCM, mono */
+  onVoiceChunk(ws, me, raw) {
+    const g = this.game;
+    if (g.settings.mode !== 'teams') return;
+    const view = new Uint8Array(raw);
+    if (view.length < 1) return;
+    const channel = view[0];
+    const sockets = this.ctx.getWebSockets();
+    if (channel === 1) {
+      if (me.id !== g.hostId) return; // only the host may publish on their own channel
+      this.broadcast(raw, sockets.filter((s) => s !== ws));
+    } else if (channel === 2) {
+      if (!me.teamId) return;
+      const team = g.teams.find((t) => t.id === me.teamId);
+      if (!team) return;
+      const targets = sockets.filter((s) => {
+        if (s === ws) return false;
+        const sa = s.deserializeAttachment() || {};
+        return team.memberIds.includes(sa.pid);
+      });
+      this.broadcast(raw, targets);
+    }
+  }
+
+  /* The "someone is talking" indicator, carried separately from the audio
+     bytes themselves — structured, low-frequency, and worth stamping with
+     the sender's name server-side rather than trusting the client to say
+     who they are. Same audience rule as onVoiceChunk, by construction:
+     whoever can relay audio on a channel can say they started/stopped
+     talking on it, nobody else. */
+  onTalk(ws, me, data) {
+    const g = this.game;
+    if (g.settings.mode !== 'teams') return;
+    const channel = data.channel === 'host' ? 'host' : data.channel === 'team' ? 'team' : null;
+    if (!channel) return;
+    const state = data.state === 'start' ? 'start' : 'stop';
+    const sockets = this.ctx.getWebSockets();
+    if (channel === 'host') {
+      if (me.id !== g.hostId) return;
+      this.broadcast({ type: 'talk', channel: 'host', state, name: me.name },
+        sockets.filter((s) => s !== ws));
+    } else {
+      if (!me.teamId) return;
+      const team = g.teams.find((t) => t.id === me.teamId);
+      if (!team) return;
+      const targets = sockets.filter((s) => {
+        if (s === ws) return false;
+        const sa = s.deserializeAttachment() || {};
+        return team.memberIds.includes(sa.pid);
+      });
+      this.broadcast({ type: 'talk', channel: 'team', state, playerId: me.id, name: me.name }, targets);
+    }
+  }
+
+  /* A direct line to the host — text first (the owner's own call: voice or
+     messages, and text needs no new infrastructure at all). Any connected
+     player but the host themselves may send one; the host has no host to
+     whisper to. Dropped silently if the host is not currently connected —
+     no queue, no persistence, same best-effort posture as the rest of
+     voice. The sender renders their own sent text locally; no echo back. */
+  onWhisper(ws, me, data) {
+    const g = this.game;
+    if (me.id === g.hostId) return;
+    const text = String(data.text || '').trim().slice(0, 300);
+    if (!text) return;
+    const hostWs = this.ctx.getWebSockets().find((s) => {
+      const sa = s.deserializeAttachment() || {};
+      return sa.pid === g.hostId;
+    });
+    if (!hostWs) return;
+    this.send(hostWs, { type: 'whisper', from: me.name, fromId: me.id, text });
   }
 
   /* Language is per player, not per room — two people at the same table can

@@ -503,6 +503,14 @@ body[data-screen="landing"] .hud{ display:none; }
 .chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
 /* Fixed width so switching EN/ES does not shuffle the header controls. */
 #langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
+#micBtn.mic-on{ color:var(--mint); border-color:rgba(var(--mint-rgb,80,200,160),.45); }
+#micBtn.mic-talking{ animation:micPulse 900ms ease-in-out infinite; }
+@keyframes micPulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
+#whisperField{ position:relative; }
+#whisperField input{
+  font:inherit; font-size:var(--fs-micro); padding:7px 12px; border-radius:var(--r-pill);
+  background:var(--ink-700); border:1px solid var(--hair); color:var(--paper-100); width:180px;
+}
 /* Back to Menu, disabled while a round is live. The disabled state borrows
    the ON AIR sign's amber rather than greying out — a studio door with the
    light on, not a broken control. cursor:default, not not-allowed: nothing
@@ -1376,6 +1384,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 5H4v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <span class="code" id="hudCodeText">----</span>
     </button>
+    <button type="button" class="chip-btn" id="micBtn" aria-pressed="false" hidden>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <span class="sr" id="micLabel">Talk</span>
+    </button>
+    <button type="button" class="chip-btn" id="whisperBtn" hidden>
+      <span id="whisperLabel">Ask host</span>
+    </button>
+    <div class="field" id="whisperField" hidden>
+      <input type="text" id="whisperInput" maxlength="300" placeholder="Type your question…" autocomplete="off">
+    </div>
     <button type="button" class="chip-btn" id="soundBtn" aria-pressed="false" title="Sound">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="soundOff" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
       <span class="sr" id="soundLabel">Sound off</span>
@@ -1708,7 +1726,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       fewerPerRound: 'Fewer questions per round', morePerRound: 'More questions per round',
       addTeam: '+ Add team', removeTeamBtn: 'Remove this team',
       m_teamCountMax: 'That is the most teams this room supports.',
-      m_teamCountMin: 'At least one team must remain.'
+      m_teamCountMin: 'At least one team must remain.',
+      micHost: 'Talk', micTeam: 'Talk to team',
+      micOnTitle: 'Mic on — tap to stop', micOffTitle: 'Tap to talk',
+      voiceNothingToTalkTo: 'Join a team first.', voiceUnsupported: 'Voice is not supported in this browser.',
+      voiceMicDenied: 'Microphone access was not allowed.',
+      whisperSent: 'Sent to the host.', talkingSuffix: ' is talking…',
+      askHost: 'Ask host', whisperPlaceholder: 'Type your question…'
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1775,7 +1799,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       fewerPerRound: 'Menos preguntas por ronda', morePerRound: 'Más preguntas por ronda',
       addTeam: '+ Añadir equipo', removeTeamBtn: 'Quitar este equipo',
       m_teamCountMax: 'Ese es el máximo de equipos que admite esta sala.',
-      m_teamCountMin: 'Debe quedar al menos un equipo.'
+      m_teamCountMin: 'Debe quedar al menos un equipo.',
+      micHost: 'Hablar', micTeam: 'Hablar con el equipo',
+      micOnTitle: 'Micrófono activado — toca para detener', micOffTitle: 'Toca para hablar',
+      voiceNothingToTalkTo: 'Primero únete a un equipo.', voiceUnsupported: 'La voz no es compatible con este navegador.',
+      voiceMicDenied: 'No se permitió el acceso al micrófono.',
+      whisperSent: 'Enviado al anfitrión.', talkingSuffix: ' está hablando…',
+      askHost: 'Preguntar', whisperPlaceholder: 'Escribe tu pregunta…'
     }
   };
 
@@ -1948,7 +1978,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elHostRecoverToggle = $('hostRecoverToggle'), elHostRecoverField = $('hostRecoverField'),
       elHostTokenInput = $('hostTokenInput'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
-      elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch');
+      elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch'),
+      elMicBtn = $('micBtn'), elMicLabel = $('micLabel'),
+      elWhisperBtn = $('whisperBtn'), elWhisperLabel = $('whisperLabel'),
+      elWhisperField = $('whisperField'), elWhisperInput = $('whisperInput');
 
   var CHOICES = [
     { letter: 'A', c: '#3D6BFF', rgb: '61,107,255',  fill: '#FFFFFF', key: '1' },
@@ -2244,6 +2277,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var hostCodeLabel = elHostRecoverField && elHostRecoverField.querySelector('.field-label');
     if (hostCodeLabel) hostCodeLabel.textContent = T('hostCode');
     if (elHostTokenInput) elHostTokenInput.placeholder = T('pasteHostCode');
+    set('whisperLabel', 'askHost');
+    if (elWhisperInput) elWhisperInput.placeholder = T('whisperPlaceholder');
+    paintMic();
     renderQuizEditor(); // quiz rows carry their own placeholders
     renderTeamsPicker(); // team cards carry their own Join/Your team label
     paintBackBtn();
@@ -2817,6 +2853,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost);
     if (isCustom && state.isHost) renderQuizEditor();
     renderTeamsPicker();
+    paintMic();
+    paintWhisper();
 
     if (curScreen === 'lobby') setStage(lobbyStage());
   }
@@ -4205,6 +4243,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       scheduleRetry();
       return;
     }
+    sock.binaryType = 'arraybuffer'; // voice chunks arrive as ArrayBuffer, not Blob
     ws = sock;
     var opened = false, handled = false;
 
@@ -4254,6 +4293,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     };
 
     sock.onmessage = function (ev) {
+      if (ev.data instanceof ArrayBuffer) { return Voice.onFrame(ev.data); }
       var msg;
       try { msg = JSON.parse(ev.data); } catch (e) { return; }
       if (!msg || typeof msg !== 'object') return;
@@ -4317,6 +4357,241 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     try { ws.send(JSON.stringify(obj)); return true; }
     catch (e) { return false; }
   }
+
+  /* ==================================================================
+     Voice — teams mode only, pub-event feature. Host broadcasts to
+     everyone; a team member reaches only their own team; a captain's
+     "ask the host something" need is covered separately by whisper (text).
+
+     Voice-activity gated, not push-to-talk: silence transmits nothing,
+     which is what keeps this comfortably inside Workers' free-tier request
+     quota (outgoing relay is free; only a talker's own incoming chunks ever
+     count) even with up to 100 people in a room. Raw 16-bit PCM over the
+     existing game WebSocket, not WebRTC and not a new Cloudflare product —
+     the Durable Object already relays messages to a filtered set of
+     sockets; this reuses exactly that, just with binary frames instead of
+     JSON. Latency through the relay runs several hundred ms to a couple of
+     seconds, which is fine for narration and a huddled decision, not a
+     conference call — that tradeoff is deliberate, documented, and the
+     reason this needed no new infrastructure at all.
+
+     Frame layout (byte 0 channel, byte 1 reserved, bytes 2-5 sample rate
+     LE, bytes 6+ PCM) is private to this module and onVoiceChunk() server
+     side — nothing else on the wire needs to know it exists.
+     ================================================================== */
+  var Voice = (function () {
+    var ctx = null, micStream = null, source = null, analyser = null, processor = null;
+    var channel = null;       // 'host' | 'team' — fixed for the session once enabled
+    var enabled = false;      // the mic toggle is on (may still be awaiting permission)
+    var talking = false;      // currently mid-burst, actively sending chunks
+    var silenceAt = 0;
+    var vadTimer = 0;
+    var nextPlayAt = {};      // per channel byte, so host narration and team chatter
+                               // (a team member hears both) never block each other
+    var SILENCE_HANGOVER_MS = 600;
+    var THRESHOLD = 0.02;
+
+    function getCtx() {
+      if (!ctx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+      }
+      if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+      return ctx;
+    }
+
+    // What this specific viewer is allowed to talk on right now, or null.
+    // The host never has a team (by design, elsewhere in this file); a
+    // teams-mode player not yet on a team has nothing to talk to either.
+    function myChannel() {
+      if (state.spectator || state.settings.mode !== 'teams') return null;
+      if (state.isHost) return 'host';
+      if (state.myTeamId) return 'team';
+      return null;
+    }
+
+    function channelByte(ch) { return ch === 'host' ? 1 : ch === 'team' ? 2 : 0; }
+
+    function enable() {
+      if (enabled) return;
+      channel = myChannel();
+      if (!channel) { toast(T('voiceNothingToTalkTo'), true); return; }
+      var c = getCtx();
+      if (!c) { toast(T('voiceUnsupported'), true); return; }
+      enabled = true;
+      paintMic();
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        if (!enabled) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+        micStream = stream;
+        source = c.createMediaStreamSource(stream);
+        analyser = c.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+
+        // ScriptProcessorNode: deprecated but universally supported, and the
+        // only way to get raw PCM synchronously without shipping a separate
+        // AudioWorklet module file — this project is one HTML file on
+        // purpose. Routed through a silent gain, never to destination
+        // directly, so a talker never hears their own mic looped back.
+        processor = c.createScriptProcessor(2048, 1, 1);
+        source.connect(processor);
+        var silentGain = c.createGain();
+        silentGain.gain.value = 0;
+        processor.connect(silentGain);
+        silentGain.connect(c.destination);
+        processor.onaudioprocess = function (ev) {
+          if (!talking) return;
+          var input = ev.inputBuffer.getChannelData(0);
+          var pcm = new Int16Array(input.length);
+          for (var i = 0; i < input.length; i++) {
+            var s = Math.max(-1, Math.min(1, input[i]));
+            pcm[i] = s < 0 ? (s * 0x8000) : (s * 0x7fff);
+          }
+          sendChunk(pcm, c.sampleRate);
+        };
+
+        var vadBuf = new Float32Array(analyser.fftSize);
+        vadTimer = setInterval(function () {
+          if (!enabled) return;
+          analyser.getFloatTimeDomainData(vadBuf);
+          var sum = 0;
+          for (var i = 0; i < vadBuf.length; i++) sum += vadBuf[i] * vadBuf[i];
+          var rms = Math.sqrt(sum / vadBuf.length);
+          var now = Date.now();
+          if (rms > THRESHOLD) {
+            silenceAt = 0;
+            if (!talking) startTalking();
+          } else if (talking) {
+            if (!silenceAt) silenceAt = now;
+            else if (now - silenceAt > SILENCE_HANGOVER_MS) stopTalking();
+          }
+        }, 80);
+      }).catch(function () {
+        enabled = false;
+        paintMic();
+        toast(T('voiceMicDenied'), true);
+      });
+    }
+
+    function disable() {
+      if (!enabled) return;
+      enabled = false;
+      if (talking) stopTalking();
+      if (vadTimer) { clearInterval(vadTimer); vadTimer = 0; }
+      if (processor) { try { processor.disconnect(); } catch (e) {} processor.onaudioprocess = null; processor = null; }
+      if (source) { try { source.disconnect(); } catch (e) {} source = null; }
+      analyser = null;
+      if (micStream) { micStream.getTracks().forEach(function (t) { t.stop(); }); micStream = null; }
+      paintMic();
+    }
+
+    function toggle() { if (enabled) disable(); else enable(); }
+
+    function startTalking() {
+      talking = true;
+      send({ type: 'talk', channel: channel, state: 'start' });
+      paintMic();
+    }
+    function stopTalking() {
+      talking = false;
+      silenceAt = 0;
+      send({ type: 'talk', channel: channel, state: 'stop' });
+      paintMic();
+    }
+
+    function sendChunk(pcm, sampleRate) {
+      if (!ws || ws.readyState !== 1) return;
+      var header = new ArrayBuffer(6);
+      var hv = new DataView(header);
+      hv.setUint8(0, channelByte(channel));
+      hv.setUint8(1, 0);
+      hv.setUint32(2, sampleRate || 48000, true);
+      var out = new Uint8Array(6 + pcm.byteLength);
+      out.set(new Uint8Array(header), 0);
+      out.set(new Uint8Array(pcm.buffer), 6);
+      try { ws.send(out.buffer); } catch (e) {}
+    }
+
+    // ---- playback of frames relayed from anyone else ----
+    function onFrame(buf) {
+      if (!buf || buf.byteLength < 7) return;
+      var dv = new DataView(buf);
+      var tag = dv.getUint8(0);
+      var sampleRate = dv.getUint32(2, true) || 48000;
+      var c = getCtx();
+      if (!c) return;
+      var pcm = new Int16Array(buf.slice(6));
+      var frameCount = pcm.length;
+      if (!frameCount) return;
+      var audioBuf = c.createBuffer(1, frameCount, sampleRate);
+      var chan = audioBuf.getChannelData(0);
+      for (var i = 0; i < frameCount; i++) {
+        var v = pcm[i];
+        chan[i] = v < 0 ? v / 0x8000 : v / 0x7fff;
+      }
+      var node = c.createBufferSource();
+      node.buffer = audioBuf;
+      node.connect(c.destination);
+      var now = c.currentTime;
+      var startAt = Math.max(now, nextPlayAt[tag] || 0);
+      node.start(startAt);
+      nextPlayAt[tag] = startAt + audioBuf.duration;
+    }
+
+    function reset() { disable(); } // called on leaving a room, see goLanding()
+
+    return {
+      enable: enable, disable: disable, toggle: toggle, onFrame: onFrame, reset: reset,
+      isEnabled: function () { return enabled; },
+      isTalking: function () { return talking; },
+      myChannel: myChannel,
+    };
+  })();
+
+  function paintMic() {
+    // Voice (var, hoisted but not yet assigned) is declared further down the
+    // file near its own first use. paintStatic() calls this during very
+    // early page init, before that assignment has run — same hoisting gap
+    // renderQuizEditor() hit earlier; same fix.
+    if (!elMicBtn || typeof Voice === 'undefined') return;
+    var ch = Voice.myChannel();
+    elMicBtn.hidden = !ch;
+    if (!ch) return;
+    var on = Voice.isEnabled();
+    elMicBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    elMicBtn.classList.toggle('mic-on', on);
+    elMicBtn.classList.toggle('mic-talking', on && Voice.isTalking());
+    elMicLabel.textContent = ch === 'host' ? T('micHost') : T('micTeam');
+    elMicBtn.title = on ? T('micOnTitle') : T('micOffTitle');
+  }
+
+  function paintWhisper() {
+    if (!elWhisperBtn) return;
+    // The host has no host to whisper to; a teams-mode player not yet on a
+    // team (or anyone outside teams mode) has nothing to ask about either.
+    var canAsk = !state.spectator && state.settings.mode === 'teams' &&
+      !state.isHost && !!state.myTeamId;
+    elWhisperBtn.hidden = !canAsk;
+    if (!canAsk && elWhisperField) elWhisperField.hidden = true;
+  }
+
+  on(elMicBtn, 'click', function () { Voice.toggle(); });
+  on(elWhisperBtn, 'click', function () {
+    if (!elWhisperField) return;
+    elWhisperField.hidden = !elWhisperField.hidden;
+    if (!elWhisperField.hidden && elWhisperInput) elWhisperInput.focus();
+  });
+  on(elWhisperInput, 'keydown', function (ev) {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var text = String(elWhisperInput.value || '').trim();
+    if (!text) return;
+    send({ type: 'whisper', text: text });
+    elWhisperInput.value = '';
+    elWhisperField.hidden = true;
+    toast(T('whisperSent'));
+  });
 
   window.addEventListener('online', function () {
     if (wantOpen && !ws) { attempt = 0; if (retryTimer) clearTimeout(retryTimer); retryTimer = 0; connect(); }
@@ -4391,6 +4666,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
             if (state.players[i].id === state.me.id) state.isHost = !!state.players[i].isHost;
           }
         }
+        paintMic();
+        paintWhisper();
         if (curScreen === 'lobby') renderLobby();
         if (curScreen === 'play' && state.phase === 'question') paintLockLine();
         if (curScreen === 'board') paintBoardActions();
@@ -4499,6 +4776,22 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.starting = false;
         paintCallSheet();
         if (curScreen === 'lobby') renderLobby();
+        break;
+
+      // Someone else's mic activity — ephemeral, never stored. Only shown
+      // on 'start', not 'stop', so this is a notice rather than a running
+      // status bar that needs its own cleanup/stacking logic.
+      case 'talk':
+        if (msg.state === 'start' && msg.name) {
+          toast((msg.channel === 'host' ? '📣 ' : '🎤 ') + msg.name + T('talkingSuffix'));
+        }
+        break;
+
+      // Only ever arrives for the host — a direct question from a player,
+      // text-first per the owner's call (voice-to-host is the same relay
+      // mechanism, just not built yet).
+      case 'whisper':
+        toast('💬 ' + msg.from + ': ' + msg.text);
         break;
 
       case 'customQuestions':
@@ -4752,6 +5045,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     wantOpen = false;
     stopWatchdog();
     forceClose = null;
+    Voice.reset(); // stop the mic — leaving the room is not a reason to keep it hot
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = 0; }
     if (ws) { try { ws.onclose = null; ws.close(); } catch (e) {} ws = null; }
     netbar(null);
