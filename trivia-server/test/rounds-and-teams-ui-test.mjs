@@ -63,12 +63,20 @@ try {
   const perRoundVal = await A.ev("return document.getElementById('perRoundVal').textContent;");
   ok(perRoundVal === '9', 'questions-per-round stepper decrements to 9', perRoundVal);
 
+  await A.ev("document.getElementById('timerUp').click(); return true;");
+  await A.ev("document.getElementById('timerUp').click(); return true;");
+  await sleep(300);
+  const timerVal = await A.ev("return document.getElementById('timerVal').textContent;");
+  ok(timerVal === '30s', 'timer stepper reaches 30s after two +5s clicks', timerVal);
+
   // Confirm an unrelated settings tap (difficulty) does NOT reset rounds —
   // this is exactly the sendSettings() bug that was just fixed.
   await A.ev("document.getElementById('diffSlot').click(); return true;");
   await sleep(300);
   const roundsAfterDiff = await A.ev("return document.getElementById('roundsVal').textContent;");
   ok(roundsAfterDiff === '3', 'rounds survives an unrelated settings change (difficulty tap)', roundsAfterDiff);
+  const timerAfterDiff = await A.ev("return document.getElementById('timerVal').textContent;");
+  ok(timerAfterDiff === '30s', 'timer survives an unrelated settings change too', timerAfterDiff);
 
   // Team setup, then add/remove/rename
   await A.ev("document.getElementById('teamSetupBtn').click(); return true;");

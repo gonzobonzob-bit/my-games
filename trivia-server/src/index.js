@@ -53,6 +53,11 @@ const ROUNDS_MIN = 1;
 const ROUNDS_MAX = 10;
 const QUESTIONS_PER_ROUND_MIN = 1;
 const QUESTIONS_PER_ROUND_MAX = 30;
+// Teams mode only, same reasoning as rounds/questionsPerRound above —
+// default of 20_000 reproduces the classic-mode constant exactly.
+const QUESTION_MS_MIN = 5_000;
+const QUESTION_MS_MAX = 60_000;
+const QUESTION_MS_STEP = 5_000; // the host adjusts in 5s increments, not raw ms
 /* Reveal → next question, measured from the reveal broadcast — including the
  * early reveal when everyone has locked in, which is why solo stays brisk.
  * Six seconds: long enough to read the answer and watch the scores move, not
@@ -1352,7 +1357,7 @@ export class Room {
     g.phase = 'question';
     g.answers = {};
     g.lastReveal = null;
-    g.endsAt = Date.now() + QUESTION_MS;
+    g.endsAt = Date.now() + g.settings.questionMs;
     g.nextAt = 0;
     await this.save();
 
@@ -1402,8 +1407,8 @@ export class Room {
         const correct = choice !== null && choice === q.correctIndex;
         let gained = 0;
         if (correct) {
-          const remaining = Math.max(0, Math.min(QUESTION_MS, g.endsAt - ans.at));
-          gained = BASE_POINTS + Math.round((SPEED_POINTS * remaining) / QUESTION_MS);
+          const remaining = Math.max(0, Math.min(g.settings.questionMs, g.endsAt - ans.at));
+          gained = BASE_POINTS + Math.round((SPEED_POINTS * remaining) / g.settings.questionMs);
           t.score += gained;
         }
         perTeam.push({ id: t.id, choice, correct, gained, answeredBy: ans ? ans.by : null });
@@ -2088,7 +2093,7 @@ function sanitizeLang(raw) {
 }
 const DEFAULT_SETTINGS = {
   genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre',
-  rounds: 1, questionsPerRound: QUESTION_COUNT,
+  rounds: 1, questionsPerRound: QUESTION_COUNT, questionMs: QUESTION_MS,
 };
 const MODES = ['classic', 'teams'];
 const SOURCES = ['genre', 'custom'];
@@ -2112,6 +2117,7 @@ function sanitizeSettings(raw) {
     source: DEFAULT_SETTINGS.source,
     rounds: DEFAULT_SETTINGS.rounds,
     questionsPerRound: DEFAULT_SETTINGS.questionsPerRound,
+    questionMs: DEFAULT_SETTINGS.questionMs,
   };
   if (!raw || typeof raw !== 'object') return out;
   if (typeof raw.genre === 'string' &&
@@ -2134,6 +2140,9 @@ function sanitizeSettings(raw) {
     out.questionsPerRound = Math.min(QUESTIONS_PER_ROUND_MAX,
       Math.max(QUESTIONS_PER_ROUND_MIN, raw.questionsPerRound));
   }
+  if (Number.isInteger(raw.questionMs)) {
+    out.questionMs = Math.min(QUESTION_MS_MAX, Math.max(QUESTION_MS_MIN, raw.questionMs));
+  }
   // Custom questions only exist to serve teams mode in this phase — a
   // classic room has no quiz-authoring UI and no reason to skip the genre
   // promise, so it is pinned to 'genre' no matter what arrives on the wire.
@@ -2144,6 +2153,7 @@ function sanitizeSettings(raw) {
     out.source = 'genre';
     out.rounds = DEFAULT_SETTINGS.rounds;
     out.questionsPerRound = DEFAULT_SETTINGS.questionsPerRound;
+    out.questionMs = DEFAULT_SETTINGS.questionMs;
   }
   return out;
 }

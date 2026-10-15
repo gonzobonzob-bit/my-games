@@ -503,6 +503,12 @@ body[data-screen="landing"] .hud{ display:none; }
 .chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
 /* Fixed width so switching EN/ES does not shuffle the header controls. */
 #langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
+.wizard-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+  width:100%; padding:var(--sp-3) var(--sp-4); border-radius:var(--r-lg);
+  background:var(--ink-800); border:1px solid var(--hair);
+}
+.wizard-bar-actions{ display:flex; gap:var(--sp-2); }
 #micBtn.mic-on{ color:var(--mint); border-color:rgba(var(--mint-rgb,80,200,160),.45); }
 #micBtn.mic-talking{ animation:micPulse 900ms ease-in-out infinite; }
 @keyframes micPulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
@@ -1435,6 +1441,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           <button type="submit" class="btn btn-primary" id="joinBtn">Join room</button>
           <button type="button" class="btn btn-ghost" id="createBtn">Create a room</button>
         </div>
+        <button type="button" class="chip-btn" id="hostEventBtn">Host an event</button>
         <button type="button" class="chip-btn" id="hostRecoverToggle">Recovering a room you host?</button>
         <div class="field" id="hostRecoverField" hidden>
           <label class="field-label" for="hostTokenInput">Host code</label>
@@ -1465,6 +1472,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <div class="code-tiles" id="codeTiles" aria-live="off"></div>
         <button type="button" class="chip-btn" id="copyBtn">Copy the invite link</button>
         <button type="button" class="chip-btn" id="hostCodeBtn" hidden>Copy host code</button>
+      </div>
+      <div class="wizard-bar" id="wizardBar" hidden>
+        <div class="micro" id="wizardStepLabel">Step 1 of 4 — Teams</div>
+        <div class="wizard-bar-actions">
+          <button type="button" class="chip-btn" id="wizardBackBtn">Back</button>
+          <button type="button" class="btn btn-primary" id="wizardNextBtn">Next</button>
+        </div>
       </div>
       <div class="callsheet" id="callSheet">
         <button type="button" class="slot" id="genreSlot">
@@ -1502,6 +1516,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <button type="button" class="chip-btn" id="perRoundDown" aria-label="Fewer questions per round">&minus;</button>
         <span class="team-count-val" id="perRoundVal">10</span>
         <button type="button" class="chip-btn" id="perRoundUp" aria-label="More questions per round">+</button>
+        <span class="micro">Timer</span>
+        <button type="button" class="chip-btn" id="timerDown" aria-label="Shorter timer">&minus;</button>
+        <span class="team-count-val" id="timerVal">20s</span>
+        <button type="button" class="chip-btn" id="timerUp" aria-label="Longer timer">+</button>
       </div>
       <div class="teams-picker" id="teamsPicker" hidden></div>
       <div class="quiz-editor" id="quizEditor" hidden>
@@ -1732,7 +1750,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       voiceNothingToTalkTo: 'Join a team first.', voiceUnsupported: 'Voice is not supported in this browser.',
       voiceMicDenied: 'Microphone access was not allowed.',
       whisperSent: 'Sent to the host.', talkingSuffix: ' is talking…',
-      askHost: 'Ask host', whisperPlaceholder: 'Type your question…'
+      askHost: 'Ask host', whisperPlaceholder: 'Type your question…',
+      timerLabel: 'Timer', shorterTimer: 'Shorter timer', longerTimer: 'Longer timer',
+      hostEvent: 'Host an event',
+      wizStepTeams: 'Teams', wizStepQuestions: 'Questions', wizStepTiming: 'Timing', wizStepReview: 'Review',
+      wizStepOf: 'Step #1 of #2', wizNext: 'Next', wizDone: 'Done — enter the lobby',
+      wizReady: 'Your event is set up. Share the room code whenever you’re ready.'
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1805,7 +1828,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       voiceNothingToTalkTo: 'Primero únete a un equipo.', voiceUnsupported: 'La voz no es compatible con este navegador.',
       voiceMicDenied: 'No se permitió el acceso al micrófono.',
       whisperSent: 'Enviado al anfitrión.', talkingSuffix: ' está hablando…',
-      askHost: 'Preguntar', whisperPlaceholder: 'Escribe tu pregunta…'
+      askHost: 'Preguntar', whisperPlaceholder: 'Escribe tu pregunta…',
+      timerLabel: 'Temporizador', shorterTimer: 'Menos tiempo', longerTimer: 'Más tiempo',
+      hostEvent: 'Organizar un evento',
+      wizStepTeams: 'Equipos', wizStepQuestions: 'Preguntas', wizStepTiming: 'Tiempos', wizStepReview: 'Revisión',
+      wizStepOf: 'Paso #1 de #2', wizNext: 'Siguiente', wizDone: 'Listo — entrar a la sala',
+      wizReady: 'Tu evento está listo. Comparte el código de sala cuando quieras.'
     }
   };
 
@@ -1922,7 +1950,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     myTeamId: null,        // derived from players[] on every roster/welcome
     customQuestionCount: 0,// host's saved quiz size, teams+custom only
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
-    settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre', rounds: 1, questionsPerRound: 10 },
+    settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre', rounds: 1, questionsPerRound: 10, questionMs: 20000 },
+    wizardActive: false, wizardStep: 0, // "Host an event" — a guided first pass over the same lobby controls
     catalog: [],           // [{slug,label}] — what the server will actually serve
     difficulties: ['any', 'easy', 'medium', 'hard'],
     starting: false,
@@ -1959,6 +1988,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elRoundsUp = $('roundsUp'), elRoundsVal = $('roundsVal'),
       elPerRoundDown = $('perRoundDown'), elPerRoundUp = $('perRoundUp'),
       elPerRoundVal = $('perRoundVal'),
+      elTimerDown = $('timerDown'), elTimerUp = $('timerUp'), elTimerVal = $('timerVal'),
       elQuizEditor = $('quizEditor'), elQuizRows = $('quizRows'),
       elQuizAddBtn = $('quizAddBtn'), elQuizSaveBtn = $('quizSaveBtn'), elQuizStatus = $('quizStatus'),
       elQuestion = $('questionText'), elQRule = $('qRule'),
@@ -1975,8 +2005,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elNameInput = $('nameInput'),
       elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
+      elHostEventBtn = $('hostEventBtn'),
       elHostRecoverToggle = $('hostRecoverToggle'), elHostRecoverField = $('hostRecoverField'),
       elHostTokenInput = $('hostTokenInput'),
+      elWizardBar = $('wizardBar'), elWizardStepLabel = $('wizardStepLabel'),
+      elWizardBackBtn = $('wizardBackBtn'), elWizardNextBtn = $('wizardNextBtn'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
       elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch'),
       elMicBtn = $('micBtn'), elMicLabel = $('micLabel'),
@@ -2245,6 +2278,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var set = function (id, key) { var e = $(id); if (e) e.textContent = T(key); };
     set('joinBtn', 'joinRoom');
     set('createBtn', 'createRoom');
+    set('hostEventBtn', 'hostEvent');
     set('copyBtn', 'copyInvite');
     var lede = document.querySelector('.lede'); if (lede) lede.textContent = T('lede');
     var note = $('joinNote'); if (note) note.textContent = T('inviteNote');
@@ -2264,10 +2298,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var roundsLabels = elRoundsSetup ? elRoundsSetup.querySelectorAll('.micro') : [];
     if (roundsLabels[0]) roundsLabels[0].textContent = T('rounds');
     if (roundsLabels[1]) roundsLabels[1].textContent = T('perRound');
+    if (roundsLabels[2]) roundsLabels[2].textContent = T('timerLabel');
     if (elRoundsDown) elRoundsDown.setAttribute('aria-label', T('fewerRounds'));
     if (elRoundsUp) elRoundsUp.setAttribute('aria-label', T('moreRounds'));
     if (elPerRoundDown) elPerRoundDown.setAttribute('aria-label', T('fewerPerRound'));
     if (elPerRoundUp) elPerRoundUp.setAttribute('aria-label', T('morePerRound'));
+    if (elTimerDown) elTimerDown.setAttribute('aria-label', T('shorterTimer'));
+    if (elTimerUp) elTimerUp.setAttribute('aria-label', T('longerTimer'));
     var quizLabel = elQuizEditor && elQuizEditor.querySelector('.micro');
     if (quizLabel) quizLabel.textContent = T('yourQuestions');
     set('quizAddBtn', 'addQuestion');
@@ -2850,6 +2887,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost);
     if (elRoundsVal) elRoundsVal.textContent = String(state.settings.rounds || 1);
     if (elPerRoundVal) elPerRoundVal.textContent = String(state.settings.questionsPerRound || 10);
+    if (elTimerVal) elTimerVal.textContent = Math.round((state.settings.questionMs || 20000) / 1000) + 's';
     if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost);
     if (isCustom && state.isHost) renderQuizEditor();
     renderTeamsPicker();
@@ -2878,7 +2916,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       mode: patch.mode !== undefined ? patch.mode : cur.mode,
       source: patch.source !== undefined ? patch.source : cur.source,
       rounds: patch.rounds !== undefined ? patch.rounds : cur.rounds,
-      questionsPerRound: patch.questionsPerRound !== undefined ? patch.questionsPerRound : cur.questionsPerRound
+      questionsPerRound: patch.questionsPerRound !== undefined ? patch.questionsPerRound : cur.questionsPerRound,
+      questionMs: patch.questionMs !== undefined ? patch.questionMs : cur.questionMs
     };
     // Painted immediately so the tap feels like a control rather than a
     // request, but the server's echo is the truth — if it disagrees, its
@@ -2974,7 +3013,80 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (lobbyPainted && arrivals > 0) SFX.join();
     lobbyPainted = true;
     paintCallSheet();
+    paintWizard();
   }
+
+  /* ==================================================================
+     "Host an event" — a guided first pass over the SAME lobby controls,
+     not a separate screen with duplicated IDs/logic. Each step just hides
+     every OTHER step's container; it never un-hides anything itself —
+     paintCallSheet()/renderLobby() (which always run first, see above)
+     already decided whether the current step's own controls should show
+     at all (host-only, teams-mode-only, custom-source-only, etc.), and
+     this only ever narrows that further, never overrides it. Leaving a
+     room code visible and host-only controls host-only throughout is what
+     lets this reuse every already-tested handler verbatim.
+     ================================================================== */
+  var WIZARD_STEP_COUNT = 4;
+  function paintWizard() {
+    if (!elWizardBar) return;
+    elWizardBar.hidden = !state.wizardActive;
+    if (!state.wizardActive) return;
+
+    var step = state.wizardStep;
+    var modeSheetEl = $('modeSheet');
+    var pubRow = document.querySelector('.pub-row');
+    var boardActions = document.querySelector('.board-actions');
+
+    // Nobody should see a start button, a public-listing toggle, or "waiting
+    // for host" noise while the host is still setting things up.
+    if (elLobbyPlayers) elLobbyPlayers.hidden = true;
+    if (elLobbyWatch) elLobbyWatch.hidden = true;
+    if (pubRow) pubRow.hidden = true;
+    if (boardActions) boardActions.hidden = true;
+
+    // Two different rules, because these containers are not symmetric.
+    // teamsSetup/teamsPicker/quizEditor/roundsSetup already have their OWN
+    // real visibility logic elsewhere (host-only, teams-mode-only,
+    // custom-source-only, "no teams yet") that runs before this every
+    // time — so this only ever ADDS hiding on the wrong step, never
+    // overrides a legitimate hide with a show. callSheet/modeSheet have no
+    // such logic of their own (nothing else ever touches their hidden
+    // flag), so THOSE need an explicit true/false every call or they get
+    // stuck hidden forever the first time any OTHER step hides them.
+    if (elCallSheet) elCallSheet.hidden = step !== 1;
+    if (modeSheetEl) modeSheetEl.hidden = step !== 1;
+    if (step !== 0) { if (elTeamsSetup) elTeamsSetup.hidden = true; if (elTeamsPicker) elTeamsPicker.hidden = true; }
+    if (step !== 1) { if (elQuizEditor) elQuizEditor.hidden = true; }
+    if (step !== 2) { if (elRoundsSetup) elRoundsSetup.hidden = true; }
+    // Step 3 (review) adds nothing beyond the code-block, which is already
+    // always visible — that IS the review.
+
+    var titles = [T('wizStepTeams'), T('wizStepQuestions'), T('wizStepTiming'), T('wizStepReview')];
+    elWizardStepLabel.textContent = T('wizStepOf').replace('#1', step + 1).replace('#2', WIZARD_STEP_COUNT) +
+      ' — ' + titles[step];
+    elWizardBackBtn.hidden = step === 0;
+    elWizardNextBtn.textContent = step === WIZARD_STEP_COUNT - 1 ? T('wizDone') : T('wizNext');
+  }
+
+  function wizardGo(step) {
+    state.wizardStep = Math.max(0, Math.min(WIZARD_STEP_COUNT - 1, step));
+    renderLobby();
+  }
+
+  on(elWizardBackBtn, 'click', function () { wizardGo(state.wizardStep - 1); });
+  on(elWizardNextBtn, 'click', function () {
+    if (state.wizardStep >= WIZARD_STEP_COUNT - 1) {
+      // Done — leave wizard mode. renderLobby()/paintCallSheet() now decide
+      // every control's visibility with no further narrowing, same as a
+      // room created the ordinary way.
+      state.wizardActive = false;
+      renderLobby();
+      toast(T('wizReady'));
+      return;
+    }
+    wizardGo(state.wizardStep + 1);
+  });
 
   /* The host gets the switch; everyone else gets the fact. A room being
      listed is something the people in it are entitled to know — their code
@@ -3087,6 +3199,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   on(elPerRoundUp, 'click', function () {
     if (!state.isHost) return;
     sendSettings({ questionsPerRound: Math.min(30, (state.settings.questionsPerRound || 10) + 1) });
+  });
+  on(elTimerDown, 'click', function () {
+    if (!state.isHost) return;
+    sendSettings({ questionMs: Math.max(5000, (state.settings.questionMs || 20000) - 5000) });
+  });
+  on(elTimerUp, 'click', function () {
+    if (!state.isHost) return;
+    sendSettings({ questionMs: Math.min(60000, (state.settings.questionMs || 20000) + 5000) });
   });
 
   function renderTeamsPicker() {
@@ -4641,7 +4761,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.teams = Array.isArray(msg.teams) ? msg.teams : [];
         recomputeMyTeam();
         state.starting = false;
+        // "Host an event" always means teams mode — the wizard's whole
+        // point is pre-configuring teams/questions/timing, none of which
+        // exist in classic mode. Only fires once, right after the host
+        // actually becomes host, same gate as the host-token capture above.
+        if (state.wizardActive && state.isHost && state.settings.mode !== 'teams') {
+          sendSettings({ mode: 'teams' });
+        }
         paintCallSheet();
+        paintWizard();
         state.everConnected = true;
         state.handshakeFails = 0;
         netbar(null);
@@ -5123,6 +5251,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   on(elCreateBtn, 'click', function () {
     var name = String(elNameInput.value || '').trim().slice(0, 16);
     if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
+    beginSession(randomCode(), name);
+  });
+  on(elHostEventBtn, 'click', function () {
+    var name = String(elNameInput.value || '').trim().slice(0, 16);
+    if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
+    state.wizardActive = true;
+    state.wizardStep = 0;
     beginSession(randomCode(), name);
   });
   on(elHostRecoverToggle, 'click', function () {
