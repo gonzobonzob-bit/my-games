@@ -122,6 +122,13 @@ const MEDIA_DATA_URL_MAX = {
   audio: 500_000, // ~375KB raw — a few seconds of compressed audio, not a song
 };
 
+// A question's presentation, not its answer mechanic — every kind still
+// resolves to exactly CUSTOM_CHOICE_COUNT text choices. 'tune'/'picture' each
+// require a matching media attachment (the clip/photo IS the question, not a
+// decorative clue); 'standard' keeps media fully optional, either type.
+const QUESTION_KINDS = ['standard', 'tune', 'picture'];
+const QUESTION_KIND_MEDIA = { tune: 'audio', picture: 'image' };
+
 const ALLOWED_ORIGIN = 'https://gonzobonzob-bit.github.io';
 
 /* ------------------------------------------------------------------ *
@@ -618,6 +625,9 @@ export class Room {
       // than choices/text already don't — a clue is not an answer — so the
       // invariant is untouched regardless of phase.
       media: q.media || undefined,
+      // Presentation only (see QUESTION_KINDS) — undefined for every
+      // non-custom question, same as media above.
+      kind: q.kind || undefined,
     };
   }
 
@@ -1055,7 +1065,8 @@ export class Room {
       return this.send(ws, {
         type: 'error',
         message: 'one or more questions are incomplete — every question needs text, '
-          + 'exactly 4 answers with no duplicates, and a marked correct answer',
+          + 'exactly 4 answers with no duplicates, a marked correct answer, and — for '
+          + 'Name This Tune or Picture Round — a matching audio clip or photo attached',
       });
     }
     // Shuffle each question's answer positions now, at authoring time — same
@@ -2001,7 +2012,17 @@ function sanitizeCustomQuestion(raw) {
     media = { type, dataUrl };
   }
 
-  return { text, choices, correctIndex, category: 'Custom', difficulty: 'custom', media };
+  // kind changes presentation only (still CUSTOM_CHOICE_COUNT text choices),
+  // but 'tune'/'picture' make the attachment the question itself, so each
+  // requires the matching media type actually be present — a "Name This
+  // Tune" with no audio, or saved against a photo instead of a clip, is not
+  // a malformed clue, it's a missing question.
+  const kind = raw.kind == null ? 'standard' : raw.kind;
+  if (!QUESTION_KINDS.includes(kind)) return null;
+  const requiredMedia = QUESTION_KIND_MEDIA[kind];
+  if (requiredMedia && (!media || media.type !== requiredMedia)) return null;
+
+  return { text, choices, correctIndex, category: 'Custom', difficulty: 'custom', kind, media };
 }
 
 /** Same shuffle-positions-once idea as buildQuestion() below, for a
@@ -2015,6 +2036,7 @@ function buildCustomQuestion(src) {
     correctIndex: order.indexOf(src.correctIndex),
     category: src.category,
     difficulty: src.difficulty,
+    kind: src.kind || 'standard',
     media: src.media || null,
   };
 }

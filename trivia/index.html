@@ -794,6 +794,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   border-radius:var(--r-sm, 6px); color:var(--paper-100); padding:6px 10px;
 }
 .quiz-row input[type="text"]:first-child{ flex:1 1 100%; }
+.quiz-kind{ flex:0 0 auto; justify-content:flex-start; }
 .quiz-choice{ display:flex; align-items:center; gap:6px; flex:1 1 46%; }
 .quiz-choice input[type="text"]{ flex:1 1 auto; min-width:0; }
 .quiz-remove{ margin-left:auto; }
@@ -926,6 +927,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .q-media img{ display:block; max-width:100%; max-height:220px; border-radius:var(--r-lg);
               border:1px solid var(--hair); }
 .q-media audio{ width:280px; max-width:80vw; }
+/* Name This Tune / Picture Round — the attachment IS the question, so it
+   leads at a larger size instead of sitting beside it as a small clue. */
+.q-media--hero{ max-width:min(480px, 90vw); }
+.q-media--hero img{ max-height:360px; }
+.q-media--hero audio{ width:100%; }
 .quiz-media{ display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
 .quiz-media-input{ font-size:var(--fs-micro); max-width:160px; }
 .question{
@@ -1769,7 +1775,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       mediaType_image: 'Photo', mediaType_audio: 'Sound',
       mediaBadType: 'Only photos and sound clips are supported right now (video needs an upgrade still pending).',
       mediaTooBig: '# is too large — keep it small, this is a clue, not the whole file.',
-      mediaReadFailed: 'Could not read that file.'
+      mediaReadFailed: 'Could not read that file.',
+      quizKindLabel: 'Question type',
+      kindLabel_standard: 'Standard', kindLabel_tune: '🎵 Name This Tune', kindLabel_picture: '🖼️ Picture Round',
+      questionNTune: 'Question # — e.g. “Name this tune”',
+      questionNPicture: 'Question # — e.g. “What’s pictured here?”',
+      mediaRequired_tune: 'Attach an audio clip — required for Name This Tune',
+      mediaRequired_picture: 'Attach a photo — required for Picture Round',
+      mediaClearedForKind_tune: 'Removed that attachment — Name This Tune needs an audio clip.',
+      mediaClearedForKind_picture: 'Removed that attachment — Picture Round needs a photo.',
+      quizKindNeedsMedia_tune: 'Question # needs an audio clip for Name This Tune.',
+      quizKindNeedsMedia_picture: 'Question # needs a photo for Picture Round.'
     },
     es: {
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
@@ -1853,7 +1869,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       mediaType_image: 'Foto', mediaType_audio: 'Sonido',
       mediaBadType: 'Por ahora solo se admiten fotos y clips de sonido (el video necesita una mejora pendiente).',
       mediaTooBig: '# es demasiado grande — que sea pequeño, es una pista, no el archivo completo.',
-      mediaReadFailed: 'No se pudo leer ese archivo.'
+      mediaReadFailed: 'No se pudo leer ese archivo.',
+      quizKindLabel: 'Tipo de pregunta',
+      kindLabel_standard: 'Estándar', kindLabel_tune: '🎵 Adivina la canción', kindLabel_picture: '🖼️ Ronda de imágenes',
+      questionNTune: 'Pregunta # — p. ej. «Adivina esta canción»',
+      questionNPicture: 'Pregunta # — p. ej. «¿Qué aparece en la imagen?»',
+      mediaRequired_tune: 'Adjunta un clip de audio — obligatorio para Adivina la canción',
+      mediaRequired_picture: 'Adjunta una foto — obligatorio para Ronda de imágenes',
+      mediaClearedForKind_tune: 'Se quitó ese archivo — Adivina la canción necesita un clip de audio.',
+      mediaClearedForKind_picture: 'Se quitó ese archivo — Ronda de imágenes necesita una foto.',
+      quizKindNeedsMedia_tune: 'La pregunta # necesita un clip de audio para Adivina la canción.',
+      quizKindNeedsMedia_picture: 'La pregunta # necesita una foto para Ronda de imágenes.'
     }
   };
 
@@ -3347,12 +3373,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      loses an unsaved draft but keeps whatever was last saved. ---- */
   var quizDraft = [];
 
-  function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0, media: null }; }
+  function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0, kind: 'standard', media: null }; }
 
   // Encoded-length caps matching the server's MEDIA_DATA_URL_MAX exactly —
   // checked here too so a host finds out their photo is too big before
   // waiting on a save round-trip to be told the whole question was refused.
   var MEDIA_MAX = { image: 300000, audio: 500000 };
+
+  // Mirrors the server's QUESTION_KINDS/QUESTION_KIND_MEDIA exactly. kind is
+  // presentation only — every kind still saves as the same 4 text choices —
+  // but 'tune'/'picture' make the attachment THE question, so each requires
+  // the matching media type actually be present.
+  var QUIZ_KINDS = ['standard', 'tune', 'picture'];
+  var QUIZ_KIND_MEDIA = { tune: 'audio', picture: 'image' };
 
   function renderQuizEditor() {
     // quizDraft is declared (var, hoisted but not yet assigned) further down
@@ -3368,17 +3401,50 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       : T('quizNotSaved');
   }
 
+  // Switching to 'tune'/'picture' with a mismatched (or no) attachment leaves
+  // the row in a state save-time validation will refuse anyway — clearing a
+  // mismatched attachment up front, with a toast explaining why, beats
+  // letting the host find out only after a save round-trip.
+  function applyQuizKind(q, kind) {
+    if (q.kind === kind) return;
+    var requiredType = QUIZ_KIND_MEDIA[kind];
+    if (requiredType && q.media && q.media.type !== requiredType) {
+      q.media = null;
+      toast(T('mediaClearedForKind_' + kind), true);
+    }
+    q.kind = kind;
+  }
+
   function buildQuizRow(i) {
     var q = quizDraft[i];
     var row = mk('div', 'quiz-row');
 
     var textInput = document.createElement('input');
     textInput.type = 'text';
-    textInput.placeholder = T('questionN').replace('#', i + 1);
+    textInput.placeholder = T(q.kind === 'tune' ? 'questionNTune'
+      : q.kind === 'picture' ? 'questionNPicture' : 'questionN').replace('#', i + 1);
     textInput.value = q.text;
     textInput.maxLength = 300;
     on(textInput, 'input', function () { q.text = textInput.value; });
     row.appendChild(textInput);
+
+    // Tap cycles forward (standard -> tune -> picture -> standard); shift-tap
+    // or right-click goes back — same convention as the genre/difficulty
+    // slot cycle buttons. Purely local draft state, no server round trip.
+    var kindBtn = mk('button', 'chip-btn quiz-kind');
+    kindBtn.type = 'button';
+    kindBtn.textContent = T('kindLabel_' + q.kind);
+    kindBtn.setAttribute('aria-label', T('quizKindLabel') + T('ariaHostHint') + kindBtn.textContent);
+    on(kindBtn, 'click', function (ev) {
+      applyQuizKind(q, cycle(QUIZ_KINDS, q.kind, ev.shiftKey ? -1 : 1));
+      renderQuizEditor();
+    });
+    on(kindBtn, 'contextmenu', function (ev) {
+      ev.preventDefault();
+      applyQuizKind(q, cycle(QUIZ_KINDS, q.kind, -1));
+      renderQuizEditor();
+    });
+    row.appendChild(kindBtn);
 
     for (var c = 0; c < 4; c++) {
       var choiceWrap = mk('div', 'quiz-choice');
@@ -3408,12 +3474,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     var mediaWrap = mk('div', 'quiz-media');
     var mediaStatus = mk('span', 'micro quiz-media-status');
-    mediaStatus.textContent = q.media ? T('mediaAttached').replace('#', T('mediaType_' + q.media.type)) : T('mediaNone');
+    var requiredMediaType = QUIZ_KIND_MEDIA[q.kind];
+    mediaStatus.textContent = q.media ? T('mediaAttached').replace('#', T('mediaType_' + q.media.type))
+      : requiredMediaType ? T('mediaRequired_' + q.kind) : T('mediaNone');
     mediaWrap.appendChild(mediaStatus);
 
     var mediaInput = document.createElement('input');
     mediaInput.type = 'file';
-    mediaInput.accept = 'image/*,audio/*';
+    mediaInput.accept = requiredMediaType ? requiredMediaType + '/*' : 'image/*,audio/*';
     mediaInput.className = 'quiz-media-input';
     on(mediaInput, 'change', function () {
       var file = mediaInput.files && mediaInput.files[0];
@@ -3422,6 +3490,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       var kind = file.type.indexOf('image/') === 0 ? 'image'
                : file.type.indexOf('audio/') === 0 ? 'audio' : null;
       if (!kind) { toast(T('mediaBadType'), true); return; }
+      if (requiredMediaType && kind !== requiredMediaType) { toast(T('mediaRequired_' + q.kind), true); return; }
       var reader = new FileReader();
       reader.onload = function () {
         var dataUrl = String(reader.result || '');
@@ -3465,6 +3534,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var items = [];
     for (var i = 0; i < quizDraft.length; i++) {
       var q = quizDraft[i];
+      // Same "fail fast, don't wait on a round trip" reasoning as MEDIA_MAX
+      // above: a tune/picture row with no matching attachment is refused by
+      // the server anyway, so catch it here with a toast that names the row.
+      var requiredType = QUIZ_KIND_MEDIA[q.kind];
+      if (requiredType && (!q.media || q.media.type !== requiredType)) {
+        toast(T('quizKindNeedsMedia_' + q.kind).replace('#', i + 1), true);
+        return;
+      }
       var choices = [];
       for (var c = 0; c < 4; c++) {
         var v = (q.choices[c] || '').trim();
@@ -3474,7 +3551,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       // left a blank slot above it, this is wrong, but the server validates
       // independently and refuses the whole batch with a reason rather than
       // silently accepting a shifted answer key.
-      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: q.correctIndex, media: q.media || null });
+      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: q.correctIndex, kind: q.kind, media: q.media || null });
     }
     send({ type: 'questions', items: items });
   });
@@ -3518,9 +3595,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      fresh question is not a user gesture, autoplay would likely be blocked
      by the browser anyway, and `controls` means nobody is stuck with a
      silent clip they have no way to start. */
-  function renderQuestionMedia(media) {
+  function renderQuestionMedia(media, kind) {
     if (!elQuestionMedia) return;
     elQuestionMedia.textContent = '';
+    // Hero sizing for 'tune'/'picture' — the attachment IS the question
+    // there, not a small decorative clue, so it leads at a larger size.
+    elQuestionMedia.classList.toggle('q-media--hero', kind === 'tune' || kind === 'picture');
     if (!media || typeof media.dataUrl !== 'string') { elQuestionMedia.hidden = true; return; }
     elQuestionMedia.hidden = false;
     if (media.type === 'image') {
@@ -3575,11 +3655,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elWhoGot.textContent = '';
     elTiles.classList.remove('locked', 'revealing', 'dip');
 
-    setText(elCatText, q.category || T('general'));
-    setText(elCatDiff, q.difficulty ? String(q.difficulty).toUpperCase() : '');
+    // 'tune'/'picture' own this chip outright — the badge IS the category,
+    // so it replaces q.category (always just 'Custom') rather than sitting
+    // alongside it.
+    setText(elCatText, (q.kind === 'tune' || q.kind === 'picture')
+      ? T('kindLabel_' + q.kind) : (q.category || T('general')));
+    setText(elCatDiff, (q.kind === 'tune' || q.kind === 'picture') ? '' : (q.difficulty ? String(q.difficulty).toUpperCase() : ''));
     elCatCap.style.background = CHOICES[q.index % 4].c;
 
-    renderQuestionMedia(q.media);
+    renderQuestionMedia(q.media, q.kind);
 
     setText(elQuestion, q.text);
     elQuestion.style.opacity = '';
@@ -4938,6 +5022,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           // already don't, same as i18n below.
           i18n: msg.i18n,
           media: msg.media,
+          kind: msg.kind,
           round: msg.round, roundTotal: msg.roundTotal,
           roundIndex: msg.roundIndex, roundSize: msg.roundSize
         });
