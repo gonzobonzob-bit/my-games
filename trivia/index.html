@@ -928,10 +928,18 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
               border:1px solid var(--hair); }
 .q-media audio{ width:280px; max-width:80vw; }
 /* Name This Tune / Picture Round — the attachment IS the question, so it
-   leads at a larger size instead of sitting beside it as a small clue. */
+   leads at a larger size instead of sitting beside it as a small clue.
+   .q-media is a flex item in a column flex container with align-items:center
+   (not stretch), so it has no definite width of its own — an <audio> here
+   needs a fixed width like its non-hero sibling above, not a percentage.
+   A percentage has nothing to resolve against and the element collapses to
+   0x0 (invisible, present in the DOM, "SOUND ATTACHED" yet silent — exactly
+   how this shipped broken the first time: a plain <img> doesn't hit this,
+   it has intrinsic size from the decoded image, so Picture Round never
+   showed the bug). */
 .q-media--hero{ max-width:min(480px, 90vw); }
 .q-media--hero img{ max-height:360px; }
-.q-media--hero audio{ width:100%; }
+.q-media--hero audio{ width:420px; max-width:90vw; }
 .quiz-media{ display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
 .quiz-media-input{ font-size:var(--fs-micro); max-width:160px; }
 .question{

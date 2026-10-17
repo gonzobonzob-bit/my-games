@@ -188,17 +188,26 @@ try {
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(1500);
 
-  // Q1 — Name This Tune.
+  // Q1 — Name This Tune. Checks actual rendered size, not just class/tag
+  // presence — a percentage-width audio control inside this flex layout
+  // can exist in the DOM, pass a classList check, and still render at
+  // 0x0 (silent, invisible, yet "SOUND ATTACHED" in the editor said it
+  // saved fine) — exactly how this shipped broken the first time.
   const q1 = await A.ev(`
     var m = document.getElementById('questionMedia');
+    var a = m ? m.querySelector('audio') : null;
+    var r = a ? a.getBoundingClientRect() : null;
     return {
       hero: m ? m.classList.contains('q-media--hero') : false,
-      hasAudio: !!(m && m.querySelector('audio')),
+      hasAudio: !!a,
+      audioWidth: r ? r.width : 0,
+      audioHeight: r ? r.height : 0,
       cat: document.getElementById('catText').textContent,
     };
   `);
   ok(q1.hero === true, 'Tune question gets the hero-sized media class', q1);
   ok(q1.hasAudio === true, 'Tune question renders an <audio> element', q1);
+  ok(q1.audioWidth > 0 && q1.audioHeight > 0, 'the <audio> control actually has visible size, not 0x0', q1);
   ok(/Name This Tune/.test(q1.cat), 'category chip shows the Name This Tune badge', q1.cat);
 
   // Advance past the 5s timer to the scoreboard, then to Q2. Poll for the
@@ -215,14 +224,18 @@ try {
   const q2 = await A.ev(`
     var m = document.getElementById('questionMedia');
     var img = m ? m.querySelector('img') : null;
+    var r = img ? img.getBoundingClientRect() : null;
     return {
       hero: m ? m.classList.contains('q-media--hero') : false,
       imgSrc: img ? img.src.slice(0, 20) : null,
+      imgWidth: r ? r.width : 0,
+      imgHeight: r ? r.height : 0,
       cat: document.getElementById('catText').textContent,
     };
   `);
   ok(q2.hero === true, 'Picture question gets the hero-sized media class', q2);
   ok(q2.imgSrc === 'data:image/png;base6', 'Picture question renders an <img> with a data:image/png source', q2);
+  ok(q2.imgWidth > 0 && q2.imgHeight > 0, 'the <img> actually has visible size, not 0x0', q2);
   ok(/Picture Round/.test(q2.cat), 'category chip shows the Picture Round badge', q2.cat);
 
   ok(A.exceptions.length === 0, 'no console exceptions across the whole flow', A.exceptions);
