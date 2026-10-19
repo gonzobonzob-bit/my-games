@@ -106,6 +106,8 @@ try {
     const A = new C('Ana', room, 'es'); await A.connect(); await A.wait('welcome');
     A.send({ type: 'settings', settings: { genre } });
     await A.wait('settings');
+    A.send({ type: 'openEvent' });
+    await A.wait('phase');
     A.send({ type: 'start' });
     await A.wait('question');
     await sleep(1200);
@@ -179,6 +181,8 @@ try {
       const A = new C('Ana', room, 'es'); await A.connect(); await A.wait('welcome');
       A.send({ type: 'settings', settings: { genre: slug } });
       await A.wait('settings');
+      A.send({ type: 'openEvent' });
+      await A.wait('phase');
       A.send({ type: 'start' });
       await sleep(2500);
       const err = A.last('error');
@@ -195,6 +199,8 @@ try {
     const B = new C('Bea', room2, 'es'); await B.connect(); await B.wait('welcome');
     B.send({ type: 'settings', settings: { genre: 'mixed' } });
     await B.wait('settings');
+    B.send({ type: 'openEvent' });
+    await B.wait('phase');
     B.send({ type: 'start' });
     const q2 = await B.wait('question');
     ok(!!q2, 'a Spanish player can start a Mixed game');
@@ -212,6 +218,8 @@ try {
     const B = new C('Ben', room, 'en'); await B.connect(); await B.wait('welcome');
     A.send({ type: 'settings', settings: { genre: 'music' } });
     await A.wait('settings');
+    A.send({ type: 'openEvent' });
+    await A.wait('phase');
     A.send({ type: 'start' });
     const qa = await A.wait('question');
     const qb = await B.wait('question');

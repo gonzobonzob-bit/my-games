@@ -147,6 +147,8 @@ try {
     const catPid = afterJoin.players.find((p) => p.name === 'Cat').id;
     ok(afterJoin.teams[0].leaderId === catPid, 'Cat (first in) is the leader, not Bea');
 
+    A.send({ type: 'openEvent' });
+    await A.waitFor((m) => m.type === 'phase' && m.phase === 'standby');
     A.send({ type: 'start' });
     const q = await A.wait('question', 15000);
     ok(!!q && Array.isArray(q.choices), 'teams-mode genre start produces a question');
@@ -230,6 +232,8 @@ try {
     await B.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams[0] && m.teams[0].memberIds.length === 1);
 
     A.msgs.length = 0;
+    A.send({ type: 'openEvent' });
+    await A.waitFor((m) => m.type === 'phase' && m.phase === 'standby');
     A.send({ type: 'start' });
     const notice = await A.wait('notice', 6000);
     ok(notice.code === 'custom', 'starting a custom quiz announces itself as custom, not offline/bilingual', notice);
@@ -285,6 +289,8 @@ try {
     const mediaSaved = await A.wait('customQuestions', 4000);
     ok(mediaSaved.count === 2, 'a valid image attachment saves normally', mediaSaved);
 
+    A.send({ type: 'openEvent' });
+    await A.waitFor((m) => m.type === 'phase' && m.phase === 'standby');
     A.send({ type: 'start' });
     await A.wait('notice', 6000);
     const mq = await A.wait('question', 4000);
@@ -311,10 +317,96 @@ try {
     await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
     // Ann hosts (never a team candidate) and Bea never joins a team either.
     A.msgs.length = 0;
+    A.send({ type: 'openEvent' });
+    await A.waitFor((m) => m.type === 'phase' && m.phase === 'standby');
     A.send({ type: 'start' });
     const err = await A.wait('error', 4000);
     ok(err.code === 'needTeam', 'starting with an unassigned connected player is refused', err);
     A.close(); B.close();
+  }
+
+  // ---- 6. standby phase: doors open, config locked, teams/captains stay
+  //         open, questions refuse to start before the doors do ------------
+  {
+    const r = room();
+    const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
+    const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
+    const Cat = new C('Cat', r); await Cat.connect(); await Cat.wait('welcome');
+
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
+    await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
+
+    // Can't open the doors on a teams room with no teams set up yet.
+    A.msgs.length = 0;
+    A.send({ type: 'openEvent' });
+    const noTeamsYet = await A.wait('error', 4000);
+    ok(noTeamsYet.code === 'setupTeamsFirst', 'opening the event on a teams room refuses without teams set up', noTeamsYet);
+
+    A.send({ type: 'teamSetup', count: 2 });
+    const setup = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
+    const teamId = setup.teams[0].id;
+
+    // 'start' before 'openEvent' is refused — standby is a real gate, not
+    // just a cosmetic screen.
+    A.msgs.length = 0;
+    A.send({ type: 'start' });
+    const tooSoon = await A.wait('error', 4000);
+    ok(/open the event/i.test(tooSoon.message || ''), 'start is refused before the event has been opened', tooSoon);
+
+    A.msgs.length = 0;
+    A.send({ type: 'openEvent' });
+    const opened = await A.waitFor((m) => m.type === 'phase' && m.phase === 'standby');
+    ok(opened.phase === 'standby', 'openEvent moves the room into standby', opened);
+
+    // Config stays locked once doors are open — same 'alreadyStarted' refusal
+    // every other lobby-only handler already gives mid-game.
+    A.msgs.length = 0;
+    A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre' } });
+    const settingsRefused = await A.wait('error', 4000);
+    ok(settingsRefused.code === 'alreadyStarted', 'settings changes are refused once standby has started', settingsRefused);
+    A.msgs.length = 0;
+    A.send({ type: 'teamSetup', count: 3 });
+    const teamSetupRefused = await A.wait('error', 4000);
+    ok(teamSetupRefused.code === 'alreadyStarted', 'teamSetup is refused once standby has started', teamSetupRefused);
+
+    // But a player can still walk in, pick a team, and claim its captaincy —
+    // the whole point of a waiting room.
+    B.send({ type: 'joinTeam', teamId });
+    const bJoined = await B.waitFor((m) => m.type === 'roster' && m.teams && m.teams.find((t) => t.id === teamId)?.memberIds.length === 1);
+    const beaPid = bJoined.players.find((p) => p.name === 'Bea').id;
+    ok(bJoined.teams.find((t) => t.id === teamId).leaderId === beaPid, 'joining in standby still auto-assigns the first member as leader', bJoined);
+
+    Cat.send({ type: 'joinTeam', teamId });
+    await Cat.waitFor((m) => m.type === 'roster' && m.teams && m.teams.find((t) => t.id === teamId)?.memberIds.length === 2);
+
+    Cat.msgs.length = 0;
+    Cat.send({ type: 'claimCaptain' });
+    const claimed = await Cat.waitFor((m) => m.type === 'roster' && m.teams && m.teams.find((t) => t.id === teamId)?.leaderId);
+    const catPid = claimed.players.find((p) => p.name === 'Cat').id;
+    ok(claimed.teams.find((t) => t.id === teamId).leaderId === catPid, 'claimCaptain hands the star to whoever claims it, overriding the default', claimed);
+
+    // The host is never on a team, so has nothing to claim.
+    A.msgs.length = 0;
+    A.send({ type: 'claimCaptain' });
+    const hostClaim = await A.wait('error', 4000);
+    ok(/join a team/i.test(hostClaim.message || ''), 'the host is refused when trying to claim captaincy', hostClaim);
+
+    // Now actually fire question 1, and confirm captaincy is locked: Bea
+    // (the ORIGINAL leader, now demoted) cannot answer; Cat (the claimed
+    // captain) can.
+    A.send({ type: 'start' });
+    const q1 = await A.wait('question', 15000);
+    B.msgs.length = 0;
+    B.send({ type: 'answer', index: q1.index, choice: 0 });
+    const beaRefused = await B.wait('error', 4000);
+    ok(beaRefused.code === 'notLeader', 'the demoted original leader can no longer answer for the team', beaRefused);
+
+    Cat.msgs.length = 0;
+    Cat.send({ type: 'claimCaptain' });
+    const midGameClaim = await Cat.wait('error', 4000);
+    ok(/lock in once the game starts/i.test(midGameClaim.message || ''), 'claimCaptain is refused once the game has started', midGameClaim);
+
+    A.close(); B.close(); Cat.close();
   }
 
 } catch (e) {

@@ -253,6 +253,9 @@ try {
   await joinAs(A, 'ThemeA');
   await joinAs(B, 'ThemeB');
   await A.cmd('Page.bringToFront');
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(1500);
 

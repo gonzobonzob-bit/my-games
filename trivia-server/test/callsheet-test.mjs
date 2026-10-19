@@ -134,6 +134,10 @@ try {
   await B.shot('callsheet-guest');
 
   // --- starting freezes the sheet -------------------------------------------
+  // Two clicks now: first opens the event (standby — config already locked),
+  // second actually fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(500);
   const aBusy = await A.ev(read);

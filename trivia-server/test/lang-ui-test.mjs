@@ -154,6 +154,9 @@ try {
   // Pick a genre that HAS Spanish, then play a round.
   await A.ev("var b=document.getElementById('genreSlot'); for(var i=0;i<8;i++){ if(document.getElementById('genreVal').textContent.indexOf('Music')===0) break; b.click(); } return document.getElementById('genreVal').textContent;");
   await sleep(900);
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await A.until("return !!document.querySelector('.tile');", 'tiles (es)');
   await B.until("return !!document.querySelector('.tile');", 'tiles (en)');

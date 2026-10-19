@@ -159,6 +159,10 @@ try {
   const codeChars = await A.ev("return [].slice.call(document.querySelectorAll('#codeTiles .code-ch')).map(function(e){return e.textContent}).join('');");
   ok(codeChars === ROOM, 'room code hero renders the code', codeChars);
 
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await A.waitFor("window.__rx.some(function(x){return x.m.type==='phase' && x.m.phase==='standby';})",
+    5000, 'phase standby');
   await A.ev("document.getElementById('startBtn').click(); return true;");
 
   const rounds = [];

@@ -118,6 +118,8 @@ try {
     const err = await S.wait((x) => x.m.type === 'error' && x.m.code === 'spectator', 5000, 'spectator refusal');
     ok(!!err, 'a spectator game verb is refused out loud, with a code the client can translate');
 
+    A.send({ type: 'openEvent' });
+    await A.wait((x) => x.m.type === 'phase' && x.m.phase === 'standby', 5000, 'standby phase');
     A.send({ type: 'start' });
     const q0 = await S.wait((x) => x.m.type === 'question' && x.m.index === 0, 25000, 'S q0');
     ok(!!q0, 'a spectator receives the question broadcast');
@@ -156,6 +158,8 @@ try {
     const A = new C('Ann', r), B = new C('Ben', r);
     await A.connect(); await B.connect();
     await A.wait((x) => x.m.type === 'welcome', 8000, 'welcome');
+    A.send({ type: 'openEvent' });
+    await A.wait((x) => x.m.type === 'phase' && x.m.phase === 'standby', 5000, 'standby phase');
     A.send({ type: 'start' });
     await A.wait((x) => x.m.type === 'question', 25000, 'q0');
 
@@ -186,6 +190,8 @@ try {
     const A = new C('Ann', r), B = new C('Ben', r);
     await A.connect(); await B.connect();
     await A.wait((x) => x.m.type === 'welcome', 8000, 'welcome');
+    A.send({ type: 'openEvent' });
+    await A.wait((x) => x.m.type === 'phase' && x.m.phase === 'standby', 5000, 'standby phase');
     A.send({ type: 'start' });
     const q0 = await A.wait((x) => x.m.type === 'question' && x.m.index === 0, 25000, 'q0');
     A.send({ type: 'answer', index: 0, choice: 0 });
@@ -222,6 +228,8 @@ try {
     const A = new C('Ann', r), B = new C('Ben', r);
     await A.connect(); await B.connect();
     await A.wait((x) => x.m.type === 'welcome', 8000, 'welcome');
+    A.send({ type: 'openEvent' });
+    await A.wait((x) => x.m.type === 'phase' && x.m.phase === 'standby', 5000, 'standby phase');
     A.send({ type: 'start' });
     const q0 = await A.wait((x) => x.m.type === 'question' && x.m.index === 0, 25000, 'q0');
     A.send({ type: 'answer', index: 0, choice: 0 });

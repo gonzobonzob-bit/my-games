@@ -141,6 +141,9 @@ try {
   const lobby = await A.ev(SAMPLER(2500));
   report.phases.lobby = lobby;
 
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(1500);
 

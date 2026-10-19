@@ -86,8 +86,17 @@ try {
     return { hidden: b.hidden, disabled: b.disabled, label: b.textContent };`);
   ok(!lobby.hidden, 'the host sees a start button alone in the room', lobby);
   ok(!lobby.disabled, 'it is enabled with one player', lobby);
-  ok(/solo/i.test(lobby.label), 'it names the solo start', lobby.label);
   await A.shot('solo-lobby');
+
+  // First click opens the event (standby) — the button only names the solo
+  // start once the doors are open; while still in the lobby it just reads
+  // "Start event". Second click actually fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
+  const standby = await A.ev(`
+    var b = document.getElementById('startBtn');
+    return { label: b.textContent };`);
+  ok(/solo/i.test(standby.label), 'it names the solo start', standby.label);
 
   await A.ev("document.getElementById('startBtn').click(); return true;");
 

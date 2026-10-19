@@ -34,6 +34,14 @@ const MAX_PLAYERS = 20;
 // turned away (a reconnect under a known name still gets back in, and
 // catchUp() drops them into the current phase). Anyone else can still watch.
 const MIN_PLAYERS = 1;
+// Phases before question 1 has fired: the host is either still setting up
+// ('lobby') or has opened the doors and is waiting for people to sort into
+// teams ('standby', added for the "waiting room" step between setup and
+// kickoff). Team membership and new joins stay open through both; every
+// other config action (genre/teams-count/rounds/quiz editor/public toggle)
+// stays 'lobby'-only, which is what makes 'standby' read as "config locked."
+const PRE_GAME_PHASES = ['lobby', 'standby'];
+const isPreGame = (phase) => PRE_GAME_PHASES.includes(phase);
 // Spectators ride the same broadcasts as players — question, reveal, roster,
 // podium — and THE INVARIANT covers them identically because those frames
 // already carry nothing answer-shaped before the reveal. They hold no player
@@ -280,8 +288,8 @@ export class Room {
     }
 
     // Ghost records only earn their keep once a game is running (they hold a
-    // score for a reconnect). In the lobby they are just clutter blocking seats.
-    if (g.phase === 'lobby') this.pruneDisconnected();
+    // score for a reconnect). Before kickoff they are just clutter blocking seats.
+    if (isPreGame(g.phase)) this.pruneDisconnected();
 
     let player = Object.values(g.players).find((p) => p.key === key);
     const rejoin = Boolean(player);
@@ -290,8 +298,9 @@ export class Room {
       // Enter at start. A live round is not joinable as a player — a fresh
       // name landing mid-question would sit through a game it cannot win —
       // but a reconnect under a known name (the rejoin path below) is not a
-      // join and still works. The turned-away can watch instead.
-      if (g.phase !== 'lobby') {
+      // join and still works. The turned-away can watch instead. Standby
+      // (doors open, waiting for kickoff) is still joinable, same as lobby.
+      if (!isPreGame(g.phase)) {
         return new Response('game in progress', { status: 403 });
       }
       // Two different ceilings for two differently-scaled games sharing one
@@ -508,7 +517,9 @@ export class Room {
       host,
       players,
       watching: this.spectatorCount(sockets),
-      phase: g.phase === 'lobby' ? 'lobby' : (g.phase === 'final' ? 'final' : 'live'),
+      // Standby reads as 'lobby' here too — a stranger can still land in it
+      // and join, so the public directory shouldn't call it "live" yet.
+      phase: isPreGame(g.phase) ? 'lobby' : (g.phase === 'final' ? 'final' : 'live'),
       genre: g.settings.genre,
       difficulty: g.settings.difficulty,
       mode: g.settings.mode,
@@ -695,6 +706,8 @@ export class Room {
           return await this.onTeamSetup(ws, me, data);
         case 'joinTeam':
           return await this.onJoinTeam(ws, me, data);
+        case 'claimCaptain':
+          return await this.onClaimCaptain(ws, me);
         case 'renameTeam':
           return await this.onRenameTeam(ws, me, data);
         case 'addTeam':
@@ -703,6 +716,8 @@ export class Room {
           return await this.onRemoveTeam(ws, me, data);
         case 'questions':
           return await this.onQuestions(ws, me, data);
+        case 'openEvent':
+          return await this.onOpenEvent(ws, me);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -813,8 +828,9 @@ export class Room {
     if (!p || p.lang === next) return;
     p.lang = next;
     await this.save();
-    // The lobby needs to know whether the room now requires Spanish questions.
-    if (g.phase === 'lobby') this.broadcastRoster();
+    // The lobby/standby view needs to know whether the room now requires
+    // Spanish questions.
+    if (isPreGame(g.phase)) this.broadcastRoster();
   }
 
   /* True when anybody connected is reading something other than English.
@@ -897,14 +913,15 @@ export class Room {
     this.broadcastRoster();
   }
 
-  /* Lobby-only. Self-service: a player picks (or switches) their own team.
-     The first member of a team is its leader; a team that loses its only
-     member is leaderless until someone joins it, both handled the same way
-     here since joining an empty team and joining a leaderless one are the
-     same case. */
+  /* Lobby or standby — team membership stays open through the whole
+     pre-game waiting room, not just setup. Self-service: a player picks
+     (or switches) their own team. The first member of a team is its
+     leader; a team that loses its only member is leaderless until someone
+     joins it, both handled the same way here since joining an empty team
+     and joining a leaderless one are the same case. */
   async onJoinTeam(ws, me, data) {
     const g = this.game;
-    if (g.phase !== 'lobby') {
+    if (!isPreGame(g.phase)) {
       return this.send(ws, { type: 'error', message: 'teams lock in once the game starts' });
     }
     if (g.settings.mode !== 'teams') {
@@ -937,6 +954,32 @@ export class Room {
     p.teamId = team.id;
     team.memberIds.push(p.id);
     if (!team.leaderId || !team.memberIds.includes(team.leaderId)) team.leaderId = p.id;
+    await this.save();
+    this.broadcastRoster();
+  }
+
+  /* Lobby or standby, same as onJoinTeam — captaincy locks in once
+     questions start, same reason team membership does. Explicit
+     self-claim on top of onJoinTeam's automatic "first/only member is
+     leader" default: no payload needed, a player can only ever claim
+     captaincy of their OWN team (read from their own record, never a
+     client-supplied teamId), and the claim always wins outright — no
+     "already captain" guard, since re-claiming your own seat is harmless. */
+  async onClaimCaptain(ws, me) {
+    const g = this.game;
+    if (g.settings.mode !== 'teams') {
+      return this.send(ws, { type: 'error', message: 'this room is not in teams mode' });
+    }
+    if (!isPreGame(g.phase)) {
+      return this.send(ws, { type: 'error', message: 'captains lock in once the game starts' });
+    }
+    const p = g.players[me.id];
+    if (!p || !p.teamId) {
+      return this.send(ws, { type: 'error', message: 'join a team first' });
+    }
+    const team = g.teams.find((t) => t.id === p.teamId);
+    if (!team) return; // team was removed out from under them; nothing to claim
+    team.leaderId = me.id;
     await this.save();
     this.broadcastRoster();
   }
@@ -1104,13 +1147,40 @@ export class Room {
     this.reportToLobby();
   }
 
+  /* Lobby-only — this is the "doors open" step, not the "fire question 1"
+     step (that's onStart below, now gated to 'standby' instead of 'lobby').
+     Splitting them is what lets players keep arriving and sorting into
+     teams on a clean waiting screen while config (genre/teams-count/
+     rounds/quiz editor/public toggle — every OTHER 'lobby'-only handler)
+     stays locked, without also blocking the question-start validation
+     onStart already does. Minimal checks on purpose: team-readiness (does
+     everyone have a seat?) belongs at "fire question 1" time, not here —
+     opening the doors with nobody there yet, or with teams still filling
+     in, is the normal case, not an error. */
+  async onOpenEvent(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can start the event' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'a game is already in progress' });
+    }
+    if (g.settings.mode === 'teams' && g.teams.length < TEAM_COUNT_MIN) {
+      return this.send(ws, { type: 'error', code: 'setupTeamsFirst', message: 'set up teams before starting' });
+    }
+    g.phase = 'standby';
+    await this.save();
+    this.broadcast({ type: 'phase', phase: 'standby' });
+    this.reportToLobby();
+  }
+
   async onStart(ws, me) {
     const g = this.game;
     if (me.id !== g.hostId) {
       return this.send(ws, { type: 'error', message: 'only the host can start the game' });
     }
-    if (g.phase !== 'lobby') {
-      return this.send(ws, { type: 'error', message: 'a game is already in progress' });
+    if (g.phase !== 'standby') {
+      return this.send(ws, { type: 'error', message: 'open the event before starting questions' });
     }
     if (g.loadingAt && Date.now() - g.loadingAt < LOADING_STALE_MS) {
       return this.send(ws, { type: 'error', message: 'already fetching questions' });
@@ -1621,7 +1691,7 @@ export class Room {
     // THIS path, which had no mode check at all, deleted their own record
     // immediately, and handed the seat to whoever had joined earliest. The
     // token existing was irrelevant; nobody even needed one.
-    if (g.phase === 'lobby') {
+    if (isPreGame(g.phase)) {
       const staticHost = g.settings.mode === 'teams';
       for (const pid of Object.keys(g.players)) {
         if (connected.has(pid)) continue;

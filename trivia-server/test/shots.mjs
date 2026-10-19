@@ -89,6 +89,9 @@ try {
   await sleep(600);
   await A.shot('atmos-lobby');
 
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await A.until("return !!document.querySelector('.tile[data-i=\"0\"]');", 'the tiles');
   await sleep(1500);

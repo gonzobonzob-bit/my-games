@@ -509,6 +509,16 @@ body[data-screen="landing"] .hud{ display:none; }
   background:var(--ink-800); border:1px solid var(--hair);
 }
 .wizard-bar-actions{ display:flex; gap:var(--sp-2); }
+.how-to-panel{
+  width:100%; padding:var(--sp-4); border-radius:var(--r-lg);
+  background:var(--ink-800); border:1px solid var(--hair);
+  display:flex; flex-direction:column; gap:var(--sp-3);
+}
+.how-to-panel h3{ margin:0; font-size:var(--fs-body); color:var(--paper-100); }
+.how-to-panel ol{ margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:var(--sp-2); }
+.how-to-panel li{ color:var(--slate-300); font-size:var(--fs-micro); line-height:1.5; }
+.how-to-panel li b{ color:var(--paper-100); }
+.how-to-panel .chip-btn{ align-self:flex-end; }
 #micBtn.mic-on{ color:var(--mint); border-color:rgba(var(--mint-rgb,80,200,160),.45); }
 #micBtn.mic-talking{ animation:micPulse 900ms ease-in-out infinite; }
 @keyframes micPulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
@@ -779,6 +789,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .mname{ font-size:13px; color:var(--paper-100); max-width:100px; overflow:hidden;
         text-overflow:ellipsis; white-space:nowrap; }
 .team-join{ align-self:flex-start; }
+.team-captain-claim{ align-self:flex-start; }
 
 .quiz-editor{
   display:flex; flex-direction:column; gap:var(--sp-2);
@@ -1497,10 +1508,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       <div class="wizard-bar" id="wizardBar" hidden>
         <div class="micro" id="wizardStepLabel">Step 1 of 4 — Teams</div>
         <div class="wizard-bar-actions">
+          <button type="button" class="chip-btn" id="howToBtn">How to</button>
           <button type="button" class="chip-btn" id="wizardBackBtn">Back</button>
           <button type="button" class="btn btn-primary" id="wizardNextBtn">Next</button>
         </div>
       </div>
+      <div class="how-to-panel" id="howToPanel" hidden></div>
       <div class="callsheet" id="callSheet">
         <button type="button" class="slot" id="genreSlot">
           <span class="slot-k">Genre</span>
@@ -1707,6 +1720,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       genre: 'Genre', difficulty: 'Difficulty', any: 'Any',
       easy: 'Easy', medium: 'Medium', hard: 'Hard',
       startGame: 'Start game', startSolo: 'Start solo game', starting: 'Starting…',
+      startEvent: 'Start event',
       waitingHost: 'Waiting for host', needMore: 'Need # more players',
       needMore1: 'Need 1 more player',
       winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
@@ -1756,7 +1770,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       quizNotSaved: 'Not saved yet',
       questionN: 'Question #', answerN: 'Answer #', answerNCorrect: 'Answer # is correct',
       removeQuestion: 'Remove', quizTooMany: 'Up to 30 questions.',
-      yourTeam: 'Your team', joinTeamShort: 'Join',
+      yourTeam: 'Your team', joinTeamShort: 'Join', beCaptain: 'Be captain',
       recoveringHost: 'Recovering a room you host?', hostCode: 'Host code',
       pasteHostCode: 'Paste your host code', copyHostCode: 'Copy host code',
       hostCodeCopied: 'Host code copied — keep it somewhere safe.',
@@ -1778,6 +1792,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       wizStepTeams: 'Teams', wizStepQuestions: 'Questions', wizStepTiming: 'Timing', wizStepReview: 'Review',
       wizStepOf: 'Step #1 of #2', wizNext: 'Next', wizDone: 'Done — enter the lobby',
       wizReady: 'Your event is set up. Share the room code whenever you’re ready.',
+      howToBtn: 'How to', howToTitle: 'How hosting an event works', howToClose: 'Got it',
+      howToTeamsTerm: 'Teams:', howToTeamsBody: 'decide how many teams are playing, then rename them if you like.',
+      howToQuestionsTerm: 'Questions:', howToQuestionsBody: 'pick a genre and difficulty, or switch to Your quiz and write your own — including Name This Tune and Picture Round questions.',
+      howToTimingTerm: 'Timing:', howToTimingBody: 'set how many rounds, how many questions per round, and how long each question stays open.',
+      howToReviewTerm: 'Review:', howToReviewBody: 'check the room code, then tap Done to enter the lobby.',
+      howToOpenTerm: 'Start event:', howToOpenBody: 'opens the room. Share the code — people can join and pick a team while you wait, right up until you start the questions.',
+      howToCaptainTerm: 'Captains:', howToCaptainBody: 'the first person to join a team becomes its captain by default, but anyone on the team can tap Be captain to take over — only the captain’s tap counts as the team’s answer.',
+      howToStartTerm: 'Start questions:', howToStartBody: 'once everyone’s ready, tap Start questions to begin.',
       downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.',
       mediaNone: 'No photo or sound', mediaAttached: '# attached', mediaRemove: 'Remove',
       mediaType_image: 'Photo', mediaType_audio: 'Sound',
@@ -1801,6 +1823,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       genre: 'Género', difficulty: 'Dificultad', any: 'Cualquiera',
       easy: 'Fácil', medium: 'Media', hard: 'Difícil',
       startGame: 'Empezar', startSolo: 'Jugar en solitario', starting: 'Empezando…',
+      startEvent: 'Iniciar evento',
       waitingHost: 'Esperando al anfitrión', needMore: 'Faltan # jugadores',
       needMore1: 'Falta 1 jugador',
       winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
@@ -1850,7 +1873,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       quizNotSaved: 'Aún sin guardar',
       questionN: 'Pregunta #', answerN: 'Respuesta #', answerNCorrect: 'La respuesta # es correcta',
       removeQuestion: 'Quitar', quizTooMany: 'Hasta 30 preguntas.',
-      yourTeam: 'Tu equipo', joinTeamShort: 'Unirme',
+      yourTeam: 'Tu equipo', joinTeamShort: 'Unirme', beCaptain: 'Ser capitán',
       recoveringHost: '¿Recuperando una sala que diriges?', hostCode: 'Código de anfitrión',
       pasteHostCode: 'Pega tu código de anfitrión', copyHostCode: 'Copiar código de anfitrión',
       hostCodeCopied: 'Código de anfitrión copiado — guárdalo en un lugar seguro.',
@@ -1872,6 +1895,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       wizStepTeams: 'Equipos', wizStepQuestions: 'Preguntas', wizStepTiming: 'Tiempos', wizStepReview: 'Revisión',
       wizStepOf: 'Paso #1 de #2', wizNext: 'Siguiente', wizDone: 'Listo — entrar a la sala',
       wizReady: 'Tu evento está listo. Comparte el código de sala cuando quieras.',
+      howToBtn: 'Cómo funciona', howToTitle: 'Cómo organizar un evento', howToClose: 'Entendido',
+      howToTeamsTerm: 'Equipos:', howToTeamsBody: 'decide cuántos equipos van a jugar y, si quieres, cámbiales el nombre.',
+      howToQuestionsTerm: 'Preguntas:', howToQuestionsBody: 'elige un género y dificultad, o cambia a Tu cuestionario y escribe el tuyo — incluyendo preguntas de Adivina la canción y Ronda de imágenes.',
+      howToTimingTerm: 'Tiempos:', howToTimingBody: 'define cuántas rondas, cuántas preguntas por ronda y cuánto dura cada pregunta.',
+      howToReviewTerm: 'Revisión:', howToReviewBody: 'revisa el código de la sala y toca Siguiente para entrar a la sala.',
+      howToOpenTerm: 'Iniciar evento:', howToOpenBody: 'abre la sala. Comparte el código — la gente puede unirse y elegir equipo mientras esperas, hasta que inicies las preguntas.',
+      howToCaptainTerm: 'Capitanes:', howToCaptainBody: 'la primera persona en unirse a un equipo es su capitán por defecto, pero cualquiera del equipo puede tocar Ser capitán para tomar el puesto — solo el toque del capitán cuenta como la respuesta del equipo.',
+      howToStartTerm: 'Iniciar preguntas:', howToStartBody: 'cuando todos estén listos, toca Iniciar preguntas para comenzar.',
       downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.',
       mediaNone: 'Sin foto ni sonido', mediaAttached: '# adjunto', mediaRemove: 'Quitar',
       mediaType_image: 'Foto', mediaType_audio: 'Sonido',
@@ -2065,6 +2096,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elHostTokenInput = $('hostTokenInput'),
       elWizardBar = $('wizardBar'), elWizardStepLabel = $('wizardStepLabel'),
       elWizardBackBtn = $('wizardBackBtn'), elWizardNextBtn = $('wizardNextBtn'),
+      elHowToBtn = $('howToBtn'), elHowToPanel = $('howToPanel'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
       elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch'),
       elMicBtn = $('micBtn'), elMicLabel = $('micLabel'),
@@ -2364,6 +2396,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (quizLabel) quizLabel.textContent = T('yourQuestions');
     set('quizAddBtn', 'addQuestion');
     set('quizSaveBtn', 'saveQuiz');
+    set('howToBtn', 'howToBtn');
     set('hostRecoverToggle', 'recoveringHost');
     set('hostCodeBtn', 'copyHostCode');
     set('downloadInfoBtn', 'downloadInfo');
@@ -2921,15 +2954,21 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // outside teams mode.
     var isTeams = state.settings.mode === 'teams';
     var isCustom = isTeams && state.settings.source === 'custom';
+    // Doors are open — every config control below is put away regardless
+    // of mode/source/host, same as the server now refuses every one of
+    // these settings actions once phase is 'standby'. Team membership
+    // (renderTeamsPicker) stays, same as the server keeps joinTeam open.
+    var isStandby = state.phase === 'standby';
 
     if (elModeSlot) {
       elModeVal.textContent = isTeams ? T('modeTeams') : T('modeClassic');
+      elModeSlot.hidden = isStandby;
       elModeSlot.disabled = !state.isHost;
       elModeSlot.setAttribute('aria-label',
         T('mode') + (state.isHost ? T('ariaHostHint') : T('ariaGuestHint')) + elModeVal.textContent);
     }
     if (elSourceSlot) {
-      elSourceSlot.hidden = !isTeams;
+      elSourceSlot.hidden = !isTeams || isStandby;
       elSourceVal.textContent = isCustom ? T('quizSourceCustom') : T('genre');
       elSourceSlot.disabled = !state.isHost;
       elSourceSlot.setAttribute('aria-label',
@@ -2937,16 +2976,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     }
     // Genre/difficulty only mean something when the quiz source IS a genre —
     // a custom quiz has no genre or difficulty of its own.
-    elGenreSlot.hidden = isCustom;
-    elDiffSlot.hidden = isCustom;
+    elGenreSlot.hidden = isCustom || isStandby;
+    elDiffSlot.hidden = isCustom || isStandby;
 
-    if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost);
-    if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost);
+    if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost) || isStandby;
+    if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost) || isStandby;
     if (elRoundsVal) elRoundsVal.textContent = String(state.settings.rounds || 1);
     if (elPerRoundVal) elPerRoundVal.textContent = String(state.settings.questionsPerRound || 10);
     if (elTimerVal) elTimerVal.textContent = Math.round((state.settings.questionMs || 20000) / 1000) + 's';
-    if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost);
-    if (isCustom && state.isHost) renderQuizEditor();
+    if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost) || isStandby;
+    if (isCustom && state.isHost && !isStandby) renderQuizEditor();
     renderTeamsPicker();
     paintMic();
     paintWhisper();
@@ -3044,15 +3083,25 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (state.isHost) {
       elStartBtn.hidden = false;
       elWaitLine.hidden = true;
-      var need = MIN_PLAYERS - connected;
-      if (need > 0) {
-        elStartBtn.disabled = true;
-        elStartBtn.textContent = need === 1 ? T('needMore1') : T('needMore').replace('#', need);
+      if (state.phase === 'standby') {
+        // Doors are already open — this click fires question 1, same
+        // need-more-players gate onStart itself enforces.
+        var need = MIN_PLAYERS - connected;
+        if (need > 0) {
+          elStartBtn.disabled = true;
+          elStartBtn.textContent = need === 1 ? T('needMore1') : T('needMore').replace('#', need);
+        } else {
+          elStartBtn.disabled = false;
+          // Playing alone is a real choice, so name it rather than leaving the
+          // host wondering whether the button is going to refuse them.
+          elStartBtn.textContent = connected < 2 ? T('startSolo') : T('startGame');
+        }
       } else {
+        // Still in the lobby — this click only opens the room (onOpenEvent),
+        // not a real head count yet, so no need-more-players gate here:
+        // opening with nobody there yet is the normal case, not an error.
         elStartBtn.disabled = false;
-        // Playing alone is a real choice, so name it rather than leaving the
-        // host wondering whether the button is going to refuse them.
-        elStartBtn.textContent = connected < 2 ? T('startSolo') : T('startGame');
+        elStartBtn.textContent = T('startEvent');
       }
     } else {
       elStartBtn.hidden = true;
@@ -3085,10 +3134,48 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      lets this reuse every already-tested handler verbatim.
      ================================================================== */
   var WIZARD_STEP_COUNT = 4;
+  var howToBuilt = false;
+  // Static, language-aware, built once (rebuilt on a language switch via
+  // paintWizard's own call below) — this is reference material, not
+  // per-step state, so it does not need to change with the wizard step.
+  function renderHowTo() {
+    if (!elHowToPanel) return;
+    elHowToPanel.textContent = '';
+    var h = mk('h3'); h.textContent = T('howToTitle');
+    elHowToPanel.appendChild(h);
+    var ol = mk('ol');
+    // {term, body} pairs built as real DOM nodes, not innerHTML — every
+    // other string in this file renders via textContent, and these i18n
+    // values (though static, not user input) stay on that same safe path
+    // rather than being the one exception.
+    var steps = ['howToTeams', 'howToQuestions', 'howToTiming', 'howToReview',
+      'howToOpen', 'howToCaptain', 'howToStart'];
+    for (var i = 0; i < steps.length; i++) {
+      var li = mk('li');
+      var term = mk('b'); term.textContent = T(steps[i] + 'Term') + ' ';
+      li.appendChild(term);
+      li.appendChild(document.createTextNode(T(steps[i] + 'Body')));
+      ol.appendChild(li);
+    }
+    elHowToPanel.appendChild(ol);
+    var closeBtn = mk('button', 'chip-btn');
+    closeBtn.type = 'button';
+    closeBtn.textContent = T('howToClose');
+    on(closeBtn, 'click', function () { elHowToPanel.hidden = true; });
+    elHowToPanel.appendChild(closeBtn);
+  }
+
+  if (elHowToBtn) on(elHowToBtn, 'click', function () {
+    if (!howToBuilt) { renderHowTo(); howToBuilt = true; }
+    elHowToPanel.hidden = !elHowToPanel.hidden;
+  });
+
   function paintWizard() {
     if (!elWizardBar) return;
     elWizardBar.hidden = !state.wizardActive;
-    if (!state.wizardActive) return;
+    // The guide is wizard-only — close it along with everything else once
+    // the host leaves (Done, or navigating away mid-setup).
+    if (!state.wizardActive) { if (elHowToPanel) elHowToPanel.hidden = true; return; }
 
     var step = state.wizardStep;
     var modeSheetEl = $('modeSheet');
@@ -3364,7 +3451,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
     // The host moderates — never a candidate to join a team, so no join
     // control for them at all, matching the server refusing it outright.
-    if (!state.spectator && !state.isHost && state.phase === 'lobby') {
+    // Standby (doors open) is still joinable, same as lobby — onJoinTeam
+    // allows both.
+    var preGame = state.phase === 'lobby' || state.phase === 'standby';
+    if (!state.spectator && !state.isHost && preGame) {
       var onThis = state.myTeamId === t.id;
       var joinBtn = mk('button', 'chip-btn team-join');
       joinBtn.type = 'button';
@@ -3372,6 +3462,17 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       joinBtn.disabled = onThis;
       on(joinBtn, 'click', function () { send({ type: 'joinTeam', teamId: t.id }); });
       card.appendChild(joinBtn);
+
+      // Explicit self-claim on top of onJoinTeam's automatic "first/only
+      // member is leader" default — any teammate can take it, same window
+      // as team membership itself (locks in once questions start).
+      if (onThis && t.leaderId !== state.me.id) {
+        var captainBtn = mk('button', 'chip-btn team-captain-claim');
+        captainBtn.type = 'button';
+        captainBtn.textContent = T('beCaptain');
+        on(captainBtn, 'click', function () { send({ type: 'claimCaptain' }); });
+        card.appendChild(captainBtn);
+      }
     }
     return card;
   }
@@ -4960,7 +5061,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.handshakeFails = 0;
         netbar(null);
         elHudCodeText.textContent = state.code;
-        if (state.phase === 'lobby') {
+        if (state.phase === 'lobby' || state.phase === 'standby') {
           resetRound();
           setScreen('lobby');
         }
@@ -4992,6 +5093,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.phase === 'lobby') {
           resetRound();
           seenPlayerIds = Object.create(null);
+          setScreen('lobby');
+          renderLobby();
+        }
+        // Doors open: same screen as lobby (renderLobby/paintCallSheet hide
+        // the config widgets once state.phase says 'standby'), but no round/
+        // seenPlayerIds reset — that's a replay ('again') concern, not this.
+        if (msg.phase === 'standby') {
           setScreen('lobby');
           renderLobby();
         }
@@ -5497,17 +5605,24 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   });
 
   on(elStartBtn, 'click', function () {
+    // Same button, two different actions depending on how far the room
+    // has gotten: 'lobby' -> open the doors (standby); 'standby' -> fire
+    // question 1 (today's onStart). Capture which one THIS click meant
+    // before sending, so the recovery check below isn't hardcoded to
+    // either phase.
+    var wasPhase = state.phase;
     elStartBtn.disabled = true;
     elStartBtn.textContent = 'Starting…';
     // The server freezes settings the moment it begins fetching; the call
     // sheet should say so rather than accept taps that will be rejected.
     state.starting = true;
     paintCallSheet();
-    send({ type: 'start' });
+    send({ type: wasPhase === 'standby' ? 'start' : 'openEvent' });
     setTimeout(function () {
-      // The existing recovery beat: if we are somehow still in the lobby after
-      // four seconds, the start did not take. Unfreeze the call sheet too.
-      if (state.phase === 'lobby' && curScreen === 'lobby') {
+      // The existing recovery beat: if the phase never actually moved on
+      // from what it was when we clicked, the action did not take.
+      // Unfreeze the call sheet too.
+      if (state.phase === wasPhase && curScreen === 'lobby') {
         state.starting = false;
         renderLobby();
       }

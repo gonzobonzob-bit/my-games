@@ -185,30 +185,48 @@ try {
   await B.ev("document.querySelector('.team-join').click(); return true;");
   await sleep(500);
 
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(1500);
 
-  // Q1 — Name This Tune. Checks actual rendered size, not just class/tag
-  // presence — a percentage-width audio control inside this flex layout
-  // can exist in the DOM, pass a classList check, and still render at
-  // 0x0 (silent, invisible, yet "SOUND ATTACHED" in the editor said it
-  // saved fine) — exactly how this shipped broken the first time.
-  const q1 = await A.ev(`
-    var m = document.getElementById('questionMedia');
-    var a = m ? m.querySelector('audio') : null;
-    var r = a ? a.getBoundingClientRect() : null;
-    return {
-      hero: m ? m.classList.contains('q-media--hero') : false,
-      hasAudio: !!a,
-      audioWidth: r ? r.width : 0,
-      audioHeight: r ? r.height : 0,
-      cat: document.getElementById('catText').textContent,
-    };
-  `);
-  ok(q1.hero === true, 'Tune question gets the hero-sized media class', q1);
-  ok(q1.hasAudio === true, 'Tune question renders an <audio> element', q1);
-  ok(q1.audioWidth > 0 && q1.audioHeight > 0, 'the <audio> control actually has visible size, not 0x0', q1);
-  ok(/Name This Tune/.test(q1.cat), 'category chip shows the Name This Tune badge', q1.cat);
+  // onStart shuffles g.customQuestions, so which of our 2 saved questions
+  // lands first is NOT deterministic — read each one's own category badge
+  // to know which kind it actually is, rather than assuming an order.
+  async function readMediaState(tab) {
+    return tab.ev(`
+      var m = document.getElementById('questionMedia');
+      var a = m ? m.querySelector('audio') : null;
+      var img = m ? m.querySelector('img') : null;
+      var ar = a ? a.getBoundingClientRect() : null;
+      var ir = img ? img.getBoundingClientRect() : null;
+      return {
+        hero: m ? m.classList.contains('q-media--hero') : false,
+        hasAudio: !!a, audioWidth: ar ? ar.width : 0, audioHeight: ar ? ar.height : 0,
+        imgSrc: img ? img.src.slice(0, 20) : null, imgWidth: ir ? ir.width : 0, imgHeight: ir ? ir.height : 0,
+        cat: document.getElementById('catText').textContent,
+      };
+    `);
+  }
+  function checkQuestionMedia(q) {
+    ok(q.hero === true, 'question gets the hero-sized media class', q);
+    if (/Name This Tune/.test(q.cat)) {
+      ok(q.hasAudio === true, 'Tune question renders an <audio> element', q);
+      ok(q.audioWidth > 0 && q.audioHeight > 0, 'the <audio> control actually has visible size, not 0x0', q);
+      return 'tune';
+    }
+    if (/Picture Round/.test(q.cat)) {
+      ok(q.imgSrc === 'data:image/png;base6', 'Picture question renders an <img> with a data:image/png source', q);
+      ok(q.imgWidth > 0 && q.imgHeight > 0, 'the <img> actually has visible size, not 0x0', q);
+      return 'picture';
+    }
+    ok(false, 'category chip shows a Tune or Picture badge', q.cat);
+    return null;
+  }
+
+  const q1 = await readMediaState(A);
+  const kind1 = checkQuestionMedia(q1);
 
   // Advance past the 5s timer to the scoreboard, then to Q2. Poll for the
   // host's Next button rather than guessing a sleep long enough to cover it.
@@ -221,22 +239,9 @@ try {
   ok(advanced, 'reached the scoreboard and clicked Next within 10s of the 5s timer expiring');
   await sleep(1200);
 
-  const q2 = await A.ev(`
-    var m = document.getElementById('questionMedia');
-    var img = m ? m.querySelector('img') : null;
-    var r = img ? img.getBoundingClientRect() : null;
-    return {
-      hero: m ? m.classList.contains('q-media--hero') : false,
-      imgSrc: img ? img.src.slice(0, 20) : null,
-      imgWidth: r ? r.width : 0,
-      imgHeight: r ? r.height : 0,
-      cat: document.getElementById('catText').textContent,
-    };
-  `);
-  ok(q2.hero === true, 'Picture question gets the hero-sized media class', q2);
-  ok(q2.imgSrc === 'data:image/png;base6', 'Picture question renders an <img> with a data:image/png source', q2);
-  ok(q2.imgWidth > 0 && q2.imgHeight > 0, 'the <img> actually has visible size, not 0x0', q2);
-  ok(/Picture Round/.test(q2.cat), 'category chip shows the Picture Round badge', q2.cat);
+  const q2 = await readMediaState(A);
+  const kind2 = checkQuestionMedia(q2);
+  ok(kind1 && kind2 && kind1 !== kind2, 'the two questions were one Tune and one Picture, not a repeat', { kind1, kind2 });
 
   ok(A.exceptions.length === 0, 'no console exceptions across the whole flow', A.exceptions);
 

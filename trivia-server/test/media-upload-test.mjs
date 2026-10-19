@@ -111,6 +111,10 @@ try {
   await B3.ev("document.querySelector('.team-join').click(); return true;");
   await sleep(500);
 
+  // Two clicks now: first opens the event (standby — config locked, teams
+  // still joinable), second actually fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(1500);
 

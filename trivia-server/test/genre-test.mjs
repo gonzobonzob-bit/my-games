@@ -125,6 +125,8 @@ try {
     const B = new C('Ben', r); await B.connect(); await B.wait('welcome');
     A.send({ type: 'settings', settings: { genre: 'geography' } });
     await A.wait('settings');
+    A.send({ type: 'openEvent' });
+    await A.wait('phase');
     A.send({ type: 'start' });
     const q = await A.wait('question', 25000);
     ok(!!q, 'a genre game starts');
@@ -150,6 +152,8 @@ try {
     const B = new C('Ben', r); await B.connect(); await B.wait('welcome');
     A.send({ type: 'settings', settings: { genre: 'history' } });
     await A.wait('settings');
+    A.send({ type: 'openEvent' });
+    await A.wait('phase');
     A.send({ type: 'start' });
     await A.wait('question', 25000);
     await sleep(1500);
@@ -177,6 +181,8 @@ try {
     const r = room();
     const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
     const B = new C('Ben', r); await B.connect(); await B.wait('welcome');
+    A.send({ type: 'openEvent' });
+    await A.wait('phase');
     A.send({ type: 'start' });
     const q = await A.wait('question', 25000);
     ok(Array.isArray(q.choices) && q.choices.length === 4, 'a default Mixed game still starts and plays');

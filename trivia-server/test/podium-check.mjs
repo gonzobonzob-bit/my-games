@@ -99,6 +99,9 @@ try {
   // call only throws when it runs.
   await A.ev("if (document.getElementById('soundBtn').getAttribute('aria-pressed') !== 'true') document.getElementById('soundBtn').click(); return true;");
   await A.cmd('Page.bringToFront');
+  // Two clicks now: first opens the event (standby), second fires question 1.
+  await A.ev("document.getElementById('startBtn').click(); return true;");
+  await sleep(600);
   await A.ev("document.getElementById('startBtn').click(); return true;");
   await sleep(2500);
 
