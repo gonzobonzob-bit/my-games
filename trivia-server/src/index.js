@@ -79,6 +79,15 @@ const QUESTIONS_PER_ROUND_MAX = 30;
 const QUESTION_MS_MIN = 5_000;
 const QUESTION_MS_MAX = 60_000;
 const QUESTION_MS_STEP = 5_000; // the host adjusts in 5s increments, not raw ms
+// Everyone answered well before the clock ran out: instead of snapping
+// straight to doReveal() (jarring — the tile you just tapped vanishes into
+// the answer screen with no beat in between), triggerEarlyReveal() shortens
+// g.endsAt to exactly this far from now and lets the EXISTING question-phase
+// alarm fire doReveal() when it arrives, same as a natural timeout. Scoring
+// is unaffected — doReveal() computes the speed bonus off g.questionEndsAt,
+// the original full-duration deadline fixed at beginQuestion() and never
+// touched here, not off the now-shortened g.endsAt.
+const ALL_ANSWERED_REVEAL_DELAY_MS = 5_000;
 /* Reveal → next question, measured from the reveal broadcast — including the
  * early reveal when everyone has locked in, which is why solo stays brisk.
  * Six seconds: long enough to read the answer and watch the scores move, not
@@ -1507,7 +1516,7 @@ export class Room {
       // before the reveal. Other teams, the host and spectators never get it.
       this.broadcast({ type: 'teamPick', index: g.qIndex, teamId: team.id, choice },
         this.teamSockets(team));
-      if (this.allConnectedAnswered()) await this.doReveal();
+      if (this.allConnectedAnswered()) await this.triggerEarlyReveal();
       return;
     }
 
@@ -1523,7 +1532,7 @@ export class Room {
 
     this.broadcast({ type: 'answered', playerId: me.id });
 
-    if (this.allConnectedAnswered()) await this.doReveal();
+    if (this.allConnectedAnswered()) await this.triggerEarlyReveal();
   }
 
   /* Since auto-advance, 'next' is a skip, not a necessity: the reveal alarm
@@ -1577,6 +1586,11 @@ export class Room {
     g.answers = {};
     g.lastReveal = null;
     g.endsAt = Date.now() + g.settings.questionMs;
+    // Fixed for the rest of this question's life — triggerEarlyReveal()
+    // below shortens g.endsAt (the alarm/clock deadline) when everyone
+    // answers early, but the speed bonus still needs the ORIGINAL
+    // full-duration deadline to mean anything.
+    g.questionEndsAt = g.endsAt;
     g.nextAt = 0;
     await this.save();
 
@@ -1611,6 +1625,40 @@ export class Room {
     return active.every((t) => Boolean(g.answers[t.id]));
   }
 
+  /* Called instead of doReveal() wherever allConnectedAnswered() just
+     turned true before the clock ran out on its own — teams mode only.
+     Classic mode (solo included) keeps revealing the instant the last
+     answer lands: solo-test.mjs's own comment is explicit that this is
+     what "makes solo playable rather than a waiting game," and a multi-
+     player classic room has no captain-flavored "everyone answered"
+     moment to flash in the first place. Teams mode is different: a flash
+     plus a beat before the tiles disappear reads as a shared moment, not
+     a stall, the same way the reveal screen itself is host-paced there.
+
+     Shortens g.endsAt to ALL_ANSWERED_REVEAL_DELAY_MS from now and
+     re-arms the SAME alarm slot beginQuestion already set — the existing
+     'question'-phase alarm case fires doReveal() exactly as it would for
+     a natural timeout, no new alarm/phase machinery needed. The
+     'allAnswered' broadcast carries the new deadline so clients can
+     restart their own clock display against it (see startClock's
+     optional totalMs on the client) instead of drifting toward the
+     original, now-stale one.
+     Guarded against re-firing: allConnectedAnswered() only ever flips
+     false->true once per question in the ordinary case, but a disconnect
+     landing in the same tick as the last answer could call this twice —
+     if g.endsAt is already inside the delay window, leave it alone rather
+     than restarting the countdown and re-flashing the banner. */
+  async triggerEarlyReveal() {
+    const g = this.game;
+    if (g.phase !== 'question') return;
+    if (g.settings.mode !== 'teams') return this.doReveal();
+    if (g.endsAt - Date.now() <= ALL_ANSWERED_REVEAL_DELAY_MS) return;
+    g.endsAt = Date.now() + ALL_ANSWERED_REVEAL_DELAY_MS;
+    await this.save();
+    this.broadcast({ type: 'allAnswered', revealAt: g.endsAt });
+    await this.ctx.storage.setAlarm(g.endsAt);
+  }
+
   async doReveal() {
     const g = this.game;
     if (g.phase !== 'question') return;
@@ -1626,7 +1674,7 @@ export class Room {
         const correct = choice !== null && choice === q.correctIndex;
         let gained = 0;
         if (correct) {
-          const remaining = Math.max(0, Math.min(g.settings.questionMs, g.endsAt - ans.at));
+          const remaining = Math.max(0, Math.min(g.settings.questionMs, g.questionEndsAt - ans.at));
           gained = BASE_POINTS + Math.round((SPEED_POINTS * remaining) / g.settings.questionMs);
           t.score += gained;
         }
@@ -1673,7 +1721,7 @@ export class Room {
       const correct = choice !== null && choice === q.correctIndex;
       let gained = 0;
       if (correct) {
-        const remaining = Math.max(0, Math.min(QUESTION_MS, g.endsAt - ans.at));
+        const remaining = Math.max(0, Math.min(QUESTION_MS, g.questionEndsAt - ans.at));
         gained = BASE_POINTS + Math.round((SPEED_POINTS * remaining) / QUESTION_MS);
         p.score += gained;
       }
@@ -1827,7 +1875,7 @@ export class Room {
     // The player who just left may have been the last one still thinking —
     // or, in teams mode, the last connected member of a team still thinking.
     if (g.phase === 'question' && this.allConnectedAnswered(connected)) {
-      await this.doReveal();
+      await this.triggerEarlyReveal();
     }
   }
 

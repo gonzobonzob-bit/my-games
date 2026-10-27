@@ -170,7 +170,10 @@ try {
     ok(answered.teamId === teamId, 'the answered broadcast carries teamId, not playerId', answered);
     ok(!('playerId' in answered), 'teams-mode answered frame has no playerId field');
 
-    const rev = await B.wait('reveal', 4000);
+    // 4000 -> 6500: the room now flashes "everyone answered" and holds for
+    // ALL_ANSWERED_REVEAL_DELAY_MS (5s) before actually revealing, same
+    // alarm as a natural timeout, just a shorter one.
+    const rev = await B.wait('reveal', 6500);
     ok(rev.mode === 'teams', 'reveal says mode: teams');
     // One perTeam entry per team that EXISTS, including the empty second
     // team — doReveal() walks g.teams, same as doReveal walks g.players in

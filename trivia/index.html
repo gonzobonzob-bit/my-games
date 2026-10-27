@@ -1909,6 +1909,7 @@ input.team-name-input[type="text"]{
     en: {
       lockedOfPlayers: '#1 of #2 locked in', lockedOfTeams: '#1 of #2 teams locked in',
       teamLocked: 'Your team has locked in', teamPickShown: 'Your captain locked in the highlighted answer', waitingOn: 'Waiting on # to answer',
+      allAnsweredFlash: 'Everyone answered! Revealing soon…',
       waitingLeader: 'Waiting on your team leader', tapAnswer: 'Tap your answer',
       correctAria: 'Correct answer', wrongAria: 'Your answer, incorrect',
       nobodyGotIt: 'Nobody got it', oneTeamGotIt: '1 team got it', onePlayerGotIt: '1 player got it',
@@ -2050,6 +2051,7 @@ input.team-name-input[type="text"]{
     es: {
       lockedOfPlayers: '#1 de #2 han respondido', lockedOfTeams: '#1 de #2 equipos han respondido',
       teamLocked: 'Tu equipo ya respondió', teamPickShown: 'Tu capitán fijó la respuesta resaltada', waitingOn: 'Esperando a # para responder',
+      allAnsweredFlash: '¡Todos respondieron! Revelando pronto…',
       waitingLeader: 'Esperando al capitán de tu equipo', tapAnswer: 'Toca tu respuesta',
       correctAria: 'Respuesta correcta', wrongAria: 'Tu respuesta, incorrecta',
       nobodyGotIt: 'Nadie acertó', oneTeamGotIt: '1 equipo acertó', onePlayerGotIt: '1 jugador acertó',
@@ -3053,12 +3055,15 @@ input.team-name-input[type="text"]{
     }
   }
 
-  function startClock(endsAt) {
+  function startClock(endsAt, totalOverride) {
     stopClockLoop();
     clock.endsAt = endsAt;
     // max(): a reconnect mid-question has less than the full window left, and
     // a window longer than the setting says (never expected) still draws.
-    clock.total = Math.max(questionTotalMs(), endsAt - Date.now());
+    // totalOverride: the one caller that wants a short, CLEAN ring instead
+    // of a sliver of the original question's — the all-teams-answered early
+    // reveal, which is a fresh few-second countdown, not a continuation.
+    clock.total = totalOverride || Math.max(questionTotalMs(), endsAt - Date.now());
     clock.locked = false;
     clock.shown = -1;
     clock.state = '';
@@ -5872,6 +5877,18 @@ input.team-name-input[type="text"]{
           } else if (state.locked || state.spectator) {
             paintLockLine();
           }
+        }
+        break;
+
+      // Everyone locked in before the clock ran out — the server shortened
+      // its own deadline to ALL_ANSWERED_REVEAL_DELAY_MS from now and will
+      // actually reveal then, same alarm as a natural timeout. A flash plus
+      // a fresh, clean countdown ring (not a sliver of the original one) so
+      // the pause reads as "about to reveal," not a stall.
+      case 'allAnswered':
+        if (state.question && typeof msg.revealAt === 'number') {
+          toast(T('allAnsweredFlash'));
+          startClock(msg.revealAt, Math.max(1000, msg.revealAt - Date.now()));
         }
         break;
 
