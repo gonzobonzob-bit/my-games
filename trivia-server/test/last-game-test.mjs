@@ -98,6 +98,15 @@ try {
   await A.wait((m) => true, 100).catch(() => {}); // let it process
   const fin = await A.wait('final', 4000);
   ok(fin.mode === 'teams', 'the game actually reached final', fin);
+  // Safe to broadcast by now — every question has already been revealed
+  // live, so a correct-count on the FINAL standings (not just the
+  // host-only lastGame summary) leaks nothing THE INVARIANT cares about.
+  const finRed = fin.standings.find((s) => s.id === redId);
+  const finBlue = fin.standings.find((s) => s.id === blueId);
+  ok(finRed && finRed.correct === 1 && finRed.total === 1,
+     'the final broadcast itself carries a correct/total count for the winner', finRed);
+  ok(finBlue && finBlue.correct === 0 && finBlue.total === 1,
+     'and for the team that got it wrong', finBlue);
 
   // Now ask for last game's results.
   A.msgs.length = 0;

@@ -1363,9 +1363,13 @@ input.team-name-input[type="text"]{
   box-shadow:0 0 0 2px rgba(var(--medal-rgb),.55);
 }
 .row .avatar{ position:relative; z-index:1; width:40px; height:40px; font-size:16px; }
-.row-name{ position:relative; z-index:1; flex:1 1 auto; min-width:0; font-size:var(--fs-name);
+.row-name-wrap{ position:relative; z-index:1; flex:1 1 auto; min-width:0;
+                display:flex; flex-direction:column; gap:2px; }
+.row-name{ font-size:var(--fs-name);
            font-weight:600; color:var(--paper-100); overflow:hidden; text-overflow:ellipsis;
            white-space:nowrap; }
+.row-correct{ font-size:var(--fs-micro); color:var(--slate-400); overflow:hidden;
+              text-overflow:ellipsis; white-space:nowrap; }
 .row-you{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em; color:var(--amber);
           text-transform:uppercase; margin-left:var(--sp-2); }
 .row-gain{ position:relative; z-index:1; font-family:var(--font-num); font-size:13px; font-weight:700;
@@ -1424,6 +1428,7 @@ input.team-name-input[type="text"]{
 .winner-score{ position:relative; z-index:1; font-family:var(--font-num);
                font-variant-numeric:tabular-nums lining-nums;
                font-size:clamp(32px,4vw,64px); font-weight:700; color:var(--amber); line-height:1; }
+.winner-correct{ margin-top:var(--sp-1); font-size:var(--fs-micro); color:var(--slate-300); text-align:center; }
 .podium{ display:flex; flex-direction:column; gap:10px; width:100%; }
 /* 4th place and down: a wrapping grid, not one more long vertical stack.
    One column on a narrow phone (where two side by side would be illegibly
@@ -1875,6 +1880,7 @@ input.team-name-input[type="text"]{
         <div class="micro winner-label">Winner</div>
         <div class="name-wrap">
           <h2 class="winner-name" id="winnerName">&nbsp;</h2>
+          <div class="winner-correct" id="winnerCorrect" hidden></div>
         </div>
         <div class="winner-score" id="winnerScore">0</div>
       </div>
@@ -2423,7 +2429,8 @@ input.team-name-input[type="text"]{
       elBoardRows = $('boardRows'), elBoardRound = $('boardRound'), elBoardPills = $('boardPills'),
       elBoardActions = $('boardActions'),
       elWinner = $('winner'), elWinnerBloom = $('winnerBloom'), elWinnerAvatar = $('winnerAvatar'),
-      elWinnerName = $('winnerName'), elWinnerScore = $('winnerScore'), elFinalRest = $('finalRest'),
+      elWinnerName = $('winnerName'), elWinnerScore = $('winnerScore'), elWinnerCorrect = $('winnerCorrect'),
+      elFinalRest = $('finalRest'),
       elFinalActions = $('finalActions'),
       elConfetti = $('confetti'), elRoomPulse = $('roomPulse'), elFlash = $('flash'),
       elCodeTiles = $('codeTiles'), elLobbyPlayers = $('lobbyPlayers'),
@@ -5290,6 +5297,14 @@ input.team-name-input[type="text"]{
     elWinnerAvatar.textContent = initialOf(win.name);
     elWinnerName.textContent = win.name;
     elWinnerScore.textContent = '0';
+    if (elWinnerCorrect) {
+      if (typeof win.total === 'number' && win.total > 0) {
+        elWinnerCorrect.hidden = false;
+        elWinnerCorrect.textContent = T('lastGameCorrectOf').replace('#', win.correct || 0).replace('#', win.total);
+      } else {
+        elWinnerCorrect.hidden = true;
+      }
+    }
     elFinalRest.textContent = '';
     elFinalActions.textContent = '';
     elWinner.style.visibility = 'hidden';
@@ -5361,6 +5376,17 @@ input.team-name-input[type="text"]{
         b.textContent = T('playAgain');
         on(b, 'click', function () { send({ type: 'again' }); b.disabled = true; });
         elFinalActions.appendChild(b);
+        var dl = mk('button', 'chip-btn pop-in');
+        dl.type = 'button';
+        dl.textContent = T('lastGameDownloadBtn');
+        on(dl, 'click', function () {
+          // Normally already here from the pre-fetch on reaching 'final';
+          // asked again just in case this tap beat that round trip.
+          if (!lastGameSummary) { send({ type: 'getLastGame' }); return; }
+          downloadTextFile('late-signal-' + state.code + '-results.txt', lastGameLines(lastGameSummary));
+          toast(T('lastGameDownloaded'));
+        });
+        elFinalActions.appendChild(dl);
       } else {
         var w = mk('div', 'waiting pop-in');
         var s = mk('span'); s.textContent = T('waitingHost');
@@ -5385,12 +5411,21 @@ input.team-name-input[type="text"]{
     rk.textContent = String(rank);
     row.appendChild(rk);
     row.appendChild(avatarEl(p));
+    var nmWrap = mk('div', 'row-name-wrap');
     var nm = mk('div', 'row-name');
     nm.textContent = p.name;
     if (state.me && p.id === state.me.id) {
       var you = mk('span', 'row-you'); you.textContent = T('you'); nm.appendChild(you);
     }
-    row.appendChild(nm);
+    nmWrap.appendChild(nm);
+    // Only present once g.questionHistory has anything in it — a 0-question
+    // edge case (left before question 1 finished, say) has nothing to count.
+    if (typeof p.total === 'number' && p.total > 0) {
+      var corr = mk('div', 'row-correct');
+      corr.textContent = T('lastGameCorrectOf').replace('#', p.correct || 0).replace('#', p.total);
+      nmWrap.appendChild(corr);
+    }
+    row.appendChild(nmWrap);
     var sc = mk('div', 'row-score');
     sc.textContent = String(p.score || 0);
     row.appendChild(sc);
@@ -6061,8 +6096,11 @@ input.team-name-input[type="text"]{
       // read as the click doing nothing.
       case 'lastGame':
         lastGameSummary = msg.summary || null;
-        renderLastGamePanel(lastGameSummary);
-        if (elLastGameOverlay) elLastGameOverlay.hidden = false;
+        if (lastGameWantsModal) {
+          lastGameWantsModal = false;
+          renderLastGamePanel(lastGameSummary);
+          if (elLastGameOverlay) elLastGameOverlay.hidden = false;
+        }
         break;
 
       case 'reveal':
@@ -6088,6 +6126,11 @@ input.team-name-input[type="text"]{
         elDwell.classList.remove('run');
         setScreen('final');
         paintBackBtn();
+        // Pre-fetched now, not on click — by the time the host actually
+        // taps "Download results" (the final-actions beat lands a couple
+        // seconds into the podium sequence), the round trip has already
+        // happened, so the button works on the first tap.
+        if (state.isHost) send({ type: 'getLastGame' });
         break;
 
       case 'settings':
@@ -6654,7 +6697,14 @@ input.team-name-input[type="text"]{
   // ended, or after a page reload), shown in a plain overlay modal, and
   // downloadable as the exact same lines the panel renders from.
   var lastGameSummary = null;
+  // True only for a request that should pop the overlay once it answers —
+  // the lobby's "Last game" button. The podium screen's own pre-fetch
+  // (so its Download button works on the first tap) and a download click
+  // that beat the pre-fetch both want the data WITHOUT the modal jumping
+  // open over the podium.
+  var lastGameWantsModal = false;
   on(elLastGameBtn, 'click', function () {
+    lastGameWantsModal = true;
     send({ type: 'getLastGame' });
   });
   on(elLastGameCloseBtn, 'click', function () {

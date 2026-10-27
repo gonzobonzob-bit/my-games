@@ -716,16 +716,33 @@ export class Room {
     };
   }
 
+  /* How many of g.questionHistory's entries this id got right — safe to
+     compute and broadcast to everyone at 'final' (unlike mid-game, every
+     one of those questions has already been revealed live by now, so
+     there is nothing left THE INVARIANT would call a leak). */
+  correctCountFor(id) {
+    const g = this.game;
+    const history = Array.isArray(g.questionHistory) ? g.questionHistory : [];
+    let n = 0;
+    for (const q of history) {
+      const rows = g.settings.mode === 'teams' ? q.perTeam : q.perPlayer;
+      const row = rows && rows.find((r) => r.id === id);
+      if (row && row.correct) n++;
+    }
+    return n;
+  }
+
   finalMessage() {
     const g = this.game;
+    const total = Array.isArray(g.questionHistory) ? g.questionHistory.length : 0;
     if (g.settings.mode === 'teams') {
       const standings = g.teams
-        .map((t) => ({ id: t.id, name: t.name, score: t.score }))
+        .map((t) => ({ id: t.id, name: t.name, score: t.score, correct: this.correctCountFor(t.id), total }))
         .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
       return { type: 'final', mode: 'teams', standings };
     }
     const standings = Object.values(g.players)
-      .map((p) => ({ id: p.id, name: p.name, score: p.score }))
+      .map((p) => ({ id: p.id, name: p.name, score: p.score, correct: this.correctCountFor(p.id), total }))
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
     return { type: 'final', mode: 'classic', standings };
   }
