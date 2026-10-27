@@ -514,6 +514,24 @@ body[data-screen="landing"] .hud{ display:none; }
   color:var(--paper-100);
   animation:qIn 420ms var(--ease-out-expo) both;
 }
+/* The host-triggered how-to-play beat between standby and question 1 —
+   same card language as .card elsewhere, not amber-tinted like the
+   standby banner since it isn't a "live" status, it's a one-time read. */
+.intro-panel{
+  width:100%; padding:var(--sp-4); border-radius:var(--r-lg);
+  background:var(--ink-800); border:1px solid var(--hair);
+  animation:qIn 420ms var(--ease-out-expo) both;
+}
+.intro-panel-title{
+  font-size:var(--fs-micro); font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--amber); margin-bottom:var(--sp-3);
+}
+.intro-panel-list{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:var(--sp-2); }
+.intro-panel-list li{
+  display:flex; gap:var(--sp-2); align-items:flex-start;
+  font-size:var(--fs-body); color:var(--paper-100); line-height:1.4;
+}
+.intro-panel-list li::before{ content:'•'; color:var(--amber); flex:0 0 auto; }
 /* --- Event wizard: one decision per screen, big plain-language controls --- */
 .wiz{ margin:auto; width:100%; max-width:600px; display:flex; flex-direction:column; gap:var(--sp-4); }
 .wiz-progress{ display:flex; gap:6px; }
@@ -1630,7 +1648,12 @@ input.team-name-input[type="text"]{
       <div class="standby-banner" id="standbyBanner" hidden>
         <span class="onair" aria-hidden="true"></span>
         <span id="standbyBannerText">Doors are open — come on in!</span>
+        <button type="button" class="chip-btn" id="showIntroBtn" hidden>How to play</button>
         <button type="button" class="chip-btn" id="editSetupBtn" hidden>Edit setup</button>
+      </div>
+      <div class="intro-panel" id="introPanel" hidden>
+        <div class="intro-panel-title" id="introPanelTitle">How to play</div>
+        <ul class="intro-panel-list" id="introPanelList"></ul>
       </div>
       <div class="callsheet" id="callSheet">
         <button type="button" class="slot" id="genreSlot">
@@ -1887,6 +1910,11 @@ input.team-name-input[type="text"]{
       startGame: 'Start game', startSolo: 'Start solo game', starting: 'Starting…',
       startEvent: 'Start event',
       standbyBanner: 'Doors are open — come on in!',
+      showIntroBtn: 'How to play',
+      introTitle: 'How to play',
+      introTapAnswer: 'When a question appears, tap your answer before the timer runs out.',
+      introCaptain: 'Only your team captain’s tap counts for the team — anyone can claim captain from the waiting room before kickoff.',
+      introScoring: 'Faster correct answers score more points.',
       waitingHost: 'Waiting for host', needMore: 'Need # more players',
       needMore1: 'Need 1 more player',
       winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
@@ -2022,6 +2050,11 @@ input.team-name-input[type="text"]{
       startGame: 'Empezar', startSolo: 'Jugar en solitario', starting: 'Empezando…',
       startEvent: 'Iniciar evento',
       standbyBanner: '¡Las puertas están abiertas — entra!',
+      showIntroBtn: 'Cómo jugar',
+      introTitle: 'Cómo jugar',
+      introTapAnswer: 'Cuando aparezca una pregunta, toca tu respuesta antes de que se acabe el tiempo.',
+      introCaptain: 'Solo cuenta el toque del capitán del equipo — cualquiera puede ser capitán desde la sala de espera antes de empezar.',
+      introScoring: 'Las respuestas correctas más rápidas valen más puntos.',
       waitingHost: 'Esperando al anfitrión', needMore: 'Faltan # jugadores',
       needMore1: 'Falta 1 jugador',
       winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
@@ -2304,6 +2337,8 @@ input.team-name-input[type="text"]{
       elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elDownloadInfoBtn = $('downloadInfoBtn'),
       elStandbyBanner = $('standbyBanner'), elStandbyBannerText = $('standbyBannerText'),
       elEditSetupBtn = $('editSetupBtn'),
+      elShowIntroBtn = $('showIntroBtn'),
+      elIntroPanel = $('introPanel'), elIntroPanelTitle = $('introPanelTitle'), elIntroPanelList = $('introPanelList'),
       elNameInput = $('nameInput'),
       elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
@@ -3202,27 +3237,49 @@ input.team-name-input[type="text"]{
     var isCustom = isTeams && state.settings.source === 'custom';
     // Doors are open — every config control below is put away regardless
     // of mode/source/host, same as the server now refuses every one of
-    // these settings actions once phase is 'standby'. Team membership
-    // (renderTeamsPicker) stays, same as the server keeps joinTeam open.
+    // these settings actions once phase is 'standby' or 'intro'. Team
+    // membership (renderTeamsPicker) stays open through both, same as the
+    // server keeps joinTeam open. isLocked covers both; isStandby/isIntro
+    // stay separate for the banner-vs-explainer and "How to play" button,
+    // which each belong to exactly one of the two.
     var isStandby = state.phase === 'standby';
+    var isIntro = state.phase === 'intro';
+    var isLocked = isStandby || isIntro;
     if (elStandbyBanner) {
       elStandbyBanner.hidden = !isStandby;
       if (isStandby && elStandbyBannerText) elStandbyBannerText.textContent = T('standbyBanner');
     }
     // Host-only — a typo in a question or a last-minute rounds change
-    // shouldn't mean abandoning the room. Closes standby back to 'lobby',
-    // where every config handler already knows exactly what to do.
-    if (elEditSetupBtn) elEditSetupBtn.hidden = !(isStandby && state.isHost);
+    // shouldn't mean abandoning the room. Closes standby/intro back to
+    // 'lobby', where every config handler already knows exactly what to do.
+    if (elEditSetupBtn) elEditSetupBtn.hidden = !(isLocked && state.isHost);
+    // Host-only, standby-only — jumping straight from standby to question 1
+    // (the existing Start button) already works and stays the quickest path;
+    // this is purely an extra stop for a host who wants it. Once already in
+    // 'intro' there is nothing left to trigger — the explainer is showing.
+    if (elShowIntroBtn) elShowIntroBtn.hidden = !(isStandby && state.isHost);
+    if (elIntroPanel) elIntroPanel.hidden = !isIntro;
+    if (isIntro && elIntroPanelList) {
+      if (elIntroPanelTitle) elIntroPanelTitle.textContent = T('introTitle');
+      elIntroPanelList.textContent = '';
+      var introLines = [T('introTapAnswer')];
+      if (isTeams) introLines.push(T('introCaptain'));
+      introLines.push(T('introScoring'));
+      for (var ii = 0; ii < introLines.length; ii++) {
+        var li = mk('li'); li.textContent = introLines[ii];
+        elIntroPanelList.appendChild(li);
+      }
+    }
 
     if (elModeSlot) {
       elModeVal.textContent = isTeams ? T('modeTeams') : T('modeClassic');
-      elModeSlot.hidden = isStandby;
+      elModeSlot.hidden = isLocked;
       elModeSlot.disabled = !state.isHost;
       elModeSlot.setAttribute('aria-label',
         T('mode') + (state.isHost ? T('ariaHostHint') : T('ariaGuestHint')) + elModeVal.textContent);
     }
     if (elSourceSlot) {
-      elSourceSlot.hidden = !isTeams || isStandby;
+      elSourceSlot.hidden = !isTeams || isLocked;
       elSourceVal.textContent = isCustom ? T('quizSourceCustom') : T('genre');
       elSourceSlot.disabled = !state.isHost;
       elSourceSlot.setAttribute('aria-label',
@@ -3230,16 +3287,16 @@ input.team-name-input[type="text"]{
     }
     // Genre/difficulty only mean something when the quiz source IS a genre —
     // a custom quiz has no genre or difficulty of its own.
-    elGenreSlot.hidden = isCustom || isStandby;
-    elDiffSlot.hidden = isCustom || isStandby;
+    elGenreSlot.hidden = isCustom || isLocked;
+    elDiffSlot.hidden = isCustom || isLocked;
 
-    if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost) || isStandby;
-    if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost) || isStandby;
+    if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost) || isLocked;
+    if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost) || isLocked;
     if (elRoundsVal) elRoundsVal.textContent = String(state.settings.rounds || 1);
     if (elPerRoundVal) elPerRoundVal.textContent = String(state.settings.questionsPerRound || 10);
     if (elTimerVal) elTimerVal.textContent = Math.round((state.settings.questionMs || 20000) / 1000) + 's';
-    if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost) || isStandby;
-    if (isCustom && state.isHost && !isStandby) renderQuizEditor();
+    if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost) || isLocked;
+    if (isCustom && state.isHost && !isLocked) renderQuizEditor();
     renderTeamsPicker();
     paintMic();
     paintWhisper();
@@ -3338,9 +3395,10 @@ input.team-name-input[type="text"]{
     if (state.isHost) {
       elStartBtn.hidden = false;
       elWaitLine.hidden = true;
-      if (state.phase === 'standby') {
-        // Doors are already open — this click fires question 1, same
-        // need-more-players gate onStart itself enforces.
+      if (state.phase === 'standby' || state.phase === 'intro') {
+        // Doors are already open (or the how-to-play is showing) — this
+        // click fires question 1, same need-more-players gate onStart
+        // itself enforces either way.
         var need = MIN_PLAYERS - connected;
         if (need > 0) {
           elStartBtn.disabled = true;
@@ -3913,9 +3971,9 @@ input.team-name-input[type="text"]{
 
     // The host moderates — never a candidate to join a team, so no join
     // control for them at all, matching the server refusing it outright.
-    // Standby (doors open) is still joinable, same as lobby — onJoinTeam
-    // allows both.
-    var preGame = state.phase === 'lobby' || state.phase === 'standby';
+    // Standby and intro (doors open, how-to-play showing) are still
+    // joinable, same as lobby — onJoinTeam allows all three.
+    var preGame = state.phase === 'lobby' || state.phase === 'standby' || state.phase === 'intro';
     if (!state.spectator && !state.isHost && preGame) {
       var onThis = state.myTeamId === t.id;
       var joinBtn = mk('button', 'chip-btn team-join');
@@ -5542,7 +5600,7 @@ input.team-name-input[type="text"]{
         state.handshakeFails = 0;
         netbar(null);
         elHudCodeText.textContent = state.code;
-        if (state.phase === 'lobby' || state.phase === 'standby') {
+        if (state.phase === 'lobby' || state.phase === 'standby' || state.phase === 'intro') {
           resetRound();
           if (state.wizardActive && state.phase !== 'lobby') wizExit();
           setScreen(state.wizardActive ? 'wizard' : 'lobby');
@@ -5597,6 +5655,13 @@ input.team-name-input[type="text"]{
           setScreen('lobby');
           renderLobby();
           confetti(20); // doors open — a small shared moment, not a show
+        }
+        // How-to-play: same screen again, same reuse-the-lobby reasoning —
+        // renderLobby()/paintCallSheet() swap the standby banner for the
+        // explainer panel once state.phase says 'intro'.
+        if (msg.phase === 'intro') {
+          setScreen('lobby');
+          renderLobby();
         }
         if (msg.phase === 'question') {
           // wait for the question payload
@@ -6136,10 +6201,10 @@ input.team-name-input[type="text"]{
 
   on(elStartBtn, 'click', function () {
     // Same button, two different actions depending on how far the room
-    // has gotten: 'lobby' -> open the doors (standby); 'standby' -> fire
-    // question 1 (today's onStart). Capture which one THIS click meant
-    // before sending, so the recovery check below isn't hardcoded to
-    // either phase.
+    // has gotten: 'lobby' -> open the doors (standby); 'standby' or
+    // 'intro' -> fire question 1 (today's onStart, from either). Capture
+    // which one THIS click meant before sending, so the recovery check
+    // below isn't hardcoded to any one phase.
     var wasPhase = state.phase;
     elStartBtn.disabled = true;
     elStartBtn.textContent = T('starting');
@@ -6147,7 +6212,7 @@ input.team-name-input[type="text"]{
     // sheet should say so rather than accept taps that will be rejected.
     state.starting = true;
     paintCallSheet();
-    send({ type: wasPhase === 'standby' ? 'start' : 'openEvent' });
+    send({ type: (wasPhase === 'standby' || wasPhase === 'intro') ? 'start' : 'openEvent' });
     setTimeout(function () {
       // The existing recovery beat: if the phase never actually moved on
       // from what it was when we clicked, the action did not take.
@@ -6194,6 +6259,9 @@ input.team-name-input[type="text"]{
   // config screen (server moves 'standby' back to 'lobby'); render() hides
   // this button everywhere else, so no client-side phase check is needed here.
   if (elEditSetupBtn) on(elEditSetupBtn, 'click', function () { send({ type: 'closeEvent' }); });
+  // Standby-only, host-only — the optional beat before question 1. render()
+  // hides this button everywhere else, same pattern as elEditSetupBtn above.
+  if (elShowIntroBtn) on(elShowIntroBtn, 'click', function () { send({ type: 'showIntro' }); });
   on(elDownloadInfoBtn, 'click', function () {
     if (!state.hostToken || !state.code) return;
     var lines = [

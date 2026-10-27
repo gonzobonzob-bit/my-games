@@ -35,12 +35,15 @@ const MAX_PLAYERS = 20;
 // catchUp() drops them into the current phase). Anyone else can still watch.
 const MIN_PLAYERS = 1;
 // Phases before question 1 has fired: the host is either still setting up
-// ('lobby') or has opened the doors and is waiting for people to sort into
-// teams ('standby', added for the "waiting room" step between setup and
-// kickoff). Team membership and new joins stay open through both; every
-// other config action (genre/teams-count/rounds/quiz editor/public toggle)
-// stays 'lobby'-only, which is what makes 'standby' read as "config locked."
-const PRE_GAME_PHASES = ['lobby', 'standby'];
+// ('lobby'), has opened the doors and is waiting for people to sort into
+// teams ('standby', the "waiting room" step between setup and kickoff), or
+// is walking everyone through the how-to-play explainer ('intro', an
+// optional host-triggered beat between standby and the first question — the
+// host can also start directly from standby and skip it). Team membership
+// and new joins stay open through all three; every other config action
+// (genre/teams-count/rounds/quiz editor/public toggle) stays 'lobby'-only,
+// which is what makes 'standby'/'intro' read as "config locked."
+const PRE_GAME_PHASES = ['lobby', 'standby', 'intro'];
 const isPreGame = (phase) => PRE_GAME_PHASES.includes(phase);
 // A disconnected (non-host) player's seat/team membership survives a page
 // refresh, a dropped wifi connection, or someone stepping away for a bit —
@@ -764,6 +767,8 @@ export class Room {
           return await this.onOpenEvent(ws, me);
         case 'closeEvent':
           return await this.onCloseEvent(ws, me);
+        case 'showIntro':
+          return await this.onShowIntro(ws, me);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -1238,7 +1243,7 @@ export class Room {
     this.reportToLobby();
   }
 
-  /* The other direction — standby-only, host-only. A host who notices a
+  /* The other direction — standby or intro, host-only. A host who notices a
      typo in a question, or wants one more round, needs a way back to the
      config screen without the only option being "abandon this room and
      make a new one." Goes to 'lobby', not some third state: every
@@ -1252,7 +1257,7 @@ export class Room {
     if (me.id !== g.hostId) {
       return this.send(ws, { type: 'error', message: 'only the host can edit the setup' });
     }
-    if (g.phase !== 'standby') {
+    if (g.phase !== 'standby' && g.phase !== 'intro') {
       return this.send(ws, { type: 'error', message: 'the event is not open' });
     }
     g.phase = 'lobby';
@@ -1262,12 +1267,32 @@ export class Room {
     this.reportToLobby();
   }
 
+  /* Standby-only, host-only. An optional beat the host can insert before
+     question 1 — nothing times out or advances on its own; the host is the
+     only thing that moves the room out of 'intro', either forward (onStart,
+     now accepted from 'intro' same as 'standby') or back (onCloseEvent,
+     same). Skippable: "Start game" already worked directly from 'standby'
+     and still does, for a host who doesn't want this step. */
+  async onShowIntro(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can show the how-to-play' });
+    }
+    if (g.phase !== 'standby') {
+      return this.send(ws, { type: 'error', message: 'open the event before showing how to play' });
+    }
+    g.phase = 'intro';
+    await this.save();
+    this.broadcast({ type: 'phase', phase: 'intro' });
+    this.reportToLobby();
+  }
+
   async onStart(ws, me) {
     const g = this.game;
     if (me.id !== g.hostId) {
       return this.send(ws, { type: 'error', message: 'only the host can start the game' });
     }
-    if (g.phase !== 'standby') {
+    if (g.phase !== 'standby' && g.phase !== 'intro') {
       return this.send(ws, { type: 'error', message: 'open the event before starting questions' });
     }
     if (g.loadingAt && Date.now() - g.loadingAt < LOADING_STALE_MS) {
