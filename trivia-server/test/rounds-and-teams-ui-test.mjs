@@ -55,28 +55,49 @@ try {
   await A.ev("document.getElementById('roundsUp').click(); return true;");
   await A.ev("document.getElementById('roundsUp').click(); return true;");
   await sleep(300);
-  const roundsVal = await A.ev("return document.getElementById('roundsVal').textContent;");
+  const roundsVal = await A.ev("return document.getElementById('roundsVal').value;");
   ok(roundsVal === '3', 'rounds stepper reaches 3 after two clicks', roundsVal);
 
   await A.ev("document.getElementById('perRoundDown').click(); return true;");
   await sleep(300);
-  const perRoundVal = await A.ev("return document.getElementById('perRoundVal').textContent;");
+  const perRoundVal = await A.ev("return document.getElementById('perRoundVal').value;");
   ok(perRoundVal === '9', 'questions-per-round stepper decrements to 9', perRoundVal);
 
   await A.ev("document.getElementById('timerUp').click(); return true;");
   await A.ev("document.getElementById('timerUp').click(); return true;");
   await sleep(300);
-  const timerVal = await A.ev("return document.getElementById('timerVal').textContent;");
-  ok(timerVal === '30s', 'timer stepper reaches 30s after two +5s clicks', timerVal);
+  const timerVal = await A.ev("return document.getElementById('timerVal').value;");
+  ok(timerVal === '30', 'timer stepper reaches 30s after two +5s clicks', timerVal);
+
+  // Typed directly into the field, not via +/- — the actual point of
+  // making these real <input>s instead of read-only <span>s.
+  await A.ev(`
+    var el = document.getElementById('perRoundVal');
+    el.value = '7';
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;`);
+  await sleep(300);
+  const perRoundTyped = await A.ev("return document.getElementById('perRoundVal').value;");
+  ok(perRoundTyped === '7', 'per-round can be typed directly, not just stepped', perRoundTyped);
+
+  // Out-of-range typed values clamp to the same min/max the +/- buttons use.
+  await A.ev(`
+    var el = document.getElementById('roundsVal');
+    el.value = '999';
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;`);
+  await sleep(300);
+  const roundsClamped = await A.ev("return document.getElementById('roundsVal').value;");
+  ok(roundsClamped === '10', 'a typed value above the max clamps to it (rounds max 10)', roundsClamped);
 
   // Confirm an unrelated settings tap (difficulty) does NOT reset rounds —
   // this is exactly the sendSettings() bug that was just fixed.
   await A.ev("document.getElementById('diffSlot').click(); return true;");
   await sleep(300);
-  const roundsAfterDiff = await A.ev("return document.getElementById('roundsVal').textContent;");
-  ok(roundsAfterDiff === '3', 'rounds survives an unrelated settings change (difficulty tap)', roundsAfterDiff);
-  const timerAfterDiff = await A.ev("return document.getElementById('timerVal').textContent;");
-  ok(timerAfterDiff === '30s', 'timer survives an unrelated settings change too', timerAfterDiff);
+  const roundsAfterDiff = await A.ev("return document.getElementById('roundsVal').value;");
+  ok(roundsAfterDiff === '10', 'rounds survives an unrelated settings change (difficulty tap)', roundsAfterDiff);
+  const timerAfterDiff = await A.ev("return document.getElementById('timerVal').value;");
+  ok(timerAfterDiff === '30', 'timer survives an unrelated settings change too', timerAfterDiff);
 
   // Team setup, then add/remove/rename
   await A.ev("document.getElementById('teamSetupBtn').click(); return true;");

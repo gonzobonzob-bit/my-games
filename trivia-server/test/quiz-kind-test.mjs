@@ -164,11 +164,11 @@ try {
     await sleep(250);
   }
   const shrunk = await A.ev(`
-    return { perRound: document.getElementById('perRoundVal').textContent,
-             timer: document.getElementById('timerVal').textContent };
+    return { perRound: document.getElementById('perRoundVal').value,
+             timer: document.getElementById('timerVal').value };
   `);
   ok(shrunk.perRound === '2', 'questions per round shrunk to 2', shrunk);
-  ok(shrunk.timer === '5s', 'timer shrunk to 5s', shrunk);
+  ok(shrunk.timer === '5', 'timer shrunk to 5s', shrunk);
 
   await A.ev("document.getElementById('teamSetupBtn').click(); return true;");
   await sleep(500);

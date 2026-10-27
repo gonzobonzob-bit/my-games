@@ -887,10 +887,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
    without this, .teams-setup's own flex-wrap breaks mid-stepper on narrow
    screens (Rounds' '+' stranded after Per round's value, say). */
 .stepper-group{ display:inline-flex; align-items:center; gap:var(--sp-2); flex-wrap:nowrap; }
+/* Also the live room-size/timer editors in the ordinary (non-wizard)
+   lobby — an <input> now, not a read-only <span>, so a host can type a
+   number directly instead of tapping +/- up to the max every time. */
 .team-count-val{
-  font-family:var(--font-num); font-weight:700; min-width:1.4em; text-align:center;
-  color:var(--paper-100);
+  font:inherit; font-family:var(--font-num); font-weight:700; width:2.4em; min-width:0;
+  text-align:center; color:var(--paper-100);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-sm);
+  padding:4px 2px; -moz-appearance:textfield; appearance:textfield;
 }
+.team-count-val::-webkit-outer-spin-button, .team-count-val::-webkit-inner-spin-button{
+  -webkit-appearance:none; margin:0;
+}
+.team-count-val:focus{ border-color:rgba(var(--amber-rgb),.55); background:var(--ink-600); outline:none; }
 .teams-picker{
   display:flex; flex-wrap:wrap; justify-content:center; gap:var(--sp-3);
   width:100%; max-width:900px;
@@ -1091,7 +1100,13 @@ input.team-name-input[type="text"]{
 .q-media--hero img{ max-height:360px; }
 .q-media--hero audio{ width:420px; max-width:90vw; }
 .quiz-media{ display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
-.quiz-media-input{ font-size:var(--fs-micro); max-width:160px; }
+/* The native file input's own "No file chosen" text can't be changed or
+   suppressed by CSS/JS, and reads as a contradiction sitting right next to
+   a correctly-filled .quiz-media-status ("Photo attached"), since nothing
+   new was picked THIS session after a saved quiz reloads. Hidden but still
+   functional — .quiz-media-choose (a real button) triggers it via .click(),
+   same effect as a <label for>, no native filename text ever shown. */
+.quiz-media-input{ position:absolute; left:-9999px; opacity:0; }
 .question{
   margin:0; max-width:24ch; text-align:center;
   font-size:var(--fs-question); font-weight:700; letter-spacing:-.02em; line-height:1.12;
@@ -1679,7 +1694,7 @@ input.team-name-input[type="text"]{
         <span class="stepper-group">
           <span class="micro">Teams</span>
           <button type="button" class="chip-btn" id="teamCountDown" aria-label="Fewer teams">&minus;</button>
-          <span class="team-count-val" id="teamCountVal">2</span>
+          <input type="number" class="team-count-val" id="teamCountVal" value="2" min="1" max="20" step="1" inputmode="numeric" aria-label="Number of teams">
           <button type="button" class="chip-btn" id="teamCountUp" aria-label="More teams">+</button>
         </span>
         <button type="button" class="chip-btn" id="teamSetupBtn">Set teams</button>
@@ -1688,19 +1703,19 @@ input.team-name-input[type="text"]{
         <span class="stepper-group">
           <span class="micro">Rounds</span>
           <button type="button" class="chip-btn" id="roundsDown" aria-label="Fewer rounds">&minus;</button>
-          <span class="team-count-val" id="roundsVal">1</span>
+          <input type="number" class="team-count-val" id="roundsVal" value="1" min="1" max="10" step="1" inputmode="numeric" aria-label="Number of rounds">
           <button type="button" class="chip-btn" id="roundsUp" aria-label="More rounds">+</button>
         </span>
         <span class="stepper-group">
           <span class="micro">Per round</span>
           <button type="button" class="chip-btn" id="perRoundDown" aria-label="Fewer questions per round">&minus;</button>
-          <span class="team-count-val" id="perRoundVal">10</span>
+          <input type="number" class="team-count-val" id="perRoundVal" value="10" min="1" max="30" step="1" inputmode="numeric" aria-label="Questions per round">
           <button type="button" class="chip-btn" id="perRoundUp" aria-label="More questions per round">+</button>
         </span>
         <span class="stepper-group">
           <span class="micro">Timer</span>
           <button type="button" class="chip-btn" id="timerDown" aria-label="Shorter timer">&minus;</button>
-          <span class="team-count-val" id="timerVal">20s</span>
+          <input type="number" class="team-count-val" id="timerVal" value="20" min="5" max="60" step="5" inputmode="numeric" aria-label="Timer in seconds"><span class="micro">s</span>
           <button type="button" class="chip-btn" id="timerUp" aria-label="Longer timer">+</button>
         </span>
       </div>
@@ -2010,6 +2025,7 @@ input.team-name-input[type="text"]{
       wizNextSteps: 'Next: open the lobby and tap “#1” so people can join and pick a team. When everyone’s in, tap “#2”.',
       downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.',
       mediaNone: 'No photo or sound', mediaAttached: '# attached', mediaRemove: 'Remove',
+      mediaChoose: 'Choose file', mediaReplace: 'Replace file',
       mediaType_image: 'Photo', mediaType_audio: 'Sound',
       mediaBadType: 'Only photos and sound clips are supported right now (video needs an upgrade still pending).',
       mediaTooBig: '# is too large — keep it small, this is a clue, not the whole file.',
@@ -2150,6 +2166,7 @@ input.team-name-input[type="text"]{
       wizNextSteps: 'Después: abre la sala y toca “#1” para que la gente se una y elija equipo. Cuando todos estén, toca “#2”.',
       downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.',
       mediaNone: 'Sin foto ni sonido', mediaAttached: '# adjunto', mediaRemove: 'Quitar',
+      mediaChoose: 'Elegir archivo', mediaReplace: 'Reemplazar archivo',
       mediaType_image: 'Foto', mediaType_audio: 'Sonido',
       mediaBadType: 'Por ahora solo se admiten fotos y clips de sonido (el video necesita una mejora pendiente).',
       mediaTooBig: '# es demasiado grande — que sea pequeño, es una pista, no el archivo completo.',
@@ -3292,9 +3309,18 @@ input.team-name-input[type="text"]{
 
     if (elTeamsSetup) elTeamsSetup.hidden = !(isTeams && state.isHost) || isLocked;
     if (elRoundsSetup) elRoundsSetup.hidden = !(isTeams && state.isHost) || isLocked;
-    if (elRoundsVal) elRoundsVal.textContent = String(state.settings.rounds || 1);
-    if (elPerRoundVal) elPerRoundVal.textContent = String(state.settings.questionsPerRound || 10);
-    if (elTimerVal) elTimerVal.textContent = Math.round((state.settings.questionMs || 20000) / 1000) + 's';
+    // document.activeElement guards: these are real inputs now, and a
+    // roster/settings broadcast can land while the host is mid-type —
+    // never stomp the field they're actually typing into.
+    if (elRoundsVal && document.activeElement !== elRoundsVal) {
+      elRoundsVal.value = String(state.settings.rounds || 1);
+    }
+    if (elPerRoundVal && document.activeElement !== elPerRoundVal) {
+      elPerRoundVal.value = String(state.settings.questionsPerRound || 10);
+    }
+    if (elTimerVal && document.activeElement !== elTimerVal) {
+      elTimerVal.value = String(Math.round((state.settings.questionMs || 20000) / 1000));
+    }
     if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost) || isLocked;
     if (isCustom && state.isHost && !isLocked) renderQuizEditor();
     renderTeamsPicker();
@@ -3814,22 +3840,38 @@ input.team-name-input[type="text"]{
     state.myTeamId = me ? (me.teamId || null) : null;
   }
 
+  // Enter commits immediately instead of waiting for blur — same small
+  // convenience the wizard's own number fields already have.
+  function commitOnEnter(input) {
+    on(input, 'keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); } });
+  }
+
   var pendingTeamCount = 2;
   on(elTeamCountDown, 'click', function () {
     pendingTeamCount = Math.max(1, pendingTeamCount - 1); // 1 team is allowed on purpose (solo / all-together play)
-    elTeamCountVal.textContent = String(pendingTeamCount);
+    elTeamCountVal.value = String(pendingTeamCount);
   });
   on(elTeamCountUp, 'click', function () {
     pendingTeamCount = Math.min(20, pendingTeamCount + 1); // matches server TEAM_COUNT_MAX
-    elTeamCountVal.textContent = String(pendingTeamCount);
+    elTeamCountVal.value = String(pendingTeamCount);
   });
+  // Typed directly rather than via +/-: same clamp as the two buttons
+  // above, falling back to the last good value on blank/garbage input.
+  on(elTeamCountVal, 'change', function () {
+    var n = parseInt(elTeamCountVal.value, 10);
+    if (!isFinite(n)) { elTeamCountVal.value = String(pendingTeamCount); return; }
+    pendingTeamCount = Math.max(1, Math.min(20, n));
+    elTeamCountVal.value = String(pendingTeamCount);
+  });
+  commitOnEnter(elTeamCountVal);
   on(elTeamSetupBtn, 'click', function () {
     send({ type: 'teamSetup', count: pendingTeamCount });
   });
 
   // Unlike team count (which needs an explicit "Set teams" to actually
   // reshuffle membership), rounds/questionsPerRound are just settings —
-  // sent immediately on each tap, same as genre/difficulty already are.
+  // sent immediately on each tap (or typed value), same as genre/
+  // difficulty already are.
   on(elRoundsDown, 'click', function () {
     if (!state.isHost) return;
     sendSettings({ rounds: Math.max(1, (state.settings.rounds || 1) - 1) });
@@ -3838,6 +3880,13 @@ input.team-name-input[type="text"]{
     if (!state.isHost) return;
     sendSettings({ rounds: Math.min(10, (state.settings.rounds || 1) + 1) });
   });
+  on(elRoundsVal, 'change', function () {
+    if (!state.isHost) { renderLobby(); return; }
+    var n = parseInt(elRoundsVal.value, 10);
+    if (!isFinite(n)) { renderLobby(); return; } // blank/garbage: put the real value back
+    sendSettings({ rounds: Math.max(1, Math.min(10, n)) });
+  });
+  commitOnEnter(elRoundsVal);
   on(elPerRoundDown, 'click', function () {
     if (!state.isHost) return;
     sendSettings({ questionsPerRound: Math.max(1, (state.settings.questionsPerRound || 10) - 1) });
@@ -3846,6 +3895,13 @@ input.team-name-input[type="text"]{
     if (!state.isHost) return;
     sendSettings({ questionsPerRound: Math.min(30, (state.settings.questionsPerRound || 10) + 1) });
   });
+  on(elPerRoundVal, 'change', function () {
+    if (!state.isHost) { renderLobby(); return; }
+    var n = parseInt(elPerRoundVal.value, 10);
+    if (!isFinite(n)) { renderLobby(); return; }
+    sendSettings({ questionsPerRound: Math.max(1, Math.min(30, n)) });
+  });
+  commitOnEnter(elPerRoundVal);
   on(elTimerDown, 'click', function () {
     if (!state.isHost) return;
     sendSettings({ questionMs: Math.max(5000, (state.settings.questionMs || 20000) - 5000) });
@@ -3854,6 +3910,13 @@ input.team-name-input[type="text"]{
     if (!state.isHost) return;
     sendSettings({ questionMs: Math.min(60000, (state.settings.questionMs || 20000) + 5000) });
   });
+  on(elTimerVal, 'change', function () {
+    if (!state.isHost) { renderLobby(); return; }
+    var n = parseInt(elTimerVal.value, 10);
+    if (!isFinite(n)) { renderLobby(); return; }
+    sendSettings({ questionMs: Math.max(5000, Math.min(60000, n * 1000)) });
+  });
+  commitOnEnter(elTimerVal);
 
   function renderTeamsPicker() {
     var wrap = elTeamsPicker;
@@ -4107,6 +4170,15 @@ input.team-name-input[type="text"]{
     mediaInput.type = 'file';
     mediaInput.accept = requiredMediaType ? requiredMediaType + '/*' : 'image/*,audio/*';
     mediaInput.className = 'quiz-media-input';
+    // The real, visible control — mediaInput itself is hidden (see
+    // .quiz-media-input) so its native "No file chosen" text, which never
+    // updates for a question loaded from an already-saved quiz, can't sit
+    // next to mediaStatus contradicting it.
+    var mediaChooseBtn = mk('button', 'chip-btn');
+    mediaChooseBtn.type = 'button';
+    mediaChooseBtn.textContent = q.media ? T('mediaReplace') : T('mediaChoose');
+    on(mediaChooseBtn, 'click', function () { mediaInput.click(); });
+    mediaWrap.appendChild(mediaChooseBtn);
     on(mediaInput, 'change', function () {
       var file = mediaInput.files && mediaInput.files[0];
       mediaInput.value = '';
