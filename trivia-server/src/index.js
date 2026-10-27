@@ -1500,19 +1500,15 @@ export class Room {
       if (g.teams.length < TEAM_COUNT_MIN) {
         return this.send(ws, { type: 'error', code: 'setupTeamsFirst', message: 'set up teams before starting' });
       }
-      // Every connected player must have a seat, or they would sit through a
-      // game with no way to ever submit an answer. The host is exempt — they
-      // moderate, never play, and onJoinTeam already refuses to seat them.
-      for (const pid of connectedSet) {
-        if (pid === g.hostId) continue;
-        if (!g.players[pid] || !g.players[pid].teamId) {
-          return this.send(ws, {
-            type: 'error',
-            code: 'needTeam',
-            message: 'everyone needs to join a team before starting',
-          });
-        }
-      }
+      // No longer a hard block: the host decides when everyone who matters
+      // is actually in, not a count of every connected socket — someone
+      // idle, half-connected, or just watching shouldn't be able to hold
+      // the whole room hostage. A connected player with no team simply
+      // can't answer once play begins (onAnswer already refuses that
+      // cleanly, 'you are not on a team') — functionally a spectator for
+      // this game, same as anyone who joined as one outright. Still their
+      // own choice not to have one: onJoinTeam stays open right up to
+      // 'question', so anyone who wants in still can, same as always.
       if (snap.source === 'custom') {
         if (!g.customQuestions || g.customQuestions.length === 0) {
           return this.send(ws, {

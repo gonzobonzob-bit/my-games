@@ -309,7 +309,9 @@ try {
   }
 
   await settle();
-  // ---- 5. starting a teams game with an unassigned player is refused ----
+  // ---- 5. the host can start a teams game with an unassigned connected
+  //         player still sitting there — that player simply can't answer,
+  //         same as a spectator, rather than holding up the whole room. --
   {
     const r = room();
     const A = new C('Ann', r); await A.connect(); await A.wait('welcome');
@@ -322,9 +324,16 @@ try {
     A.msgs.length = 0;
     A.send({ type: 'openEvent' });
     await A.waitFor((m) => m.type === 'phase' && m.phase === 'standby');
+    A.msgs.length = 0;
     A.send({ type: 'start' });
-    const err = await A.wait('error', 4000);
-    ok(err.code === 'needTeam', 'starting with an unassigned connected player is refused', err);
+    const started = await A.wait('phase', 4000);
+    ok(started.phase === 'question', 'starting with an unassigned connected player is NOT refused — the host decides', started);
+
+    const q = await B.wait('question', 4000);
+    B.msgs.length = 0;
+    B.send({ type: 'answer', index: q.index, choice: 0 });
+    const notOnTeam = await B.wait('error', 4000);
+    ok(/not on a team/i.test(notOnTeam.message || ''), 'the unassigned player gets a clear refusal if they try to answer', notOnTeam);
     A.close(); B.close();
   }
 
