@@ -778,6 +778,8 @@ export class Room {
           return await this.onCloseEvent(ws, me);
         case 'showIntro':
           return await this.onShowIntro(ws, me);
+        case 'getLastGame':
+          return this.onGetLastGame(ws, me);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -1296,6 +1298,19 @@ export class Room {
     this.reportToLobby();
   }
 
+  /* Host-only, any phase — a host checking this from standby/intro (before
+     deciding whether to start the next game) is exactly the point, not an
+     edge case to refuse. Sent to the asking socket only; last game's
+     scores are the host's business, not broadcast to a fresh lobby of
+     players who may not even be the same people. */
+  onGetLastGame(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can see last game’s results' });
+    }
+    this.send(ws, { type: 'lastGame', summary: g.lastGameSummary || null });
+  }
+
   async onStart(ws, me) {
     const g = this.game;
     if (me.id !== g.hostId) {
@@ -1581,6 +1596,11 @@ export class Room {
 
   async beginQuestion(index) {
     const g = this.game;
+    // The one place both start paths (genre-sourced and custom) funnel
+    // through for question 0 — resetting here instead of in each of
+    // onStart's branches means a fresh game always starts a fresh
+    // history, with nowhere a third start path could forget to do it.
+    if (index === 0) g.questionHistory = [];
     g.qIndex = index;
     g.phase = 'question';
     g.answers = {};
@@ -1704,6 +1724,17 @@ export class Room {
         roundTotal: g.settings.rounds,
         isRoundEnd: isRoundEnd && !isGameEnd,
       };
+      // Names snapshotted NOW, not read back out of g.teams later — a team
+      // renamed (or removed) after this question is answered shouldn't
+      // rewrite what the history says it was called at the time.
+      if (!Array.isArray(g.questionHistory)) g.questionHistory = [];
+      g.questionHistory.push({
+        text: q.text, category: q.category || null, choices: q.choices, correctIndex: q.correctIndex,
+        perTeam: perTeam.map((e) => ({
+          id: e.id, name: (g.teams.find((t) => t.id === e.id) || {}).name || '',
+          choice: e.choice, correct: e.correct, gained: e.gained,
+        })),
+      });
       await this.save();
       await this.ctx.storage.deleteAlarm();
 
@@ -1739,6 +1770,14 @@ export class Room {
       type: 'reveal', mode: 'classic', correctIndex: q.correctIndex, perPlayer, scores,
       nextAt: g.nextAt,
     };
+    if (!Array.isArray(g.questionHistory)) g.questionHistory = [];
+    g.questionHistory.push({
+      text: q.text, category: q.category || null, choices: q.choices, correctIndex: q.correctIndex,
+      perPlayer: perPlayer.map((e) => ({
+        id: e.id, name: (g.players[e.id] || {}).name || '',
+        choice: e.choice, correct: e.correct, gained: e.gained,
+      })),
+    });
     await this.save();
     await this.ctx.storage.setAlarm(g.nextAt);
 
@@ -1765,6 +1804,19 @@ export class Room {
     g.endsAt = 0;
     g.nextAt = 0;
     await this.ctx.storage.deleteAlarm();
+    // Snapshotted here, not read live off g.questionHistory/g.teams/
+    // g.players later — onStart's own score-reset + a fresh
+    // g.questionHistory (beginQuestion(0)) would otherwise blank this out
+    // the moment the NEXT game actually begins, not when the host asks to
+    // see it. Lives in g itself (same persistence as everything else here,
+    // no new storage) and stays until the next finish() overwrites it —
+    // "until a new game starts" is the minimum guarantee, not a deadline
+    // this actively enforces.
+    g.lastGameSummary = {
+      ...this.finalMessage(),
+      questions: Array.isArray(g.questionHistory) ? g.questionHistory : [],
+      finishedAt: Date.now(),
+    };
     await this.save();
 
     this.broadcast({ type: 'phase', phase: 'final' });

@@ -532,6 +532,43 @@ body[data-screen="landing"] .hud{ display:none; }
   font-size:var(--fs-body); color:var(--paper-100); line-height:1.4;
 }
 .intro-panel-list li::before{ content:'•'; color:var(--amber); flex:0 0 auto; }
+
+/* --- Last game results: a plain overlay modal, the app's only one, so no
+   shared .modal system to lean on — built from the same card/chip-btn
+   vocabulary as everything else rather than inventing a second one. --- */
+.modal-overlay{
+  position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  padding:var(--sp-4); background:rgba(0,0,0,.6);
+}
+.modal-card{
+  width:100%; max-width:560px; max-height:85vh; display:flex; flex-direction:column;
+  background:var(--ink-800); border:1px solid var(--hair); border-radius:var(--r-lg);
+  overflow:hidden;
+}
+.modal-head{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+  padding:var(--sp-4); border-bottom:1px solid var(--hair);
+}
+.modal-title{ font-size:var(--fs-name); font-weight:700; color:var(--paper-100); }
+.modal-head-actions{ display:flex; gap:var(--sp-2); flex-wrap:wrap; justify-content:flex-end; }
+.modal-body{ flex:1 1 auto; overflow-y:auto; padding:var(--sp-4); display:flex; flex-direction:column; gap:var(--sp-4); }
+.lg-standings{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:var(--sp-2); }
+.lg-standings li{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-3); border-radius:var(--r-md); background:var(--ink-700);
+  color:var(--paper-100); font-weight:600;
+}
+.lg-standings li .lg-score{ font-family:var(--font-num); color:var(--amber); }
+.lg-q{ padding:var(--sp-3); border-radius:var(--r-md); background:var(--ink-700); border:1px solid var(--hair); }
+.lg-q-text{ font-weight:600; color:var(--paper-100); margin-bottom:var(--sp-2); }
+.lg-q-correct{ font-size:var(--fs-micro); color:var(--amber); margin-bottom:var(--sp-2); }
+.lg-q-rows{ display:flex; flex-wrap:wrap; gap:6px; }
+.lg-q-row{
+  font-size:var(--fs-micro); padding:4px 10px; border-radius:var(--r-pill);
+  background:var(--ink-800); border:1px solid var(--hair); color:var(--slate-300);
+}
+.lg-q-row.ok{ color:#2BE39A; border-color:rgba(43,227,154,.4); }
+.lg-q-row.no{ color:var(--slate-400); }
 /* --- Event wizard: one decision per screen, big plain-language controls --- */
 .wiz{ margin:auto; width:100%; max-width:600px; display:flex; flex-direction:column; gap:var(--sp-4); }
 .wiz-progress{ display:flex; gap:6px; }
@@ -1661,6 +1698,19 @@ input.team-name-input[type="text"]{
         <button type="button" class="chip-btn" id="copyBtn">Copy the invite link</button>
         <button type="button" class="chip-btn" id="hostCodeBtn" hidden>Copy host code</button>
         <button type="button" class="chip-btn" id="downloadInfoBtn" hidden>Download event info</button>
+        <button type="button" class="chip-btn" id="lastGameBtn" hidden>Last game</button>
+      </div>
+      <div class="modal-overlay" id="lastGameOverlay" hidden>
+        <div class="modal-card">
+          <div class="modal-head">
+            <div class="modal-title" id="lastGameTitle">Last game</div>
+            <span class="modal-head-actions">
+              <button type="button" class="chip-btn" id="lastGameDownloadBtn">Download results</button>
+              <button type="button" class="chip-btn" id="lastGameCloseBtn">Close</button>
+            </span>
+          </div>
+          <div class="modal-body" id="lastGameBody"></div>
+        </div>
       </div>
       <div class="standby-banner" id="standbyBanner" hidden>
         <span class="onair" aria-hidden="true"></span>
@@ -2031,6 +2081,12 @@ input.team-name-input[type="text"]{
       wizHostCodeNote: 'Save the host code too — it’s how you get back in as host if you lose connection.',
       wizNextSteps: 'Next: open the lobby and tap “#1” so people can join and pick a team. When everyone’s in, tap “#2”.',
       downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.',
+      lastGameBtn: 'Last game', lastGameTitle: 'Last game', lastGameClose: 'Close',
+      lastGameNone: 'No previous game in this room yet.',
+      lastGameDownloadBtn: 'Download results', lastGameDownloaded: 'Saved — check your downloads.',
+      lastGameStandings: 'Final standings', lastGameQuestions: 'Questions',
+      lastGameCorrectOf: '# of # correct', lastGameCorrectAnswer: 'Correct answer: #',
+      lastGameNoAnswer: 'No answer',
       mediaNone: 'No photo or sound', mediaAttached: '# attached', mediaRemove: 'Remove',
       mediaChoose: 'Choose file', mediaReplace: 'Replace file',
       mediaType_image: 'Photo', mediaType_audio: 'Sound',
@@ -2173,6 +2229,12 @@ input.team-name-input[type="text"]{
       wizHostCodeNote: 'Guarda también el código de anfitrión: con él recuperas tu puesto si pierdes la conexión.',
       wizNextSteps: 'Después: abre la sala y toca “#1” para que la gente se una y elija equipo. Cuando todos estén, toca “#2”.',
       downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.',
+      lastGameBtn: 'Última partida', lastGameTitle: 'Última partida', lastGameClose: 'Cerrar',
+      lastGameNone: 'Todavía no hay una partida anterior en esta sala.',
+      lastGameDownloadBtn: 'Descargar resultados', lastGameDownloaded: 'Guardado — revisa tus descargas.',
+      lastGameStandings: 'Clasificación final', lastGameQuestions: 'Preguntas',
+      lastGameCorrectOf: '# de # correctas', lastGameCorrectAnswer: 'Respuesta correcta: #',
+      lastGameNoAnswer: 'Sin respuesta',
       mediaNone: 'Sin foto ni sonido', mediaAttached: '# adjunto', mediaRemove: 'Quitar',
       mediaChoose: 'Elegir archivo', mediaReplace: 'Reemplazar archivo',
       mediaType_image: 'Foto', mediaType_audio: 'Sonido',
@@ -2360,6 +2422,9 @@ input.team-name-input[type="text"]{
       elCodeTiles = $('codeTiles'), elLobbyPlayers = $('lobbyPlayers'),
       elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
       elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elDownloadInfoBtn = $('downloadInfoBtn'),
+      elLastGameBtn = $('lastGameBtn'), elLastGameOverlay = $('lastGameOverlay'),
+      elLastGameTitle = $('lastGameTitle'), elLastGameBody = $('lastGameBody'),
+      elLastGameCloseBtn = $('lastGameCloseBtn'), elLastGameDownloadBtn = $('lastGameDownloadBtn'),
       elStandbyBanner = $('standbyBanner'), elStandbyBannerText = $('standbyBannerText'),
       elEditSetupBtn = $('editSetupBtn'),
       elShowIntroBtn = $('showIntroBtn'),
@@ -2686,6 +2751,10 @@ input.team-name-input[type="text"]{
     set('hostRecoverToggle', 'recoveringHost');
     set('hostCodeBtn', 'copyHostCode');
     set('downloadInfoBtn', 'downloadInfo');
+    set('lastGameBtn', 'lastGameBtn');
+    set('lastGameTitle', 'lastGameTitle');
+    set('lastGameCloseBtn', 'lastGameClose');
+    set('lastGameDownloadBtn', 'lastGameDownloadBtn');
     var hostCodeLabel = elHostRecoverField && elHostRecoverField.querySelector('.field-label');
     if (hostCodeLabel) hostCodeLabel.textContent = T('hostCode');
     if (elHostTokenInput) elHostTokenInput.placeholder = T('pasteHostCode');
@@ -3252,6 +3321,10 @@ input.team-name-input[type="text"]{
     // has actually sent it — never guess it is there just because we are host.
     if (elHostCodeBtn) elHostCodeBtn.hidden = !(state.isHost && state.hostToken);
     if (elDownloadInfoBtn) elDownloadInfoBtn.hidden = !(state.isHost && state.hostToken);
+    // Host-only, any phase this screen renders in (lobby/standby/intro) —
+    // whether a previous game actually exists is found out on click, not
+    // guessed here; a host with nothing to show yet just gets told so.
+    if (elLastGameBtn) elLastGameBtn.hidden = !state.isHost;
     // A readout is not a button, and screen readers should not be told it is.
     elGenreSlot.disabled = !state.isHost;
     elDiffSlot.disabled = !state.isHost;
@@ -5892,6 +5965,17 @@ input.team-name-input[type="text"]{
         }
         break;
 
+      // Answers getLastGameBtn's request — host-only server-side too, but
+      // the button itself is already hidden from anyone else. Opens the
+      // panel either way: a host with nothing to show yet still gets a
+      // clear "no previous game" inside it, not a bare toast that could
+      // read as the click doing nothing.
+      case 'lastGame':
+        lastGameSummary = msg.summary || null;
+        renderLastGamePanel(lastGameSummary);
+        if (elLastGameOverlay) elLastGameOverlay.hidden = false;
+        break;
+
       case 'reveal':
         state.phase = 'reveal';
         // The server advances on its own at nextAt; the client only draws
@@ -6437,18 +6521,119 @@ input.team-name-input[type="text"]{
     }
     lines.push('');
     lines.push('Saved ' + new Date().toLocaleString());
+    downloadTextFile('late-signal-' + state.code + '.txt', lines);
+    toast(T('eventInfoDownloaded'));
+  });
 
+  // Shared by elDownloadInfoBtn above and the Last Game panel below — the
+  // only two things in this app a host saves to disk.
+  function downloadTextFile(filename, lines) {
     var blob = new Blob([lines.join('\n')], { type: 'text/plain' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'late-signal-' + state.code + '.txt';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    toast(T('eventInfoDownloaded'));
+  }
+
+  // Host-only "Last game" results: fetched fresh on open (not cached from
+  // some earlier push — the host may open this minutes after the game
+  // ended, or after a page reload), shown in a plain overlay modal, and
+  // downloadable as the exact same lines the panel renders from.
+  var lastGameSummary = null;
+  on(elLastGameBtn, 'click', function () {
+    send({ type: 'getLastGame' });
   });
+  on(elLastGameCloseBtn, 'click', function () {
+    if (elLastGameOverlay) elLastGameOverlay.hidden = true;
+  });
+  function lastGameLines(summary) {
+    var lines = ['LATE SIGNAL — last game results', '', 'Room code: ' + state.code, ''];
+    lines.push(T('lastGameStandings') + ':');
+    for (var i = 0; i < summary.standings.length; i++) {
+      var s = summary.standings[i];
+      var total = summary.questions.length;
+      var got = summary.questions.filter(function (q) {
+        var rows = summary.mode === 'teams' ? q.perTeam : q.perPlayer;
+        var row = rows && rows.filter(function (r) { return r.id === s.id; })[0];
+        return row && row.correct;
+      }).length;
+      lines.push('  ' + (i + 1) + '. ' + s.name + ' — ' + s.score +
+        ' (' + T('lastGameCorrectOf').replace('#', got).replace('#', total) + ')');
+    }
+    lines.push('');
+    lines.push(T('lastGameQuestions') + ':');
+    for (var qi = 0; qi < summary.questions.length; qi++) {
+      var q2 = summary.questions[qi];
+      lines.push('');
+      lines.push((qi + 1) + '. ' + q2.text);
+      lines.push('   ' + T('lastGameCorrectAnswer').replace('#', q2.choices[q2.correctIndex]));
+      var rows2 = summary.mode === 'teams' ? q2.perTeam : q2.perPlayer;
+      (rows2 || []).forEach(function (r) {
+        lines.push('   - ' + r.name + ': ' + (r.correct ? '✓' : (r.choice === null ? T('lastGameNoAnswer') : '✗')));
+      });
+    }
+    lines.push('');
+    lines.push('Saved ' + new Date().toLocaleString());
+    return lines;
+  }
+  on(elLastGameDownloadBtn, 'click', function () {
+    if (!lastGameSummary) return;
+    downloadTextFile('late-signal-' + state.code + '-results.txt', lastGameLines(lastGameSummary));
+    toast(T('lastGameDownloaded'));
+  });
+  function renderLastGamePanel(summary) {
+    if (!elLastGameBody) return;
+    elLastGameBody.textContent = '';
+    if (elLastGameDownloadBtn) elLastGameDownloadBtn.hidden = !summary;
+    if (!summary) {
+      var p = mk('p', 'lg-q-text');
+      p.textContent = T('lastGameNone');
+      elLastGameBody.appendChild(p);
+      return;
+    }
+    var standTitle = mk('div', 'micro');
+    standTitle.textContent = T('lastGameStandings');
+    elLastGameBody.appendChild(standTitle);
+    var ul = mk('ul', 'lg-standings');
+    summary.standings.forEach(function (s) {
+      var total = summary.questions.length;
+      var got = summary.questions.filter(function (q) {
+        var rows = summary.mode === 'teams' ? q.perTeam : q.perPlayer;
+        var row = rows && rows.filter(function (r) { return r.id === s.id; })[0];
+        return row && row.correct;
+      }).length;
+      var li = mk('li');
+      var name = mk('span'); name.textContent = s.name + ' — ' + T('lastGameCorrectOf').replace('#', got).replace('#', total);
+      var score = mk('span', 'lg-score'); score.textContent = String(s.score);
+      li.appendChild(name); li.appendChild(score);
+      ul.appendChild(li);
+    });
+    elLastGameBody.appendChild(ul);
+
+    var qTitle = mk('div', 'micro');
+    qTitle.textContent = T('lastGameQuestions');
+    elLastGameBody.appendChild(qTitle);
+    summary.questions.forEach(function (q, qi) {
+      var card = mk('div', 'lg-q');
+      var text = mk('div', 'lg-q-text'); text.textContent = (qi + 1) + '. ' + q.text;
+      var correct = mk('div', 'lg-q-correct');
+      correct.textContent = T('lastGameCorrectAnswer').replace('#', q.choices[q.correctIndex]);
+      var rowsWrap = mk('div', 'lg-q-rows');
+      var rows = summary.mode === 'teams' ? q.perTeam : q.perPlayer;
+      (rows || []).forEach(function (r) {
+        var chip = mk('span', 'lg-q-row ' + (r.correct ? 'ok' : 'no'));
+        chip.textContent = r.name + (r.correct ? ' ✓' : (r.choice === null ? ' (' + T('lastGameNoAnswer') + ')' : ' ✗'));
+        rowsWrap.appendChild(chip);
+      });
+      card.appendChild(text); card.appendChild(correct); card.appendChild(rowsWrap);
+      elLastGameBody.appendChild(card);
+    });
+  }
+
   on(elBackBtn, 'click', function () {
     if (elBackBtn.disabled) return;
     goLanding(false);

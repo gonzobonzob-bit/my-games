@@ -53,8 +53,18 @@ try {
   const B = new C('Bea', r); await B.connect(); await B.wait('welcome');
   const Cat = new C('Cat', r); await Cat.connect(); await Cat.wait('welcome');
 
-  A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'genre', rounds: 1, questionsPerRound: 1, questionMs: 20000 } });
+  // source: 'custom', not 'genre' — a known question text/answer, so the
+  // test can locate the correct choice by what it SAYS post-shuffle
+  // (same as a player who already knows the answer would), rather than
+  // needing a hidden correctIndex THE INVARIANT never sends.
+  A.send({ type: 'settings', settings: { genre: 'mixed', difficulty: 'any', mode: 'teams', source: 'custom', rounds: 1, questionsPerRound: 1, questionMs: 20000 } });
   await A.waitFor((m) => m.type === 'settings' && m.settings.mode === 'teams');
+  A.send({
+    type: 'questions', items: [
+      { text: 'Capital of France?', choices: ['Paris', 'Rome', 'Berlin', 'Madrid'], correctIndex: 0 },
+    ],
+  });
+  await A.wait('customQuestions');
 
   A.send({ type: 'teamSetup', count: 2, names: ['Red', 'Blue'] });
   const r1 = await A.waitFor((m) => m.type === 'roster' && Array.isArray(m.teams) && m.teams.length === 2);
@@ -70,15 +80,16 @@ try {
   const q = await B.wait('question');
   const startedAt = Date.now();
 
-  // Both teams answer almost immediately — a 20s question, answered inside
-  // the first second, should score close to the full speed bonus (BASE
-  // 500 + up to 500 more) if (and only if) doReveal() is scoring off the
-  // ORIGINAL 20s deadline rather than the ~5s one triggerEarlyReveal() sets
-  // for the alarm.
+  // Both teams answer CORRECTLY almost immediately — a 20s question,
+  // answered inside the first second, should score close to the full
+  // speed bonus (BASE 500 + up to 500 more) if (and only if) doReveal()
+  // is scoring off the ORIGINAL 20s deadline rather than the ~5s one
+  // triggerEarlyReveal() sets for the alarm.
+  const correctChoice = q.choices.indexOf('Paris');
   B.msgs.length = 0; Cat.msgs.length = 0;
-  B.send({ type: 'answer', index: q.index, choice: 0 });
+  B.send({ type: 'answer', index: q.index, choice: correctChoice });
   await sleep(200);
-  Cat.send({ type: 'answer', index: q.index, choice: 0 });
+  Cat.send({ type: 'answer', index: q.index, choice: correctChoice });
 
   const flash = await B.wait('allAnswered', 3000);
   const flashAt = Date.now();
