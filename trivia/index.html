@@ -647,7 +647,11 @@ body[data-screen="landing"] .hud{ display:none; }
   font-weight:800; letter-spacing:.16em; text-transform:uppercase; text-align:center;
   transition:border-color var(--d-state) var(--ease-out-soft), background var(--d-state) var(--ease-out-soft),
              color var(--d-state) var(--ease-out-soft);
+  /* Now a real <button> (it toggles the mic) — resets the native chrome
+     every property above doesn't already override. */
+  font-family:inherit; cursor:pointer; -webkit-appearance:none; appearance:none;
 }
+.air-sign:hover{ border-color:var(--hair-strong); }
 .air-lamp{
   width:44px; height:44px; border-radius:50%; flex:0 0 auto;
   background:var(--ink-600); box-shadow:inset 0 0 0 2px rgba(255,255,255,.06);
@@ -1889,10 +1893,10 @@ input.team-name-input[type="text"]{
     </div>
   </section>
 
-  <aside class="air-sign" id="airSign" data-air="off" role="status" aria-live="polite">
+  <button type="button" class="air-sign" id="airSign" data-air="off" aria-pressed="false">
     <span class="air-lamp" aria-hidden="true"></span>
     <span class="air-text" id="airText">OFF AIR</span>
-  </aside>
+  </button>
 </main>
 
 <div class="studio" id="studio" aria-hidden="true"></div>
@@ -2722,6 +2726,7 @@ input.team-name-input[type="text"]{
     if (!sign) return;
     var on = Voice.isEnabled();
     sign.dataset.air = on ? 'on' : 'off';
+    sign.setAttribute('aria-pressed', on ? 'true' : 'false');
     var t = $('airText');
     if (t) t.textContent = T(on ? 'airOn' : 'airOff');
   }
@@ -5662,15 +5667,40 @@ input.team-name-input[type="text"]{
 
     function channelByte(ch) { return ch === 'host' ? 1 : ch === 'team' ? 2 : 0; }
 
-    function enable() {
+    // silent: true for the automatic on-join attempt (paintMic() below) —
+    // a failure or denial there is not news to someone who never asked for
+    // it, unlike a failure right after they tapped the mic/ON AIR sign
+    // themselves, which still gets every toast below exactly as before.
+    function enable(silent) {
       if (enabled) return;
       channel = myChannel();
-      if (!channel) { toast(T('voiceNothingToTalkTo'), true); return; }
+      if (!channel) { if (!silent) toast(T('voiceNothingToTalkTo'), true); return; }
       var c = getCtx();
-      if (!c) { toast(T('voiceUnsupported'), true); return; }
+      if (!c) { if (!silent) toast(T('voiceUnsupported'), true); return; }
+      // Missing entirely (an insecure context, a headless/CI browser with no
+      // media stack) throws SYNCHRONOUSLY on the property lookup below, not
+      // via the rejected-promise .catch() — same "unsupported" case as
+      // !c above, just caught before ever reaching the call that would throw.
+      // Matters more now than it used to: this can fire automatically from
+      // paintMic() (see the auto-enable-on-join call site), not only from
+      // the mic button's own click handler, so a throw here would otherwise
+      // corrupt whatever render pass happened to trigger it.
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (!silent) toast(T('voiceUnsupported'), true);
+        return;
+      }
       enabled = true;
       paintMic();
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var getUserMediaPromise;
+      try {
+        getUserMediaPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        enabled = false;
+        paintMic();
+        if (!silent) toast(T('voiceMicDenied'), true);
+        return;
+      }
+      getUserMediaPromise.then(function (stream) {
         if (!enabled) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
         micStream = stream;
         source = c.createMediaStreamSource(stream);
@@ -5719,7 +5749,7 @@ input.team-name-input[type="text"]{
       }).catch(function () {
         enabled = false;
         paintMic();
-        toast(T('voiceMicDenied'), true);
+        if (!silent) toast(T('voiceMicDenied'), true);
       });
     }
 
@@ -5798,10 +5828,25 @@ input.team-name-input[type="text"]{
     };
   })();
 
+  // One-shot: the mic comes up live the moment there's actually a channel
+  // to talk on (host seat claimed, or a teams-mode player lands on a
+  // team) — a deliberate tap is then only needed to go OFF air, not to
+  // start. Never retried after this first attempt, on purpose: a host
+  // who explicitly mutes isn't re-prompted for the mic permission again
+  // the next time a roster broadcast happens to repaint this.
+  var voiceAutoTried = false;
   function paintMic() {
     if (!elMicBtn) return;
     var ch = Voice.myChannel();
     elMicBtn.hidden = !ch;
+    if (ch && !voiceAutoTried && !Voice.isEnabled()) {
+      voiceAutoTried = true;
+      // Voice.enable() now guards its own synchronous failure modes, but
+      // this call site is the reason that guard had to exist at all —
+      // belt and suspenders, since paintMic() runs inside render chains
+      // an uncaught throw here would otherwise cut short.
+      try { Voice.enable(true); } catch (e) {}
+    }
     paintAir(); // mic availability/state changed either way — keep the sign current
     if (!ch) return;
     var on = Voice.isEnabled();
@@ -5823,6 +5868,10 @@ input.team-name-input[type="text"]{
   }
 
   on(elMicBtn, 'click', function () { Voice.toggle(); });
+  // The sign IS the mic's own indicator now (paintAir) — toggling what it
+  // shows is the obvious thing tapping it should do, same action as the
+  // dedicated mic button.
+  on($('airSign'), 'click', function () { Voice.toggle(); });
   on(elWhisperBtn, 'click', function () {
     if (!elWhisperField) return;
     elWhisperField.hidden = !elWhisperField.hidden;
@@ -6478,6 +6527,7 @@ input.team-name-input[type="text"]{
     seenPlayerIds = Object.create(null);
     quizDraft = [];
     quizDraftRequested = false;
+    voiceAutoTried = false;
     elHudCodeText.textContent = code;
     // The watch flag rides in the hash so a spectator who reloads comes back
     // as a spectator, not as a player knocking on a mid-game door.
