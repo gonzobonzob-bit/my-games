@@ -1664,12 +1664,16 @@ input.team-name-input[type="text"]{
         <span class="onair" aria-hidden="true"></span>
         <span id="standbyBannerText">Doors are open — come on in!</span>
         <button type="button" class="chip-btn" id="showIntroBtn" hidden>How to play</button>
-        <button type="button" class="chip-btn" id="editSetupBtn" hidden>Edit setup</button>
       </div>
       <div class="intro-panel" id="introPanel" hidden>
         <div class="intro-panel-title" id="introPanelTitle">How to play</div>
         <ul class="intro-panel-list" id="introPanelList"></ul>
       </div>
+      <!-- Outside both of the above on purpose — standby and intro are both
+           "config locked" (isLocked), and the host's way back to the config
+           screen shouldn't disappear just because the how-to-play panel has
+           visually replaced the standby banner. -->
+      <button type="button" class="chip-btn" id="editSetupBtn" hidden>Edit setup</button>
       <div class="callsheet" id="callSheet">
         <button type="button" class="slot" id="genreSlot">
           <span class="slot-k">Genre</span>
