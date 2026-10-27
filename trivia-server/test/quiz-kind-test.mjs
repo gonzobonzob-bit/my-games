@@ -199,11 +199,13 @@ try {
       var m = document.getElementById('questionMedia');
       var a = m ? m.querySelector('audio') : null;
       var img = m ? m.querySelector('img') : null;
-      var ar = a ? a.getBoundingClientRect() : null;
+      var replayBtn = m ? m.querySelector('.q-replay-btn') : null;
       var ir = img ? img.getBoundingClientRect() : null;
+      var rr = replayBtn ? replayBtn.getBoundingClientRect() : null;
       return {
         hero: m ? m.classList.contains('q-media--hero') : false,
-        hasAudio: !!a, audioWidth: ar ? ar.width : 0, audioHeight: ar ? ar.height : 0,
+        hasAudio: !!a, audioControls: a ? a.controls : null,
+        hasReplayBtn: !!replayBtn, replayWidth: rr ? rr.width : 0, replayHeight: rr ? rr.height : 0,
         imgSrc: img ? img.src.slice(0, 20) : null, imgWidth: ir ? ir.width : 0, imgHeight: ir ? ir.height : 0,
         cat: document.getElementById('catText').textContent,
       };
@@ -213,7 +215,12 @@ try {
     ok(q.hero === true, 'question gets the hero-sized media class', q);
     if (/Name This Tune/.test(q.cat)) {
       ok(q.hasAudio === true, 'Tune question renders an <audio> element', q);
-      ok(q.audioWidth > 0 && q.audioHeight > 0, 'the <audio> control actually has visible size, not 0x0', q);
+      // Native controls are deliberately hidden for a tune clip — the host's
+      // own "Play again" button (visible here: this tab IS the host) is the
+      // replacement, not a second way to see the same audio element.
+      ok(q.audioControls === false, 'the <audio> element has no native controls (host replay button instead)', q);
+      ok(q.hasReplayBtn === true, 'the host sees a "Play again" button for the clip', q);
+      ok(q.replayWidth > 0 && q.replayHeight > 0, 'the "Play again" button actually has visible size, not 0x0', q);
       return 'tune';
     }
     if (/Picture Round/.test(q.cat)) {

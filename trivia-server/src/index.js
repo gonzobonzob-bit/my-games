@@ -276,8 +276,8 @@ export class Room {
     // what lets the room introduce itself to the lobby directory.
     const code = (url.searchParams.get('code') || '').toUpperCase();
     if (ROOM_CODE.test(code) && g.code !== code) g.code = code;
-    const name = sanitizeName(url.searchParams.get('name'));
-    const key = name.toLowerCase();
+    let name = sanitizeName(url.searchParams.get('name'));
+    let key = name.toLowerCase();
 
     // Spectators: same room, same broadcasts, no seat and no say. Accepted in
     // any phase — that is the watch party — and attached with a flag instead
@@ -315,6 +315,26 @@ export class Room {
     if (isPreGame(g.phase)) this.pruneDisconnected();
 
     let player = Object.values(g.players).find((p) => p.key === key);
+    // A name match is only a reconnect if the player it matches isn't
+    // ALREADY live right now — a second, different person typing the
+    // exact same name is common enough (two "John"s at the same event) to
+    // design for, not an edge case, and the old behavior here used to
+    // silently close the first John's socket and hand his seat to the
+    // second. Auto-suffixed instead ("John" -> "John-2"), same idea as a
+    // filename collision, checked against every CURRENT key so a third
+    // "John" lands on "John-3", not fighting the second for "John-2".
+    if (player && this.connectedPids().has(player.id)) {
+      const existingKeys = new Set(Object.values(g.players).map((p) => p.key));
+      let suffix = 2;
+      while (existingKeys.has(key + '-' + suffix)) suffix++;
+      const tag = '-' + suffix;
+      // Trimmed to fit the same 16-char cap sanitizeName() already
+      // enforces — "John" stays "John-2", but a name already at the cap
+      // loses just enough of its own end for the tag to still fit.
+      name = name.slice(0, 16 - tag.length) + tag;
+      key = name.toLowerCase();
+      player = null;
+    }
     const rejoin = Boolean(player);
 
     if (!player) {
@@ -778,12 +798,18 @@ export class Room {
           return await this.onCloseEvent(ws, me);
         case 'showIntro':
           return await this.onShowIntro(ws, me);
+        case 'backToStandby':
+          return await this.onBackToStandby(ws, me);
         case 'getLastGame':
           return this.onGetLastGame(ws, me);
+        case 'getCustomQuestions':
+          return this.onGetCustomQuestions(ws, me);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
           return await this.onAnswer(ws, me, data);
+        case 'replayMedia':
+          return this.onReplayMedia(ws, me);
         case 'next':
           return await this.onNext(ws, me);
         case 'again':
@@ -1200,7 +1226,27 @@ export class Room {
     await this.save();
     // Count only — the text/choices are not re-broadcast, so a quiz loaded
     // in the lobby cannot be read ahead of time by a player scrolling back.
+    // The host gets the real content back, but only on request and only to
+    // them — see getCustomQuestions below.
     this.broadcast({ type: 'customQuestions', count: g.customQuestions.length });
+  }
+
+  /* Host-only, lobby-only, sent to the asking socket alone — the other
+     half of the above. A saved quiz used to go write-only the moment it
+     was saved: the editor never re-populated from g.customQuestions (not
+     even for the host who wrote it), so reopening it after a game, a
+     reconnect, or a reload showed a blank editor with nothing but a "3
+     questions saved" count and no way to see or change what they were
+     short of retyping the whole thing from memory. */
+  onGetCustomQuestions(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can see the saved quiz' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'edit setup to change the quiz' });
+    }
+    this.send(ws, { type: 'customQuestionsFull', items: Array.isArray(g.customQuestions) ? g.customQuestions : [] });
   }
 
   /* "List publicly" — DEFAULT OFF, and the default is the security model:
@@ -1295,6 +1341,28 @@ export class Room {
     g.phase = 'intro';
     await this.save();
     this.broadcast({ type: 'phase', phase: 'intro' });
+    this.reportToLobby();
+  }
+
+  /* Intro-only, host-only — steps back exactly one beat, same idea as
+     onShowIntro's forward step but in reverse. Deliberately lighter than
+     onCloseEvent: that one undoes "doors open" too (back to 'lobby',
+     config reopened); this one only undoes "how-to-play is showing,"
+     leaving the doors open and the room exactly as it was in standby.
+     Nothing past 'question' ever reaches here — onStart is the only way
+     out of intro/standby forward, and once it fires the room is in
+     'question', where this (like onShowIntro) simply refuses. */
+  async onBackToStandby(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can go back' });
+    }
+    if (g.phase !== 'intro') {
+      return this.send(ws, { type: 'error', message: 'nothing to go back from' });
+    }
+    g.phase = 'standby';
+    await this.save();
+    this.broadcast({ type: 'phase', phase: 'standby' });
     this.reportToLobby();
   }
 
@@ -1548,6 +1616,30 @@ export class Room {
     this.broadcast({ type: 'answered', playerId: me.id });
 
     if (this.allConnectedAnswered()) await this.triggerEarlyReveal();
+  }
+
+  /* Question-phase-only, host-only — a Name This Tune clip autoplays once
+     when the question appears (client-side) and otherwise carries no
+     per-player controls, by design: this is the host's shared moment to
+     replay, not something each player scrubs independently. "before the
+     time runs out" is exactly phase === 'question' — once revealed (early
+     or at the clock), this naturally refuses, same gate onAnswer already
+     closes the window on. No state changes here at all; this only ever
+     tells every connected client to replay the SAME clip they already
+     have, matching index so nobody confuses it for a mid-question push. */
+  onReplayMedia(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can replay the clip' });
+    }
+    if (g.phase !== 'question') {
+      return this.send(ws, { type: 'error', message: 'nothing to replay right now' });
+    }
+    const q = g.questions[g.qIndex];
+    if (!q || q.kind !== 'tune') {
+      return this.send(ws, { type: 'error', message: 'this question has no clip to replay' });
+    }
+    this.broadcast({ type: 'replayMedia', index: g.qIndex });
   }
 
   /* Since auto-advance, 'next' is a skip, not a necessity: the reveal alarm

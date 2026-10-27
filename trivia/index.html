@@ -527,6 +527,7 @@ body[data-screen="landing"] .hud{ display:none; }
   color:var(--amber); margin-bottom:var(--sp-3);
 }
 .intro-panel-list{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:var(--sp-2); }
+#backToStandbyBtn{ margin-top:var(--sp-3); }
 .intro-panel-list li{
   display:flex; gap:var(--sp-2); align-items:flex-start;
   font-size:var(--fs-body); color:var(--paper-100); line-height:1.4;
@@ -1138,6 +1139,7 @@ input.team-name-input[type="text"]{
 .q-media--hero{ max-width:min(480px, 90vw); }
 .q-media--hero img{ max-height:360px; }
 .q-media--hero audio{ width:420px; max-width:90vw; }
+.q-replay-btn{ margin-top:var(--sp-3); }
 .quiz-media{ display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
 /* The native file input's own "No file chosen" text can't be changed or
    suppressed by CSS/JS, and reads as a contradiction sitting right next to
@@ -1720,6 +1722,7 @@ input.team-name-input[type="text"]{
       <div class="intro-panel" id="introPanel" hidden>
         <div class="intro-panel-title" id="introPanelTitle">How to play</div>
         <ul class="intro-panel-list" id="introPanelList"></ul>
+        <button type="button" class="chip-btn" id="backToStandbyBtn" hidden>Back</button>
       </div>
       <!-- Outside both of the above on purpose — standby and intro are both
            "config locked" (isLocked), and the host's way back to the config
@@ -1969,6 +1972,7 @@ input.team-name-input[type="text"]{
       couldNotReach: 'Could not reach the room. Retrying…',
       openElsewhere: 'This room is open in another tab or device.', playHere: 'Play here',
       inviteCopied: 'Invite link copied.', wentWrong: 'Something went wrong.',
+      nameTaken: 'That name is taken in this room — you joined as #.',
       quizToast1: 'Quiz saved — 1 question.', quizToastN: 'Quiz saved — # questions.',
       pickName: 'Pick a name first — up to 16 characters.',
       badCode: 'A room code is 4 to 6 letters or digits.',
@@ -1982,7 +1986,7 @@ input.team-name-input[type="text"]{
       startGame: 'Start game', startSolo: 'Start solo game', starting: 'Starting…',
       startEvent: 'Start event',
       standbyBanner: 'Doors are open — come on in!',
-      showIntroBtn: 'How to play',
+      showIntroBtn: 'How to play', backToStandbyBtn: 'Back',
       introTitle: 'How to play',
       introTapAnswer: 'When a question appears, tap your answer before the timer runs out.',
       introCaptain: 'Only your team captain’s tap counts for the team — anyone can claim captain from the waiting room before kickoff.',
@@ -2088,6 +2092,7 @@ input.team-name-input[type="text"]{
       lastGameCorrectOf: '# of # correct', lastGameCorrectAnswer: 'Correct answer: #',
       lastGameNoAnswer: 'No answer',
       mediaNone: 'No photo or sound', mediaAttached: '# attached', mediaRemove: 'Remove',
+      replayClip: '▶ Play again',
       mediaChoose: 'Choose file', mediaReplace: 'Replace file',
       mediaType_image: 'Photo', mediaType_audio: 'Sound',
       mediaBadType: 'Only photos and sound clips are supported right now (video needs an upgrade still pending).',
@@ -2117,6 +2122,7 @@ input.team-name-input[type="text"]{
       couldNotReach: 'No se pudo llegar a la sala. Reintentando…',
       openElsewhere: 'Esta sala está abierta en otra pestaña o dispositivo.', playHere: 'Jugar aquí',
       inviteCopied: 'Enlace de invitación copiado.', wentWrong: 'Algo salió mal.',
+      nameTaken: 'Ese nombre ya está en uso en esta sala — te uniste como #.',
       quizToast1: 'Cuestionario guardado — 1 pregunta.', quizToastN: 'Cuestionario guardado — # preguntas.',
       pickName: 'Primero elige un nombre — hasta 16 caracteres.',
       badCode: 'Un código de sala tiene de 4 a 6 letras o dígitos.',
@@ -2130,7 +2136,7 @@ input.team-name-input[type="text"]{
       startGame: 'Empezar', startSolo: 'Jugar en solitario', starting: 'Empezando…',
       startEvent: 'Iniciar evento',
       standbyBanner: '¡Las puertas están abiertas — entra!',
-      showIntroBtn: 'Cómo jugar',
+      showIntroBtn: 'Cómo jugar', backToStandbyBtn: 'Atrás',
       introTitle: 'Cómo jugar',
       introTapAnswer: 'Cuando aparezca una pregunta, toca tu respuesta antes de que se acabe el tiempo.',
       introCaptain: 'Solo cuenta el toque del capitán del equipo — cualquiera puede ser capitán desde la sala de espera antes de empezar.',
@@ -2236,6 +2242,7 @@ input.team-name-input[type="text"]{
       lastGameCorrectOf: '# de # correctas', lastGameCorrectAnswer: 'Respuesta correcta: #',
       lastGameNoAnswer: 'Sin respuesta',
       mediaNone: 'Sin foto ni sonido', mediaAttached: '# adjunto', mediaRemove: 'Quitar',
+      replayClip: '▶ Repetir',
       mediaChoose: 'Elegir archivo', mediaReplace: 'Reemplazar archivo',
       mediaType_image: 'Foto', mediaType_audio: 'Sonido',
       mediaBadType: 'Por ahora solo se admiten fotos y clips de sonido (el video necesita una mejora pendiente).',
@@ -2429,6 +2436,7 @@ input.team-name-input[type="text"]{
       elEditSetupBtn = $('editSetupBtn'),
       elShowIntroBtn = $('showIntroBtn'),
       elIntroPanel = $('introPanel'), elIntroPanelTitle = $('introPanelTitle'), elIntroPanelList = $('introPanelList'),
+      elBackToStandbyBtn = $('backToStandbyBtn'),
       elNameInput = $('nameInput'),
       elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
@@ -2755,6 +2763,7 @@ input.team-name-input[type="text"]{
     set('lastGameTitle', 'lastGameTitle');
     set('lastGameCloseBtn', 'lastGameClose');
     set('lastGameDownloadBtn', 'lastGameDownloadBtn');
+    set('backToStandbyBtn', 'backToStandbyBtn');
     var hostCodeLabel = elHostRecoverField && elHostRecoverField.querySelector('.field-label');
     if (hostCodeLabel) hostCodeLabel.textContent = T('hostCode');
     if (elHostTokenInput) elHostTokenInput.placeholder = T('pasteHostCode');
@@ -3362,6 +3371,11 @@ input.team-name-input[type="text"]{
     // 'intro' there is nothing left to trigger — the explainer is showing.
     if (elShowIntroBtn) elShowIntroBtn.hidden = !(isStandby && state.isHost);
     if (elIntroPanel) elIntroPanel.hidden = !isIntro;
+    // The one step back from intro — standby only, not all the way to
+    // lobby (that is still elEditSetupBtn/closeEvent, visible through
+    // both). Nothing to step back FROM once questions start — 'intro'
+    // is strictly a pre-game phase, so this never shows once that's true.
+    if (elBackToStandbyBtn) elBackToStandbyBtn.hidden = !(isIntro && state.isHost);
     if (isIntro && elIntroPanelList) {
       if (elIntroPanelTitle) elIntroPanelTitle.textContent = T('introTitle');
       elIntroPanelList.textContent = '';
@@ -3408,7 +3422,18 @@ input.team-name-input[type="text"]{
       elTimerVal.value = String(Math.round((state.settings.questionMs || 20000) / 1000));
     }
     if (elQuizEditor) elQuizEditor.hidden = !(isCustom && state.isHost) || isLocked;
-    if (isCustom && state.isHost && !isLocked) renderQuizEditor();
+    if (isCustom && state.isHost && !isLocked) {
+      // Once per session, and only when there is actually something saved
+      // this tab hasn't already loaded — a host who has been typing into
+      // an empty editor on purpose (a genuinely new quiz, nothing saved
+      // yet) shouldn't have that typing raced by a response that arrives
+      // moments later and finds nothing to overwrite anyway (count is 0).
+      if (!quizDraftRequested && quizDraft.length === 0 && state.customQuestionCount > 0) {
+        quizDraftRequested = true;
+        send({ type: 'getCustomQuestions' });
+      }
+      renderQuizEditor();
+    }
     renderTeamsPicker();
     paintMic();
     paintWhisper();
@@ -4146,10 +4171,15 @@ input.team-name-input[type="text"]{
     return card;
   }
 
-  /* ---- Host's quiz editor. Lives only in this tab until Save is pressed —
-     the server never echoes question text back (only a count), so a reload
-     loses an unsaved draft but keeps whatever was last saved. ---- */
+  /* ---- Host's quiz editor. Starts empty every tab/reload — the server
+     never BROADCASTS question text back (only a count, so a player
+     scrolling back can't read ahead), but the host can ask for the real
+     content on their own via getCustomQuestions (host-only, see the
+     'customQuestionsFull' case below), which is what actually pulls a
+     previously-saved quiz back in for editing rather than leaving the
+     host staring at a blank editor and a bare "3 questions saved." ---- */
   var quizDraft = [];
+  var quizDraftRequested = false;
 
   function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0, kind: 'standard', media: null }; }
 
@@ -4460,19 +4490,31 @@ input.team-name-input[type="text"]{
     } else if (media.type === 'audio') {
       var clip = document.createElement('audio');
       clip.src = media.dataUrl;
-      clip.controls = true;
+      // A Name This Tune clip is a shared moment the HOST replays for
+      // everyone (replayMedia, below) — controls hidden so a player
+      // scrubbing/pausing their own copy can't fragment that; a standard
+      // question's optional audio clue stays player-controlled, same as
+      // always.
+      clip.controls = kind !== 'tune';
       elQuestionMedia.appendChild(clip);
       if (kind === 'tune') {
         // play() usually rejects its Promise when autoplay-with-sound isn't
-        // allowed yet — not an error to surface, just the exact silent-clip
-        // case `controls` above already covers. The call itself can also
-        // throw synchronously (seen with a very short/edge-case clip) —
-        // caught here too, since an uncaught throw here would abort the
-        // REST of renderQuestion(), not just the autoplay attempt.
+        // allowed yet — not an error to surface, just what the host's own
+        // "Play again" button below is for. The call itself can also throw
+        // synchronously (seen with a very short/edge-case clip) — caught
+        // here too, since an uncaught throw here would abort the REST of
+        // renderQuestion(), not just the autoplay attempt.
         try {
           var playAttempt = clip.play();
           if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(function () {});
         } catch (e) {}
+        if (state.isHost) {
+          var replayBtn = mk('button', 'chip-btn q-replay-btn');
+          replayBtn.type = 'button';
+          replayBtn.textContent = T('replayClip');
+          on(replayBtn, 'click', function () { send({ type: 'replayMedia' }); });
+          elQuestionMedia.appendChild(replayBtn);
+        }
       }
     }
   }
@@ -5788,6 +5830,14 @@ input.team-name-input[type="text"]{
     switch (msg.type) {
 
       case 'welcome':
+        // The server auto-suffixes a name already live in this room
+        // ("John" -> "John-2") rather than silently handing the seat to
+        // whoever typed it second — tell the newcomer, since otherwise
+        // the only sign is their own name on screen reading differently
+        // than what they typed.
+        if (msg.you && !msg.spectator && msg.you.name !== state.name) {
+          toast(T('nameTaken').replace('#', msg.you.name));
+        }
         state.me = msg.you || null;
         state.isHost = !!msg.isHost;
         // Only ever present when we hold the host seat. Captured and
@@ -5865,6 +5915,7 @@ input.team-name-input[type="text"]{
         break;
 
       case 'phase':
+        var phaseWas = state.phase;
         state.phase = msg.phase;
         if (msg.phase === 'lobby') {
           resetRound();
@@ -5878,7 +5929,10 @@ input.team-name-input[type="text"]{
         if (msg.phase === 'standby') {
           setScreen('lobby');
           renderLobby();
-          confetti(20); // doors open — a small shared moment, not a show
+          // Only the REAL doors-open moment (coming from 'lobby') — the
+          // host's Back button also lands here from 'intro', and that is
+          // just stepping back one beat, not opening anything a second time.
+          if (phaseWas !== 'intro') confetti(20);
         }
         // How-to-play: same screen again, same reuse-the-lobby reasoning —
         // renderLobby()/paintCallSheet() swap the standby banner for the
@@ -5982,6 +6036,24 @@ input.team-name-input[type="text"]{
         }
         break;
 
+      // The host's "Play again" — only ever arrives for the SAME clip
+      // every connected client already has (index just confirms it's
+      // still this question, not a stale click racing a phase change).
+      // Every client replays its own copy from its own <audio> element;
+      // nothing is re-sent over the wire.
+      case 'replayMedia':
+        if (state.question && msg.index === state.question.index) {
+          var tuneClip = elQuestionMedia ? elQuestionMedia.querySelector('audio') : null;
+          if (tuneClip) {
+            try {
+              tuneClip.currentTime = 0;
+              var replayAttempt = tuneClip.play();
+              if (replayAttempt && typeof replayAttempt.catch === 'function') replayAttempt.catch(function () {});
+            } catch (e) {}
+          }
+        }
+        break;
+
       // Answers getLastGameBtn's request — host-only server-side too, but
       // the button itself is already hidden from anyone else. Opens the
       // panel either way: a host with nothing to show yet still gets a
@@ -6048,6 +6120,24 @@ input.team-name-input[type="text"]{
         toast(state.customQuestionCount === 1
           ? T('quizToast1')
           : T('quizToastN').replace('#', state.customQuestionCount));
+        break;
+
+      // The host's own saved quiz, content and all — see getCustomQuestions
+      // server-side. Only ever answers a request this tab itself made
+      // (quizDraftRequested), and only loads into a still-empty draft: if
+      // the host has since added rows of their own (racing this response),
+      // their typing wins, not a stale fetch from before they started.
+      case 'customQuestionsFull':
+        if (quizDraft.length === 0 && Array.isArray(msg.items) && msg.items.length) {
+          quizDraft = msg.items.map(function (q) {
+            return {
+              text: q.text || '', choices: Array.isArray(q.choices) ? q.choices.slice(0, 4) : ['', '', '', ''],
+              correctIndex: Number.isInteger(q.correctIndex) ? q.correctIndex : 0,
+              kind: q.kind || 'standard', media: q.media || null,
+            };
+          });
+          renderQuizEditor();
+        }
         break;
 
       case 'public':
@@ -6343,6 +6433,8 @@ input.team-name-input[type="text"]{
     state.handshakeFails = 0;
     attempt = 0;
     seenPlayerIds = Object.create(null);
+    quizDraft = [];
+    quizDraftRequested = false;
     elHudCodeText.textContent = code;
     // The watch flag rides in the hash so a spectator who reloads comes back
     // as a spectator, not as a player knocking on a mid-game door.
@@ -6509,6 +6601,7 @@ input.team-name-input[type="text"]{
   // Standby-only, host-only — the optional beat before question 1. render()
   // hides this button everywhere else, same pattern as elEditSetupBtn above.
   if (elShowIntroBtn) on(elShowIntroBtn, 'click', function () { send({ type: 'showIntro' }); });
+  if (elBackToStandbyBtn) on(elBackToStandbyBtn, 'click', function () { send({ type: 'backToStandby' }); });
   on(elDownloadInfoBtn, 'click', function () {
     if (!state.hostToken || !state.code) return;
     var lines = [
