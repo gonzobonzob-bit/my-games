@@ -502,23 +502,122 @@ body[data-screen="landing"] .hud{ display:none; }
 .chip-btn:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
 .chip-btn .code{ font-family:var(--font-num); letter-spacing:.14em; color:var(--paper-100); }
 /* Fixed width so switching EN/ES does not shuffle the header controls. */
-#langBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
-.wizard-bar{
-  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+#langBtn, #landLangBtn{ min-width:52px; justify-content:center; font-family:var(--font-num); }
+#landLangBtn{ margin-left:auto; }
+/* The moment the doors open — amber-tinted so it reads as "live," same
+   accent as the onair dot it carries, not just another grey card. */
+.standby-banner{
+  display:flex; align-items:center; gap:var(--sp-2); justify-content:center;
   width:100%; padding:var(--sp-3) var(--sp-4); border-radius:var(--r-lg);
-  background:var(--ink-800); border:1px solid var(--hair);
+  background:rgba(var(--amber-rgb),.10); border:1px solid rgba(var(--amber-rgb),.35);
+  font-size:var(--fs-micro); font-weight:700; letter-spacing:.04em;
+  color:var(--paper-100);
+  animation:qIn 420ms var(--ease-out-expo) both;
 }
-.wizard-bar-actions{ display:flex; gap:var(--sp-2); }
-.how-to-panel{
-  width:100%; padding:var(--sp-4); border-radius:var(--r-lg);
-  background:var(--ink-800); border:1px solid var(--hair);
-  display:flex; flex-direction:column; gap:var(--sp-3);
+/* --- Event wizard: one decision per screen, big plain-language controls --- */
+.wiz{ margin:auto; width:100%; max-width:600px; display:flex; flex-direction:column; gap:var(--sp-4); }
+.wiz-progress{ display:flex; gap:6px; }
+.wiz-dot{ flex:1 1 0; height:4px; border-radius:var(--r-pill); background:var(--pill-idle); }
+.wiz-dot.done{ background:var(--amber); }
+.wiz-dot.now{ background:var(--amber); animation:pillPulse 1.4s ease-in-out infinite; }
+.wiz-card{ text-align:left; }
+.wiz-title{ margin:0; font-size:clamp(24px,5vw,32px); line-height:1.15; color:var(--paper-100); text-wrap:balance; }
+.wiz-help{ margin:0; color:var(--slate-300); font-size:var(--fs-body); }
+.wiz-help:empty{ display:none; }
+.wiz-body{ display:flex; flex-direction:column; gap:var(--sp-4); min-width:0; }
+.wiz-quiz-slot{ display:flex; flex-direction:column; min-width:0; }
+.wiz-choices{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); }
+.wiz-choice{
+  font:inherit; text-align:left; cursor:pointer; color:var(--paper-100);
+  background:var(--ink-700); border:1.5px solid var(--hair); border-radius:var(--r-lg);
+  padding:var(--sp-4); display:flex; flex-direction:column; gap:4px; min-height:88px;
+  touch-action:manipulation;
+  transition:border-color var(--d-micro) var(--ease-out-soft), background var(--d-micro) var(--ease-out-soft);
 }
-.how-to-panel h3{ margin:0; font-size:var(--fs-body); color:var(--paper-100); }
-.how-to-panel ol{ margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:var(--sp-2); }
-.how-to-panel li{ color:var(--slate-300); font-size:var(--fs-micro); line-height:1.5; }
-.how-to-panel li b{ color:var(--paper-100); }
-.how-to-panel .chip-btn{ align-self:flex-end; }
+.wiz-choice:hover{ border-color:var(--hair-strong); }
+.wiz-choice.on{ border-color:var(--amber); background:rgba(var(--amber-rgb),.08); }
+.wiz-choice-t{ font-size:var(--fs-name); font-weight:700; }
+.wiz-choice-s{ font-size:14px; color:var(--slate-300); }
+.wiz-sub{ margin-top:var(--sp-1); }
+.wiz-chips{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
+.wiz-chip{
+  font:inherit; font-size:15px; font-weight:600; cursor:pointer; color:var(--slate-300);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-pill);
+  padding:10px 16px; min-height:44px; touch-action:manipulation;
+}
+.wiz-chip:hover{ color:var(--paper-100); border-color:var(--hair-strong); }
+.wiz-chip.on{ color:var(--ink-950); background:var(--amber); border-color:var(--amber); }
+.wiz-row{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); flex-wrap:wrap; }
+.wiz-row-label{ font-size:var(--fs-body); font-weight:600; color:var(--paper-100); }
+.wiz-stepper{ display:flex; align-items:center; gap:var(--sp-3); }
+.wiz-step-btn{
+  width:52px; height:52px; border-radius:50%; font:inherit; font-size:28px; line-height:1;
+  cursor:pointer; color:var(--paper-100); background:var(--ink-700); border:1px solid var(--hair);
+  touch-action:manipulation;
+}
+.wiz-step-btn:hover{ border-color:var(--hair-strong); }
+.wiz-num{
+  width:5.5ch; min-width:0; min-height:52px; padding:8px 6px; text-align:center;
+  font:inherit; font-family:var(--font-num); font-size:28px; font-weight:700; color:var(--paper-100);
+  background:var(--ink-700); border:1px solid var(--hair); border-radius:var(--r-md);
+  -moz-appearance:textfield; appearance:textfield;
+}
+.wiz-num::-webkit-outer-spin-button, .wiz-num::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.wiz-num:focus{ border-color:rgba(var(--amber-rgb),.55); background:var(--ink-600); outline:none; }
+.wiz-unit{ color:var(--slate-400); font-size:14px; }
+.wiz-note{ margin:0; font-size:14px; color:var(--slate-400); }
+.wiz-note.warn{ color:var(--amber); }
+.wiz-code{ font-family:var(--font-num); font-size:clamp(40px,12vw,64px); font-weight:700; letter-spacing:.2em;
+           text-align:center; color:var(--amber); }
+.wiz-actions{ display:flex; flex-wrap:wrap; gap:var(--sp-2); justify-content:center; }
+.wiz-summary{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:var(--sp-2) var(--sp-4); }
+.wiz-summary dt{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+                 color:var(--slate-400); align-self:center; }
+.wiz-summary dd{ margin:0; color:var(--paper-100); min-width:0; overflow-wrap:anywhere; }
+.wiz-nav{ display:flex; gap:var(--sp-3); justify-content:space-between; }
+.wiz-nav .btn-primary{ flex:1 1 auto; }
+@media (max-width:480px){ .wiz-choices{ grid-template-columns:1fr; } }
+
+/* --- ON AIR / OFF AIR sign: a big lamp on the right of the stage (a banner
+   across the top on phones). ON while a round is live, dark otherwise. --- */
+.air-sign{
+  flex:0 0 auto; align-self:center; width:clamp(120px,12vw,170px);
+  margin:0 var(--sp-4) 0 0; padding:var(--sp-5) var(--sp-3);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-3);
+  border-radius:var(--r-xl); border:3px solid var(--hair);
+  background:var(--ink-800); color:var(--slate-400);
+  font-weight:800; letter-spacing:.16em; text-transform:uppercase; text-align:center;
+  transition:border-color var(--d-state) var(--ease-out-soft), background var(--d-state) var(--ease-out-soft),
+             color var(--d-state) var(--ease-out-soft);
+}
+.air-lamp{
+  width:44px; height:44px; border-radius:50%; flex:0 0 auto;
+  background:var(--ink-600); box-shadow:inset 0 0 0 2px rgba(255,255,255,.06);
+  transition:background var(--d-state) var(--ease-out-soft), box-shadow var(--d-state) var(--ease-out-soft);
+}
+.air-text{ font-size:clamp(22px,2.4vw,34px); line-height:1.05; text-wrap:balance; }
+.air-sign[data-air="on"]{
+  border-color:var(--crimson); color:var(--paper-100);
+  background:color-mix(in srgb, var(--crimson) 16%, var(--ink-800));
+}
+.air-sign[data-air="on"] .air-lamp{
+  background:var(--crimson);
+  box-shadow:0 0 28px 8px color-mix(in srgb, var(--crimson) 70%, transparent);
+}
+@media (prefers-reduced-motion:no-preference){
+  .air-sign[data-air="on"] .air-lamp{ animation:airGlow 1.6s ease-in-out infinite; }
+}
+@keyframes airGlow{ 0%,100%{ opacity:1 } 50%{ opacity:.7 } }
+body[data-screen="landing"] .air-sign, body[data-screen="wizard"] .air-sign{ display:none; }
+@media (max-width:900px){
+  .stagewrap{ flex-direction:column; }
+  .air-sign{
+    order:-1; flex-direction:row; width:auto; align-self:stretch;
+    margin:var(--sp-3) var(--sp-4) 0; padding:var(--sp-3) var(--sp-4); gap:var(--sp-4);
+  }
+  .air-lamp{ width:26px; height:26px; }
+  .air-text{ font-size:24px; }
+}
 #micBtn.mic-on{ color:var(--mint); border-color:rgba(var(--mint-rgb,80,200,160),.45); }
 #micBtn.mic-talking{ animation:micPulse 900ms ease-in-out infinite; }
 @keyframes micPulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
@@ -766,6 +865,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   display:flex; align-items:center; gap:var(--sp-2); justify-content:center;
   flex-wrap:wrap;
 }
+/* Each label+minus+value+plus stepper wraps onto its own line as ONE unit —
+   without this, .teams-setup's own flex-wrap breaks mid-stepper on narrow
+   screens (Rounds' '+' stranded after Per round's value, say). */
+.stepper-group{ display:inline-flex; align-items:center; gap:var(--sp-2); flex-wrap:nowrap; }
 .team-count-val{
   font-family:var(--font-num); font-weight:700; min-width:1.4em; text-align:center;
   color:var(--paper-100);
@@ -784,6 +887,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .team-score{ color:var(--slate-400); }
 .team-members{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
 .team-member{ display:flex; align-items:center; gap:6px; }
+.team-member.pop-in{ animation:chipIn 280ms var(--ease-snap) both; }
 .team-member.off{ opacity:.55; }
 .team-member .avatar{ width:32px; height:32px; font-size:13px; }
 .mname{ font-size:13px; color:var(--paper-100); max-width:100px; overflow:hidden;
@@ -838,7 +942,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
 .seat-sub{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
            text-transform:uppercase; color:var(--amber); }
-.slot{
+.seat-empty{
   width:56px; height:56px; border-radius:var(--r-lg);
   border:1.5px dashed rgba(255,255,255,.12); opacity:.4;
   animation:slotPulse 2.4s ease-in-out infinite;
@@ -848,6 +952,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 /* "N watching" — a headcount, not a roster. Kept quiet on purpose: the
    audience is atmosphere, the players are the show. */
 .watch-count{ color:var(--slate-400); }
+
+/* Team-card and quiz-editor controls that the JS builds but that never had
+   rules of their own (the rename button rendered as a bare browser button). */
+.teams-host-hint{ width:100%; text-align:center; }
+.team-name-edit{
+  font:inherit; font-weight:700; color:var(--paper-100); text-align:left;
+  background:transparent; border:1px dashed transparent; border-radius:var(--r-sm);
+  padding:2px 6px; margin:-2px -6px; cursor:text; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.team-name-edit:hover{ border-color:var(--hair-strong); }
+input.team-name-input[type="text"]{
+  min-height:0; padding:4px 8px; font-size:var(--fs-label); border-radius:var(--r-sm); flex:1 1 auto; min-width:0;
+}
+.team-remove-btn{ margin-left:auto; padding:4px 10px; }
+.team-add-btn{ align-self:center; }
+.quiz-media-status{ flex:1 1 auto; }
 
 .waiting{ display:flex; align-items:center; gap:var(--sp-2);
           font-size:var(--fs-micro); font-weight:700; letter-spacing:.18em;
@@ -1357,7 +1478,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   @keyframes rmOut{ to{opacity:0} }
   @keyframes rmIn{ from{opacity:0} to{opacity:1} }
 
-  .code-ch, .slot, .onair, .pill.now, .dots i, .winner-name, .winner.play{ animation:none !important; }
+  .code-ch, .seat-empty, .onair, .pill.now, .wiz-dot.now, .dots i, .winner-name, .winner.play{ animation:none !important; }
   /* every theme's decorative backdrop stills — the palette survives,
      the movement does not. This one line covers all five because the
      themes only ever animate through --veil-anim. */
@@ -1484,6 +1605,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       <div class="themebar" id="themeBar">
         <span class="micro themebar-k" id="themeBarLabel">Look</span>
         <div class="themebar-opts" id="themeOpts" role="radiogroup" aria-labelledby="themeBarLabel"></div>
+        <button type="button" class="chip-btn" id="landLangBtn" title="Language / Idioma"><span id="landLangLabel">EN</span></button>
       </div>
       <div class="livenow" id="liveNow" hidden>
         <div class="livenow-head">
@@ -1505,15 +1627,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         <button type="button" class="chip-btn" id="hostCodeBtn" hidden>Copy host code</button>
         <button type="button" class="chip-btn" id="downloadInfoBtn" hidden>Download event info</button>
       </div>
-      <div class="wizard-bar" id="wizardBar" hidden>
-        <div class="micro" id="wizardStepLabel">Step 1 of 4 — Teams</div>
-        <div class="wizard-bar-actions">
-          <button type="button" class="chip-btn" id="howToBtn">How to</button>
-          <button type="button" class="chip-btn" id="wizardBackBtn">Back</button>
-          <button type="button" class="btn btn-primary" id="wizardNextBtn">Next</button>
-        </div>
+      <div class="standby-banner" id="standbyBanner" hidden>
+        <span class="onair" aria-hidden="true"></span>
+        <span id="standbyBannerText">Doors are open — come on in!</span>
+        <button type="button" class="chip-btn" id="editSetupBtn" hidden>Edit setup</button>
       </div>
-      <div class="how-to-panel" id="howToPanel" hidden></div>
       <div class="callsheet" id="callSheet">
         <button type="button" class="slot" id="genreSlot">
           <span class="slot-k">Genre</span>
@@ -1535,25 +1653,33 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         </button>
       </div>
       <div class="teams-setup" id="teamsSetup" hidden>
-        <span class="micro">Teams</span>
-        <button type="button" class="chip-btn" id="teamCountDown" aria-label="Fewer teams">&minus;</button>
-        <span class="team-count-val" id="teamCountVal">2</span>
-        <button type="button" class="chip-btn" id="teamCountUp" aria-label="More teams">+</button>
+        <span class="stepper-group">
+          <span class="micro">Teams</span>
+          <button type="button" class="chip-btn" id="teamCountDown" aria-label="Fewer teams">&minus;</button>
+          <span class="team-count-val" id="teamCountVal">2</span>
+          <button type="button" class="chip-btn" id="teamCountUp" aria-label="More teams">+</button>
+        </span>
         <button type="button" class="chip-btn" id="teamSetupBtn">Set teams</button>
       </div>
       <div class="teams-setup" id="roundsSetup" hidden>
-        <span class="micro">Rounds</span>
-        <button type="button" class="chip-btn" id="roundsDown" aria-label="Fewer rounds">&minus;</button>
-        <span class="team-count-val" id="roundsVal">1</span>
-        <button type="button" class="chip-btn" id="roundsUp" aria-label="More rounds">+</button>
-        <span class="micro">Per round</span>
-        <button type="button" class="chip-btn" id="perRoundDown" aria-label="Fewer questions per round">&minus;</button>
-        <span class="team-count-val" id="perRoundVal">10</span>
-        <button type="button" class="chip-btn" id="perRoundUp" aria-label="More questions per round">+</button>
-        <span class="micro">Timer</span>
-        <button type="button" class="chip-btn" id="timerDown" aria-label="Shorter timer">&minus;</button>
-        <span class="team-count-val" id="timerVal">20s</span>
-        <button type="button" class="chip-btn" id="timerUp" aria-label="Longer timer">+</button>
+        <span class="stepper-group">
+          <span class="micro">Rounds</span>
+          <button type="button" class="chip-btn" id="roundsDown" aria-label="Fewer rounds">&minus;</button>
+          <span class="team-count-val" id="roundsVal">1</span>
+          <button type="button" class="chip-btn" id="roundsUp" aria-label="More rounds">+</button>
+        </span>
+        <span class="stepper-group">
+          <span class="micro">Per round</span>
+          <button type="button" class="chip-btn" id="perRoundDown" aria-label="Fewer questions per round">&minus;</button>
+          <span class="team-count-val" id="perRoundVal">10</span>
+          <button type="button" class="chip-btn" id="perRoundUp" aria-label="More questions per round">+</button>
+        </span>
+        <span class="stepper-group">
+          <span class="micro">Timer</span>
+          <button type="button" class="chip-btn" id="timerDown" aria-label="Shorter timer">&minus;</button>
+          <span class="team-count-val" id="timerVal">20s</span>
+          <button type="button" class="chip-btn" id="timerUp" aria-label="Longer timer">+</button>
+        </span>
       </div>
       <div class="teams-picker" id="teamsPicker" hidden></div>
       <div class="quiz-editor" id="quizEditor" hidden>
@@ -1577,6 +1703,24 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
           <span id="waitText">Waiting for host</span>
           <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EVENT WIZARD ============ -->
+  <section class="screen" id="s-wizard" aria-labelledby="wizTitle">
+    <div class="wiz">
+      <div class="wiz-progress" id="wizProgress" aria-hidden="true"></div>
+      <div class="micro" id="wizStepLabel"></div>
+      <div class="card wiz-card">
+        <h2 class="wiz-title" id="wizTitle"></h2>
+        <p class="wiz-help" id="wizHelp"></p>
+        <div class="wiz-body" id="wizBody"></div>
+        <div class="wiz-quiz-slot" id="wizQuizSlot" hidden></div>
+      </div>
+      <div class="wiz-nav">
+        <button type="button" class="btn btn-ghost" id="wizBackBtn">Back</button>
+        <button type="button" class="btn btn-primary" id="wizNextBtn">Next</button>
       </div>
     </div>
   </section>
@@ -1642,6 +1786,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     </div>
   </section>
 
+  <aside class="air-sign" id="airSign" data-air="off" role="status" aria-live="polite">
+    <span class="air-lamp" aria-hidden="true"></span>
+    <span class="air-text" id="airText">OFF AIR</span>
+  </aside>
 </main>
 
 <div class="studio" id="studio" aria-hidden="true"></div>
@@ -1684,7 +1832,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      ------------------------------------------------------------------ */
 
   /* ---------- rules (display only; the server is the authority) ---------- */
-  var QUESTION_MS = 20000;  // used ONLY to draw the ring's starting fraction
+  var QUESTION_MS = 20000;  // the default window; the room's real one is settings.questionMs
   var WARM_MS     = 10000;
   var PANIC_MS    = 5000;
   var MAX_PLAYERS = 8;
@@ -1715,12 +1863,30 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      ================================================================== */
   var STRINGS = {
     en: {
+      lockedOfPlayers: '#1 of #2 locked in', lockedOfTeams: '#1 of #2 teams locked in',
+      teamLocked: 'Your team has locked in', teamPickShown: 'Your captain locked in the highlighted answer', waitingOn: 'Waiting on # to answer',
+      waitingLeader: 'Waiting on your team leader', tapAnswer: 'Tap your answer',
+      correctAria: 'Correct answer', wrongAria: 'Your answer, incorrect',
+      nobodyGotIt: 'Nobody got it', oneTeamGotIt: '1 team got it', onePlayerGotIt: '1 player got it',
+      nTeamsGotIt: '# teams got it', nPlayersGotIt: '# players got it',
+      notConnected: 'Not connected yet — hang on.', connecting: 'Connecting to the room…',
+      lostConnection: 'Lost the connection — trying to get you back in.',
+      couldNotReach: 'Could not reach the room. Retrying…',
+      openElsewhere: 'This room is open in another tab or device.', playHere: 'Play here',
+      inviteCopied: 'Invite link copied.', wentWrong: 'Something went wrong.',
+      quizToast1: 'Quiz saved — 1 question.', quizToastN: 'Quiz saved — # questions.',
+      pickName: 'Pick a name first — up to 16 characters.',
+      badCode: 'A room code is 4 to 6 letters or digits.',
+      roomWaiting: 'Room # is waiting. What should we call you?',
+      renameTeam: 'Rename this team',
+      quizCorrectBlank: 'Question # has its correct answer marked on an empty slot — fill it in or pick another.',
       yourName: 'Your name', roomCode: 'Room code', joinRoom: 'Join room',
       createRoom: 'Create a room', copyInvite: 'Copy the invite link',
       genre: 'Genre', difficulty: 'Difficulty', any: 'Any',
       easy: 'Easy', medium: 'Medium', hard: 'Hard',
       startGame: 'Start game', startSolo: 'Start solo game', starting: 'Starting…',
       startEvent: 'Start event',
+      standbyBanner: 'Doors are open — come on in!',
       waitingHost: 'Waiting for host', needMore: 'Need # more players',
       needMore1: 'Need 1 more player',
       winner: 'Winner', playAgain: 'Play again', finalStandings: 'Final standings',
@@ -1789,17 +1955,31 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       askHost: 'Ask host', whisperPlaceholder: 'Type your question…',
       timerLabel: 'Timer', shorterTimer: 'Shorter timer', longerTimer: 'Longer timer',
       hostEvent: 'Host an event',
-      wizStepTeams: 'Teams', wizStepQuestions: 'Questions', wizStepTiming: 'Timing', wizStepReview: 'Review',
-      wizStepOf: 'Step #1 of #2', wizNext: 'Next', wizDone: 'Done — enter the lobby',
-      wizReady: 'Your event is set up. Share the room code whenever you’re ready.',
-      howToBtn: 'How to', howToTitle: 'How hosting an event works', howToClose: 'Got it',
-      howToTeamsTerm: 'Teams:', howToTeamsBody: 'decide how many teams are playing, then rename them if you like.',
-      howToQuestionsTerm: 'Questions:', howToQuestionsBody: 'pick a genre and difficulty, or switch to Your quiz and write your own — including Name This Tune and Picture Round questions.',
-      howToTimingTerm: 'Timing:', howToTimingBody: 'set how many rounds, how many questions per round, and how long each question stays open.',
-      howToReviewTerm: 'Review:', howToReviewBody: 'check the room code, then tap Done to enter the lobby.',
-      howToOpenTerm: 'Start event:', howToOpenBody: 'opens the room. Share the code — people can join and pick a team while you wait, right up until you start the questions.',
-      howToCaptainTerm: 'Captains:', howToCaptainBody: 'the first person to join a team becomes its captain by default, but anyone on the team can tap Be captain to take over — only the captain’s tap counts as the team’s answer.',
-      howToStartTerm: 'Start questions:', howToStartBody: 'once everyone’s ready, tap Start questions to begin.',
+      airOn: 'ON AIR', airOff: 'OFF AIR',
+      wizCancel: 'Cancel', wizBack: 'Back', wizNext: 'Next', wizOpenLobby: 'Open the lobby',
+      wizStepOf: 'Step #1 of #2',
+      wizConnecting: 'Setting up your room…', wizConnectingHelp: 'This only takes a moment.',
+      wizTeamsTitle: 'How many teams?', wizTeamsHelp: 'Each team shares one answer. Choose 1 if everyone is playing together.',
+      wizTeamsLabel: 'Teams',
+      wizTeamsNote: 'Every team picks a captain, and only the captain’s tap counts as the team’s answer. You can rename teams in the lobby.',
+      wizQTitle: 'What are the questions about?', wizQHelp: 'Pick a topic and we’ll supply the questions, or write your own.',
+      wizTopic: 'Pick a topic', wizTopicSub: 'We supply the questions',
+      wizOwn: 'Write my own', wizOwnSub: 'Type your questions — music and picture rounds too',
+      wizTopicLabel: 'Topic', wizDiffLabel: 'How hard?',
+      wizOwnHint: 'Write each question, mark the right answer, then tap “#”.',
+      wizNeedQuiz: 'Write and save at least one question first.',
+      wizTimingTitle: 'How long should it run?', wizTimingHelp: 'You can still change this in the lobby.',
+      wizRoundsLabel: 'Rounds', wizPerRoundLabel: 'Questions per round', wizSecondsLabel: 'Seconds per question',
+      wizTotal: 'About #1 questions in all — roughly #2 minutes.',
+      wizFewQuestions: 'Heads up: you saved #1 questions, but this setup asks for #2.',
+      wizPrivTitle: 'Who can find your event?', wizPrivHelp: 'Either way, anyone with the code or link can join.',
+      wizPrivate: 'Private', wizPrivateSub: 'Only people you give the code or link to',
+      wizPublic: 'Public', wizPublicSub: 'Also show it under “#” on the home page',
+      wizShareTitle: 'You’re all set', wizShareHelp: 'Share this code or link so people can join.',
+      wizSumTeams: 'Teams', wizSumQuestions: 'Questions', wizSumTiming: 'Timing', wizSumVisibility: 'Visibility',
+      wizSumOwn: 'Your own (# saved)', wizSumTimingVal: '#1 rounds × #2 questions, #3s each',
+      wizHostCodeNote: 'Save the host code too — it’s how you get back in as host if you lose connection.',
+      wizNextSteps: 'Next: open the lobby and tap “#1” so people can join and pick a team. When everyone’s in, tap “#2”.',
       downloadInfo: 'Download event info', eventInfoDownloaded: 'Saved — check your downloads.',
       mediaNone: 'No photo or sound', mediaAttached: '# attached', mediaRemove: 'Remove',
       mediaType_image: 'Photo', mediaType_audio: 'Sound',
@@ -1818,12 +1998,30 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       quizKindNeedsMedia_picture: 'Question # needs a photo for Picture Round.'
     },
     es: {
+      lockedOfPlayers: '#1 de #2 han respondido', lockedOfTeams: '#1 de #2 equipos han respondido',
+      teamLocked: 'Tu equipo ya respondió', teamPickShown: 'Tu capitán fijó la respuesta resaltada', waitingOn: 'Esperando a # para responder',
+      waitingLeader: 'Esperando al capitán de tu equipo', tapAnswer: 'Toca tu respuesta',
+      correctAria: 'Respuesta correcta', wrongAria: 'Tu respuesta, incorrecta',
+      nobodyGotIt: 'Nadie acertó', oneTeamGotIt: '1 equipo acertó', onePlayerGotIt: '1 jugador acertó',
+      nTeamsGotIt: '# equipos acertaron', nPlayersGotIt: '# jugadores acertaron',
+      notConnected: 'Aún sin conexión — espera un momento.', connecting: 'Conectando con la sala…',
+      lostConnection: 'Se perdió la conexión — intentando reconectarte.',
+      couldNotReach: 'No se pudo llegar a la sala. Reintentando…',
+      openElsewhere: 'Esta sala está abierta en otra pestaña o dispositivo.', playHere: 'Jugar aquí',
+      inviteCopied: 'Enlace de invitación copiado.', wentWrong: 'Algo salió mal.',
+      quizToast1: 'Cuestionario guardado — 1 pregunta.', quizToastN: 'Cuestionario guardado — # preguntas.',
+      pickName: 'Primero elige un nombre — hasta 16 caracteres.',
+      badCode: 'Un código de sala tiene de 4 a 6 letras o dígitos.',
+      roomWaiting: 'La sala # te espera. ¿Cómo te llamamos?',
+      renameTeam: 'Cambiar el nombre del equipo',
+      quizCorrectBlank: 'La pregunta # tiene la respuesta correcta en un espacio vacío — complétalo o elige otra.',
       yourName: 'Tu nombre', roomCode: 'Código de sala', joinRoom: 'Entrar',
       createRoom: 'Crear una sala', copyInvite: 'Copiar el enlace',
       genre: 'Género', difficulty: 'Dificultad', any: 'Cualquiera',
       easy: 'Fácil', medium: 'Media', hard: 'Difícil',
       startGame: 'Empezar', startSolo: 'Jugar en solitario', starting: 'Empezando…',
       startEvent: 'Iniciar evento',
+      standbyBanner: '¡Las puertas están abiertas — entra!',
       waitingHost: 'Esperando al anfitrión', needMore: 'Faltan # jugadores',
       needMore1: 'Falta 1 jugador',
       winner: 'Ganador', playAgain: 'Jugar otra vez', finalStandings: 'Clasificación final',
@@ -1892,17 +2090,31 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       askHost: 'Preguntar', whisperPlaceholder: 'Escribe tu pregunta…',
       timerLabel: 'Temporizador', shorterTimer: 'Menos tiempo', longerTimer: 'Más tiempo',
       hostEvent: 'Organizar un evento',
-      wizStepTeams: 'Equipos', wizStepQuestions: 'Preguntas', wizStepTiming: 'Tiempos', wizStepReview: 'Revisión',
-      wizStepOf: 'Paso #1 de #2', wizNext: 'Siguiente', wizDone: 'Listo — entrar a la sala',
-      wizReady: 'Tu evento está listo. Comparte el código de sala cuando quieras.',
-      howToBtn: 'Cómo funciona', howToTitle: 'Cómo organizar un evento', howToClose: 'Entendido',
-      howToTeamsTerm: 'Equipos:', howToTeamsBody: 'decide cuántos equipos van a jugar y, si quieres, cámbiales el nombre.',
-      howToQuestionsTerm: 'Preguntas:', howToQuestionsBody: 'elige un género y dificultad, o cambia a Tu cuestionario y escribe el tuyo — incluyendo preguntas de Adivina la canción y Ronda de imágenes.',
-      howToTimingTerm: 'Tiempos:', howToTimingBody: 'define cuántas rondas, cuántas preguntas por ronda y cuánto dura cada pregunta.',
-      howToReviewTerm: 'Revisión:', howToReviewBody: 'revisa el código de la sala y toca Siguiente para entrar a la sala.',
-      howToOpenTerm: 'Iniciar evento:', howToOpenBody: 'abre la sala. Comparte el código — la gente puede unirse y elegir equipo mientras esperas, hasta que inicies las preguntas.',
-      howToCaptainTerm: 'Capitanes:', howToCaptainBody: 'la primera persona en unirse a un equipo es su capitán por defecto, pero cualquiera del equipo puede tocar Ser capitán para tomar el puesto — solo el toque del capitán cuenta como la respuesta del equipo.',
-      howToStartTerm: 'Iniciar preguntas:', howToStartBody: 'cuando todos estén listos, toca Iniciar preguntas para comenzar.',
+      airOn: 'EN EL AIRE', airOff: 'FUERA DEL AIRE',
+      wizCancel: 'Cancelar', wizBack: 'Atrás', wizNext: 'Siguiente', wizOpenLobby: 'Abrir la sala',
+      wizStepOf: 'Paso #1 de #2',
+      wizConnecting: 'Preparando tu sala…', wizConnectingHelp: 'Solo tarda un momento.',
+      wizTeamsTitle: '¿Cuántos equipos?', wizTeamsHelp: 'Cada equipo comparte una respuesta. Elige 1 si todos juegan juntos.',
+      wizTeamsLabel: 'Equipos',
+      wizTeamsNote: 'Cada equipo elige un capitán, y solo el toque del capitán cuenta como la respuesta del equipo. Puedes cambiar los nombres de los equipos en la sala.',
+      wizQTitle: '¿De qué tratan las preguntas?', wizQHelp: 'Elige un tema y nosotros ponemos las preguntas, o escribe las tuyas.',
+      wizTopic: 'Elegir un tema', wizTopicSub: 'Nosotros ponemos las preguntas',
+      wizOwn: 'Escribir las mías', wizOwnSub: 'Escribe tus preguntas — también de música e imágenes',
+      wizTopicLabel: 'Tema', wizDiffLabel: '¿Qué tan difícil?',
+      wizOwnHint: 'Escribe cada pregunta, marca la respuesta correcta y toca “#”.',
+      wizNeedQuiz: 'Primero escribe y guarda al menos una pregunta.',
+      wizTimingTitle: '¿Cuánto debe durar?', wizTimingHelp: 'Todavía podrás cambiarlo en la sala.',
+      wizRoundsLabel: 'Rondas', wizPerRoundLabel: 'Preguntas por ronda', wizSecondsLabel: 'Segundos por pregunta',
+      wizTotal: 'Unas #1 preguntas en total — aproximadamente #2 minutos.',
+      wizFewQuestions: 'Ojo: guardaste #1 preguntas, pero esta configuración pide #2.',
+      wizPrivTitle: '¿Quién puede encontrar tu evento?', wizPrivHelp: 'De cualquier modo, quien tenga el código o el enlace puede entrar.',
+      wizPrivate: 'Privado', wizPrivateSub: 'Solo quienes reciban el código o el enlace',
+      wizPublic: 'Público', wizPublicSub: 'También aparece en “#” en la página de inicio',
+      wizShareTitle: 'Todo listo', wizShareHelp: 'Comparte este código o enlace para que la gente pueda unirse.',
+      wizSumTeams: 'Equipos', wizSumQuestions: 'Preguntas', wizSumTiming: 'Tiempos', wizSumVisibility: 'Visibilidad',
+      wizSumOwn: 'Las tuyas (# guardadas)', wizSumTimingVal: '#1 rondas × #2 preguntas, #3 s cada una',
+      wizHostCodeNote: 'Guarda también el código de anfitrión: con él recuperas tu puesto si pierdes la conexión.',
+      wizNextSteps: 'Después: abre la sala y toca “#1” para que la gente se una y elija equipo. Cuando todos estén, toca “#2”.',
       downloadInfo: 'Descargar datos del evento', eventInfoDownloaded: 'Guardado — revisa tus descargas.',
       mediaNone: 'Sin foto ni sonido', mediaAttached: '# adjunto', mediaRemove: 'Quitar',
       mediaType_image: 'Foto', mediaType_audio: 'Sonido',
@@ -2036,11 +2248,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     customQuestionCount: 0,// host's saved quiz size, teams+custom only
     question: null,        // {index,total,text,choices,endsAt,category,difficulty}
     settings: { genre: 'mixed', difficulty: 'any', mode: 'classic', source: 'genre', rounds: 1, questionsPerRound: 10, questionMs: 20000 },
-    wizardActive: false, wizardStep: 0, // "Host an event" — a guided first pass over the same lobby controls
+    wizardActive: false,   // the "Host an event" wizard is open (host only)
     catalog: [],           // [{slug,label}] — what the server will actually serve
     difficulties: ['any', 'easy', 'medium', 'hard'],
     starting: false,
     myChoice: null,        // my picked index for the open question, or null
+    teamPick: null,        // teams: the tile my captain locked in (sent to my team only), or null
     locked: false,         // I have locked in (server-confirmed or optimistic)
     answered: {},          // playerId (classic) or teamId (teams) -> true, for the open question
     correctIndex: null,    // ONLY ever set from a 'reveal' message
@@ -2060,6 +2273,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elClock = $('clock'), elRing = $('ring'), elArc = $('arc'), elDigits = $('digits'),
       elCatChip = $('catChip'), elCatCap = $('catCap'), elCatText = $('catText'), elCatDiff = $('catDiff'),
       elLangBtn = $('langBtn'), elLangLabel = $('langLabel'),
+      elLandLangBtn = $('landLangBtn'), elLandLangLabel = $('landLangLabel'),
       elThemeBtn = $('themeBtn'), elThemeLabel = $('themeLabel'),
       elThemeOpts = $('themeOpts'), elThemeBarLabel = $('themeBarLabel'),
       elCallSheet = $('callSheet'), elGenreSlot = $('genreSlot'), elGenreVal = $('genreVal'),
@@ -2088,15 +2302,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       elCodeTiles = $('codeTiles'), elLobbyPlayers = $('lobbyPlayers'),
       elStartBtn = $('startBtn'), elWaitLine = $('waitLine'), elWaitText = $('waitText'),
       elCopyBtn = $('copyBtn'), elHostCodeBtn = $('hostCodeBtn'), elDownloadInfoBtn = $('downloadInfoBtn'),
+      elStandbyBanner = $('standbyBanner'), elStandbyBannerText = $('standbyBannerText'),
+      elEditSetupBtn = $('editSetupBtn'),
       elNameInput = $('nameInput'),
       elCodeInput = $('codeInput'),
       elJoinForm = $('joinForm'), elCreateBtn = $('createBtn'), elJoinNote = $('joinNote'),
       elHostEventBtn = $('hostEventBtn'),
       elHostRecoverToggle = $('hostRecoverToggle'), elHostRecoverField = $('hostRecoverField'),
       elHostTokenInput = $('hostTokenInput'),
-      elWizardBar = $('wizardBar'), elWizardStepLabel = $('wizardStepLabel'),
-      elWizardBackBtn = $('wizardBackBtn'), elWizardNextBtn = $('wizardNextBtn'),
-      elHowToBtn = $('howToBtn'), elHowToPanel = $('howToPanel'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
       elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch'),
       elMicBtn = $('micBtn'), elMicLabel = $('micLabel'),
@@ -2209,6 +2422,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function onScreenEnter(name) {
     if (name === 'lobby')  { setStage(lobbyStage()); }
+    if (name === 'wizard') { setStage(STAGE.lobby); }
     if (name === 'board')  { setStage(STAGE.board); runBoardSequence(); }
     if (name === 'final')  { runFinalSequence(); }
     if (name === 'landing'){ setStage(STAGE.lobby); pollLiveNow(); }
@@ -2332,11 +2546,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   /* the HUD chip cycles, because the HUD has no room for five dots */
   on(elThemeBtn, 'click', function () { applyTheme(cycle(THEMES, theme, 1), true); });
 
-  paintSound();
-  paintLang();
-  paintTheme();
   function paintLang() {
     if (elLangLabel) elLangLabel.textContent = lang.toUpperCase();
+    if (elLandLangLabel) elLandLangLabel.textContent = lang.toUpperCase();
     if (elLangBtn) {
       elLangBtn.setAttribute('aria-label',
         lang === 'es' ? 'Idioma: español. Cambiar a inglés.' : 'Language: English. Switch to Spanish.');
@@ -2357,6 +2569,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elBackBtn.disabled = live;
     elBackLabel.textContent = live ? T('onAirTag') : T('backToMenu');
     elBackBtn.title = live ? T('noLeaveLive') : T('backToMenu');
+    paintAir();
+  }
+
+  /* The big side sign: ON AIR while a round is live (question or reveal),
+     OFF AIR in the lobby, on the scoreboard and at the podium. Same notion
+     of "live" as the Back-to-Menu lock above. */
+  function paintAir() {
+    var sign = $('airSign');
+    if (!sign) return;
+    var live = state.phase === 'question' || state.phase === 'reveal';
+    sign.dataset.air = live ? 'on' : 'off';
+    var t = $('airText');
+    if (t) t.textContent = T(live ? 'airOn' : 'airOff');
   }
 
   /* Static chrome only — anything driven by game state is repainted by its own
@@ -2396,7 +2621,6 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (quizLabel) quizLabel.textContent = T('yourQuestions');
     set('quizAddBtn', 'addQuestion');
     set('quizSaveBtn', 'saveQuiz');
-    set('howToBtn', 'howToBtn');
     set('hostRecoverToggle', 'recoveringHost');
     set('hostCodeBtn', 'copyHostCode');
     set('downloadInfoBtn', 'downloadInfo');
@@ -2411,19 +2635,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     paintBackBtn();
     paintTheme();
     if (curScreen === 'lobby') renderLobby();
+    if (curScreen === 'wizard') renderWizard();
   }
 
-  on(elLangBtn, 'click', function () {
+  function switchLang() {
     lang = cycle(LANGS, lang, 1);
     try { localStorage.setItem('ls:lang', lang); } catch (e) {}
     paintLang();
     // Tell the server, so it knows whether this room needs bilingual questions.
-    send({ type: 'lang', lang: lang });
+    // (Not connected yet on the landing screen — the handshake carries it.)
+    if (ws && ws.readyState === 1) send({ type: 'lang', lang: lang });
     // Re-render whatever is on screen right now. Switching language mid-question
     // is legal precisely because every language is already on the wire.
     if (state.question && curScreen === 'play') renderQuestion(state.question);
     if (curScreen === 'lobby') paintCallSheet();
-  });
+  }
+  on(elLangBtn, 'click', switchLang);
+  on(elLandLangBtn, 'click', switchLang);
 
   on(elSoundBtn, 'click', function () {
     audio.on = !audio.on;
@@ -2741,7 +2969,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      tell the truth. The arc is one CSS animation. The digits are
      written only when the displayed integer changes.
      ================================================================== */
-  var clock = { endsAt: 0, raf: 0, shown: -1, state: '', locked: false, live: false };
+  var clock = { endsAt: 0, raf: 0, shown: -1, state: '', locked: false, live: false, total: QUESTION_MS };
+
+  /* The host can set 5-60s per question, so the ring and the warm/panic
+     thresholds scale with the room's real window instead of assuming 20s.
+     At 20s these come out at exactly the old 10s / 5s. */
+  function questionTotalMs() {
+    return Math.max(1000, Number(state.settings && state.settings.questionMs) || QUESTION_MS);
+  }
+  function warmMs()  { return Math.min(WARM_MS,  clock.total * 0.5); }
+  function panicMs() { return Math.min(PANIC_MS, clock.total * 0.25); }
 
   function setClockState(s) {
     if (clock.state === s) return;
@@ -2759,6 +2996,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   function startClock(endsAt) {
     stopClockLoop();
     clock.endsAt = endsAt;
+    // max(): a reconnect mid-question has less than the full window left, and
+    // a window longer than the setting says (never expected) still draws.
+    clock.total = Math.max(questionTotalMs(), endsAt - Date.now());
     clock.locked = false;
     clock.shown = -1;
     clock.state = '';
@@ -2776,7 +3016,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
      animation happens to have got to. */
   function paintArc() {
     var remaining = clamp(clock.endsAt - Date.now(), 0, 120000);
-    var frac = clamp(remaining / QUESTION_MS, 0, 1);
+    var frac = clamp(remaining / clock.total, 0, 1);
     elArc.style.animation = 'none';
     void elArc.offsetWidth;
     elArc.style.setProperty('--from', (RING_C * (1 - frac)).toFixed(2));
@@ -2801,8 +3041,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       if (wasPanic && !clock.locked && rem > -400) panicBeat();
     }
     if (!clock.locked) {
-      if (rem <= PANIC_MS) setClockState('panic');
-      else if (rem <= WARM_MS) setClockState('warm');
+      if (rem <= panicMs()) setClockState('panic');
+      else if (rem <= warmMs()) setClockState('warm');
     }
     if (rem < -2000) stopClockLoop();
   }
@@ -2835,7 +3075,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // heat runs 0..1 across the panic window so the click rises in pitch and
     // bite as the deadline closes. The clock is the only aggressive element.
     var heat = clock.endsAt
-      ? clamp(1 - (clock.endsAt - Date.now()) / PANIC_MS, 0, 1)
+      ? clamp(1 - (clock.endsAt - Date.now()) / panicMs(), 0, 1)
       : 0;
     if (REDUCED) { SFX.tick(heat); return; }
     var w = mk('div', 'wave');
@@ -2913,6 +3153,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   }
 
   var seenPlayerIds = Object.create(null);
+  // Team cards rebuild from scratch on every roster broadcast (buildTeamCard
+  // is called fresh each time) — without this, every existing member would
+  // replay its entrance animation on every unrelated update (a language
+  // change, another team's join). Tracked independently of seenPlayerIds
+  // above, which drives the join-sound arrival count, not animation.
+  var poppedMemberIds = Object.create(null);
   /* The lobby's back wall takes the genre's colour. It is the one place the
      choice is felt rather than read, and it is why the picker does not need
      to be loud. */
@@ -2932,7 +3178,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elGenreVal.textContent = g.label + (missing ? ' \u00b7 ' + T('noSpanish') : '');
     elGenreSlot.style.setProperty('--accent', g.accent);
     var d = state.settings.difficulty;
-    elDiffVal.textContent = d === 'any' ? 'Any' : titleCase(d);
+    elDiffVal.textContent = T(d) !== d ? T(d) : titleCase(d);
     elDiffSlot.style.setProperty('--accent', d === 'any' ? 'var(--paper-100)' : g.accent);
 
     elCallSheet.classList.toggle('readonly', !state.isHost);
@@ -2959,6 +3205,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // these settings actions once phase is 'standby'. Team membership
     // (renderTeamsPicker) stays, same as the server keeps joinTeam open.
     var isStandby = state.phase === 'standby';
+    if (elStandbyBanner) {
+      elStandbyBanner.hidden = !isStandby;
+      if (isStandby && elStandbyBannerText) elStandbyBannerText.textContent = T('standbyBanner');
+    }
+    // Host-only — a typo in a question or a last-minute rounds change
+    // shouldn't mean abandoning the room. Closes standby back to 'lobby',
+    // where every config handler already knows exactly what to do.
+    if (elEditSetupBtn) elEditSetupBtn.hidden = !(isStandby && state.isHost);
 
     if (elModeSlot) {
       elModeVal.textContent = isTeams ? T('modeTeams') : T('modeClassic');
@@ -2991,6 +3245,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     paintWhisper();
 
     if (curScreen === 'lobby') setStage(lobbyStage());
+    if (curScreen === 'wizard') renderWizard();
   }
 
   function cycle(list, current, dir) {
@@ -3055,16 +3310,16 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       nm.textContent = p.name;
       seat.appendChild(nm);
       var sub = mk('div', 'seat-sub');
-      sub.textContent = p.isHost ? 'Host' : (p.connected ? '' : 'Away');
+      sub.textContent = p.isHost ? T('host') : (p.connected ? '' : T('away'));
       if (!p.connected) sub.style.color = 'var(--slate-400)';
       seat.appendChild(sub);
       wrap.appendChild(seat);
     }
     if (!isTeams) {
-      var empties = Math.max(0, Math.min(MAX_PLAYERS, MAX_PLAYERS) - players.length);
+      var empties = Math.max(0, MAX_PLAYERS - players.length);
       for (var j = 0; j < empties; j++) {
         var slotWrap = mk('div', 'seat');
-        slotWrap.appendChild(mk('div', 'slot'));
+        slotWrap.appendChild(mk('div', 'seat-empty'));
         wrap.appendChild(slotWrap);
       }
     }
@@ -3119,117 +3374,306 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (lobbyPainted && arrivals > 0) SFX.join();
     lobbyPainted = true;
     paintCallSheet();
-    paintWizard();
   }
 
   /* ==================================================================
-     "Host an event" — a guided first pass over the SAME lobby controls,
-     not a separate screen with duplicated IDs/logic. Each step just hides
-     every OTHER step's container; it never un-hides anything itself —
-     paintCallSheet()/renderLobby() (which always run first, see above)
-     already decided whether the current step's own controls should show
-     at all (host-only, teams-mode-only, custom-source-only, etc.), and
-     this only ever narrows that further, never overrides it. Leaving a
-     room code visible and host-only controls host-only throughout is what
-     lets this reuse every already-tested handler verbatim.
+     "Host an event" wizard — one plain-language decision per screen.
+     It runs against the LIVE room (the room is created first, so the
+     server's genre list is available), and every choice goes through the
+     same sendSettings()/teamSetup/public messages the lobby uses — nothing
+     new on the wire. The existing quiz editor is moved into the wizard
+     while it is open and moved back to the lobby when it closes, so there
+     is still only one copy of its markup and logic.
      ================================================================== */
-  var WIZARD_STEP_COUNT = 4;
-  var howToBuilt = false;
-  // Static, language-aware, built once (rebuilt on a language switch via
-  // paintWizard's own call below) — this is reference material, not
-  // per-step state, so it does not need to change with the wizard step.
-  function renderHowTo() {
-    if (!elHowToPanel) return;
-    elHowToPanel.textContent = '';
-    var h = mk('h3'); h.textContent = T('howToTitle');
-    elHowToPanel.appendChild(h);
-    var ol = mk('ol');
-    // {term, body} pairs built as real DOM nodes, not innerHTML — every
-    // other string in this file renders via textContent, and these i18n
-    // values (though static, not user input) stay on that same safe path
-    // rather than being the one exception.
-    var steps = ['howToTeams', 'howToQuestions', 'howToTiming', 'howToReview',
-      'howToOpen', 'howToCaptain', 'howToStart'];
-    for (var i = 0; i < steps.length; i++) {
-      var li = mk('li');
-      var term = mk('b'); term.textContent = T(steps[i] + 'Term') + ' ';
-      li.appendChild(term);
-      li.appendChild(document.createTextNode(T(steps[i] + 'Body')));
-      ol.appendChild(li);
+  var WIZ_STEPS = ['teams', 'questions', 'timing', 'privacy', 'share'];
+  var wiz = { step: 0, teams: 2, teamsTouched: false };
+  var pendingWizard = false;   // set by "Host an event", consumed by beginSession()
+  var elWizProgress = $('wizProgress'), elWizStepLabel = $('wizStepLabel'),
+      elWizTitle = $('wizTitle'), elWizHelp = $('wizHelp'), elWizBody = $('wizBody'),
+      elWizQuizSlot = $('wizQuizSlot'), elWizBackBtn = $('wizBackBtn'), elWizNextBtn = $('wizNextBtn');
+
+  function wizReset() { wiz.step = 0; wiz.teams = 2; wiz.teamsTouched = false; }
+
+  function wizQuizPlace(inWizard) {
+    if (!elQuizEditor || !elWizQuizSlot) return;
+    var home = $('lobbyPlayers');
+    if (inWizard) {
+      if (elQuizEditor.parentNode !== elWizQuizSlot) elWizQuizSlot.appendChild(elQuizEditor);
+    } else if (elQuizEditor.parentNode === elWizQuizSlot && home && home.parentNode) {
+      home.parentNode.insertBefore(elQuizEditor, home);
     }
-    elHowToPanel.appendChild(ol);
-    var closeBtn = mk('button', 'chip-btn');
-    closeBtn.type = 'button';
-    closeBtn.textContent = T('howToClose');
-    on(closeBtn, 'click', function () { elHowToPanel.hidden = true; });
-    elHowToPanel.appendChild(closeBtn);
   }
 
-  if (elHowToBtn) on(elHowToBtn, 'click', function () {
-    if (!howToBuilt) { renderHowTo(); howToBuilt = true; }
-    elHowToPanel.hidden = !elHowToPanel.hidden;
+  function wizExit() { state.wizardActive = false; wizQuizPlace(false); }
+
+  function wizDiffLabel(d) { return T(d) !== d ? T(d) : titleCase(d); }
+
+  function wizGenreLabel(entry) {
+    var missing = !!(entry.langs && entry.langs.indexOf(lang) < 0);
+    return genreOf(entry.slug).label + (missing ? ' · ' + T('noSpanish') : '');
+  }
+
+  function wizCopy(text, doneKey) {
+    var done = function () { toast(T(doneKey)); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else fallbackCopy(text, done);
+  }
+
+  /* A number you can TYPE (a phone shows the number pad) or nudge with -/+.
+     Typing 20 beats twenty taps. The value is committed when the field
+     loses focus or Enter is pressed — never per keystroke, so half-typed
+     digits are never sent to the server. commit(n) receives a whole number
+     already clamped to min..max. */
+  var wizEditing = false;   // a number field has focus: don't rebuild under the typist
+  var wizNumSeq = 0;
+  function wizRow(labelText, value, min, max, step, downLabel, upLabel, commit, unit) {
+    var row = mk('div', 'wiz-row');
+    var lab = mk('label', 'wiz-row-label'); lab.textContent = labelText;
+    var ctl = mk('div', 'wiz-stepper');
+    var inputId = 'wizNum' + (++wizNumSeq);
+    lab.htmlFor = inputId;
+    var d = mk('button', 'wiz-step-btn'); d.type = 'button'; d.textContent = '−';
+    d.setAttribute('aria-label', downLabel);
+    on(d, 'click', function () { commit(clamp(value - step, min, max)); });
+    var inp = document.createElement('input');
+    inp.type = 'number'; inp.className = 'wiz-num'; inp.id = inputId;
+    inp.min = String(min); inp.max = String(max); inp.step = '1';
+    inp.setAttribute('inputmode', 'numeric');
+    inp.value = String(value);
+    on(inp, 'focus', function () { wizEditing = true; try { inp.select(); } catch (e) {} });
+    on(inp, 'blur', function () { wizEditing = false; });
+    on(inp, 'keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); }
+    });
+    on(inp, 'change', function () {
+      wizEditing = false;
+      var n = parseInt(inp.value, 10);
+      if (!isFinite(n)) { renderWizard(); return; }   // blank/garbage: put the old number back
+      commit(clamp(n, min, max));
+    });
+    var u = mk('button', 'wiz-step-btn'); u.type = 'button'; u.textContent = '+';
+    u.setAttribute('aria-label', upLabel);
+    on(u, 'click', function () { commit(clamp(value + step, min, max)); });
+    ctl.appendChild(d); ctl.appendChild(inp);
+    if (unit) { var un = mk('span', 'wiz-unit'); un.textContent = unit; ctl.appendChild(un); }
+    ctl.appendChild(u);
+    row.appendChild(lab); row.appendChild(ctl);
+    return row;
+  }
+
+  function wizChoice(title, sub, selected, fn) {
+    var b = mk('button', 'wiz-choice' + (selected ? ' on' : '')); b.type = 'button';
+    b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    var t = mk('span', 'wiz-choice-t'); t.textContent = title;
+    var s = mk('span', 'wiz-choice-s'); s.textContent = sub;
+    b.appendChild(t); b.appendChild(s);
+    on(b, 'click', fn);
+    return b;
+  }
+
+  function wizChip(text, selected, fn) {
+    var b = mk('button', 'wiz-chip' + (selected ? ' on' : '')); b.type = 'button';
+    b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    b.textContent = text;
+    on(b, 'click', fn);
+    return b;
+  }
+
+  function wizLabel(text) { var d = mk('div', 'micro wiz-sub'); d.textContent = text; return d; }
+  function wizNote(text, cls) { var p = mk('p', 'wiz-note' + (cls ? ' ' + cls : '')); p.textContent = text; return p; }
+
+  function wizSetPublic(want) {
+    if (!!state.isPublic === want) return;
+    state.isPublic = want;
+    send({ type: 'public', on: want });
+    renderWizard();
+  }
+
+  function renderWizard() {
+    if (!elWizBody) return;
+    // Someone is mid-typing in a number box: a roster/settings echo must not
+    // rebuild the field under them. Their own commit re-renders right after.
+    if (wizEditing) return;
+    var step = wiz.step, id = WIZ_STEPS[step], last = WIZ_STEPS.length - 1;
+    var ready = !!(state.me && state.isHost);
+    var s = state.settings || {};
+    var isCustom = s.source === 'custom';
+    var showQuiz = false;
+    var i;
+
+    elWizProgress.textContent = '';
+    for (i = 0; i < WIZ_STEPS.length; i++) {
+      elWizProgress.appendChild(mk('span', 'wiz-dot' + (i < step ? ' done' : '') + (i === step ? ' now' : '')));
+    }
+    elWizStepLabel.textContent = T('wizStepOf').replace('#1', step + 1).replace('#2', WIZ_STEPS.length);
+    elWizBody.textContent = '';
+    wizQuizPlace(true);
+
+    if (!ready) {
+      elWizTitle.textContent = T('wizConnecting');
+      elWizHelp.textContent = T('wizConnectingHelp');
+      elWizNextBtn.disabled = true;
+    } else {
+      elWizNextBtn.disabled = false;
+
+      if (id === 'teams') {
+        if (!wiz.teamsTouched && state.teams.length) wiz.teams = state.teams.length;
+        elWizTitle.textContent = T('wizTeamsTitle');
+        elWizHelp.textContent = T('wizTeamsHelp');
+        elWizBody.appendChild(wizRow(T('wizTeamsLabel'), wiz.teams, 1, 20, 1, T('fewerTeams'), T('moreTeams'),
+          function (n) { wiz.teamsTouched = true; wiz.teams = n; renderWizard(); }));
+        elWizBody.appendChild(wizNote(T('wizTeamsNote')));
+
+      } else if (id === 'questions') {
+        elWizTitle.textContent = T('wizQTitle');
+        elWizHelp.textContent = T('wizQHelp');
+        var box = mk('div', 'wiz-choices');
+        box.appendChild(wizChoice(T('wizTopic'), T('wizTopicSub'), !isCustom,
+          function () { if (isCustom) sendSettings({ source: 'genre' }); }));
+        box.appendChild(wizChoice(T('wizOwn'), T('wizOwnSub'), isCustom,
+          function () { if (!isCustom) sendSettings({ source: 'custom' }); }));
+        elWizBody.appendChild(box);
+        if (!isCustom) {
+          elWizBody.appendChild(wizLabel(T('wizTopicLabel')));
+          var gchips = mk('div', 'wiz-chips');
+          state.catalog.forEach(function (entry) {
+            gchips.appendChild(wizChip(wizGenreLabel(entry), entry.slug === s.genre,
+              function () { sendSettings({ genre: entry.slug }); }));
+          });
+          elWizBody.appendChild(gchips);
+          elWizBody.appendChild(wizLabel(T('wizDiffLabel')));
+          var dchips = mk('div', 'wiz-chips');
+          state.difficulties.forEach(function (d) {
+            dchips.appendChild(wizChip(wizDiffLabel(d), d === s.difficulty,
+              function () { sendSettings({ difficulty: d }); }));
+          });
+          elWizBody.appendChild(dchips);
+        } else {
+          elWizBody.appendChild(wizNote(T('wizOwnHint').replace('#', T('saveQuiz'))));
+          showQuiz = true;
+        }
+
+      } else if (id === 'timing') {
+        var rounds = s.rounds || 1, per = s.questionsPerRound || 10, ms = s.questionMs || 20000;
+        elWizTitle.textContent = T('wizTimingTitle');
+        elWizHelp.textContent = T('wizTimingHelp');
+        elWizBody.appendChild(wizRow(T('wizRoundsLabel'), rounds, 1, 10, 1, T('fewerRounds'), T('moreRounds'),
+          function (n) { sendSettings({ rounds: n }); }));
+        elWizBody.appendChild(wizRow(T('wizPerRoundLabel'), per, 1, 30, 1, T('fewerPerRound'), T('morePerRound'),
+          function (n) { sendSettings({ questionsPerRound: n }); }));
+        elWizBody.appendChild(wizRow(T('wizSecondsLabel'), Math.round(ms / 1000), 5, 60, 5, T('shorterTimer'), T('longerTimer'),
+          function (n) { sendSettings({ questionMs: n * 1000 }); }));
+        var total = rounds * per;
+        // Roughly: the question window plus a few seconds to show the answer.
+        var mins = Math.max(1, Math.round(total * (ms / 1000 + 8) / 60));
+        elWizBody.appendChild(wizNote(T('wizTotal').replace('#1', total).replace('#2', mins)));
+        if (isCustom && state.customQuestionCount > 0 && state.customQuestionCount < total) {
+          elWizBody.appendChild(wizNote(T('wizFewQuestions')
+            .replace('#1', state.customQuestionCount).replace('#2', total), 'warn'));
+        }
+
+      } else if (id === 'privacy') {
+        elWizTitle.textContent = T('wizPrivTitle');
+        elWizHelp.textContent = T('wizPrivHelp');
+        var pbox = mk('div', 'wiz-choices');
+        pbox.appendChild(wizChoice(T('wizPrivate'), T('wizPrivateSub'), !state.isPublic,
+          function () { wizSetPublic(false); }));
+        pbox.appendChild(wizChoice(T('wizPublic'), T('wizPublicSub').replace('#', T('liveNow')), !!state.isPublic,
+          function () { wizSetPublic(true); }));
+        elWizBody.appendChild(pbox);
+
+      } else {
+        elWizTitle.textContent = T('wizShareTitle');
+        elWizHelp.textContent = T('wizShareHelp');
+        var code = mk('div', 'wiz-code'); code.textContent = state.code;
+        elWizBody.appendChild(code);
+        var acts = mk('div', 'wiz-actions');
+        var linkBtn = mk('button', 'chip-btn'); linkBtn.type = 'button';
+        linkBtn.textContent = T('copyInvite'); on(linkBtn, 'click', copyLink);
+        acts.appendChild(linkBtn);
+        if (state.hostToken) {
+          var hostBtn = mk('button', 'chip-btn'); hostBtn.type = 'button';
+          hostBtn.textContent = T('copyHostCode');
+          on(hostBtn, 'click', function () { wizCopy(state.hostToken, 'hostCodeCopied'); });
+          acts.appendChild(hostBtn);
+        }
+        elWizBody.appendChild(acts);
+
+        var rounds2 = s.rounds || 1, per2 = s.questionsPerRound || 10;
+        var secs = Math.round((s.questionMs || 20000) / 1000);
+        var sum = mk('dl', 'wiz-summary');
+        var addRow = function (k, v) {
+          var dt = mk('dt'); dt.textContent = k;
+          var dd = mk('dd'); dd.textContent = v;
+          sum.appendChild(dt); sum.appendChild(dd);
+        };
+        addRow(T('wizSumTeams'), String(state.teams.length || wiz.teams));
+        addRow(T('wizSumQuestions'), isCustom
+          ? T('wizSumOwn').replace('#', state.customQuestionCount || 0)
+          : genreOf(s.genre).label + ' · ' + wizDiffLabel(s.difficulty));
+        addRow(T('wizSumTiming'), T('wizSumTimingVal')
+          .replace('#1', rounds2).replace('#2', per2).replace('#3', secs));
+        addRow(T('wizSumVisibility'), T(state.isPublic ? 'wizPublic' : 'wizPrivate'));
+        elWizBody.appendChild(sum);
+
+        if (state.hostToken) elWizBody.appendChild(wizNote(T('wizHostCodeNote')));
+        elWizBody.appendChild(wizNote(T('wizNextSteps')
+          .replace('#1', T('startEvent')).replace('#2', T('startGame'))));
+      }
+    }
+
+    elWizQuizSlot.hidden = !showQuiz;
+    elWizBackBtn.textContent = step === 0 ? T('wizCancel') : T('wizBack');
+    elWizNextBtn.textContent = step === last ? T('wizOpenLobby') : T('wizNext');
+  }
+
+  on(elWizBackBtn, 'click', function () {
+    if (wiz.step === 0) { wizExit(); goLanding(false); return; }
+    wiz.step--;
+    renderWizard();
+    try { window.scrollTo(0, 0); } catch (e) {}
   });
-
-  function paintWizard() {
-    if (!elWizardBar) return;
-    elWizardBar.hidden = !state.wizardActive;
-    // The guide is wizard-only — close it along with everything else once
-    // the host leaves (Done, or navigating away mid-setup).
-    if (!state.wizardActive) { if (elHowToPanel) elHowToPanel.hidden = true; return; }
-
-    var step = state.wizardStep;
-    var modeSheetEl = $('modeSheet');
-    var pubRow = document.querySelector('.pub-row');
-    var boardActions = document.querySelector('.board-actions');
-
-    // Nobody should see a start button, a public-listing toggle, or "waiting
-    // for host" noise while the host is still setting things up.
-    if (elLobbyPlayers) elLobbyPlayers.hidden = true;
-    if (elLobbyWatch) elLobbyWatch.hidden = true;
-    if (pubRow) pubRow.hidden = true;
-    if (boardActions) boardActions.hidden = true;
-
-    // Two different rules, because these containers are not symmetric.
-    // teamsSetup/teamsPicker/quizEditor/roundsSetup already have their OWN
-    // real visibility logic elsewhere (host-only, teams-mode-only,
-    // custom-source-only, "no teams yet") that runs before this every
-    // time — so this only ever ADDS hiding on the wrong step, never
-    // overrides a legitimate hide with a show. callSheet/modeSheet have no
-    // such logic of their own (nothing else ever touches their hidden
-    // flag), so THOSE need an explicit true/false every call or they get
-    // stuck hidden forever the first time any OTHER step hides them.
-    if (elCallSheet) elCallSheet.hidden = step !== 1;
-    if (modeSheetEl) modeSheetEl.hidden = step !== 1;
-    if (step !== 0) { if (elTeamsSetup) elTeamsSetup.hidden = true; if (elTeamsPicker) elTeamsPicker.hidden = true; }
-    if (step !== 1) { if (elQuizEditor) elQuizEditor.hidden = true; }
-    if (step !== 2) { if (elRoundsSetup) elRoundsSetup.hidden = true; }
-    // Step 3 (review) adds nothing beyond the code-block, which is already
-    // always visible — that IS the review.
-
-    var titles = [T('wizStepTeams'), T('wizStepQuestions'), T('wizStepTiming'), T('wizStepReview')];
-    elWizardStepLabel.textContent = T('wizStepOf').replace('#1', step + 1).replace('#2', WIZARD_STEP_COUNT) +
-      ' — ' + titles[step];
-    elWizardBackBtn.hidden = step === 0;
-    elWizardNextBtn.textContent = step === WIZARD_STEP_COUNT - 1 ? T('wizDone') : T('wizNext');
-  }
-
-  function wizardGo(step) {
-    state.wizardStep = Math.max(0, Math.min(WIZARD_STEP_COUNT - 1, step));
-    renderLobby();
-  }
-
-  on(elWizardBackBtn, 'click', function () { wizardGo(state.wizardStep - 1); });
-  on(elWizardNextBtn, 'click', function () {
-    if (state.wizardStep >= WIZARD_STEP_COUNT - 1) {
-      // Done — leave wizard mode. renderLobby()/paintCallSheet() now decide
-      // every control's visibility with no further narrowing, same as a
-      // room created the ordinary way.
-      state.wizardActive = false;
-      renderLobby();
-      toast(T('wizReady'));
+  on(elWizNextBtn, 'click', function () {
+    var id = WIZ_STEPS[wiz.step];
+    if (id === 'teams' && state.teams.length !== wiz.teams) {
+      send({ type: 'teamSetup', count: wiz.teams });
+    }
+    if (id === 'questions' && state.settings.source === 'custom' && !(state.customQuestionCount > 0)) {
+      toast(T('wizNeedQuiz'), true);
       return;
     }
-    wizardGo(state.wizardStep + 1);
+    // Dumb-proof the rounds x questions-per-round vs. saved-quiz mismatch —
+    // this used to only show a soft "heads up" note on this step and let the
+    // host click through anyway, so a host who asked for more than they
+    // wrote (1 round of 10 with only 3 saved, say) would not find out until
+    // "Start game" refused with a bare toast, long after the wizard felt
+    // done. Mirrors the server's own onStart leniency exactly (sanitizeStart
+    // in trivia-server/src/index.js): untouched rounds/questionsPerRound
+    // still at their defaults means the host never stated a total, so the
+    // game just uses however many questions got saved — only a rounds/
+    // questionsPerRound the host actually changed turns the product into a
+    // real requirement the saved quiz has to meet.
+    if (id === 'timing' && state.settings.source === 'custom') {
+      var tRounds = state.settings.rounds || 1, tPer = state.settings.questionsPerRound || 10;
+      var usingDefaults = tRounds === 1 && tPer === 10;
+      var need = usingDefaults ? state.customQuestionCount : tRounds * tPer;
+      if (state.customQuestionCount < need) {
+        toast(T('wizFewQuestions').replace('#1', state.customQuestionCount).replace('#2', need), true);
+        return;
+      }
+    }
+    if (wiz.step >= WIZ_STEPS.length - 1) {
+      // Done: same lobby as a room made the ordinary way, with the choices applied.
+      wizExit();
+      setScreen('lobby');
+      renderLobby();
+      paintCallSheet();
+      return;
+    }
+    wiz.step++;
+    renderWizard();
+    try { window.scrollTo(0, 0); } catch (e) {}
   });
 
   /* The host gets the switch; everyone else gets the fact. A room being
@@ -3314,7 +3758,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   var pendingTeamCount = 2;
   on(elTeamCountDown, 'click', function () {
-    pendingTeamCount = Math.max(1, pendingTeamCount - 1); // TEMP for testing — put back to 2 once done
+    pendingTeamCount = Math.max(1, pendingTeamCount - 1); // 1 team is allowed on purpose (solo / all-together play)
     elTeamCountVal.textContent = String(pendingTeamCount);
   });
   on(elTeamCountUp, 'click', function () {
@@ -3438,7 +3882,25 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     for (var j = 0; j < t.memberIds.length; j++) {
       var p = findPlayer(t.memberIds[j]);
       if (!p) continue;
-      var mchip = mk('div', 'team-member' + (p.connected ? '' : ' off'));
+      // Pop in once, the first time this member's chip is ever built —
+      // every later rebuild (any other roster change) renders them plain,
+      // so the room doesn't jitter every time someone ELSE joins.
+      // renderTeamsPicker() can run more than once per roster update
+      // (renderLobby() calls it directly, then again moments later via
+      // paintCallSheet(), both synchronously in the same tick), and only the
+      // LAST call's nodes end up actually attached to the DOM — earlier
+      // calls' are immediately thrown away. Marking "seen" synchronously
+      // would have an earlier call claim the pop-in and the surviving call
+      // render plain. Deferring the write to a microtask means every
+      // synchronous call in this tick still sees "new" and the surviving
+      // node keeps the class; a genuinely later roster broadcast is
+      // milliseconds away at minimum, long after this microtask has
+      // committed, so it still only animates once per member.
+      var isNewPop = !poppedMemberIds[p.id];
+      if (isNewPop) {
+        (function (id) { Promise.resolve().then(function () { poppedMemberIds[id] = true; }); })(p.id);
+      }
+      var mchip = mk('div', 'team-member' + (p.connected ? '' : ' off') + (isNewPop ? ' pop-in' : ''));
       mchip.appendChild(avatarEl(p));
       var mn = mk('span', 'mname');
       // A star marks the team's leader — the one whose tiles are live and
@@ -3497,12 +3959,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   var QUIZ_KIND_MEDIA = { tune: 'audio', picture: 'image' };
 
   function renderQuizEditor() {
-    // quizDraft is declared (var, hoisted but not yet assigned) further down
-    // the file near its own first use. paintStatic() calls this during very
-    // early page init, before that assignment has run — guard rather than
-    // let the whole init script die on an uncaught TypeError here, which
-    // silently skipped every `on(...)` handler registered after this point.
-    if (!elQuizRows || !quizDraft) return;
+    if (!elQuizRows) return;
     elQuizRows.textContent = '';
     for (var i = 0; i < quizDraft.length; i++) elQuizRows.appendChild(buildQuizRow(i));
     elQuizStatus.textContent = state.customQuestionCount
@@ -3652,15 +4109,23 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         return;
       }
       var choices = [];
+      var correct = -1;
       for (var c = 0; c < 4; c++) {
         var v = (q.choices[c] || '').trim();
-        if (v) choices.push(v);
+        if (v) {
+          // correctIndex is authored against the 4 on-screen slots, but blank
+          // slots are dropped before sending. Re-point it at the filtered
+          // list so a blank slot above the right answer cannot shift the key
+          // onto a different answer (the server cannot detect that).
+          if (c === q.correctIndex) correct = choices.length;
+          choices.push(v);
+        }
       }
-      // correctIndex is authored against the UNFILTERED 4 slots; if the host
-      // left a blank slot above it, this is wrong, but the server validates
-      // independently and refuses the whole batch with a reason rather than
-      // silently accepting a shifted answer key.
-      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: q.correctIndex, kind: q.kind, media: q.media || null });
+      if (correct < 0) {
+        toast(T('quizCorrectBlank').replace('#', i + 1), true);
+        return;
+      }
+      items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: correct, kind: q.kind, media: q.media || null });
     }
     send({ type: 'questions', items: items });
   });
@@ -3710,7 +4175,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // Hero sizing for 'tune'/'picture' — the attachment IS the question
     // there, not a small decorative clue, so it leads at a larger size.
     elQuestionMedia.classList.toggle('q-media--hero', kind === 'tune' || kind === 'picture');
-    if (!media || typeof media.dataUrl !== 'string') { elQuestionMedia.hidden = true; return; }
+    // Only inline data: URLs of the matching type are ever loaded. The server
+    // is meant to guarantee this already; checking again means a stray
+    // http(s) URL could never make every player's browser fetch it.
+    var okMedia = !!media && typeof media.dataUrl === 'string' &&
+      ((media.type === 'image' && /^data:image\//i.test(media.dataUrl)) ||
+       (media.type === 'audio' && /^data:audio\//i.test(media.dataUrl)));
+    if (!okMedia) { elQuestionMedia.hidden = true; return; }
     elQuestionMedia.hidden = false;
     if (media.type === 'image') {
       var img = document.createElement('img');
@@ -3718,10 +4189,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       img.alt = '';
       elQuestionMedia.appendChild(img);
     } else if (media.type === 'audio') {
-      var audio = document.createElement('audio');
-      audio.src = media.dataUrl;
-      audio.controls = true;
-      elQuestionMedia.appendChild(audio);
+      var clip = document.createElement('audio');
+      clip.src = media.dataUrl;
+      clip.controls = true;
+      elQuestionMedia.appendChild(clip);
     }
   }
 
@@ -3735,7 +4206,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // phase flag cannot distinguish them — it is already 'question' by the
     // time we get here — but the clock can: a fresh question has essentially
     // its whole window left.
-    if ((q.endsAt - Date.now()) > QUESTION_MS * 0.85) SFX.question();
+    if ((q.endsAt - Date.now()) > questionTotalMs() * 0.85) SFX.question();
 
     // Reset every trace of the last round. correctIndex goes back to null
     // here and stays null until a 'reveal' arrives.
@@ -3745,6 +4216,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.reveal = null;
     state.nextAt = 0;
     state.myChoice = null;
+    state.teamPick = null;
     state.locked = false;
     state.answered = {};
 
@@ -3754,7 +4226,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     try {
       var saved = state.spectator ? null : sessionStorage.getItem(pickKey());
       if (saved !== null) {
-        var si = parseInt(saved, 10);
+        // Stored as "<endsAt>:<choice>". A pick only counts for THIS showing
+        // of the question: Play Again reuses the same room code and question
+        // numbers with a new deadline, and must not inherit last game's picks
+        // (that used to pre-lock every tile and send nothing to the server).
+        var parts = String(saved).split(':');
+        var si = (parts.length === 2 && Number(parts[0]) === q.endsAt) ? parseInt(parts[1], 10) : -1;
         if (si >= 0 && si <= 3) { state.myChoice = si; state.locked = true; }
       }
     } catch (e) {}
@@ -3867,9 +4344,18 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (!(i >= 0 && i <= 3)) return;
     state.locked = true;
     state.myChoice = i;
-    try { sessionStorage.setItem(pickKey(), String(i)); } catch (e) {}
+    try { sessionStorage.setItem(pickKey(), state.question.endsAt + ':' + i); } catch (e) {}
     send({ type: 'answer', index: state.question.index, choice: i });
     applyLockVisuals(i, false);
+  }
+
+  function showTeamPick(i) {
+    var el = tileAt(i);
+    if (el) {
+      el.classList.add('picked', 'team-pick');
+      el.setAttribute('aria-pressed', 'true');
+    }
+    paintLockLine();
   }
 
   function applyLockVisuals(i, silent) {
@@ -3938,7 +4424,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       var cs0 = lockCounts();
       if (cs0.total > 0) {
         var cs = mk('span', 'lock-tag muted');
-        cs.textContent = cs0.done + ' of ' + cs0.total + (isTeams ? ' teams' : '') + ' locked in';
+        cs.textContent = T(isTeams ? 'lockedOfTeams' : 'lockedOfPlayers').replace('#1', cs0.done).replace('#2', cs0.total);
         elLockLine.appendChild(cs);
       }
       return;
@@ -3951,19 +4437,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       var t = myTeam();
       var leaderName = (t && findPlayer(t.leaderId) || {}).name;
       waitTag.textContent = state.locked
-        ? 'Your team has locked in'
-        : (leaderName ? 'Waiting on ' + leaderName + ' to answer' : 'Waiting on your team leader');
+        ? (state.teamPick !== null ? T('teamPickShown') : T('teamLocked'))
+        : (leaderName ? T('waitingOn').replace('#', leaderName) : T('waitingLeader'));
       elLockLine.appendChild(waitTag);
       return;
     }
     if (!state.locked) {
       var hint = mk('span', 'lock-tag muted');
-      hint.textContent = COARSE ? 'Tap your answer' : 'Pick one — keys 1–4 work too';
+      hint.textContent = COARSE ? T('tapAnswer') : T('pickOneKeys');
       elLockLine.appendChild(hint);
       return;
     }
     var a = mk('span', 'lock-tag');
-    a.textContent = state.myChoice === null ? 'Answer locked' : 'Answer locked — ' + CHOICES[state.myChoice].letter;
+    a.textContent = state.myChoice === null ? T('answerLocked') : T('answerLocked') + ' — ' + CHOICES[state.myChoice].letter;
     elLockLine.appendChild(a);
 
     // Counts stay off while you are still choosing — they leak nothing about
@@ -3972,7 +4458,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var cs1 = lockCounts();
     if (cs1.total > 1) {
       var c = mk('span', 'lock-tag muted');
-      c.textContent = cs1.done + ' of ' + cs1.total + (isTeams ? ' teams' : '') + ' locked in';
+      c.textContent = T(isTeams ? 'lockedOfTeams' : 'lockedOfPlayers').replace('#1', cs1.done).replace('#2', cs1.total);
       elLockLine.appendChild(c);
     }
   }
@@ -4043,7 +4529,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       if (win) {
         win.classList.remove('drained');
         win.classList.add('correct');
-        win.setAttribute('aria-label', 'Correct answer');
+        win.setAttribute('aria-label', T('correctAria'));
         if (!REDUCED) {
           var sh = mk('span', 'shock mint');
           win.appendChild(sh);
@@ -4071,7 +4557,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (el) {
           el.classList.remove('drained');
           el.classList.add('mywrong');
-          el.setAttribute('aria-label', 'Your answer, incorrect');
+          el.setAttribute('aria-label', T('wrongAria'));
           if (!REDUCED) {
             el.classList.add('shake');
             el.addEventListener('animationend', function () { el.classList.remove('shake'); }, { once: true });
@@ -4079,9 +4565,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         }
       }
       var verdict = mk('span', 'lock-tag' + (iWasRight ? '' : ' muted'));
-      if (iWasRight) verdict.textContent = 'You got it — +' + (mine.gained || 0);
-      else if (state.myChoice === null) verdict.textContent = 'No answer this round';
-      else verdict.textContent = 'Not this time';
+      if (iWasRight) verdict.textContent = T('youGotIt') + ' — +' + (mine.gained || 0);
+      else if (state.myChoice === null) verdict.textContent = T('noAnswer');
+      else verdict.textContent = T('notThisTime');
       elLockLine.textContent = '';
       elLockLine.appendChild(verdict);
     }, 560);
@@ -4127,9 +4613,9 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var label = mk('div', 'whogot-label');
     label.textContent = winners.length
       ? (winners.length === 1
-          ? (isTeams ? '1 team got it' : '1 player got it')
-          : winners.length + (isTeams ? ' teams got it' : ' players got it'))
-      : 'Nobody got it';
+          ? T(isTeams ? 'oneTeamGotIt' : 'onePlayerGotIt')
+          : T(isTeams ? 'nTeamsGotIt' : 'nPlayersGotIt').replace('#', winners.length))
+      : T('nobodyGotIt');
     elWhoGot.appendChild(label);
     if (!winners.length) return;
 
@@ -4142,8 +4628,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       chip.style.animationDelay = (REDUCED ? 0 : k * 55) + 'ms';
       chip.appendChild(avatarEl(p));
       var nm = mk('div', 'gname');
-      nm.textContent = (!isTeams && state.me && p.id === state.me.id) ? 'You'
-        : (isTeams && state.myTeamId === p.id) ? 'Your team' : p.name;
+      nm.textContent = (!isTeams && state.me && p.id === state.me.id) ? T('you')
+        : (isTeams && state.myTeamId === p.id) ? T('yourTeam') : p.name;
       chip.appendChild(nm);
 
       if (!REDUCED) {
@@ -4156,7 +4642,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       }
       if (k === 0 && winners.length > 1 && (w.gained || 0) > (winners[1].gained || 0)) {
         var f = mk('div', 'fast-tag');
-        f.textContent = 'Fastest';
+        f.textContent = T('fastest');
         chip.appendChild(f);
       }
       chips.appendChild(chip);
@@ -4234,7 +4720,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       : !!(state.me && p.id === state.me.id);
     if (isMine) {
       var you = mk('span', 'row-you');
-      you.textContent = state.settings.mode === 'teams' ? 'Your team' : 'You';
+      you.textContent = state.settings.mode === 'teams' ? T('yourTeam') : T('you');
       name.appendChild(you);
     }
     row.appendChild(name);
@@ -4250,7 +4736,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var idx = q ? q.index : 0, total = q ? q.total : 10;
     // Reconnecting straight into a scoreboard means we never saw the question,
     // so we don't know the round. Say "Scoreboard" rather than guess "Round 1".
-    elBoardRound.textContent = q ? ('Round ' + (idx + 1) + ' of ' + total) : 'Scoreboard';
+    elBoardRound.textContent = q ? T('roundOf').replace('#', idx + 1).replace('#', total) : T('scoreboard');
     renderPills(elBoardPills, q ? idx : -1, total);
     renderPills(elHudPills, q ? idx : -1, total);
 
@@ -4549,12 +5035,12 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       if (state.isHost) {
         var b = mk('button', 'btn btn-primary pop-in');
         b.type = 'button';
-        b.textContent = 'Play again';
+        b.textContent = T('playAgain');
         on(b, 'click', function () { send({ type: 'again' }); b.disabled = true; });
         elFinalActions.appendChild(b);
       } else {
         var w = mk('div', 'waiting pop-in');
-        var s = mk('span'); s.textContent = 'Waiting for host';
+        var s = mk('span'); s.textContent = T('waitingHost');
         w.appendChild(s);
         var dots = mk('span', 'dots');
         dots.appendChild(mk('i')); dots.appendChild(mk('i')); dots.appendChild(mk('i'));
@@ -4579,7 +5065,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var nm = mk('div', 'row-name');
     nm.textContent = p.name;
     if (state.me && p.id === state.me.id) {
-      var you = mk('span', 'row-you'); you.textContent = 'You'; nm.appendChild(you);
+      var you = mk('span', 'row-you'); you.textContent = T('you'); nm.appendChild(you);
     }
     row.appendChild(nm);
     var sc = mk('div', 'row-score');
@@ -4638,7 +5124,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     if (ws) { try { ws.onclose = null; ws.close(); } catch (e) {} ws = null; }
     forceClose = null;
 
-    netbar('busy', state.everConnected ? 'Lost the connection — trying to get you back in.' : 'Connecting to the room…');
+    netbar('busy', state.everConnected ? T('lostConnection') : T('connecting'));
 
     var url;
     try { url = socketUrl(state.code, state.name); }
@@ -4666,8 +5152,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       if (code === 4000) {
         replaced = true;
         wantOpen = false;
-        netbar('dead', 'This room is open in another tab or device.', {
-          label: 'Play here', fn: function () { attempt = 0; connect(); }
+        netbar('dead', T('openElsewhere'), {
+          label: T('playHere'), fn: function () { attempt = 0; connect(); }
         });
         return;
       }
@@ -4749,16 +5235,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     var base = Math.min(10000, 500 * Math.pow(2, Math.min(attempt - 1, 5)));
     var wait = Math.round(base * (0.75 + Math.random() * 0.5));
     retryAt = Date.now() + wait;
-    netbar('busy', state.everConnected
-      ? 'Lost the connection — trying to get you back in.'
-      : 'Could not reach the room. Retrying…');
+    netbar('busy', state.everConnected ? T('lostConnection') : T('couldNotReach'));
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = setTimeout(function () { retryTimer = 0; connect(); }, wait);
   }
 
   function send(obj) {
     if (!ws || ws.readyState !== 1) {
-      toast('Not connected yet — hang on.', true);
+      toast(T('notConnected'), true);
       return false;
     }
     try { ws.send(JSON.stringify(obj)); return true; }
@@ -4957,11 +5441,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   })();
 
   function paintMic() {
-    // Voice (var, hoisted but not yet assigned) is declared further down the
-    // file near its own first use. paintStatic() calls this during very
-    // early page init, before that assignment has run — same hoisting gap
-    // renderQuizEditor() hit earlier; same fix.
-    if (!elMicBtn || typeof Voice === 'undefined') return;
+    if (!elMicBtn) return;
     var ch = Voice.myChannel();
     elMicBtn.hidden = !ch;
     if (!ch) return;
@@ -5048,22 +5528,26 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         state.teams = Array.isArray(msg.teams) ? msg.teams : [];
         recomputeMyTeam();
         state.starting = false;
+        // The wizard only ever belongs to the host seat; anyone else (or a
+        // reconnect that lost the seat) goes straight to the normal lobby.
+        if (state.wizardActive && !(state.isHost && !state.spectator)) wizExit();
         // "Host an event" always means teams mode — the wizard's whole
         // point is pre-configuring teams/questions/timing, none of which
-        // exist in classic mode. Only fires once, right after the host
-        // actually becomes host, same gate as the host-token capture above.
-        if (state.wizardActive && state.isHost && state.settings.mode !== 'teams') {
+        // exist in classic mode.
+        if (state.wizardActive && state.settings.mode !== 'teams') {
           sendSettings({ mode: 'teams' });
         }
         paintCallSheet();
-        paintWizard();
         state.everConnected = true;
         state.handshakeFails = 0;
         netbar(null);
         elHudCodeText.textContent = state.code;
         if (state.phase === 'lobby' || state.phase === 'standby') {
           resetRound();
-          setScreen('lobby');
+          if (state.wizardActive && state.phase !== 'lobby') wizExit();
+          setScreen(state.wizardActive ? 'wizard' : 'lobby');
+        } else if (state.wizardActive) {
+          wizExit();
         }
         paintBackBtn();
         // For question / reveal / final the server replays the payload right
@@ -5072,10 +5556,19 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         break;
 
       case 'roster':
+        // Captured before state.teams is overwritten below. hadTeamsBefore
+        // guards the very first roster a client ever sees (on join/reload)
+        // from reading as "you just became captain" when really nothing
+        // changed — it's just the first time this client knows its own status.
+        var hadTeamsBefore = Array.isArray(state.teams) && state.teams.length > 0;
+        var wasCaptainBefore = amITeamLeader();
         state.players = Array.isArray(msg.players) ? msg.players : [];
         state.watching = (msg.watching | 0) > 0 ? (msg.watching | 0) : 0;
         state.teams = Array.isArray(msg.teams) ? msg.teams : [];
         recomputeMyTeam();
+        if (hadTeamsBefore && !wasCaptainBefore && amITeamLeader() && !state.spectator) {
+          confetti(16);
+        }
         if (state.me) {
           for (var i = 0; i < state.players.length; i++) {
             if (state.players[i].id === state.me.id) state.isHost = !!state.players[i].isHost;
@@ -5084,6 +5577,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         paintMic();
         paintWhisper();
         if (curScreen === 'lobby') renderLobby();
+        if (curScreen === 'wizard') renderWizard();
         if (curScreen === 'play' && state.phase === 'question') paintLockLine();
         if (curScreen === 'board') paintBoardActions();
         break;
@@ -5093,7 +5587,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.phase === 'lobby') {
           resetRound();
           seenPlayerIds = Object.create(null);
-          setScreen('lobby');
+          setScreen(state.wizardActive ? 'wizard' : 'lobby');
           renderLobby();
         }
         // Doors open: same screen as lobby (renderLobby/paintCallSheet hide
@@ -5102,6 +5596,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         if (msg.phase === 'standby') {
           setScreen('lobby');
           renderLobby();
+          confetti(20); // doors open — a small shared moment, not a show
         }
         if (msg.phase === 'question') {
           // wait for the question payload
@@ -5145,6 +5640,18 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         paintBackBtn();
         break;
       }
+
+      // Teams mode: the captain's locked tile, sent by the server to that
+      // team's members only. It shows teammates what was locked in; it is
+      // never an answer key (it is just the team's own choice) and it is
+      // ignored unless it is for my team and the question on screen.
+      case 'teamPick':
+        if (msg.teamId && msg.teamId === state.myTeamId && state.question &&
+            (msg.index | 0) === state.question.index && Number.isInteger(msg.choice)) {
+          state.teamPick = msg.choice;
+          if (!amITeamLeader()) showTeamPick(msg.choice);
+        }
+        break;
 
       case 'answered':
         if (msg.teamId) {
@@ -5225,8 +5732,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       case 'customQuestions':
         state.customQuestionCount = (msg.count | 0) > 0 ? (msg.count | 0) : 0;
         if (elQuizStatus) renderQuizEditor();
-        toast('Quiz saved — ' + state.customQuestionCount
-          + ' question' + (state.customQuestionCount === 1 ? '' : 's') + '.');
+        if (curScreen === 'wizard') renderWizard();
+        toast(state.customQuestionCount === 1
+          ? T('quizToast1')
+          : T('quizToastN').replace('#', state.customQuestionCount));
         break;
 
       case 'public':
@@ -5234,6 +5743,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
         // overwrites whatever the toggle painted optimistically.
         state.isPublic = !!msg.on;
         if (curScreen === 'lobby') paintPublicToggle();
+        if (curScreen === 'wizard') renderWizard();
         break;
 
       /* Not an error — the game is starting normally, it just isn't coming
@@ -5245,7 +5755,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       case 'error':
         state.starting = false;
         paintCallSheet();
-        toast(msg.code ? serverText(msg) : String(msg.message || 'Something went wrong.'), true);
+        toast(msg.code ? serverText(msg) : String(msg.message || T('wentWrong')), true);
         if (elStartBtn) elStartBtn.disabled = false;
         if (curScreen === 'board') paintBoardActions();
         break;
@@ -5263,6 +5773,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.reveal = null;
     state.nextAt = 0;
     state.myChoice = null;
+    state.teamPick = null;
     state.locked = false;
     state.answered = {};
     state.prevScores = {};
@@ -5386,10 +5897,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function pollLiveNow() {
     stopLiveNow();
-    if (curScreen !== 'landing') return;
+    // A hidden tab neither polls nor re-arms; the visibilitychange handler
+    // restarts the chain the moment the tab is visible again. (A forgotten
+    // landing tab used to hit /lobby every 5s forever.)
+    if (curScreen !== 'landing' || document.hidden) return;
     var again = function () {
       stopLiveNow();
-      if (curScreen === 'landing') lobbyTimer = setTimeout(pollLiveNow, LOBBY_POLL_MS);
+      if (curScreen === 'landing' && !document.hidden) lobbyTimer = setTimeout(pollLiveNow, LOBBY_POLL_MS);
     };
     try {
       fetch(backendHttp() + '/lobby', { mode: 'cors' })
@@ -5475,6 +5989,11 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     forceClose = null;
     Voice.reset(); // stop the mic — leaving the room is not a reason to keep it hot
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = 0; }
+    // A deliberate exit, not just a closed tab — tells the server to forget
+    // the seat right away rather than hold it for DISCONNECT_GRACE_MS. Sent
+    // directly, not via send(), which toasts "not connected yet" on failure —
+    // exactly the wrong thing to show someone who is in the middle of leaving.
+    if (ws && ws.readyState === 1) { try { ws.send(JSON.stringify({ type: 'leaveRoom' })); } catch (e) {} }
     if (ws) { try { ws.onclose = null; ws.close(); } catch (e) {} ws = null; }
     netbar(null);
     clearAllTimers();
@@ -5483,6 +6002,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     state.handshakeFails = 0;
     state.spectator = false;
     state.watching = 0;
+    wizExit();
     attempt = 0;
     if (!keepCode) {
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
@@ -5490,10 +6010,15 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     elNameInput.value = state.name || storedName();
     elCodeInput.value = keepCode ? (state.code || '') : '';
     setScreen('landing');
-    note('A room is just a link. Share it and people land straight in.');
+    note(T('inviteNote'));
   }
 
   function beginSession(code, name, asSpectator, hostToken) {
+    // The wizard is only ever opened by "Host an event" (pendingWizard); any
+    // other way into a room starts with it closed.
+    state.wizardActive = pendingWizard && !asSpectator;
+    pendingWizard = false;
+    if (!state.wizardActive) wizQuizPlace(false);
     state.spectator = !!asSpectator;
     state.code = code;
     state.name = name;
@@ -5521,8 +6046,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       try { history.pushState(null, '', location.pathname + location.search + wantHash); } catch (e) {}
     }
     renderCodeTiles(code);
-    setScreen('lobby');
-    renderLobby();
+    if (state.wizardActive) {
+      setScreen('wizard');
+      renderWizard();
+    } else {
+      setScreen('lobby');
+      renderLobby();
+    }
     paintBackBtn();
     connect();
   }
@@ -5538,8 +6068,8 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   function submitJoin() {
     var name = String(elNameInput.value || '').trim().slice(0, 16);
     var code = String(elCodeInput.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
-    if (!ROOM_RE.test(code)) { note('A room code is 4 to 6 letters or digits.', true); elCodeInput.focus(); return; }
+    if (!name) { note(T('pickName'), true); elNameInput.focus(); return; }
+    if (!ROOM_RE.test(code)) { note(T('badCode'), true); elCodeInput.focus(); return; }
     // Lowercase, not uppercase: the host code is now three plain words
     // ("tiger-lamp-maple"), not the old random alphanumeric string, and
     // forcing a case a person didn't type would just make typos worse.
@@ -5550,14 +6080,14 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
   on(elJoinForm, 'submit', function (e) { e.preventDefault(); submitJoin(); });
   on(elCreateBtn, 'click', function () {
     var name = String(elNameInput.value || '').trim().slice(0, 16);
-    if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
+    if (!name) { note(T('pickName'), true); elNameInput.focus(); return; }
     beginSession(randomCode(), name);
   });
   on(elHostEventBtn, 'click', function () {
     var name = String(elNameInput.value || '').trim().slice(0, 16);
-    if (!name) { note('Pick a name first — up to 16 characters.', true); elNameInput.focus(); return; }
-    state.wizardActive = true;
-    state.wizardStep = 0;
+    if (!name) { note(T('pickName'), true); elNameInput.focus(); return; }
+    wizReset();
+    pendingWizard = true;
     beginSession(randomCode(), name);
   });
   on(elHostRecoverToggle, 'click', function () {
@@ -5612,7 +6142,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     // either phase.
     var wasPhase = state.phase;
     elStartBtn.disabled = true;
-    elStartBtn.textContent = 'Starting…';
+    elStartBtn.textContent = T('starting');
     // The server freezes settings the moment it begins fetching; the call
     // sheet should say so rather than accept taps that will be rejected.
     state.starting = true;
@@ -5631,7 +6161,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 
   function copyLink() {
     var url = location.origin + location.pathname + location.search + '#room=' + state.code;
-    var done = function () { toast('Invite link copied.'); };
+    var done = function () { toast(T('inviteCopied')); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url, done); });
     } else fallbackCopy(url, done);
@@ -5660,6 +6190,10 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
     } else fallbackCopy(text, done);
   });
+  // Standby-only, host-only — the other half of onCloseEvent. Reopens the
+  // config screen (server moves 'standby' back to 'lobby'); render() hides
+  // this button everywhere else, so no client-side phase check is needed here.
+  if (elEditSetupBtn) on(elEditSetupBtn, 'click', function () { send({ type: 'closeEvent' }); });
   on(elDownloadInfoBtn, 'click', function () {
     if (!state.hostToken || !state.code) return;
     var lines = [
@@ -5712,7 +6246,13 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
     else if (!code && curScreen !== 'landing') goLanding(false);
   });
 
-  /* ---------- boot ---------- */
+  /* ---------- boot ----------
+     The first paint of the static chrome runs HERE, after every module-level
+     variable (quizDraft, Voice, ...) has been assigned, so none of the
+     painters need to guard against being called too early. */
+  paintSound();
+  paintLang();
+  paintTheme();
   (function boot() {
     var code = readHashCode();
     var name = storedName();
@@ -5727,7 +6267,7 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
       beginSession(code, name);
     } else {
       setScreen('landing');
-      if (code) { note('Room ' + code + ' is waiting. What should we call you?'); }
+      if (code) { note(T('roomWaiting').replace('#', code)); }
       setTimeout(function () {
         try { (name ? elCodeInput : elNameInput).focus({ preventScroll: true }); } catch (e) {}
       }, 500);

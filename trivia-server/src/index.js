@@ -42,6 +42,16 @@ const MIN_PLAYERS = 1;
 // stays 'lobby'-only, which is what makes 'standby' read as "config locked."
 const PRE_GAME_PHASES = ['lobby', 'standby'];
 const isPreGame = (phase) => PRE_GAME_PHASES.includes(phase);
+// A disconnected (non-host) player's seat/team membership survives a page
+// refresh, a dropped wifi connection, or someone stepping away for a bit —
+// deleting it the instant a socket closes could not tell "refreshing" apart
+// from "gone for good," and a refresh is exactly a disconnect-then-reconnect
+// from the server's point of view. They are only actually forgotten once
+// they explicitly leave (a 'leaveRoom' message — see onLeaveRoom) OR this
+// much time has passed with no reconnect, whichever comes first — long
+// enough to survive a refresh or a bathroom break, short enough that a room
+// reused for a later event isn't still carrying ghosts from the last one.
+const DISCONNECT_GRACE_MS = 10 * 60 * 1000;
 // Spectators ride the same broadcasts as players — question, reveal, roster,
 // podium — and THE INVARIANT covers them identically because those frames
 // already carry nothing answer-shaped before the reveal. They hold no player
@@ -287,8 +297,9 @@ export class Room {
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    // Ghost records only earn their keep once a game is running (they hold a
-    // score for a reconnect). Before kickoff they are just clutter blocking seats.
+    // Lazily sweeps anyone whose DISCONNECT_GRACE_MS has actually run out —
+    // not "anyone currently disconnected," which would prune a player mid
+    // page-refresh just as readily as one who left for good an hour ago.
     if (isPreGame(g.phase)) this.pruneDisconnected();
 
     let player = Object.values(g.players).find((p) => p.key === key);
@@ -324,6 +335,9 @@ export class Room {
       player.name = name; // keep the latest capitalisation
       player.connectedAt = Date.now();
       player.lang = sanitizeLang(url.searchParams.get('lang'));
+      // Back before the grace period ran out — same team, same captaincy,
+      // nothing to restore because nothing was ever taken away.
+      player.disconnectedAt = null;
     }
 
     // Minted once per room, on the first player ever to arrive, and never
@@ -393,6 +407,14 @@ export class Room {
     return new Response(null, { status: 101, webSocket: client });
   }
 
+  /** Live sockets belonging to members of `team`. */
+  teamSockets(team) {
+    return this.ctx.getWebSockets().filter((s) => {
+      const sa = s.deserializeAttachment() || {};
+      return team.memberIds.includes(sa.pid);
+    });
+  }
+
   /** Bring a socket that arrived mid-game up to the current phase. */
   catchUp(ws) {
     const g = this.game;
@@ -406,6 +428,16 @@ export class Room {
         this.send(ws, g.settings.mode === 'teams'
           ? { type: 'answered', teamId: key }
           : { type: 'answered', playerId: key });
+      }
+      // A teammate who reconnects mid-question gets their own team's locked
+      // tile back too (their team only, never anyone else's).
+      if (g.settings.mode === 'teams') {
+        const sa = ws.deserializeAttachment() || {};
+        const mine = g.players[sa.pid];
+        const ans = mine && mine.teamId ? g.answers[mine.teamId] : null;
+        if (ans) {
+          this.send(ws, { type: 'teamPick', index: g.qIndex, teamId: mine.teamId, choice: ans.choice });
+        }
       }
     } else if (g.phase === 'reveal' && g.lastReveal) {
       this.send(ws, g.lastReveal);
@@ -540,6 +572,7 @@ export class Room {
     const g = this.game;
     const connected = this.connectedPids();
     const staticHost = g.settings.mode === 'teams';
+    const now = Date.now();
     for (const pid of Object.keys(g.players)) {
       if (connected.has(pid)) continue;
       // The host's seat is static in teams mode — see webSocketClose for the
@@ -552,6 +585,15 @@ export class Room {
       // real host gets it back; this closes the gap that let it happen
       // without one.
       if (staticHost && pid === g.hostId) continue;
+      // Grace period, not instant forgetting — see DISCONNECT_GRACE_MS.
+      // disconnectedAt is missing only for a room persisted before this
+      // existed, already mid-disconnect at the moment of the upgrade — not
+      // a player this pass just watched leave. Defaulting to 0 (prunable
+      // immediately) rather than "now" (never prunable) matches the OLD
+      // behavior for that one transitional case instead of risking a ghost
+      // this code can never actually measure sitting in the room forever.
+      const p = g.players[pid];
+      if (now - (p.disconnectedAt || 0) < DISCONNECT_GRACE_MS) continue;
       this.leaveTeam(pid); // lobby-only cleanup: forget the seat entirely
       delete g.players[pid];
     }
@@ -708,6 +750,8 @@ export class Room {
           return await this.onJoinTeam(ws, me, data);
         case 'claimCaptain':
           return await this.onClaimCaptain(ws, me);
+        case 'leaveRoom':
+          return await this.onLeaveRoom(ws, me);
         case 'renameTeam':
           return await this.onRenameTeam(ws, me, data);
         case 'addTeam':
@@ -718,6 +762,8 @@ export class Room {
           return await this.onQuestions(ws, me, data);
         case 'openEvent':
           return await this.onOpenEvent(ws, me);
+        case 'closeEvent':
+          return await this.onCloseEvent(ws, me);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -984,6 +1030,24 @@ export class Room {
     this.broadcastRoster();
   }
 
+  /* Any phase — explicit departure, the other half of DISCONNECT_GRACE_MS.
+     A refresh is a disconnect-then-reconnect the server cannot tell apart
+     from gone-for-good, which is why a mere close no longer deletes anyone;
+     this is the signal that actually means it. The host's seat is static
+     (pruneDisconnected's same exemption) and has no "I'm done" of its own
+     here — sending this as host is a no-op, not an error, since closing the
+     tab is also how a host already "leaves" without losing the seat. */
+  async onLeaveRoom(ws, me) {
+    const g = this.game;
+    if (me.id === g.hostId) return;
+    if (!g.players[me.id]) return;
+    this.leaveTeam(me.id);
+    delete g.players[me.id];
+    await this.save();
+    this.broadcastRoster();
+    this.reportToLobby();
+  }
+
   /* Host-only, teams mode only, any phase — unlike team membership this
      doesn't touch who's on a team or any in-progress answer, so there's no
      reason to pin it to the lobby. The host runs the room; renaming a team
@@ -1171,6 +1235,30 @@ export class Room {
     g.phase = 'standby';
     await this.save();
     this.broadcast({ type: 'phase', phase: 'standby' });
+    this.reportToLobby();
+  }
+
+  /* The other direction — standby-only, host-only. A host who notices a
+     typo in a question, or wants one more round, needs a way back to the
+     config screen without the only option being "abandon this room and
+     make a new one." Goes to 'lobby', not some third state: every
+     lobby-only handler (settings/teamSetup/questions/public/addTeam/
+     removeTeam) already knows exactly what that phase means, so reopening
+     config is just... being back in it. Team membership and the roster are
+     untouched — closing the event to fix a question does not boot anyone
+     who already found their team. */
+  async onCloseEvent(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can edit the setup' });
+    }
+    if (g.phase !== 'standby') {
+      return this.send(ws, { type: 'error', message: 'the event is not open' });
+    }
+    g.phase = 'lobby';
+    await this.save();
+    this.broadcast({ type: 'phase', phase: 'lobby' });
+    this.broadcastRoster();
     this.reportToLobby();
   }
 
@@ -1389,6 +1477,11 @@ export class Room {
       g.answers[team.id] = { choice, at: Date.now(), by: me.id };
       await this.save();
       this.broadcast({ type: 'answered', teamId: team.id });
+      // The captain's tile goes to THEIR OWN team's sockets only (the same
+      // audience rule as team voice), so teammates can see what was locked in
+      // before the reveal. Other teams, the host and spectators never get it.
+      this.broadcast({ type: 'teamPick', index: g.qIndex, teamId: team.id, choice },
+        this.teamSockets(team));
       if (this.allConnectedAnswered()) await this.doReveal();
       return;
     }
@@ -1683,25 +1776,22 @@ export class Room {
     // ability to answer as long as a teammate is still connected.
     if (g.settings.mode === 'teams') this.promoteTeamLeaders(connected);
 
-    // In the lobby a dropped player has nothing worth preserving — EXCEPT
-    // the host's own record in teams mode, same exemption as
-    // pruneDisconnected() above (which runs on the next CONNECT; this is
-    // the mirror of it on DISCONNECT, and for a while only one of the two
-    // actually had the exemption — a host disconnecting in the lobby hit
-    // THIS path, which had no mode check at all, deleted their own record
-    // immediately, and handed the seat to whoever had joined earliest. The
-    // token existing was irrelevant; nobody even needed one.
+    // A dropped player's seat/team membership is NOT forgotten here anymore
+    // — only timestamped. A page refresh is a disconnect-then-reconnect from
+    // the server's point of view same as any other, and the whole point of
+    // DISCONNECT_GRACE_MS is that it cannot tell that apart from someone
+    // gone for good. Actual deletion is pruneDisconnected()'s job, grace-
+    // aware, run lazily on the next connection attempt — so leaving this
+    // record alone here is not a leak, just a deferral. The host's own
+    // record in teams mode needs no timestamp; it is never pruned by grace
+    // at all (same static-seat exemption pruneDisconnected() itself has).
     if (isPreGame(g.phase)) {
       const staticHost = g.settings.mode === 'teams';
+      const now = Date.now();
       for (const pid of Object.keys(g.players)) {
         if (connected.has(pid)) continue;
         if (staticHost && pid === g.hostId) continue;
-        this.leaveTeam(pid);
-        delete g.players[pid];
-      }
-      if (!staticHost && !g.players[g.hostId]) {
-        const first = Object.values(g.players).sort((a, b) => a.joinedAt - b.joinedAt)[0];
-        g.hostId = first ? first.id : null;
+        g.players[pid].disconnectedAt = now;
       }
     }
 
