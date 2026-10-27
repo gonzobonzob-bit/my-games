@@ -984,7 +984,18 @@ input[type="text"]:focus{ border-color:rgba(var(--amber-rgb),.55); background:va
 .quiz-choice{ display:flex; align-items:center; gap:6px; flex:1 1 46%; }
 .quiz-choice input[type="text"]{ flex:1 1 auto; min-width:0; }
 .quiz-remove{ margin-left:auto; }
-.quiz-editor-actions{ display:flex; gap:var(--sp-2); flex-wrap:wrap; }
+.quiz-editor-actions{ display:flex; gap:var(--sp-2); flex-wrap:wrap; align-items:center; }
+.quiz-library-row{ display:flex; gap:var(--sp-2); align-items:center; flex-wrap:wrap; }
+.quiz-library-select{
+  font:inherit; background:var(--ink-700); border:1px solid var(--hair);
+  border-radius:var(--r-sm,6px); color:var(--paper-100); padding:6px 10px;
+  flex:1 1 auto; min-width:0;
+}
+.quiz-name-input{
+  font:inherit; background:var(--ink-700); border:1px solid var(--hair);
+  border-radius:var(--r-sm,6px); color:var(--paper-100); padding:6px 10px;
+  flex:1 1 160px; min-width:0;
+}
 /* Filled seats and empty slots share a height so a wrapped row of slots
    reads as "three seats still open", not as a broken layout. */
 .seat{ display:flex; flex-direction:column; align-items:center; gap:var(--sp-2);
@@ -1790,9 +1801,14 @@ input.team-name-input[type="text"]{
       <div class="teams-picker" id="teamsPicker" hidden></div>
       <div class="quiz-editor" id="quizEditor" hidden>
         <div class="micro">Your questions</div>
+        <div class="quiz-library-row">
+          <select class="quiz-library-select" id="quizLibrarySelect"></select>
+          <button type="button" class="chip-btn" id="quizDeleteBtn" hidden>Delete</button>
+        </div>
         <div id="quizRows"></div>
         <div class="quiz-editor-actions">
           <button type="button" class="chip-btn" id="quizAddBtn">+ Add question</button>
+          <input type="text" class="quiz-name-input" id="quizNameInput" maxlength="40">
           <button type="button" class="btn btn-primary" id="quizSaveBtn">Save quiz</button>
         </div>
         <div class="micro" id="quizStatus"></div>
@@ -2046,6 +2062,9 @@ input.team-name-input[type="text"]{
       quizSourceLabel: 'Quiz', quizSourceCustom: 'Your quiz',
       fewerTeams: 'Fewer teams', moreTeams: 'More teams', setTeams: 'Set teams',
       yourQuestions: 'Your questions', addQuestion: '+ Add question', saveQuiz: 'Save quiz',
+      quizNew: '+ New quiz', quizNamePlaceholder: 'Quiz name (optional)',
+      quizDeleteBtn: 'Delete', quizDeleteConfirmed: 'Deleted "#".',
+      quizLoaded: 'Loaded "#".', quizSavedAs: 'Saved as "#".',
       quizSavedN: 'Saved: # question', quizSavedPlural: 'Saved: # questions',
       quizNotSaved: 'Not saved yet',
       questionN: 'Question #', answerN: 'Answer #', answerNCorrect: 'Answer # is correct',
@@ -2196,6 +2215,9 @@ input.team-name-input[type="text"]{
       quizSourceLabel: 'Preguntas', quizSourceCustom: 'Tu cuestionario',
       fewerTeams: 'Menos equipos', moreTeams: 'Más equipos', setTeams: 'Formar equipos',
       yourQuestions: 'Tus preguntas', addQuestion: '+ Añadir pregunta', saveQuiz: 'Guardar cuestionario',
+      quizNew: '+ Cuestionario nuevo', quizNamePlaceholder: 'Nombre del cuestionario (opcional)',
+      quizDeleteBtn: 'Eliminar', quizDeleteConfirmed: 'Se eliminó "#".',
+      quizLoaded: 'Se cargó "#".', quizSavedAs: 'Guardado como "#".',
       quizSavedN: 'Guardadas: # pregunta', quizSavedPlural: 'Guardadas: # preguntas',
       quizNotSaved: 'Aún sin guardar',
       questionN: 'Pregunta #', answerN: 'Respuesta #', answerNCorrect: 'La respuesta # es correcta',
@@ -2427,6 +2449,8 @@ input.team-name-input[type="text"]{
       elTimerDown = $('timerDown'), elTimerUp = $('timerUp'), elTimerVal = $('timerVal'),
       elQuizEditor = $('quizEditor'), elQuizRows = $('quizRows'),
       elQuizAddBtn = $('quizAddBtn'), elQuizSaveBtn = $('quizSaveBtn'), elQuizStatus = $('quizStatus'),
+      elQuizLibrarySelect = $('quizLibrarySelect'), elQuizDeleteBtn = $('quizDeleteBtn'),
+      elQuizNameInput = $('quizNameInput'),
       elQuestion = $('questionText'), elQRule = $('qRule'), elQuestionMedia = $('questionMedia'),
       elTiles = $('tiles'), elGridBloom = $('gridBloom'),
       elLockLine = $('lockLine'), elWhoGot = $('whoGot'),
@@ -2768,6 +2792,8 @@ input.team-name-input[type="text"]{
     if (quizLabel) quizLabel.textContent = T('yourQuestions');
     set('quizAddBtn', 'addQuestion');
     set('quizSaveBtn', 'saveQuiz');
+    set('quizDeleteBtn', 'quizDeleteBtn');
+    if (elQuizNameInput) elQuizNameInput.placeholder = T('quizNamePlaceholder');
     set('hostRecoverToggle', 'recoveringHost');
     set('hostCodeBtn', 'copyHostCode');
     set('downloadInfoBtn', 'downloadInfo');
@@ -3443,6 +3469,13 @@ input.team-name-input[type="text"]{
       if (!quizDraftRequested && quizDraft.length === 0 && state.customQuestionCount > 0) {
         quizDraftRequested = true;
         send({ type: 'getCustomQuestions' });
+      }
+      // The dropdown's own list — fetched regardless of whether anything
+      // is currently active, since "nothing loaded right now" and "no
+      // saved quizzes exist" are different facts the host needs either way.
+      if (!quizLibraryRequested) {
+        quizLibraryRequested = true;
+        send({ type: 'getQuizLibrary' });
       }
       renderQuizEditor();
     }
@@ -4192,6 +4225,13 @@ input.team-name-input[type="text"]{
      host staring at a blank editor and a bare "3 questions saved." ---- */
   var quizDraft = [];
   var quizDraftRequested = false;
+  var quizLibraryRequested = false;
+  var quizLibrary = [];
+  // The id of the library entry currently loaded into quizDraft, or '' for
+  // "a quiz that was never given a name" / a brand-new unsaved one — drives
+  // which <option> the dropdown shows selected and whether Delete applies.
+  var quizLibrarySelectedId = '';
+  var pendingQuizSelectName = '';
 
   function newQuizQuestion() { return { text: '', choices: ['', '', '', ''], correctIndex: 0, kind: 'standard', media: null }; }
 
@@ -4252,6 +4292,28 @@ input.team-name-input[type="text"]{
     elQuizStatus.textContent = state.customQuestionCount
       ? T(state.customQuestionCount === 1 ? 'quizSavedN' : 'quizSavedPlural').replace('#', state.customQuestionCount)
       : T('quizNotSaved');
+    renderQuizLibrarySelect();
+  }
+
+  function renderQuizLibrarySelect() {
+    if (!elQuizLibrarySelect) return;
+    elQuizLibrarySelect.textContent = '';
+    var newOpt = document.createElement('option');
+    newOpt.value = ''; newOpt.textContent = T('quizNew');
+    elQuizLibrarySelect.appendChild(newOpt);
+    quizLibrary.forEach(function (q) {
+      var opt = document.createElement('option');
+      opt.value = q.id;
+      opt.textContent = q.name + ' (' + q.count + ')';
+      elQuizLibrarySelect.appendChild(opt);
+    });
+    elQuizLibrarySelect.value = quizLibrarySelectedId;
+    // If the selected id no longer exists (deleted elsewhere, say), the
+    // <select> silently falls back to its first option on its own — match
+    // that fallback in state too, rather than Delete still thinking
+    // something is selected that no longer is.
+    if (elQuizLibrarySelect.value !== quizLibrarySelectedId) quizLibrarySelectedId = '';
+    if (elQuizDeleteBtn) elQuizDeleteBtn.hidden = !quizLibrarySelectedId;
   }
 
   // Switching to 'tune'/'picture' with a mismatched (or no) attachment leaves
@@ -4433,7 +4495,39 @@ input.team-name-input[type="text"]{
       }
       items.push({ text: (q.text || '').trim(), choices: choices, correctIndex: correct, kind: q.kind, media: q.media || null });
     }
-    send({ type: 'questions', items: items });
+    var quizName = elQuizNameInput ? elQuizNameInput.value.trim() : '';
+    send({ type: 'questions', items: items, name: quizName });
+    // Saving under a name is how a quiz actually joins the library — ask
+    // for the current list again so the dropdown (and a newly-typed name
+    // in particular) shows up without the host reopening the editor.
+    // pendingQuizSelectName: the quizLibrary response doesn't carry an id
+    // for what was just saved (it's names/counts only), so matching it by
+    // name here is what lets the dropdown land on the right entry instead
+    // of snapping back to "+ New quiz" right after a successful save.
+    if (quizName) { pendingQuizSelectName = quizName; send({ type: 'getQuizLibrary' }); }
+  });
+
+  on(elQuizLibrarySelect, 'change', function () {
+    var id = elQuizLibrarySelect.value;
+    if (!id) {
+      // "+ New quiz" — a blank slate, not the active quiz re-shown. The
+      // active quiz (customQuestionCount) is untouched server-side; this
+      // only clears what the EDITOR shows until the host saves again.
+      quizDraft = [];
+      quizLibrarySelectedId = '';
+      if (elQuizNameInput) elQuizNameInput.value = '';
+      renderQuizEditor();
+      return;
+    }
+    send({ type: 'loadQuiz', id: id });
+  });
+
+  on(elQuizDeleteBtn, 'click', function () {
+    if (!quizLibrarySelectedId) return;
+    var entry = quizLibrary.find(function (q) { return q.id === quizLibrarySelectedId; });
+    send({ type: 'deleteQuiz', id: quizLibrarySelectedId });
+    quizLibrarySelectedId = '';
+    if (entry) toast(T('quizDeleteConfirmed').replace('#', entry.name));
   });
 
   /* ==================================================================
@@ -6214,13 +6308,17 @@ input.team-name-input[type="text"]{
           : T('quizToastN').replace('#', state.customQuestionCount));
         break;
 
-      // The host's own saved quiz, content and all — see getCustomQuestions
-      // server-side. Only ever answers a request this tab itself made
-      // (quizDraftRequested), and only loads into a still-empty draft: if
-      // the host has since added rows of their own (racing this response),
-      // their typing wins, not a stale fetch from before they started.
+      // The host's own saved quiz, content and all — see getCustomQuestions/
+      // onLoadQuiz server-side. Two different senders share this message:
+      // the quiet once-per-session auto-fetch (no msg.id — only loads into
+      // a still-empty draft, so a host who already started typing their
+      // own new quiz doesn't get raced by a stale fetch from before they
+      // started), and an EXPLICIT dropdown pick (msg.id present — always
+      // overwrites, since choosing a different saved quiz is the host
+      // deliberately replacing whatever was in the editor).
       case 'customQuestionsFull':
-        if (quizDraft.length === 0 && Array.isArray(msg.items) && msg.items.length) {
+        var isExplicitLoad = typeof msg.id === 'string';
+        if ((isExplicitLoad || quizDraft.length === 0) && Array.isArray(msg.items)) {
           quizDraft = msg.items.map(function (q) {
             return {
               text: q.text || '', choices: Array.isArray(q.choices) ? q.choices.slice(0, 4) : ['', '', '', ''],
@@ -6228,8 +6326,24 @@ input.team-name-input[type="text"]{
               kind: q.kind || 'standard', media: q.media || null,
             };
           });
+          if (isExplicitLoad) {
+            quizLibrarySelectedId = msg.id;
+            if (elQuizNameInput) elQuizNameInput.value = msg.name || '';
+            toast(T('quizLoaded').replace('#', msg.name || ''));
+          }
           renderQuizEditor();
         }
+        break;
+
+      // The dropdown's own list — names and counts only.
+      case 'quizLibrary':
+        quizLibrary = Array.isArray(msg.items) ? msg.items : [];
+        if (pendingQuizSelectName) {
+          var justSaved = quizLibrary.find(function (q) { return q.name === pendingQuizSelectName; });
+          if (justSaved) quizLibrarySelectedId = justSaved.id;
+          pendingQuizSelectName = '';
+        }
+        renderQuizLibrarySelect();
         break;
 
       case 'public':
@@ -6527,6 +6641,9 @@ input.team-name-input[type="text"]{
     seenPlayerIds = Object.create(null);
     quizDraft = [];
     quizDraftRequested = false;
+    quizLibraryRequested = false;
+    quizLibrary = [];
+    quizLibrarySelectedId = '';
     voiceAutoTried = false;
     elHudCodeText.textContent = code;
     // The watch flag rides in the hash so a spectator who reloads comes back

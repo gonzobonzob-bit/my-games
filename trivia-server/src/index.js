@@ -821,6 +821,12 @@ export class Room {
           return this.onGetLastGame(ws, me);
         case 'getCustomQuestions':
           return this.onGetCustomQuestions(ws, me);
+        case 'getQuizLibrary':
+          return this.onGetQuizLibrary(ws, me);
+        case 'loadQuiz':
+          return this.onLoadQuiz(ws, me, data);
+        case 'deleteQuiz':
+          return this.onDeleteQuiz(ws, me, data);
         case 'start':
           return await this.onStart(ws, me);
         case 'answer':
@@ -1240,12 +1246,83 @@ export class Room {
     // always types the correct answer in the editor, so without this, the
     // correct slot would be predictable across the whole quiz.
     g.customQuestions = built.map(buildCustomQuestion);
+    // name is optional — the simple "just save my quiz" flow (no library
+    // entry, exactly today's behavior) stays available for a host who
+    // never wants more than one quiz in this room. A name present and
+    // matching an EXISTING library entry overwrites it (same quiz, edited
+    // again) rather than piling up duplicates every time the host hits
+    // Save on something they already named.
+    const name = sanitizeQuizName(data.name);
+    if (name) {
+      const existing = g.quizLibrary.find((q) => q.name === name);
+      if (existing) existing.items = g.customQuestions;
+      else g.quizLibrary.push({ id: crypto.randomUUID(), name, items: g.customQuestions });
+    }
     await this.save();
     // Count only — the text/choices are not re-broadcast, so a quiz loaded
     // in the lobby cannot be read ahead of time by a player scrolling back.
     // The host gets the real content back, but only on request and only to
     // them — see getCustomQuestions below.
     this.broadcast({ type: 'customQuestions', count: g.customQuestions.length });
+  }
+
+  /* Host-only, lobby-only — the dropdown's own list, names and counts
+     only (not the questions themselves; a player scrolling back still
+     can't read ahead just because the library exists). */
+  onGetQuizLibrary(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can see saved quizzes' });
+    }
+    this.send(ws, {
+      type: 'quizLibrary',
+      items: g.quizLibrary.map((q) => ({ id: q.id, name: q.name, count: q.items.length })),
+    });
+  }
+
+  /* Host-only, lobby-only — picking an existing entry from the dropdown.
+     Copies that entry's items into customQuestions (the one onStart
+     actually reads), same as a fresh onQuestions save would, and answers
+     with the real content too (reusing 'customQuestionsFull' — the exact
+     message getCustomQuestions already sends) so the editor can show
+     what was just loaded without a second round trip. */
+  onLoadQuiz(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can load a saved quiz' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'edit setup to change the quiz' });
+    }
+    const entry = g.quizLibrary.find((q) => q.id === data.id);
+    if (!entry) {
+      return this.send(ws, { type: 'error', message: 'that saved quiz no longer exists' });
+    }
+    g.customQuestions = entry.items;
+    this.save().then(() => {
+      this.broadcast({ type: 'customQuestions', count: g.customQuestions.length });
+      this.send(ws, { type: 'customQuestionsFull', items: g.customQuestions, name: entry.name, id: entry.id });
+    });
+  }
+
+  /* Host-only, lobby-only. Only removes the LIBRARY entry — if it is the
+     one currently active (customQuestions), the active quiz is untouched
+     and still playable; deleting its saved copy just means Save won't
+     have that name to overwrite anymore. */
+  onDeleteQuiz(ws, me, data) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can delete a saved quiz' });
+    }
+    if (g.phase !== 'lobby') {
+      return this.send(ws, { type: 'error', message: 'edit setup to change the quiz' });
+    }
+    const before = g.quizLibrary.length;
+    g.quizLibrary = g.quizLibrary.filter((q) => q.id !== data.id);
+    if (g.quizLibrary.length === before) {
+      return this.send(ws, { type: 'error', message: 'that saved quiz no longer exists' });
+    }
+    this.save().then(() => this.onGetQuizLibrary(ws, me));
   }
 
   /* Host-only, lobby-only, sent to the asking socket alone — the other
@@ -2297,7 +2374,15 @@ function freshGame() {
     teams: [],
     // Host-authored quiz for teams mode's 'custom' source. {text, choices,
     // correctIndex, category, difficulty}[], already positionally shuffled.
+    // The one actually played — a loadQuiz copies a library entry's items
+    // here, it does not switch which array onStart reads from.
     customQuestions: [],
+    // Named, reusable quizzes within THIS room — {id, name, items[]}[],
+    // items in the same already-shuffled shape as customQuestions above.
+    // Scoped to the room on purpose (no per-host identity exists to key a
+    // cross-room library by); see onQuestions' optional name, onLoadQuiz,
+    // onDeleteQuiz, onGetQuizLibrary.
+    quizLibrary: [],
     // Minted once, the first time this room gets a player, and never again —
     // see hostToken handling in fetch(). The one secret that lets whoever
     // created the room reclaim the host seat later, from any device,
@@ -2357,6 +2442,10 @@ function sanitizeTeamName(raw) {
   return String(raw || '')
     .trim()
     .slice(0, 24);
+}
+
+function sanitizeQuizName(raw) {
+  return String(raw || '').trim().slice(0, 40);
 }
 
 /* Validated field by field, same rule sanitizeSettings() states below —
@@ -2633,6 +2722,7 @@ function normalizeGame(g) {
   // Rooms persisted before teams mode existed come back without these.
   if (!Array.isArray(g.teams)) g.teams = [];
   if (!Array.isArray(g.customQuestions)) g.customQuestions = [];
+  if (!Array.isArray(g.quizLibrary)) g.quizLibrary = [];
   // Rooms persisted before host recovery existed come back without one;
   // fetch() mints it on the next player to arrive.
   if (typeof g.hostToken !== 'string' || !g.hostToken) g.hostToken = null;
