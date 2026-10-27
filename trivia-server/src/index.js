@@ -54,7 +54,7 @@ const isPreGame = (phase) => PRE_GAME_PHASES.includes(phase);
 // much time has passed with no reconnect, whichever comes first — long
 // enough to survive a refresh or a bathroom break, short enough that a room
 // reused for a later event isn't still carrying ghosts from the last one.
-const DISCONNECT_GRACE_MS = 10 * 60 * 1000;
+const DISCONNECT_GRACE_MS = 5 * 60 * 1000;
 // Spectators ride the same broadcasts as players — question, reveal, roster,
 // podium — and THE INVARIANT covers them identically because those frames
 // already carry nothing answer-shaped before the reveal. They hold no player
