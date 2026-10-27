@@ -139,8 +139,8 @@ const CUSTOM_CHOICE_MAX_LEN = 120;
 // length, which is what actually lands in storage.
 const MEDIA_TYPES = ['image', 'audio'];
 const MEDIA_DATA_URL_MAX = {
-  image: 300_000, // ~225KB raw — a compressed photo, not a poster
-  audio: 500_000, // ~375KB raw — a few seconds of compressed audio, not a song
+  image: 600_000, // ~450KB raw — the client downscales real phone photos well under this
+  audio: 900_000, // ~675KB raw — a few seconds of compressed audio, not a song
 };
 
 // A question's presentation, not its answer mechanic — every kind still

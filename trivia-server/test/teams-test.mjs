@@ -276,7 +276,7 @@ try {
 
     A.msgs.length = 0;
     A.send({ type: 'questions', items: [
-      { ...fourChoiceQuestion(1, 0), media: { type: 'image', dataUrl: 'data:image/png;base64,' + 'A'.repeat(300001) } },
+      { ...fourChoiceQuestion(1, 0), media: { type: 'image', dataUrl: 'data:image/png;base64,' + 'A'.repeat(600001) } },
     ] });
     const tooBigErr = await A.wait('error', 4000);
     ok(/incomplete/.test(tooBigErr.message || ''), 'an oversized image data URL is refused', tooBigErr);

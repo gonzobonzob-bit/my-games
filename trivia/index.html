@@ -597,7 +597,9 @@ body[data-screen="landing"] .hud{ display:none; }
 @media (max-width:480px){ .wiz-choices{ grid-template-columns:1fr; } }
 
 /* --- ON AIR / OFF AIR sign: a big lamp on the right of the stage (a banner
-   across the top on phones). ON while a round is live, dark otherwise. --- */
+   across the top on phones). ON while this seat's own microphone is live
+   (see paintAir()), dark otherwise — the mic's own indicator, not the
+   round's. --- */
 .air-sign{
   flex:0 0 auto; align-self:center; width:clamp(120px,12vw,170px);
   margin:0 var(--sp-4) 0 0; padding:var(--sp-5) var(--sp-3);
@@ -2628,16 +2630,18 @@ input.team-name-input[type="text"]{
     paintAir();
   }
 
-  /* The big side sign: ON AIR while a round is live (question or reveal),
-     OFF AIR in the lobby, on the scoreboard and at the podium. Same notion
-     of "live" as the Back-to-Menu lock above. */
+  /* The big side sign: the microphone's own on/off, not round-liveness —
+     ON AIR while this seat's mic (Voice.isEnabled()) is live, OFF AIR
+     otherwise. Repainted from paintMic() below, which is the actual
+     source of truth here; the call from paintBackBtn() above just keeps
+     it current on every screen/phase repaint too. */
   function paintAir() {
     var sign = $('airSign');
     if (!sign) return;
-    var live = state.phase === 'question' || state.phase === 'reveal';
-    sign.dataset.air = live ? 'on' : 'off';
+    var on = Voice.isEnabled();
+    sign.dataset.air = on ? 'on' : 'off';
     var t = $('airText');
-    if (t) t.textContent = T(live ? 'airOn' : 'airOff');
+    if (t) t.textContent = T(on ? 'airOn' : 'airOff');
   }
 
   /* Static chrome only — anything driven by game state is repainted by its own
@@ -4074,7 +4078,45 @@ input.team-name-input[type="text"]{
   // Encoded-length caps matching the server's MEDIA_DATA_URL_MAX exactly —
   // checked here too so a host finds out their photo is too big before
   // waiting on a save round-trip to be told the whole question was refused.
-  var MEDIA_MAX = { image: 300000, audio: 500000 };
+  // Raised from the original 300000/500000 — still inlined directly into
+  // the same Durable Object state re-saved on every answer/join/settings
+  // change, so this stays a real ceiling, not "upload anything"; the actual
+  // fix for real phone photos is downscaleImage() below, which keeps almost
+  // everything well under this regardless of where it's set.
+  var MEDIA_MAX = { image: 600000, audio: 900000 };
+  // Only worth downscaling an image that actually needs it — anything
+  // already this small (raw bytes) comfortably fits MEDIA_MAX.image as a
+  // base64 data URL without the quality/format tradeoff of recompressing
+  // it as JPEG.
+  var MEDIA_DOWNSCALE_THRESHOLD = 400000;
+
+  // Draws `file` onto an offscreen canvas capped to maxDim on its longest
+  // side and re-encodes as JPEG at `quality` — a 4000px, several-MB phone
+  // photo has no reason to be inlined at full resolution for a quiz tile.
+  // White-filled first: canvas.toDataURL on a transparent PNG otherwise
+  // composites onto black in most engines, not transparent.
+  function downscaleImage(file, maxDim, quality, onDone, onError) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { onError(); return; }
+      var scale = Math.min(1, maxDim / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) { onError(); return; }
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      try { onDone(canvas.toDataURL('image/jpeg', quality)); }
+      catch (e) { onError(); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); onError(); };
+    img.src = url;
+  }
 
   // Mirrors the server's QUESTION_KINDS/QUESTION_KIND_MEDIA exactly. kind is
   // presentation only — every kind still saves as the same 4 text choices —
@@ -4191,18 +4233,28 @@ input.team-name-input[type="text"]{
                : file.type.indexOf('audio/') === 0 ? 'audio' : null;
       if (!kind) { toast(T('mediaBadType'), true); return; }
       if (requiredMediaType && kind !== requiredMediaType) { toast(T('mediaRequired_' + q.kind), true); return; }
-      var reader = new FileReader();
-      reader.onload = function () {
-        var dataUrl = String(reader.result || '');
+      function finish(dataUrl) {
         if (dataUrl.length > MEDIA_MAX[kind]) {
           toast(T('mediaTooBig').replace('#', T('mediaType_' + kind)), true);
           return;
         }
         q.media = { type: kind, dataUrl: dataUrl };
         renderQuizEditor();
-      };
-      reader.onerror = function () { toast(T('mediaReadFailed'), true); };
-      reader.readAsDataURL(file);
+      }
+      if (kind === 'image' && file.size > MEDIA_DOWNSCALE_THRESHOLD) {
+        // A real phone photo (several MB, 4000px+ on a side) has no reason
+        // to be inlined at full resolution for a quiz tile — downscaled and
+        // re-encoded as JPEG here, almost everything actually taken on a
+        // phone lands comfortably under MEDIA_MAX without the host ever
+        // needing to know this happened. An already-small image skips this
+        // entirely (below) and keeps its original format/quality untouched.
+        downscaleImage(file, 1280, 0.82, finish, function () { toast(T('mediaReadFailed'), true); });
+      } else {
+        var reader = new FileReader();
+        reader.onload = function () { finish(String(reader.result || '')); };
+        reader.onerror = function () { toast(T('mediaReadFailed'), true); };
+        reader.readAsDataURL(file);
+      }
     });
     mediaWrap.appendChild(mediaInput);
 
@@ -5578,6 +5630,7 @@ input.team-name-input[type="text"]{
     if (!elMicBtn) return;
     var ch = Voice.myChannel();
     elMicBtn.hidden = !ch;
+    paintAir(); // mic availability/state changed either way — keep the sign current
     if (!ch) return;
     var on = Voice.isEnabled();
     elMicBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
