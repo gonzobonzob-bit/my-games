@@ -4429,10 +4429,15 @@ input.team-name-input[type="text"]{
 
   /* Custom-quiz questions only. Carries no answer-shaped data — a clue
      image/clip says nothing about which tile is correct — so this needs no
-     invariant guard the way choices/correctIndex do. Not autoplayed: a
-     fresh question is not a user gesture, autoplay would likely be blocked
-     by the browser anyway, and `controls` means nobody is stuck with a
-     silent clip they have no way to start. */
+     invariant guard the way choices/correctIndex do. A Name This Tune clip
+     (kind 'tune') is attempted autoplay — most players have already given
+     the page a tap by the time a question actually arrives (joining,
+     answering an earlier one), which satisfies most browsers' autoplay-
+     with-sound gate; `controls` stays either way, so a browser that still
+     blocks it just leaves a normal tap-to-play clip, not a silent dead
+     end. Never gated on the app's own SFX mute toggle — this is the
+     question itself, not a UI sound effect, same reasoning the existing
+     manual `controls` playback already runs on regardless of that toggle. */
   function renderQuestionMedia(media, kind) {
     if (!elQuestionMedia) return;
     elQuestionMedia.textContent = '';
@@ -4457,6 +4462,18 @@ input.team-name-input[type="text"]{
       clip.src = media.dataUrl;
       clip.controls = true;
       elQuestionMedia.appendChild(clip);
+      if (kind === 'tune') {
+        // play() usually rejects its Promise when autoplay-with-sound isn't
+        // allowed yet — not an error to surface, just the exact silent-clip
+        // case `controls` above already covers. The call itself can also
+        // throw synchronously (seen with a very short/edge-case clip) —
+        // caught here too, since an uncaught throw here would abort the
+        // REST of renderQuestion(), not just the autoplay attempt.
+        try {
+          var playAttempt = clip.play();
+          if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(function () {});
+        } catch (e) {}
+      }
     }
   }
 
