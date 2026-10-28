@@ -315,26 +315,25 @@ export class Room {
     if (isPreGame(g.phase)) this.pruneDisconnected();
 
     let player = Object.values(g.players).find((p) => p.key === key);
-    // A name match is only a reconnect if the player it matches isn't
-    // ALREADY live right now — a second, different person typing the
-    // exact same name is common enough (two "John"s at the same event) to
-    // design for, not an edge case, and the old behavior here used to
-    // silently close the first John's socket and hand his seat to the
-    // second. Auto-suffixed instead ("John" -> "John-2"), same idea as a
-    // filename collision, checked against every CURRENT key so a third
-    // "John" lands on "John-3", not fighting the second for "John-2".
-    if (player && this.connectedPids().has(player.id)) {
-      const existingKeys = new Set(Object.values(g.players).map((p) => p.key));
-      let suffix = 2;
-      while (existingKeys.has(key + '-' + suffix)) suffix++;
-      const tag = '-' + suffix;
-      // Trimmed to fit the same 16-char cap sanitizeName() already
-      // enforces — "John" stays "John-2", but a name already at the cap
-      // loses just enough of its own end for the tag to still fit.
-      name = name.slice(0, 16 - tag.length) + tag;
-      key = name.toLowerCase();
-      player = null;
-    }
+    // REVERTED (2026-10-28) — any name match used to be treated as a
+    // reconnect unconditionally; a same-session change made it conditional
+    // on the matched player not already being "connected" per
+    // connectedPids(), auto-suffixing the newcomer otherwise ("John" ->
+    // "John-2") instead of assuming they were the same person. That broke
+    // live reconnects: connectedPids() only reflects whether a socket
+    // object is still present, not whether the underlying connection is
+    // actually alive — a dropped wifi/cell connection can sit "connected"
+    // from the runtime's point of view for a real stretch before
+    // webSocketClose ever fires. A player reconnecting into that window
+    // got auto-suffixed into a brand-new, teamless identity — and because
+    // a genuinely new player is refused outright once the game has
+    // started (see isPreGame(g.phase) below), they couldn't get back in
+    // AT ALL, not even under a different name. Reliable reconnect is the
+    // one thing this whole module cannot compromise to solve a cosmetic,
+    // comparatively rare two-people-one-name collision — restored to
+    // simple reconnect-by-name; the socket-replacement logic a few lines
+    // down already handles closing out whichever connection this one is
+    // superseding, same as it always did.
     const rejoin = Boolean(player);
 
     if (!player) {

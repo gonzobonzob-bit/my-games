@@ -53,20 +53,25 @@ try {
     const w1 = await Ben1.wait('welcome');
     ok(w1.you.name === 'Ben', 'the first Ben keeps the plain name', w1.you);
 
+    // A second connection under the SAME name is treated as that same
+    // player resuming (a refresh, a flaky connection reconnecting) — same
+    // player id, same seat/team, and the stale first socket gets closed
+    // as the superseded one. An auto-suffix ("Ben-2" as a genuinely
+    // different person) was tried and reverted: connectedPids() cannot
+    // tell a truly-dead-but-not-yet-closed socket from a live one, so
+    // that approach could lock a legitimately reconnecting player out
+    // entirely once the game had started (a brand-new identity is refused
+    // outright mid-game). Reliable reconnect wins over that cosmetic case.
     const Ben2 = new C('Ben', r); await Ben2.connect();
     const w2 = await Ben2.wait('welcome');
-    ok(w2.you.name === 'Ben-2', 'a second live Ben is auto-suffixed to Ben-2', w2.you);
-    ok(w2.you.id !== w1.you.id, 'the two Bens are genuinely different player records', [w1.you, w2.you]);
+    ok(w2.you.name === 'Ben', 'a second connection under the same name is still just "Ben"', w2.you);
+    ok(w2.you.id === w1.you.id, 'and resumes the SAME player record, not a new one', [w1.you, w2.you]);
 
-    // The first Ben's socket must NOT have been closed by the second join.
     await sleep(400);
-    ok(Ben1.ws.readyState === 1, 'the FIRST Ben is still connected, not kicked by the second', Ben1.ws.readyState);
+    ok(Ben1.ws.readyState === 3 || Ben1.ws.readyState === 2,
+       'the FIRST (now stale) Ben socket gets closed by the second connection', Ben1.ws.readyState);
 
-    const Ben3 = new C('Ben', r); await Ben3.connect();
-    const w3 = await Ben3.wait('welcome');
-    ok(w3.you.name === 'Ben-3', 'a third live Ben lands on Ben-3, not colliding with Ben-2', w3.you);
-
-    A.close(); Ben1.close(); Ben2.close(); Ben3.close();
+    A.close(); Ben2.close();
   }
 
   await sleep(200);
