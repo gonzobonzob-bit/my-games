@@ -658,6 +658,9 @@ body[data-screen="landing"] .hud{ display:none; }
   transition:background var(--d-state) var(--ease-out-soft), box-shadow var(--d-state) var(--ease-out-soft);
 }
 .air-text{ font-size:clamp(22px,2.4vw,34px); line-height:1.05; text-wrap:balance; }
+/* Disambiguates ON AIR / OFF AIR from "the round is live" — it is specifically
+   THIS seat's own microphone, never the game state. */
+.air-kicker{ font-size:var(--fs-micro); font-weight:700; letter-spacing:.16em; opacity:.75; }
 .air-sign[data-air="on"]{
   border-color:var(--crimson); color:var(--paper-100);
   background:color-mix(in srgb, var(--crimson) 16%, var(--ink-800));
@@ -679,10 +682,20 @@ body[data-screen="landing"] .air-sign, body[data-screen="wizard"] .air-sign{ dis
   }
   .air-lamp{ width:26px; height:26px; }
   .air-text{ font-size:24px; }
+  .air-kicker{ order:-1; }
 }
+/* Mic and Sound share one visual language: a tinted, filled icon+label is
+   "on," the plain default chip is "off" — the same rule the ON AIR sign
+   already uses for the mic, just small enough for the header. */
 #micBtn.mic-on{ color:var(--mint); border-color:rgba(var(--mint-rgb,80,200,160),.45); }
 #micBtn.mic-talking{ animation:micPulse 900ms ease-in-out infinite; }
 @keyframes micPulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
+#soundBtn.sound-on{ color:var(--mint); border-color:rgba(var(--mint-rgb,80,200,160),.45); }
+/* Start over is destructive (resets scores, drops everyone to the lobby) —
+   borrows the same crimson the ON AIR sign uses for "pay attention here,"
+   so it reads as caution, not just another ordinary chip button. */
+#startOverBtn{ color:var(--crimson); border-color:rgba(var(--crimson-rgb),.4); }
+#startOverBtn:hover{ color:var(--paper-100); border-color:var(--crimson); }
 #whisperField{ position:relative; }
 #whisperField input{
   font:inherit; font-size:var(--fs-micro); padding:7px 12px; border-radius:var(--r-pill);
@@ -1638,7 +1651,7 @@ input.team-name-input[type="text"]{
     </button>
     <button type="button" class="chip-btn" id="micBtn" aria-pressed="false" hidden>
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-      <span class="sr" id="micLabel">Talk</span>
+      <span id="micLabel">Mic off</span>
     </button>
     <button type="button" class="chip-btn" id="whisperBtn" hidden>
       <span id="whisperLabel">Ask host</span>
@@ -1646,9 +1659,12 @@ input.team-name-input[type="text"]{
     <div class="field" id="whisperField" hidden>
       <input type="text" id="whisperInput" maxlength="300" placeholder="Type your question…" autocomplete="off">
     </div>
-    <button type="button" class="chip-btn" id="soundBtn" aria-pressed="false" title="Sound">
+    <button type="button" class="chip-btn" id="soundBtn" aria-pressed="false">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path id="soundIcon" d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="soundOff" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-      <span class="sr" id="soundLabel">Sound off</span>
+      <span id="soundLabel">Sound off</span>
+    </button>
+    <button type="button" class="chip-btn" id="startOverBtn" hidden>
+      <span id="startOverLabel">Start over</span>
     </button>
     <button type="button" class="chip-btn" id="themeBtn" title="Theme">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
@@ -1910,6 +1926,7 @@ input.team-name-input[type="text"]{
   </section>
 
   <button type="button" class="air-sign" id="airSign" data-air="off" aria-pressed="false">
+    <span class="air-kicker" id="airKicker">Your mic</span>
     <span class="air-lamp" aria-hidden="true"></span>
     <span class="air-text" id="airText">OFF AIR</span>
   </button>
@@ -2081,14 +2098,21 @@ input.team-name-input[type="text"]{
       m_teamCountMax: 'That is the most teams this room supports.',
       m_teamCountMin: 'At least one team must remain.',
       micHost: 'Talk', micTeam: 'Talk to team',
+      micOnLabel: 'Mic on', micOffLabel: 'Mic off',
       micOnTitle: 'Mic on — tap to stop', micOffTitle: 'Tap to talk',
+      soundOnLabel: 'Sound on', soundOffLabel: 'Sound off',
+      soundOnTitle: 'Sound on — hear effects and teammates’ voices. Tap to mute.',
+      soundOffTitle: 'Muted — tap to hear effects and teammates’ voices.',
       voiceNothingToTalkTo: 'Join a team first.', voiceUnsupported: 'Voice is not supported in this browser.',
       voiceMicDenied: 'Microphone access was not allowed.',
       whisperSent: 'Sent to the host.', talkingSuffix: ' is talking…',
       askHost: 'Ask host', whisperPlaceholder: 'Type your question…',
       timerLabel: 'Timer', shorterTimer: 'Shorter timer', longerTimer: 'Longer timer',
       hostEvent: 'Host an event',
-      airOn: 'ON AIR', airOff: 'OFF AIR',
+      airOn: 'ON AIR', airOff: 'OFF AIR', airKicker: 'Your mic',
+      startOverBtn: 'Start over',
+      startOverConfirm: 'Start over? Everyone’s score resets and the room goes back to the lobby. Teams and settings stay.',
+      m_startOver: 'The host started the game over.',
       wizCancel: 'Cancel', wizBack: 'Back', wizNext: 'Next', wizOpenLobby: 'Open the lobby',
       wizStepOf: 'Step #1 of #2',
       wizConnecting: 'Setting up your room…', wizConnectingHelp: 'This only takes a moment.',
@@ -2234,14 +2258,21 @@ input.team-name-input[type="text"]{
       m_teamCountMax: 'Ese es el máximo de equipos que admite esta sala.',
       m_teamCountMin: 'Debe quedar al menos un equipo.',
       micHost: 'Hablar', micTeam: 'Hablar con el equipo',
+      micOnLabel: 'Mic encendido', micOffLabel: 'Mic apagado',
       micOnTitle: 'Micrófono activado — toca para detener', micOffTitle: 'Toca para hablar',
+      soundOnLabel: 'Sonido activado', soundOffLabel: 'Sonido apagado',
+      soundOnTitle: 'Sonido activado — escuchas efectos y las voces del equipo. Toca para silenciar.',
+      soundOffTitle: 'Silenciado — toca para escuchar efectos y las voces del equipo.',
       voiceNothingToTalkTo: 'Primero únete a un equipo.', voiceUnsupported: 'La voz no es compatible con este navegador.',
       voiceMicDenied: 'No se permitió el acceso al micrófono.',
       whisperSent: 'Enviado al anfitrión.', talkingSuffix: ' está hablando…',
       askHost: 'Preguntar', whisperPlaceholder: 'Escribe tu pregunta…',
       timerLabel: 'Temporizador', shorterTimer: 'Menos tiempo', longerTimer: 'Más tiempo',
       hostEvent: 'Organizar un evento',
-      airOn: 'EN EL AIRE', airOff: 'FUERA DEL AIRE',
+      airOn: 'EN EL AIRE', airOff: 'FUERA DEL AIRE', airKicker: 'Tu micrófono',
+      startOverBtn: 'Empezar de nuevo',
+      startOverConfirm: '¿Empezar de nuevo? Se reinician los puntos y la sala vuelve al lobby. Los equipos y ajustes se mantienen.',
+      m_startOver: 'El anfitrión reinició la partida.',
       wizCancel: 'Cancelar', wizBack: 'Atrás', wizNext: 'Siguiente', wizOpenLobby: 'Abrir la sala',
       wizStepOf: 'Paso #1 de #2',
       wizConnecting: 'Preparando tu sala…', wizConnectingHelp: 'Solo tarda un momento.',
@@ -2480,6 +2511,7 @@ input.team-name-input[type="text"]{
       elHostTokenInput = $('hostTokenInput'),
       elSoundBtn = $('soundBtn'), elSoundOff = $('soundOff'), elSoundLabel = $('soundLabel'),
       elBackBtn = $('backBtn'), elBackLabel = $('backLabel'), elLobbyWatch = $('lobbyWatch'),
+      elStartOverBtn = $('startOverBtn'), elStartOverLabel = $('startOverLabel'),
       elMicBtn = $('micBtn'), elMicLabel = $('micLabel'),
       elWhisperBtn = $('whisperBtn'), elWhisperLabel = $('whisperLabel'),
       elWhisperField = $('whisperField'), elWhisperInput = $('whisperInput');
@@ -2634,10 +2666,15 @@ input.team-name-input[type="text"]{
      ================================================================== */
   var audio = { on: false, ctx: null };
   try { audio.on = localStorage.getItem('ls:sound') === '1'; } catch (e) {}
+  // Sound now covers everything that comes out of the speaker — the game's
+  // own effects AND anyone else's voice (see Voice.onFrame's audio.on check)
+  // — so its label and tooltip say that plainly, not just "Sound on/off."
   function paintSound() {
     elSoundBtn.setAttribute('aria-pressed', audio.on ? 'true' : 'false');
+    elSoundBtn.classList.toggle('sound-on', audio.on);
     elSoundOff.style.display = audio.on ? 'none' : '';
-    elSoundLabel.textContent = audio.on ? 'Sound on' : 'Sound off';
+    elSoundLabel.textContent = audio.on ? T('soundOnLabel') : T('soundOffLabel');
+    elSoundBtn.title = audio.on ? T('soundOnTitle') : T('soundOffTitle');
   }
   /* ---------- theme ----------
      Client-side only, by design. The preference lives in localStorage,
@@ -2738,6 +2775,18 @@ input.team-name-input[type="text"]{
     elBackLabel.textContent = live ? T('onAirTag') : T('backToMenu');
     elBackBtn.title = live ? T('noLeaveLive') : T('backToMenu');
     paintAir();
+    paintStartOverBtn();
+  }
+
+  // Host-only, any phase but lobby (nothing there to restart). Lets the
+  // host abandon a game gone wrong — bad question, wrong settings, a
+  // mid-round mess — without closing the room and asking everyone to
+  // rejoin with a new code. Visible everywhere via the header, same as
+  // the mic/sound toggles, since it has to reach the host from a live
+  // question just as much as from standby.
+  function paintStartOverBtn() {
+    if (!elStartOverBtn) return;
+    elStartOverBtn.hidden = !state.isHost || state.phase === 'lobby';
   }
 
   /* The big side sign: the microphone's own on/off, not round-liveness —
@@ -2753,6 +2802,8 @@ input.team-name-input[type="text"]{
     sign.setAttribute('aria-pressed', on ? 'true' : 'false');
     var t = $('airText');
     if (t) t.textContent = T(on ? 'airOn' : 'airOff');
+    var k = $('airKicker');
+    if (k) k.textContent = T('airKicker');
   }
 
   /* Static chrome only — anything driven by game state is repainted by its own
@@ -2802,6 +2853,7 @@ input.team-name-input[type="text"]{
     set('lastGameCloseBtn', 'lastGameClose');
     set('lastGameDownloadBtn', 'lastGameDownloadBtn');
     set('backToStandbyBtn', 'backToStandbyBtn');
+    set('startOverLabel', 'startOverBtn');
     var hostCodeLabel = elHostRecoverField && elHostRecoverField.querySelector('.field-label');
     if (hostCodeLabel) hostCodeLabel.textContent = T('hostCode');
     if (elHostTokenInput) elHostTokenInput.placeholder = T('pasteHostCode');
@@ -5888,6 +5940,13 @@ input.team-name-input[type="text"]{
 
     // ---- playback of frames relayed from anyone else ----
     function onFrame(buf) {
+      // Sound off means off — a muted listener should not hear a teammate's
+      // mic any more than they hear the reveal jingle. Before this, Sound
+      // only ever gated SFX, so a player who had muted the game's own
+      // sounds could still be confused about why they "couldn't hear" a
+      // teammate talking (they could, just not anything else) or vice
+      // versa. One switch for everything coming out of the speaker.
+      if (!audio.on) return;
       if (!buf || buf.byteLength < 7) return;
       var dv = new DataView(buf);
       var tag = dv.getUint8(0);
@@ -5922,33 +5981,31 @@ input.team-name-input[type="text"]{
     };
   })();
 
-  // One-shot: the mic comes up live the moment there's actually a channel
-  // to talk on (host seat claimed, or a teams-mode player lands on a
-  // team) — a deliberate tap is then only needed to go OFF air, not to
-  // start. Never retried after this first attempt, on purpose: a host
-  // who explicitly mutes isn't re-prompted for the mic permission again
-  // the next time a roster broadcast happens to repaint this.
-  var voiceAutoTried = false;
+  // Mic defaults OFF — a deliberate tap is required to go on air, same as
+  // Sound. This used to auto-enable the moment a channel existed (host seat
+  // claimed, or a teams-mode player lands on a team), which meant a room's
+  // mics all came up hot the instant people joined, with no clear signal to
+  // players that they were suddenly transmitting. Off by default and only
+  // ever turned on by a tap on the mic button or the ON AIR sign — see
+  // paintAir()/paintSound() for how both toggles now read at a glance.
   function paintMic() {
     if (!elMicBtn) return;
     var ch = Voice.myChannel();
     elMicBtn.hidden = !ch;
-    if (ch && !voiceAutoTried && !Voice.isEnabled()) {
-      voiceAutoTried = true;
-      // Voice.enable() now guards its own synchronous failure modes, but
-      // this call site is the reason that guard had to exist at all —
-      // belt and suspenders, since paintMic() runs inside render chains
-      // an uncaught throw here would otherwise cut short.
-      try { Voice.enable(true); } catch (e) {}
-    }
     paintAir(); // mic availability/state changed either way — keep the sign current
     if (!ch) return;
     var on = Voice.isEnabled();
     elMicBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
     elMicBtn.classList.toggle('mic-on', on);
     elMicBtn.classList.toggle('mic-talking', on && Voice.isTalking());
-    elMicLabel.textContent = ch === 'host' ? T('micHost') : T('micTeam');
-    elMicBtn.title = on ? T('micOnTitle') : T('micOffTitle');
+    // The visible label is the mic's OWN state (same word as the ON AIR
+    // sign); which channel it talks on (host vs. team) is tooltip detail,
+    // not the headline — that used to be reversed, with the label always
+    // saying "Talk"/"Talk to team" regardless of whether the mic was
+    // actually on, which told you nothing at a glance.
+    elMicLabel.textContent = on ? T('micOnLabel') : T('micOffLabel');
+    var chanWord = ch === 'host' ? T('micHost') : T('micTeam');
+    elMicBtn.title = (on ? T('micOnTitle') : T('micOffTitle')) + ' — ' + chanWord;
   }
 
   function paintWhisper() {
@@ -6644,7 +6701,6 @@ input.team-name-input[type="text"]{
     quizLibraryRequested = false;
     quizLibrary = [];
     quizLibrarySelectedId = '';
-    voiceAutoTried = false;
     elHudCodeText.textContent = code;
     // The watch flag rides in the hash so a spectator who reloads comes back
     // as a spectator, not as a player knocking on a mid-game door.
@@ -6812,6 +6868,12 @@ input.team-name-input[type="text"]{
   // hides this button everywhere else, same pattern as elEditSetupBtn above.
   if (elShowIntroBtn) on(elShowIntroBtn, 'click', function () { send({ type: 'showIntro' }); });
   if (elBackToStandbyBtn) on(elBackToStandbyBtn, 'click', function () { send({ type: 'backToStandby' }); });
+  // Destructive (resets scores, drops everyone back to the lobby) and
+  // reachable from a live question, so it gets a confirmation a plain
+  // chip-btn click doesn't need anywhere else in this file.
+  if (elStartOverBtn) on(elStartOverBtn, 'click', function () {
+    if (window.confirm(T('startOverConfirm'))) send({ type: 'startOver' });
+  });
   on(elDownloadInfoBtn, 'click', function () {
     if (!state.hostToken || !state.code) return;
     var lines = [

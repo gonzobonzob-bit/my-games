@@ -836,6 +836,8 @@ export class Room {
           return await this.onNext(ws, me);
         case 'again':
           return await this.onAgain(ws, me);
+        case 'startOver':
+          return await this.onStartOver(ws, me);
         default:
           return this.send(ws, { type: 'error', message: 'unknown message type' });
       }
@@ -1754,12 +1756,44 @@ export class Room {
     if (g.phase !== 'final') {
       return this.send(ws, { type: 'error', message: 'the game is not over' });
     }
+    await this.resetToLobby(me);
+  }
+
+  /* Host-only, any phase except 'lobby' itself (nothing there to restart).
+     The host's way to abandon a game that has already gone live — a bad
+     question, a setup mistake noticed mid-round, or just wanting a clean
+     restart for the next group — without tearing down the room and asking
+     everyone to rejoin with a new code. Shares its reset with onAgain
+     ("Play again" from the podium is just this, gated to 'final' only);
+     the only difference here is that it is also reachable from standby,
+     intro, a live question, or reveal. Roster and team assignments are
+     left alone, same reasoning as onCloseEvent — restarting the game is
+     not the same thing as closing the room. */
+  async onStartOver(ws, me) {
+    const g = this.game;
+    if (me.id !== g.hostId) {
+      return this.send(ws, { type: 'error', message: 'only the host can start over' });
+    }
+    if (g.phase === 'lobby') {
+      return this.send(ws, { type: 'error', message: 'nothing in progress to start over' });
+    }
+    await this.resetToLobby(me);
+    this.broadcast({
+      type: 'notice',
+      code: 'startOver',
+      message: 'The host started the game over.',
+    });
+  }
+
+  async resetToLobby(me) {
+    const g = this.game;
     for (const p of Object.values(g.players)) p.score = 0;
     if (g.settings.mode === 'teams') for (const t of g.teams) t.score = 0;
     g.phase = 'lobby';
     g.questions = [];
     g.qIndex = -1;
     g.endsAt = 0;
+    g.questionEndsAt = 0;
     g.nextAt = 0;
     g.answers = {};
     g.lastReveal = null;
